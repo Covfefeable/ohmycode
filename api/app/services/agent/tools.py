@@ -20,6 +20,7 @@ TERMINAL_TOOL = {
                 "afterCursor": {"type": "integer"},
                 "yieldMs": {"type": "integer", "minimum": 0, "maximum": 30000},
                 "input": {"type": "string"},
+                "intent": {"type": "string", "enum": ["read", "write"]},
             },
             "required": ["action"],
         },
@@ -27,6 +28,23 @@ TERMINAL_TOOL = {
 }
 
 AGENT_TOOLS = [TERMINAL_TOOL]
+
+AGENT_MESSAGE_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "agent_message",
+        "description": "Send a concise question or update to another available workflow agent.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "toNodeId": {"type": "string"},
+                "content": {"type": "string"},
+                "expectsReply": {"type": "boolean"},
+            },
+            "required": ["toNodeId", "content"],
+        },
+    },
+}
 
 
 def normalize_terminal_arguments(arguments: object) -> dict:

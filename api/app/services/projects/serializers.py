@@ -34,5 +34,7 @@ def serialize_project(project: Project) -> dict:
         "id": str(project.id),
         "name": project.name,
         "path": project.path,
-        "conversations": [serialize_conversation(item) for item in project.conversations],
+        "conversations": [
+            serialize_conversation(item) for item in project.conversations if item.kind == "chat"
+        ],
     }

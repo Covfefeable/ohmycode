@@ -6,7 +6,14 @@ import httpx
 from flask import current_app
 
 from ...extensions import db
-from ...models import AgentRun, Conversation, Message, ModelConfiguration
+from ...models import (
+    AgentRun,
+    Conversation,
+    Message,
+    ModelConfiguration,
+    MultiAgentMessage,
+    MultiAgentNode,
+)
 from ..conversations import prepare_user_prompt
 from ..errors import ServiceError
 from ..model_credentials import decrypt_api_key
@@ -28,7 +35,32 @@ from .runs import (
     get_owned_run,
     start_run,
 )
-from .tools import AGENT_TOOLS, normalize_terminal_arguments
+from .tools import AGENT_MESSAGE_TOOL, AGENT_TOOLS, normalize_terminal_arguments
+
+
+def _multi_agent_context(conversation_id: UUID) -> tuple[list[dict], list[dict]]:
+    node = db.session.scalar(
+        db.select(MultiAgentNode).where(MultiAgentNode.conversation_id == conversation_id)
+    )
+    if not node:
+        return AGENT_TOOLS, []
+    messages = list(
+        db.session.scalars(
+            db.select(MultiAgentMessage)
+            .where(
+                (MultiAgentMessage.from_node_id == node.id)
+                | (MultiAgentMessage.to_node_id == node.id)
+            )
+            .order_by(MultiAgentMessage.created_at)
+        )
+    )
+    mailbox = "\n".join(
+        f"- {item.from_node.name} -> {item.to_node.name}: {item.content}" for item in messages
+    )
+    context = (
+        [{"role": "system", "content": f"Workflow agent mailbox:\n{mailbox}"}] if mailbox else []
+    )
+    return [*AGENT_TOOLS, AGENT_MESSAGE_TOOL], context
 
 
 @dataclass(frozen=True)
@@ -100,6 +132,7 @@ def prepare_completion(
         {"estimatedTokens": context.estimated_tokens, "compacted": context.compacted},
     )
     db.session.commit()
+    tools, mailbox = _multi_agent_context(conversation_id)
     return PreparedCompletion(
         run_id=run.id,
         conversation_id=conversation_id,
@@ -108,13 +141,14 @@ def prepare_completion(
         payload={
             "model": configuration.model,
             "stream": True,
-            "tools": AGENT_TOOLS,
+            "tools": tools,
             "messages": [
                 {
                     "role": "system",
                     "content": AGENT_SYSTEM_INSTRUCTIONS,
                 },
                 *cancelled_run_context(conversation_id, run.id),
+                *mailbox,
                 *context.messages,
             ],
         },
@@ -236,6 +270,7 @@ def resume_completion(user_id: UUID, run_id: UUID, results: list[dict]) -> Prepa
             {"runId": str(run.id), "toolEventSequence": run.last_event_sequence},
         )
         model_messages = [{"role": "system", "content": f"Conversation checkpoint:\n{summary}"}]
+    tools, mailbox = _multi_agent_context(run.conversation_id)
     return PreparedCompletion(
         run_id=run.id,
         conversation_id=run.conversation_id,
@@ -244,10 +279,11 @@ def resume_completion(user_id: UUID, run_id: UUID, results: list[dict]) -> Prepa
         payload={
             "model": configuration.model,
             "stream": True,
-            "tools": AGENT_TOOLS,
+            "tools": tools,
             "messages": [
                 {"role": "system", "content": AGENT_SYSTEM_INSTRUCTIONS},
                 *cancelled_run_context(run.conversation_id, run.id),
+                *mailbox,
                 *model_messages,
             ],
         },
@@ -322,25 +358,25 @@ def stream_completion(prepared: PreparedCompletion):
         if tool_calls:
             calls = [tool_calls[index] for index in sorted(tool_calls)]
             conversation = db.session.get(Conversation, prepared.conversation_id)
-            if not conversation or any(call["function"]["name"] != "terminal" for call in calls):
+            if not conversation or any(
+                call["function"]["name"] not in {"terminal", "agent_message"} for call in calls
+            ):
                 fail_run(run, "unsupported_tool")
                 return
             requests = []
             for call in calls:
                 try:
-                    arguments = normalize_terminal_arguments(
-                        json.loads(call["function"]["arguments"] or "{}")
-                    )
+                    arguments = json.loads(call["function"]["arguments"] or "{}")
                 except json.JSONDecodeError:
                     fail_run(run, "invalid_tool_arguments")
                     return
-                requests.append(
-                    {
-                        "callId": call["id"],
-                        "tool": "terminal",
-                        "arguments": {**arguments, "projectId": str(conversation.project_id)},
+                tool_name = call["function"]["name"]
+                if tool_name == "terminal":
+                    arguments = {
+                        **normalize_terminal_arguments(arguments),
+                        "projectId": str(conversation.project_id),
                     }
-                )
+                requests.append({"callId": call["id"], "tool": tool_name, "arguments": arguments})
             if reasoning:
                 append_event(run, "reasoning.completed", {"content": reasoning})
             if answer:

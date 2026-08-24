@@ -23,6 +23,7 @@ class Project(db.Model):
     )
     name: Mapped[str] = mapped_column(String(255))
     path: Mapped[str] = mapped_column(String(1024))
+    kind: Mapped[str] = mapped_column(String(32), default="workspace", index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     conversations: Mapped[list[Conversation]] = relationship(
         back_populates="project", cascade="all, delete-orphan", order_by="Conversation.created_at"
