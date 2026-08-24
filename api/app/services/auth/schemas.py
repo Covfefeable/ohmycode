@@ -50,4 +50,3 @@ class LoginData:
         if fields:
             raise ValidationError(fields)
         return cls(email=email, password=password)
-

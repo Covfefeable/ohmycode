@@ -9,4 +9,3 @@ def create_token_pair(user: User) -> dict[str, str]:
         "accessToken": create_access_token(identity=identity),
         "refreshToken": create_refresh_token(identity=identity),
     }
-

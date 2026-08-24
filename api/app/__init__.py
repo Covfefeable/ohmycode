@@ -3,6 +3,7 @@ from flask import Flask
 from .config import config_by_name
 from .extensions import cors, db, jwt, migrate
 from .routes import register_routes
+from .services.errors import ServiceError
 
 
 def create_app(config_name: str | None = None) -> Flask:
@@ -19,7 +20,14 @@ def create_app(config_name: str | None = None) -> Flask:
 
     register_routes(app)
     register_jwt_handlers(app)
+    register_service_error_handler(app)
     return app
+
+
+def register_service_error_handler(app: Flask) -> None:
+    @app.errorhandler(ServiceError)
+    def service_error(error: ServiceError):
+        return {"error": {"code": error.code}}, error.status
 
 
 def register_jwt_handlers(app: Flask) -> None:

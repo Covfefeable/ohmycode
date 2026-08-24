@@ -19,4 +19,3 @@ def serialize_user(user: User) -> dict[str, str]:
         "displayName": user.display_name,
         "createdAt": user.created_at.isoformat() if user.created_at else "",
     }
-

@@ -24,4 +24,3 @@ def dependency_status() -> tuple[dict[str, str], bool]:
         healthy = False
 
     return checks, healthy
-

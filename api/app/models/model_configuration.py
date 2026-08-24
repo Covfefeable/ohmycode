@@ -18,6 +18,7 @@ class ModelConfiguration(db.Model):
     base_url: Mapped[str] = mapped_column(String(1024))
     model: Mapped[str] = mapped_column(String(200))
     api_key_encrypted: Mapped[bytes] = mapped_column(LargeBinary)
+    context_length: Mapped[int] = mapped_column(Integer, default=262_144)
     position: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(

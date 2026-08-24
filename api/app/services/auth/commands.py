@@ -30,4 +30,3 @@ def authenticate_user(data: LoginData) -> User:
     if user is None or not user.is_active or not user.check_password(data.password):
         raise InvalidCredentialsError
     return user
-

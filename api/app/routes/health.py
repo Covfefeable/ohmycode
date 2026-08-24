@@ -12,7 +12,7 @@ def health():
             "status": "ok",
             "service": "ohmycode-api",
             "version": "0.1.0",
-            "capabilities": ["auth"],
+            "capabilities": ["auth", "projects", "settings", "agent-runs", "token-usage"],
         }
     )
 

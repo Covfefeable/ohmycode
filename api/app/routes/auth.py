@@ -61,4 +61,3 @@ def refresh():
     if user is None or not user.is_active:
         return error_response("user_not_found", 404)
     return jsonify({"tokens": create_token_pair(user)})
-

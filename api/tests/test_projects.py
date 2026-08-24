@@ -1,3 +1,4 @@
+import json
 import uuid
 
 from app import create_app
@@ -41,6 +42,7 @@ def test_project_conversation_and_message_lifecycle(monkeypatch):
         public_settings = client.get("/api/settings", headers=headers).get_json()
         assert public_settings["models"][0]["id"] == model_id
         assert public_settings["models"][0]["hasApiKey"] is True
+        assert public_settings["models"][0]["contextLength"] == 262_144
         assert "apiKey" not in public_settings["models"][0]
 
         created = client.post(
@@ -113,14 +115,22 @@ def test_project_conversation_and_message_lifecycle(monkeypatch):
             def iter_lines(self):
                 return iter(
                     [
+                        'data: {"choices":[{"delta":{"reasoning_content":"Checking context"}}]}',
                         'data: {"choices":[{"delta":{"content":"Hello "}}]}',
                         'data: {"choices":[{"delta":{"content":"stream"}}]}',
+                        'data: {"choices":[],"usage":{"prompt_tokens":120,"completion_tokens":30}}',
                         "data: [DONE]",
                     ]
                 )
 
+        class EmptyProviderResponse(ProviderResponse):
+            def iter_lines(self):
+                return iter(["data: [DONE]"])
+
+        provider_responses = iter([EmptyProviderResponse(), ProviderResponse()])
         monkeypatch.setattr(
-            "app.routes.projects.httpx.stream", lambda *_args, **_kwargs: ProviderResponse()
+            "app.services.agent.chat.httpx.stream",
+            lambda *_args, **_kwargs: next(provider_responses),
         )
         streamed = client.post(
             f"/api/projects/conversations/{conversation_id}/stream",
@@ -128,9 +138,141 @@ def test_project_conversation_and_message_lifecycle(monkeypatch):
             json={"content": "Continue", "modelId": model_id},
         )
         assert streamed.status_code == 200
+        assert b'"type": "reasoning.delta"' in streamed.data
         assert b'"content": "Hello "' in streamed.data
         assert b'"content": "stream"' in streamed.data
         final_detail = client.get(
             f"/api/projects/conversations/{conversation_id}", headers=headers
         ).get_json()
         assert final_detail["messages"][-1]["content"] == "Hello stream"
+        assert final_detail["messages"][-1]["reasoning"] == "Checking context"
+        assert final_detail["messages"][-1]["agentDurationMs"] is not None
+        usage = client.get("/api/settings", headers=headers).get_json()["tokenUsage"]
+        assert sum(day["tokens"] for day in usage) == 150
+
+        agent_conversation = client.post(
+            f"/api/projects/{project_id}/conversations",
+            headers=headers,
+            json={"title": "Agent terminal"},
+        ).get_json()
+
+        class ToolProviderResponse(ProviderResponse):
+            def iter_lines(self):
+                tool_delta = {
+                    "choices": [
+                        {
+                            "delta": {
+                                "tool_calls": [
+                                    {
+                                        "index": 0,
+                                        "id": "call_1",
+                                        "function": {
+                                            "name": "terminal",
+                                            "arguments": json.dumps(
+                                                {
+                                                    "command": "git status --short",
+                                                }
+                                            ),
+                                        },
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                }
+                return iter(
+                    [
+                        'data: {"choices":[{"delta":{"content":"I will check first."}}]}',
+                        f"data: {json.dumps(tool_delta)}",
+                        "data: [DONE]",
+                    ]
+                )
+
+        class FinalProviderResponse(ProviderResponse):
+            def iter_lines(self):
+                return iter(
+                    [
+                        'data: {"choices":[{"delta":{"content":"Working tree is clean."}}]}',
+                        "data: [DONE]",
+                    ]
+                )
+
+        responses = iter([ToolProviderResponse(), FinalProviderResponse()])
+        monkeypatch.setattr(
+            "app.services.agent.chat.httpx.stream", lambda *_args, **_kwargs: next(responses)
+        )
+        tool_stream = client.post(
+            f"/api/projects/conversations/{agent_conversation['id']}/stream",
+            headers=headers,
+            json={"content": "Check Git", "modelId": model_id},
+        )
+        tool_event = next(
+            event
+            for line in tool_stream.get_data(as_text=True).splitlines()
+            if line.startswith("data: {")
+            if (event := json.loads(line.removeprefix("data: ")))["type"] == "tool.requested"
+        )
+        assert tool_event["type"] == "tool.requested"
+        assert tool_event["arguments"]["action"] == "start"
+        resumed = client.post(
+            f"/api/agent-runs/{tool_event['runId']}/resume",
+            headers=headers,
+            json={
+                "results": [
+                    {
+                        "callId": tool_event["callId"],
+                        "result": {"status": "exited", "exitCode": 0, "output": ""},
+                    }
+                ]
+            },
+        )
+        assert b"Working tree is clean." in resumed.data
+        agent_detail = client.get(
+            f"/api/projects/conversations/{agent_conversation['id']}", headers=headers
+        ).get_json()
+        activity = agent_detail["messages"][-1]["activity"]
+        assert [step["type"] for step in activity] == ["message", "tool"]
+        assert activity[0]["content"] == "I will check first."
+        assert activity[1]["status"] == "completed"
+        assert activity[1]["result"]["exitCode"] == 0
+
+        cancelled_conversation = client.post(
+            f"/api/projects/{project_id}/conversations",
+            headers=headers,
+            json={"title": "Cancelled agent"},
+        ).get_json()
+        captured_requests = []
+        cancellation_responses = iter([ToolProviderResponse(), FinalProviderResponse()])
+
+        def cancellation_stream(*_args, **kwargs):
+            captured_requests.append(kwargs["json"])
+            return next(cancellation_responses)
+
+        monkeypatch.setattr("app.services.agent.chat.httpx.stream", cancellation_stream)
+        waiting = client.post(
+            f"/api/projects/conversations/{cancelled_conversation['id']}/stream",
+            headers=headers,
+            json={"content": "Start checking", "modelId": model_id},
+        )
+        started_event = next(
+            event
+            for line in waiting.get_data(as_text=True).splitlines()
+            if line.startswith("data: {")
+            if (event := json.loads(line.removeprefix("data: ")))["type"] == "run.started"
+        )
+        assert (
+            client.post(
+                f"/api/agent-runs/{started_event['runId']}/cancel", headers=headers
+            ).status_code
+            == 204
+        )
+        continued = client.post(
+            f"/api/projects/conversations/{cancelled_conversation['id']}/stream",
+            headers=headers,
+            json={"content": "Continue", "modelId": model_id},
+        )
+        assert b"Working tree is clean." in continued.data
+        assert any(
+            "explicitly stopped" in message.get("content", "")
+            for message in captured_requests[-1]["messages"]
+        )
