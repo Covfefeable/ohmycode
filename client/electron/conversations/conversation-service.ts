@@ -3,6 +3,8 @@ import type { LocalConversation } from "../projects/types.js";
 import type { LocalMessage } from "../projects/types.js";
 import { executeTerminalAction } from "../terminal/terminal-manager.js";
 import type { TerminalAction } from "../terminal/types.js";
+import { acquireWorkspaceWriteLock } from "../multi-agents/workspace-write-lock.js";
+import { recordWorkspaceChanges, snapshotWorkspace } from "../multi-agents/workspace-changes.js";
 
 export type ConversationStreamEvent = {
   type: "reasoning.delta" | "message.delta";
@@ -13,8 +15,16 @@ export type ConversationStreamEvent = {
   | { type: "message.started" }
   | ToolRequestEvent
   | { type: "tool.completed"; callId: string; result: unknown };
-type ToolRequestEvent = { type: "tool.requested"; runId: string; callId: string; tool: "terminal"; arguments: TerminalAction };
+type ToolRequestEvent = {
+  type: "tool.requested";
+  runId: string;
+  callId: string;
+  tool: "terminal" | "agent_message";
+  arguments: TerminalAction | { toNodeId: string; content: string; expectsReply?: boolean };
+};
 type ActiveRequest = { controller: AbortController; runId?: string; terminalIds: Set<string> };
+export type AgentExecutionContext = { ownerId: string; workspacePath: string };
+const terminalWriteLeases = new Map<string, () => void>();
 const activeRequests = new Map<string, ActiveRequest>();
 
 async function forwardServerStream(response: Response, onEvent: (event: ConversationStreamEvent) => void): Promise<ToolRequestEvent[]> {
@@ -49,6 +59,7 @@ export async function streamMessage(
   editMessageId: string | undefined,
   requestId: string,
   onEvent: (event: ConversationStreamEvent) => void,
+  executionContext?: AgentExecutionContext,
 ): Promise<LocalConversation> {
   const active: ActiveRequest = { controller: new AbortController(), terminalIds: new Set() };
   activeRequests.set(requestId, active);
@@ -67,9 +78,45 @@ export async function streamMessage(
       if (requests.length === 0 || active.controller.signal.aborted) break;
       const results = await Promise.all(requests.map(async (request) => {
         try {
-          const result = await executeTerminalAction(request.arguments, active.controller.signal);
+          if (request.tool === "agent_message") {
+            if (!executionContext) throw new Error("agent_message_unavailable");
+            const result = await apiRequest(`/api/multi-agents/nodes/${executionContext.ownerId}/messages`, {
+              method: "POST",
+              body: JSON.stringify(request.arguments),
+            });
+            onEvent({ type: "tool.completed", callId: request.callId, result });
+            return { callId: request.callId, result };
+          }
+          const terminalAction = request.arguments as TerminalAction;
+          let release: (() => void) | undefined;
+          if (executionContext && terminalAction.action === "start" && terminalAction.intent !== "read") {
+            const unlock = await acquireWorkspaceWriteLock(executionContext.workspacePath, executionContext.ownerId);
+            const before = snapshotWorkspace(executionContext.workspacePath);
+            release = () => {
+              void recordWorkspaceChanges(executionContext.ownerId, executionContext.workspacePath, before)
+                .finally(unlock);
+            };
+          }
+          let result;
+          try {
+            result = await executeTerminalAction(terminalAction, active.controller.signal, executionContext?.workspacePath);
+          } catch (error) {
+            release?.();
+            throw error;
+          }
           const items = Array.isArray(result) ? result : [result];
           for (const item of items) if (item.terminalId) active.terminalIds.add(item.terminalId);
+          if (release) {
+            const running = items.find((item) => item.status === "running");
+            if (running) terminalWriteLeases.set(running.terminalId, release);
+            else release();
+          }
+          for (const item of items) {
+            if (item.status !== "running") {
+              terminalWriteLeases.get(item.terminalId)?.();
+              terminalWriteLeases.delete(item.terminalId);
+            }
+          }
           onEvent({ type: "tool.completed", callId: request.callId, result });
           return { callId: request.callId, result };
         } catch (error) {
@@ -89,6 +136,10 @@ export async function streamMessage(
   } catch (error) {
     if (!active.controller.signal.aborted) throw error;
   } finally {
+    for (const terminalId of active.terminalIds) {
+      terminalWriteLeases.get(terminalId)?.();
+      terminalWriteLeases.delete(terminalId);
+    }
     activeRequests.delete(requestId);
   }
   return apiRequest(`/api/projects/conversations/${conversationId}`);

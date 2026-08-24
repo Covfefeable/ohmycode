@@ -12,7 +12,7 @@ export type TerminalResult = {
 };
 
 export type TerminalAction =
-  | { action: "start"; projectId: string; command: string; cwd?: string; yieldMs?: number }
+  | { action: "start"; projectId: string; command: string; cwd?: string; yieldMs?: number; intent?: "read" | "write" }
   | { action: "read"; terminalId: string; afterCursor?: number; yieldMs?: number }
   | { action: "write"; terminalId: string; input: string }
   | { action: "stop"; terminalId: string }

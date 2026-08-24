@@ -4,6 +4,7 @@ import { registerAuthIpc } from "./ipc/register-auth-ipc.js";
 import { registerSystemIpc } from "./ipc/register-system-ipc.js";
 import { registerSettingsIpc } from "./ipc/register-settings-ipc.js";
 import { registerProjectsIpc } from "./ipc/register-projects-ipc.js";
+import { registerMultiAgentIpc } from "./ipc/register-multi-agent-ipc.js";
 import { registerTerminalIpc } from "./ipc/register-terminal-ipc.js";
 import { stopAllTerminals } from "./terminal/terminal-manager.js";
 import { createMainWindow } from "./window/create-main-window.js";
@@ -14,6 +15,7 @@ app.whenReady().then(async () => {
   registerSystemIpc();
   registerSettingsIpc();
   registerProjectsIpc();
+  registerMultiAgentIpc();
   registerTerminalIpc();
   void createMainWindow();
   app.on("activate", () => {

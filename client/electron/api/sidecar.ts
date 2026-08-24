@@ -5,7 +5,7 @@ import { app } from "electron";
 import { API_URL } from "../config.js";
 
 let apiProcess: ChildProcess | undefined;
-const REQUIRED_CAPABILITIES = ["auth", "projects", "settings", "agent-runs", "token-usage"];
+const REQUIRED_CAPABILITIES = ["auth", "projects", "settings", "agent-runs", "token-usage", "multi-agent"];
 
 function apiDirectory(): string {
   return app.isPackaged

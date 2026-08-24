@@ -9,6 +9,23 @@ contextBridge.exposeInMainWorld("ohmycode", {
     createConversation: (projectId, title) => ipcRenderer.invoke("projects:create-conversation", projectId, title),
     deleteConversation: (projectId, conversationId) => ipcRenderer.invoke("projects:delete-conversation", projectId, conversationId),
   },
+  multiAgents: {
+    list: () => ipcRenderer.invoke("multi-agents:list"),
+    create: () => ipcRenderer.invoke("multi-agents:create"),
+    delete: (agentId) => ipcRenderer.invoke("multi-agents:delete", agentId),
+    planTask: (agentId, request, modelId) => ipcRenderer.invoke("multi-agents:plan-task", agentId, request, modelId),
+    getTask: (taskId) => ipcRenderer.invoke("multi-agents:get-task", taskId),
+    saveFlow: (taskId, positions) => ipcRenderer.invoke("multi-agents:save-flow", taskId, positions),
+    deleteTask: (taskId) => ipcRenderer.invoke("multi-agents:delete-task", taskId),
+    runTask: (taskId, requestId) => ipcRenderer.invoke("multi-agents:run-task", taskId, requestId),
+    stopTask: (requestId) => ipcRenderer.invoke("multi-agents:stop-task", requestId),
+    onEvent: (requestId, callback) => {
+      const channel = `multi-agent:event:${requestId}`;
+      const listener = (_event, streamEvent) => callback(streamEvent);
+      ipcRenderer.on(channel, listener);
+      return () => ipcRenderer.removeListener(channel, listener);
+    },
+  },
   conversations: {
     get: (conversationId) => ipcRenderer.invoke("conversations:get", conversationId),
     send: (conversationId, content, modelId, requestId, editMessageId) => ipcRenderer.invoke("conversations:send", conversationId, content, modelId, requestId, editMessageId),

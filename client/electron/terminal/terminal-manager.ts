@@ -81,7 +81,14 @@ async function waitForExitOrTimeout(session: Session, yieldMs: number, signal?: 
   });
 }
 
-async function projectDirectory(projectId: string, requestedCwd?: string): Promise<string> {
+async function projectDirectory(projectId: string, requestedCwd?: string, workspaceRoot?: string): Promise<string> {
+  if (workspaceRoot) {
+    const root = path.resolve(workspaceRoot);
+    const cwd = path.resolve(root, requestedCwd || ".");
+    const relative = path.relative(root, cwd);
+    if (relative.startsWith("..") || path.isAbsolute(relative)) throw new Error("cwd_outside_workspace");
+    return cwd;
+  }
   const project = (await listProjects()).find((item) => item.id === projectId);
   if (!project) throw new Error("project_not_found");
   const root = path.resolve(project.path);
@@ -91,13 +98,13 @@ async function projectDirectory(projectId: string, requestedCwd?: string): Promi
   return cwd;
 }
 
-async function start(action: Extract<TerminalAction, { action: "start" }>, signal?: AbortSignal): Promise<TerminalResult> {
+async function start(action: Extract<TerminalAction, { action: "start" }>, signal?: AbortSignal, workspaceRoot?: string): Promise<TerminalResult> {
   const command = action.command.trim();
   if (!command) throw new Error("command_required");
   if (commandRequiresApproval(command)) {
     throw new Error("command_requires_approval");
   }
-  const cwd = await projectDirectory(action.projectId, action.cwd);
+  const cwd = await projectDirectory(action.projectId, action.cwd, workspaceRoot);
   const launch = shellLaunch(command);
   const child = pty.spawn(launch.executable, launch.args, {
     cwd,
@@ -124,8 +131,8 @@ async function start(action: Extract<TerminalAction, { action: "start" }>, signa
   return snapshot(session);
 }
 
-export async function executeTerminalAction(action: TerminalAction, signal?: AbortSignal): Promise<TerminalResult | TerminalResult[]> {
-  if (action.action === "start") return start(action, signal);
+export async function executeTerminalAction(action: TerminalAction, signal?: AbortSignal, workspaceRoot?: string): Promise<TerminalResult | TerminalResult[]> {
+  if (action.action === "start") return start(action, signal, workspaceRoot);
   if (action.action === "list") {
     return [...sessions.values()]
       .filter((session) => !action.projectId || session.projectId === action.projectId)

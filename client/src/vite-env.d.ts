@@ -10,6 +10,18 @@ interface Window {
       createConversation(projectId: string, title: string): Promise<LocalConversation>;
       deleteConversation(projectId: string, conversationId: string): Promise<void>;
     };
+    multiAgents: {
+      list(): Promise<MultiAgentSummary[]>;
+      create(): Promise<MultiAgentSummary | null>;
+      delete(agentId: string): Promise<void>;
+      planTask(agentId: string, request: string, modelId?: string): Promise<MultiAgentTask>;
+      getTask(taskId: string): Promise<MultiAgentTask>;
+      saveFlow(taskId: string, positions: Record<string, { x: number; y: number }>): Promise<MultiAgentTask>;
+      deleteTask(taskId: string): Promise<void>;
+      runTask(taskId: string, requestId: string): Promise<MultiAgentTask>;
+      stopTask(requestId: string): Promise<void>;
+      onEvent(requestId: string, callback: (event: MultiAgentRunEvent) => void): () => void;
+    };
     conversations: {
       get(conversationId: string): Promise<LocalConversation>;
       send(conversationId: string, content: string, modelId: string | undefined, requestId: string, editMessageId?: string): Promise<LocalConversation>;
@@ -73,6 +85,11 @@ type PublicSettings = {
   tokenUsage: TokenUsageEntry[];
 };
 type TokenUsageEntry = { date: string; tokens: number };
+type MultiAgentTaskSummary = { id: string; title: string; status: string; createdAt: string };
+type MultiAgentSummary = { id: string; name: string; workspacePath: string; createdAt: string; tasks: MultiAgentTaskSummary[] };
+type MultiAgentMessage = { id: string; fromNodeId: string; toNodeId: string; type: string; content: string; expectsReply: boolean; replyToId?: string | null; createdAt: string };
+type MultiAgentNodeData = { id: string; key: string; name: string; role: string; instructions: string; status: string; position: { x: number; y: number }; conversationId?: string | null; finalOutput?: Record<string, unknown> | null; messages: MultiAgentMessage[]; changedFiles: Array<{ id: string; path: string; operation: string; sequence: number }> };
+type MultiAgentTask = { id: string; agentId: string; title: string; request: string; status: string; workspacePath: string; nodes: MultiAgentNodeData[]; edges: Array<{ id: string; source: string; target: string }>; createdAt: string; updatedAt: string };
 type ConversationStreamEvent =
   | { type: "reasoning.started"; stepId: string }
   | { type: "run.started"; runId: string }
@@ -80,8 +97,12 @@ type ConversationStreamEvent =
   | { type: "reasoning.delta"; content: string }
   | { type: "message.started" }
   | { type: "message.delta"; content: string }
-  | { type: "tool.requested"; runId: string; callId: string; tool: "terminal"; arguments: TerminalAction }
+  | { type: "tool.requested"; runId: string; callId: string; tool: "terminal" | "agent_message"; arguments: TerminalAction | { toNodeId: string; content: string; expectsReply?: boolean } }
   | { type: "tool.completed"; callId: string; result: unknown };
+type MultiAgentRunEvent =
+  | { type: "task.updated"; task: MultiAgentTask }
+  | { type: "node.event"; nodeId: string; event: ConversationStreamEvent }
+  | { type: "task.failed"; error: string };
 type AgentActivityStep =
   | { id: string; type: "reasoning"; content: string; status: "running" | "completed" }
   | { id: string; type: "message"; content: string; status: "running" | "completed" }
@@ -91,7 +112,7 @@ type LocalConversation = { id: string; title: string; createdAt: string; message
 type LocalProject = { id: string; name: string; path: string; conversations: LocalConversation[] };
 type TerminalStatus = "running" | "exited" | "stopped";
 type TerminalAction =
-  | { action: "start"; projectId: string; command: string; cwd?: string; yieldMs?: number }
+  | { action: "start"; projectId: string; command: string; cwd?: string; yieldMs?: number; intent?: "read" | "write" }
   | { action: "read"; terminalId: string; afterCursor?: number; yieldMs?: number }
   | { action: "write"; terminalId: string; input: string }
   | { action: "stop"; terminalId: string }
