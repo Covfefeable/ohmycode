@@ -1,0 +1,11 @@
+.form { width: 100%; display: grid; gap: 18px; }
+.heading { margin-bottom: 10px; }
+.heading p { color: var(--color-accent); font-size: var(--font-xs); font-weight: 800; letter-spacing: .16em; }
+.heading h1 { margin: 6px 0 10px; font-size: 34px; letter-spacing: -.035em; }
+.heading span { color: var(--color-text-muted); font-size: var(--font-md); line-height: 1.5; }
+.error { border: 1px solid var(--color-danger-border); background: var(--color-danger-surface); color: var(--color-danger-text-strong); border-radius: var(--radius-md); padding: 10px 12px; font-size: var(--font-sm); }
+.submit { border: 0; border-radius: var(--radius-md); background: var(--color-accent); color: var(--color-accent-ink); padding: 12px; font-weight: 800; cursor: pointer; }
+.submit:disabled { opacity: .65; cursor: wait; }
+.switch { color: var(--color-text-dim); font-size: 13px; text-align: center; }
+.switch a { color: var(--color-accent); text-decoration: none; }
+

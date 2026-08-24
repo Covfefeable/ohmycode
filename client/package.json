@@ -1,0 +1,43 @@
+{
+  "name": "ohmycode-client",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Electron desktop client for OhMyCode",
+  "main": "dist-electron/main.js",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -k \"vite\" \"pnpm electron:dev\"",
+    "electron:dev": "wait-on tcp:5173 && tsc -p electron/tsconfig.json && cross-env VITE_DEV_SERVER_URL=http://127.0.0.1:5173 electron .",
+    "build": "tsc -b && vite build && tsc -p electron/tsconfig.json",
+    "typecheck": "tsc -b --pretty false",
+    "lint": "eslint .",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "latest",
+    "i18next": "^26.4.0",
+    "lucide-react": "^1.33.0",
+    "react": "latest",
+    "react-dom": "latest",
+    "react-i18next": "^17.0.12",
+    "react-router-dom": "^7.18.2",
+    "vite": "latest"
+  },
+  "devDependencies": {
+    "@eslint/js": "latest",
+    "@types/node": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "concurrently": "latest",
+    "cross-env": "latest",
+    "electron": "latest",
+    "eslint": "latest",
+    "eslint-plugin-react-hooks": "latest",
+    "eslint-plugin-react-refresh": "latest",
+    "globals": "latest",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "latest",
+    "wait-on": "latest"
+  },
+  "packageManager": "pnpm@10.15.0"
+}

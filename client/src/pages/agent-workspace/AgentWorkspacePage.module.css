@@ -1,0 +1,33 @@
+.content {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  display: grid;
+  place-items: center;
+  background: var(--gradient-workspace);
+  padding: 60px;
+}
+
+.welcome { width: min(720px, 100%); }
+.promptMark {
+  color: var(--color-accent);
+  font: 700 30px ui-monospace, SFMono-Regular, Menlo, monospace;
+  margin-bottom: 28px;
+}
+.eyebrow {
+  color: var(--color-accent);
+  font-size: var(--font-xs);
+  font-weight: 800;
+  letter-spacing: .16em;
+  margin: 0 0 8px;
+}
+.welcome h1 {
+  font-size: clamp(34px, 4vw, 54px);
+  letter-spacing: -.045em;
+  margin: 0 0 16px;
+}
+.description {
+  color: var(--color-text-muted);
+  line-height: 1.65;
+  max-width: 610px;
+}

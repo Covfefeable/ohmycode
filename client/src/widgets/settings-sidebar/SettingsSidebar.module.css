@@ -1,0 +1,7 @@
+.sidebar { background: var(--color-surface-1); border-right: 1px solid var(--color-border); padding: var(--space-8) var(--space-5); }
+.sidebar header p { color: var(--color-accent); font-size: var(--font-xs); font-weight: 800; letter-spacing: .16em; margin: 0; }
+.sidebar h1 { font-size: 22px; margin: var(--space-2) 0 var(--space-8); }
+.sidebar nav { display: grid; gap: var(--space-2); }
+.sidebar button { display: flex; align-items: center; gap: var(--space-3); border: 0; border-radius: var(--radius-md); background: transparent; color: var(--color-text-muted); padding: 10px var(--space-3); text-align: left; cursor: pointer; }
+.sidebar button:hover, .sidebar .active { background: var(--color-surface-3); color: var(--color-text); }
+.sidebar svg { width: 20px; height: 20px; }

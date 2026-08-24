@@ -1,0 +1,26 @@
+.titleArea { position: fixed; inset: 0 0 auto; height: 32px; z-index: 1000; pointer-events: none; }
+.dragRegion {
+  position: absolute;
+  inset: 0 138px 0 0;
+  -webkit-app-region: drag;
+}
+.controls {
+  position: absolute;
+  inset: 0 0 auto auto;
+  height: 32px;
+  display: flex;
+  pointer-events: auto;
+  -webkit-app-region: no-drag;
+}
+.controls button {
+  width: 46px;
+  height: 32px;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-window);
+  font-size: var(--font-md);
+  line-height: 1;
+}
+.controls button:hover { background: var(--color-surface-hover); color: var(--color-text); }
+.controls .close:hover { background: var(--color-danger-window); color: white; }
+

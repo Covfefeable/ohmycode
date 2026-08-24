@@ -1,0 +1,33 @@
+[project]
+name = "ohmycode-api"
+version = "0.1.0"
+description = "Local Flask service for the OhMyCode desktop agent"
+requires-python = ">=3.12"
+dependencies = [
+  "flask>=3.1.2",
+  "flask-cors>=6.0.1",
+  "flask-jwt-extended>=4.7.1",
+  "flask-migrate>=4.1.0",
+  "flask-sqlalchemy>=3.1.1",
+  "gunicorn[gevent]>=23.0.0",
+  "psycopg[binary]>=3.2.10",
+  "python-dotenv>=1.1.1",
+  "redis>=6.4.0",
+]
+
+[dependency-groups]
+dev = [
+  "pytest>=8.4.2",
+  "ruff>=0.12.11",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]

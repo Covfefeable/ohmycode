@@ -1,0 +1,16 @@
+.status {
+  color: var(--color-text-faint);
+  font-size: var(--font-sm);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-warning);
+  box-shadow: var(--shadow-warning-glow);
+}
+.online { background: var(--color-accent); box-shadow: var(--shadow-accent-glow); }
+

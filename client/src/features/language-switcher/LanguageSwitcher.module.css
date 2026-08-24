@@ -1,0 +1,13 @@
+.field { display: grid; gap: 6px; }
+.field span { color: var(--color-text-faint); font-size: var(--font-xs); font-weight: 700; letter-spacing: .08em; }
+.field select {
+  width: 100%;
+  border: 1px solid var(--color-border-field);
+  border-radius: var(--radius-sm);
+  background: var(--color-panel-raised);
+  color: var(--color-text);
+  padding: 8px 10px;
+  outline: none;
+}
+.field select:focus-visible { border-color: var(--color-accent); }
+
