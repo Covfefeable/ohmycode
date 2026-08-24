@@ -37,6 +37,15 @@ function appendOutput(session: Session, data: string): void {
   }
 }
 
+function normalizeTerminalInput(input: string): string {
+  // PTY applications treat carriage return as the Enter key. Models and JSON
+  // clients generally send line feeds, which works for line-oriented shells
+  // but does not confirm selections in interactive TUIs (for example prompts
+  // from create-vite). Keep explicit control sequences intact while making
+  // newline input behave like a real terminal Enter key on every platform.
+  return input.replace(/\r\n|\n/g, "\r");
+}
+
 function snapshot(session: Session, afterCursor = 0): TerminalResult {
   const start = Math.max(0, afterCursor - session.baseCursor);
   let output = stripVTControlCharacters(session.output.slice(start));
@@ -143,7 +152,7 @@ export async function executeTerminalAction(action: TerminalAction, signal?: Abo
   if (!session) throw new Error("terminal_not_found");
   if (action.action === "write") {
     if (session.status !== "running") throw new Error("terminal_not_running");
-    session.process.write(action.input);
+    session.process.write(normalizeTerminalInput(action.input));
     return snapshot(session, session.cursor);
   }
   if (action.action === "stop") {
