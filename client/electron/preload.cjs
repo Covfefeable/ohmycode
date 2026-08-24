@@ -12,7 +12,7 @@ contextBridge.exposeInMainWorld("ohmycode", {
   conversations: {
     get: (conversationId) => ipcRenderer.invoke("conversations:get", conversationId),
     send: (conversationId, content, modelId, requestId, editMessageId) => ipcRenderer.invoke("conversations:send", conversationId, content, modelId, requestId, editMessageId),
-    stop: (requestId) => ipcRenderer.invoke("conversations:stop", requestId),
+    stop: (requestId, partialMessage) => ipcRenderer.invoke("conversations:stop", requestId, partialMessage),
     onEvent: (requestId, callback) => {
       const channel = `conversation:event:${requestId}`;
       const listener = (_event, streamEvent) => callback(streamEvent);

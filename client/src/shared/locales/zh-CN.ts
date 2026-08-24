@@ -64,6 +64,7 @@ export const zhCN = {
     runningCommand: "正在执行",
     ranCommand: "已执行",
     stop: "停止",
+    stoppedByUser: "你主动停止了这次任务",
     loadFailed: "对话加载失败。",
     sendFailed: "消息发送失败，请检查默认模型配置。",
     copy: "复制",

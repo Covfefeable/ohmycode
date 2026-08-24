@@ -20,5 +20,5 @@ export function registerProjectsIpc(): void {
   ipcMain.handle("conversations:get", (_event, conversationId: string) => getConversation(conversationId));
   ipcMain.handle("conversations:send", (event, conversationId: string, content: string, modelId: string | undefined, requestId: string, editMessageId?: string) =>
     streamMessage(conversationId, content, modelId, editMessageId, requestId, (streamEvent) => event.sender.send(`conversation:event:${requestId}`, streamEvent)));
-  ipcMain.handle("conversations:stop", (_event, requestId: string) => stopMessage(requestId));
+  ipcMain.handle("conversations:stop", (_event, requestId: string, partialMessage) => stopMessage(requestId, partialMessage));
 }

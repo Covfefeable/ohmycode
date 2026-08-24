@@ -13,7 +13,7 @@ interface Window {
     conversations: {
       get(conversationId: string): Promise<LocalConversation>;
       send(conversationId: string, content: string, modelId: string | undefined, requestId: string, editMessageId?: string): Promise<LocalConversation>;
-      stop(requestId: string): Promise<void>;
+      stop(requestId: string, partialMessage?: LocalMessage): Promise<void>;
       onEvent(requestId: string, callback: (event: ConversationStreamEvent) => void): () => void;
     };
     apiStatus(): Promise<{ online: boolean; url: string }>;

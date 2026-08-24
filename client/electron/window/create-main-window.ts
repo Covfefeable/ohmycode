@@ -1,5 +1,11 @@
 import path from "node:path";
-import { app, BrowserWindow } from "electron";
+import { app, BrowserWindow, shell } from "electron";
+
+function openExternalWebUrl(url: string): boolean {
+  if (!/^https?:\/\//i.test(url)) return false;
+  void shell.openExternal(url);
+  return true;
+}
 
 export async function createMainWindow(): Promise<BrowserWindow> {
   const window = new BrowserWindow({
@@ -19,6 +25,13 @@ export async function createMainWindow(): Promise<BrowserWindow> {
 
   window.webContents.on("did-fail-load", (_event, code, description, url) => {
     console.error(`[renderer] failed to load ${url}: ${code} ${description}`);
+  });
+  window.webContents.setWindowOpenHandler(({ url }) => {
+    openExternalWebUrl(url);
+    return { action: "deny" };
+  });
+  window.webContents.on("will-navigate", (event, url) => {
+    if (url !== window.webContents.getURL() && openExternalWebUrl(url)) event.preventDefault();
   });
 
   if (process.env.VITE_DEV_SERVER_URL) {

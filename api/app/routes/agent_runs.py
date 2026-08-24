@@ -13,7 +13,8 @@ agent_runs_bp = Blueprint("agent_runs", __name__)
 @agent_runs_bp.post("/<uuid:run_id>/cancel")
 @jwt_required()
 def cancel_run_route(run_id: UUID):
-    cancel_run(UUID(get_jwt_identity()), run_id)
+    payload = request.get_json(silent=True) or {}
+    cancel_run(UUID(get_jwt_identity()), run_id, payload.get("partialMessage"))
     return "", 204
 
 

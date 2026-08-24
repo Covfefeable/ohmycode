@@ -1,5 +1,6 @@
 import { apiFetch, apiRequest } from "../api/api-client.js";
 import type { LocalConversation } from "../projects/types.js";
+import type { LocalMessage } from "../projects/types.js";
 import { executeTerminalAction } from "../terminal/terminal-manager.js";
 import type { TerminalAction } from "../terminal/types.js";
 
@@ -93,12 +94,15 @@ export async function streamMessage(
   return apiRequest(`/api/projects/conversations/${conversationId}`);
 }
 
-export async function stopMessage(requestId: string): Promise<void> {
+export async function stopMessage(requestId: string, partialMessage?: LocalMessage): Promise<void> {
   const active = activeRequests.get(requestId);
   if (!active) return;
   active.controller.abort();
   await Promise.allSettled([
     ...[...active.terminalIds].map((terminalId) => executeTerminalAction({ action: "stop", terminalId })),
-    ...(active.runId ? [apiRequest(`/api/agent-runs/${active.runId}/cancel`, { method: "POST" })] : []),
+    ...(active.runId ? [apiRequest(`/api/agent-runs/${active.runId}/cancel`, {
+      method: "POST",
+      body: JSON.stringify({ partialMessage }),
+    })] : []),
   ]);
 }

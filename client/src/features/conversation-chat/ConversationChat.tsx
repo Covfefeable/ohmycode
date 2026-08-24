@@ -50,6 +50,10 @@ export function ConversationChat({ conversationId, onUpdated }: ConversationChat
   const lastScrollTopRef = useRef(0);
   const scrollFrameRef = useRef<number | null>(null);
   const activeRequestIdRef = useRef<string | null>(null);
+  const stoppedRequestIdsRef = useRef(new Set<string>());
+  const conversationRef = useRef<LocalConversation | null>(null);
+
+  useEffect(() => { conversationRef.current = conversation; }, [conversation]);
 
   useEffect(() => {
     void window.ohmycode.conversations.get(conversationId).then(setConversation).catch(() => toast({ type: "error", message: t("agent.loadFailed") }));
@@ -143,13 +147,16 @@ export function ConversationChat({ conversationId, onUpdated }: ConversationChat
       networkDone = true;
       if (!draining && queue.length === 0) resolveDrain();
       await drained;
-      setConversation(updated);
+      if (!stoppedRequestIdsRef.current.has(requestId)) setConversation(updated);
       onUpdated();
     } catch {
-      toast({ type: "error", message: t("agent.sendFailed") });
-      setConversation(await window.ohmycode.conversations.get(conversationId));
+      if (!stoppedRequestIdsRef.current.has(requestId)) {
+        toast({ type: "error", message: t("agent.sendFailed") });
+        setConversation(await window.ohmycode.conversations.get(conversationId));
+      }
     } finally {
       unsubscribe();
+      stoppedRequestIdsRef.current.delete(requestId);
       if (activeRequestIdRef.current === requestId) activeRequestIdRef.current = null;
       setSending(false);
     }
@@ -158,8 +165,19 @@ export function ConversationChat({ conversationId, onUpdated }: ConversationChat
   async function stop() {
     const requestId = activeRequestIdRef.current;
     if (!requestId) return;
-    await window.ohmycode.conversations.stop(requestId);
+    stoppedRequestIdsRef.current.add(requestId);
+    const partialMessage = conversationRef.current?.messages?.find((message) => message.id === `stream-${requestId}`);
+    const stoppedMessage = partialMessage ? {
+      ...partialMessage,
+      content: [partialMessage.content, t("agent.stoppedByUser")].filter(Boolean).join("\n\n"),
+      activity: partialMessage.activity?.map((step) => ({ ...step, status: "completed" as const })),
+    } : undefined;
     setSending(false);
+    setConversation((current) => current ? {
+      ...current,
+      messages: (current.messages ?? []).map((message) => message.id === `stream-${requestId}` && stoppedMessage ? stoppedMessage : message),
+    } : current);
+    await window.ohmycode.conversations.stop(requestId, stoppedMessage);
   }
 
   if (!conversation) return <FullScreenLoading />;

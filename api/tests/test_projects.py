@@ -282,9 +282,30 @@ def test_project_conversation_and_message_lifecycle(monkeypatch):
         )
         assert (
             client.post(
-                f"/api/agent-runs/{started_event['runId']}/cancel", headers=headers
+                f"/api/agent-runs/{started_event['runId']}/cancel",
+                headers=headers,
+                json={
+                    "partialMessage": {
+                        "content": "You stopped this task",
+                        "activity": [
+                            {
+                                "id": "partial-step",
+                                "type": "message",
+                                "content": "I will check first.",
+                                "status": "completed",
+                            }
+                        ],
+                    }
+                },
             ).status_code
             == 204
+        )
+        cancelled_detail = client.get(
+            f"/api/projects/conversations/{cancelled_conversation['id']}", headers=headers
+        ).get_json()
+        assert cancelled_detail["messages"][-1]["content"] == "You stopped this task"
+        assert cancelled_detail["messages"][-1]["activity"][0]["content"] == (
+            "I will check first."
         )
         continued = client.post(
             f"/api/projects/conversations/{cancelled_conversation['id']}/stream",

@@ -65,6 +65,7 @@ export const en = {
     runningCommand: "Running",
     ranCommand: "Ran",
     stop: "Stop",
+    stoppedByUser: "You stopped this task",
     loadFailed: "The conversation could not be loaded.",
     sendFailed: "Message failed. Check your default model configuration.",
     copy: "Copy",
