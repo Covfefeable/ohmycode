@@ -4,6 +4,7 @@ import { app } from "electron";
 import { API_URL } from "../config.js";
 
 let apiProcess: ChildProcess | undefined;
+const REQUIRED_CAPABILITIES = ["auth", "projects", "settings", "agent-runs", "token-usage"];
 
 function apiDirectory(): string {
   return app.isPackaged
@@ -16,7 +17,9 @@ async function inspectRunningApi(): Promise<"compatible" | "incompatible" | "off
     const response = await fetch(`${API_URL}/api/health`);
     if (!response.ok) return "offline";
     const payload = (await response.json()) as { capabilities?: string[] };
-    return payload.capabilities?.includes("auth") ? "compatible" : "incompatible";
+    return REQUIRED_CAPABILITIES.every((capability) => payload.capabilities?.includes(capability))
+      ? "compatible"
+      : "incompatible";
   } catch {
     return "offline";
   }
@@ -30,7 +33,7 @@ export async function startApiSidecar(): Promise<void> {
     return;
   }
   if (apiStatus === "incompatible") {
-    console.error(`[api] service at ${API_URL} is outdated; restart it before using authentication`);
+    console.error(`[api] service at ${API_URL} is incompatible with this client`);
     return;
   }
   const executable = process.env.OHMYCODE_UV_PATH ?? "uv";

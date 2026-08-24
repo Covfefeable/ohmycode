@@ -33,8 +33,14 @@ export async function apiFetch(pathname: string, init: RequestInit = {}): Promis
 export async function apiRequest<T>(pathname: string, init: RequestInit = {}): Promise<T> {
   const response = await apiFetch(pathname, init);
   if (!response.ok) {
-    const payload = await response.json().catch(() => ({})) as { error?: { code?: string } };
-    throw new ApiError(response.status, payload.error?.code ?? "request_failed");
+    const contentType = response.headers.get("content-type") ?? "";
+    const payload = contentType.includes("application/json")
+      ? await response.json().catch(() => ({})) as { error?: { code?: string } }
+      : {};
+    const code = response.status === 404 && !contentType.includes("application/json")
+      ? "incompatible_api"
+      : payload.error?.code ?? "request_failed";
+    throw new ApiError(response.status, code);
   }
   if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;

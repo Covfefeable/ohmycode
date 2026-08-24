@@ -2,13 +2,13 @@ import { apiRequest } from "../api/api-client.js";
 import type { ModelInput } from "./types.js";
 import { readLegacySettings, removeLegacySettings } from "./legacy-settings.js";
 
-type PublicSettings = { profile: { displayName: string; avatarDataUrl: string | null }; models: ModelInput[] };
+type PublicSettings = { profile: { displayName: string; avatarDataUrl: string | null }; models: ModelInput[]; tokenUsage: { date: string; tokens: number }[] };
 
 export async function getPublicSettings(): Promise<PublicSettings> {
   let settings = await apiRequest<PublicSettings>("/api/settings");
   const legacy = await readLegacySettings();
   if (legacy && settings.models.length === 0 && legacy.models.length > 0) {
-    await saveModels(legacy.models);
+    await saveModels(legacy.models.map((model) => ({ ...model, contextLength: model.contextLength ?? 262144 })));
     if (!settings.profile.displayName && legacy.profile.displayName) await saveProfile(legacy.profile.displayName);
     settings = await apiRequest<PublicSettings>("/api/settings");
   }

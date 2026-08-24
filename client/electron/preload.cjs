@@ -12,9 +12,10 @@ contextBridge.exposeInMainWorld("ohmycode", {
   conversations: {
     get: (conversationId) => ipcRenderer.invoke("conversations:get", conversationId),
     send: (conversationId, content, modelId, requestId, editMessageId) => ipcRenderer.invoke("conversations:send", conversationId, content, modelId, requestId, editMessageId),
-    onChunk: (requestId, callback) => {
-      const channel = `conversation:chunk:${requestId}`;
-      const listener = (_event, chunk) => callback(chunk);
+    stop: (requestId) => ipcRenderer.invoke("conversations:stop", requestId),
+    onEvent: (requestId, callback) => {
+      const channel = `conversation:event:${requestId}`;
+      const listener = (_event, streamEvent) => callback(streamEvent);
       ipcRenderer.on(channel, listener);
       return () => ipcRenderer.removeListener(channel, listener);
     },
@@ -36,5 +37,8 @@ contextBridge.exposeInMainWorld("ohmycode", {
     saveProfile: (displayName) => ipcRenderer.invoke("settings:save-profile", displayName),
     saveModels: (models) => ipcRenderer.invoke("settings:save-models", models),
     testModel: (model) => ipcRenderer.invoke("settings:test-model", model),
+  },
+  terminal: {
+    execute: (action) => ipcRenderer.invoke("terminal:execute", action),
   },
 });

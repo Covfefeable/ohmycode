@@ -5,7 +5,7 @@ export async function createMainWindow(): Promise<BrowserWindow> {
   const window = new BrowserWindow({
     width: 1380,
     height: 880,
-    minWidth: 980,
+    minWidth: 760,
     minHeight: 640,
     backgroundColor: "#0b0d10",
     frame: false,
@@ -28,4 +28,3 @@ export async function createMainWindow(): Promise<BrowserWindow> {
   }
   return window;
 }
-

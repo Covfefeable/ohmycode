@@ -5,7 +5,7 @@ export type LocalConversation = {
   messages?: LocalMessage[];
 };
 
-export type LocalMessage = { id: string; role: "user" | "assistant"; content: string; createdAt: string };
+export type LocalMessage = { id: string; role: "user" | "assistant"; content: string; reasoning?: string | null; activity?: unknown[] | null; agentDurationMs?: number | null; createdAt: string };
 
 export type LocalProject = {
   id: string;

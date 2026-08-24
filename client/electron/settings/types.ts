@@ -4,6 +4,7 @@ export type StoredModel = {
   baseUrl: string;
   apiKey: string;
   model: string;
+  contextLength?: number;
 };
 
 export type StoredSettings = {
@@ -11,5 +12,8 @@ export type StoredSettings = {
   models: StoredModel[];
 };
 
-export type ModelInput = Omit<StoredModel, "apiKey"> & { apiKey?: string; hasApiKey?: boolean };
-
+export type ModelInput = Omit<StoredModel, "apiKey" | "contextLength"> & {
+  apiKey?: string;
+  hasApiKey?: boolean;
+  contextLength: number;
+};
