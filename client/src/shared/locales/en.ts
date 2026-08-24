@@ -141,6 +141,12 @@ export const en = {
     workspaceDirectory: "Workspace directory",
     chooseDirectory: "Choose folder",
     waitingForActivity: "This agent has not started yet",
+    undo: "Undo",
+    redo: "Redo",
+    startNode: "Start",
+    endNode: "End",
+    invalidConnection: "This connection violates the workflow direction rules.",
+    cycleNotAllowed: "A workflow cannot contain a cycle.",
   },
   auth: {
     workspaceTagline: "Your local coding workspace",

@@ -19,6 +19,30 @@ Schema: {"title": string, "nodes": [{"key": string, "name": string, "role": stri
 "instructions": string}], "edges": [{"source": node_key, "target": node_key}]}.
 Keys must be short lowercase snake_case and unique. The graph must be acyclic."""
 
+START_KEY = "workflow_start"
+END_KEY = "workflow_end"
+
+
+def _add_boundary_nodes(raw_nodes: list, raw_edges: list) -> tuple[list, list]:
+    keys = {str(item.get("key") or "") for item in raw_nodes if isinstance(item, dict)}
+    has_start, has_end = START_KEY in keys, END_KEY in keys
+    if has_start != has_end:
+        raise ServiceError("invalid_workflow_boundaries", 422)
+    if has_start:
+        return raw_nodes, raw_edges
+    incoming = {str(item.get("target") or "") for item in raw_edges if isinstance(item, dict)}
+    outgoing = {str(item.get("source") or "") for item in raw_edges if isinstance(item, dict)}
+    agent_keys = [str(item.get("key") or "") for item in raw_nodes if isinstance(item, dict)]
+    nodes = [
+        {"key": START_KEY, "name": "Start", "role": "Workflow entry", "instructions": "Starts all root agents."},
+        *raw_nodes,
+        {"key": END_KEY, "name": "End", "role": "Workflow completion", "instructions": "Waits for all terminal agents."},
+    ]
+    edges = [*raw_edges]
+    edges.extend({"source": START_KEY, "target": key} for key in agent_keys if key not in incoming)
+    edges.extend({"source": key, "target": END_KEY} for key in agent_keys if key not in outgoing)
+    return nodes, edges
+
 
 def workspace_outline(workspace_path: str) -> str:
     root = Path(workspace_path)
@@ -94,10 +118,11 @@ def generate_plan(
 def validate_plan(plan: dict) -> dict:
     raw_nodes = plan.get("nodes")
     raw_edges = plan.get("edges")
-    if not isinstance(raw_nodes, list) or not 1 < len(raw_nodes) <= 8:
+    if not isinstance(raw_nodes, list) or not 1 < len(raw_nodes) <= 10:
         raise ServiceError("invalid_workflow_plan", 422)
     if not isinstance(raw_edges, list):
         raise ServiceError("invalid_workflow_plan", 422)
+    raw_nodes, raw_edges = _add_boundary_nodes(raw_nodes, raw_edges)
     nodes = []
     keys: set[str] = set()
     for index, item in enumerate(raw_nodes):
@@ -152,12 +177,23 @@ def validate_plan(plan: dict) -> dict:
                 queue.append(target)
     if visited != len(nodes):
         raise ServiceError("workflow_cycle", 422)
+    if indegree[START_KEY] != 0 or graph[END_KEY]:
+        raise ServiceError("invalid_workflow_boundaries", 422)
+    reachable = {START_KEY}
+    queue = deque([START_KEY])
+    while queue:
+        for target in graph[queue.popleft()]:
+            if target not in reachable:
+                reachable.add(target)
+                queue.append(target)
+    if reachable != keys:
+        raise ServiceError("invalid_workflow_boundaries", 422)
     row_counts: dict[int, int] = defaultdict(int)
     for node in nodes:
         layer = layers.get(node["key"], 0)
         row = row_counts[layer]
         row_counts[layer] += 1
-        node["position"] = {"x": 120 + layer * 330, "y": 100 + row * 190}
+        node["position"] = {"x": 80 + layer * 330, "y": 100 + row * 190}
         node.pop("index")
     return {
         "title": str(plan.get("title") or "New task").strip()[:240],

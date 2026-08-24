@@ -140,6 +140,12 @@ export const zhCN = {
     workspaceDirectory: "工作目录",
     chooseDirectory: "选择目录",
     waitingForActivity: "该 Agent 尚未开始活动",
+    undo: "撤销",
+    redo: "重做",
+    startNode: "开始",
+    endNode: "结束",
+    invalidConnection: "这条连线不符合工作流方向约束。",
+    cycleNotAllowed: "工作流不能形成闭环。",
   },
   auth: {
     workspaceTagline: "你的本地代码工作空间",

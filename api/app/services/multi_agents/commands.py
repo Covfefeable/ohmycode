@@ -14,7 +14,7 @@ from ...models import (
     WorkspaceChange,
 )
 from ..errors import ServiceError
-from .planner import generate_plan, validate_plan
+from .planner import END_KEY, START_KEY, generate_plan, validate_plan
 from .queries import get_task, owned_agent, owned_node
 
 
@@ -113,7 +113,8 @@ def create_task(user_id: UUID, agent_id: UUID, payload: dict) -> MultiAgentTask:
     db.session.add(task)
     db.session.flush()
     nodes_by_key: dict[str, MultiAgentNode] = {}
-    for index, item in enumerate(plan["nodes"]):
+    executable_nodes = [item for item in plan["nodes"] if item["key"] not in {START_KEY, END_KEY}]
+    for index, item in enumerate(executable_nodes):
         try:
             model_configuration_id = UUID(item["modelId"]) if item.get("modelId") else None
         except (TypeError, ValueError) as error:
@@ -143,6 +144,8 @@ def create_task(user_id: UUID, agent_id: UUID, payload: dict) -> MultiAgentTask:
         nodes_by_key[item["key"]] = node
     db.session.flush()
     for item in plan["edges"]:
+        if item["source"] in {START_KEY, END_KEY} or item["target"] in {START_KEY, END_KEY}:
+            continue
         db.session.add(
             MultiAgentEdge(
                 task=task,

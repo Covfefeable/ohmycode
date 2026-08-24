@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Background, ConnectionLineType, Controls, MarkerType, ReactFlow, type Connection, type NodeChange, type ReactFlowInstance } from "@xyflow/react";
+import { Background, ConnectionLineType, Controls, MarkerType, ReactFlow, type Connection, type EdgeChange, type NodeChange, type ReactFlowInstance } from "@xyflow/react";
 import { useTranslation } from "react-i18next";
 import { AgentFlowNode, type AgentFlowNodeType } from "./AgentFlowNode";
 import styles from "./WorkflowCanvas.module.css";
@@ -22,6 +22,7 @@ export function WorkflowCanvas({ task, selectedNodeId, onNodeSelect, onPositions
   const canvasRef = useRef<HTMLDivElement>(null);
   const flowRef = useRef<ReactFlowInstance<AgentFlowNodeType> | null>(null);
   const [canvasReady, setCanvasReady] = useState(false);
+  const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
   const [nodePositions, setNodePositions] = useState<Record<string, { x: number; y: number }>>(
     () => Object.fromEntries(task.nodes.map((node) => [node.id, node.position])),
   );
@@ -36,8 +37,9 @@ export function WorkflowCanvas({ task, selectedNodeId, onNodeSelect, onPositions
     ...edge,
     type: "default",
     markerEnd: { type: MarkerType.ArrowClosed },
-    style: { strokeWidth: 1.5 },
-  })), [task.edges]);
+    selected: edge.id === selectedEdgeId,
+    style: { strokeWidth: edge.id === selectedEdgeId ? 2 : 1.5 },
+  })), [task.edges, selectedEdgeId]);
   const onNodesChange = useCallback((changes: NodeChange<AgentFlowNodeType>[]) => {
     const positionChanges = changes.filter(
       (change): change is Extract<NodeChange<AgentFlowNodeType>, { type: "position" }> => change.type === "position" && Boolean(change.position),
@@ -50,6 +52,12 @@ export function WorkflowCanvas({ task, selectedNodeId, onNodeSelect, onPositions
       return next;
     });
   }, [onPositionsChange]);
+  const onEdgesChange = useCallback((changes: EdgeChange[]) => {
+    for (const change of changes) {
+      if (change.type === "select") setSelectedEdgeId(change.selected ? change.id : null);
+      if (change.type === "remove") onDeleteEdges?.([change.id]);
+    }
+  }, [onDeleteEdges]);
   const fitCanvas = useCallback(() => {
     const canvas = canvasRef.current;
     if (!flowRef.current || !canvas || canvas.clientWidth === 0 || canvas.clientHeight === 0 || nodes.length === 0) return;
@@ -76,7 +84,10 @@ export function WorkflowCanvas({ task, selectedNodeId, onNodeSelect, onPositions
       edges={edges}
       nodeTypes={nodeTypes}
       onNodesChange={onNodesChange}
+      onEdgesChange={onEdgesChange}
       onNodeClick={(_event, node) => onNodeSelect(node.id)}
+      onEdgeClick={(_event, edge) => setSelectedEdgeId(edge.id)}
+      onPaneClick={() => setSelectedEdgeId(null)}
       nodesConnectable={editable}
       nodesFocusable={editable}
       edgesFocusable={editable}

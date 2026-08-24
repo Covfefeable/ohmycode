@@ -12,6 +12,7 @@
 .canvasActions { position: absolute; top: var(--space-4); right: var(--space-4); z-index: var(--z-header); display: flex; gap: 2px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: color-mix(in srgb, var(--color-surface-1) 88%, transparent); padding: 3px; box-shadow: var(--shadow-panel); backdrop-filter: blur(14px); }
 .canvasActions button { height: 34px; display: inline-flex; align-items: center; gap: 7px; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--color-text-muted); padding: 0 11px; font: inherit; font-size: var(--font-sm); white-space: nowrap; cursor: pointer; }
 .canvasActions button:hover { background: var(--color-surface-hover); color: var(--color-text); }
+.canvasActions button:disabled { color: var(--color-text-disabled); cursor: not-allowed; opacity: .55; }
 .canvasActions button svg { width: 15px; }
 .canvasActions .primary { background: var(--color-accent); color: var(--color-accent-ink); font-weight: 750; }
 .canvasActions .stop { color: var(--color-danger); }
