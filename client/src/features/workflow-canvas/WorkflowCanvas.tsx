@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Background, Controls, MarkerType, ReactFlow, applyNodeChanges, type Connection, type NodeChange, type ReactFlowInstance } from "@xyflow/react";
+import { Background, Controls, MarkerType, ReactFlow, type Connection, type NodeChange, type ReactFlowInstance } from "@xyflow/react";
 import { useTranslation } from "react-i18next";
 import { AgentFlowNode, type AgentFlowNodeType } from "./AgentFlowNode";
 import styles from "./WorkflowCanvas.module.css";
@@ -19,6 +19,7 @@ export function WorkflowCanvas({ task, selectedNodeId, onNodeSelect, onPositions
   const { t } = useTranslation();
   const canvasRef = useRef<HTMLDivElement>(null);
   const flowRef = useRef<ReactFlowInstance<AgentFlowNodeType> | null>(null);
+  const [canvasReady, setCanvasReady] = useState(false);
   const [nodePositions, setNodePositions] = useState<Record<string, { x: number; y: number }>>(
     () => Object.fromEntries(task.nodes.map((node) => [node.id, node.position])),
   );
@@ -35,13 +36,17 @@ export function WorkflowCanvas({ task, selectedNodeId, onNodeSelect, onPositions
     markerEnd: { type: MarkerType.ArrowClosed },
   })), [task.edges]);
   const onNodesChange = useCallback((changes: NodeChange<AgentFlowNodeType>[]) => {
-    const next = applyNodeChanges(changes, nodes);
-    const nextPositions = Object.fromEntries(next.map((node) => [node.id, node.position]));
-    setNodePositions(nextPositions);
-    if (changes.some((change) => change.type === "position" && !change.dragging)) {
-      onPositionsChange(nextPositions);
-    }
-  }, [nodes, onPositionsChange]);
+    const positionChanges = changes.filter(
+      (change): change is Extract<NodeChange<AgentFlowNodeType>, { type: "position" }> => change.type === "position" && Boolean(change.position),
+    );
+    if (positionChanges.length === 0) return;
+    setNodePositions((current) => {
+      const next = { ...current };
+      for (const change of positionChanges) next[change.id] = change.position!;
+      if (positionChanges.some((change) => !change.dragging)) onPositionsChange(next);
+      return next;
+    });
+  }, [onPositionsChange]);
   const fitCanvas = useCallback(() => {
     const canvas = canvasRef.current;
     if (!flowRef.current || !canvas || canvas.clientWidth === 0 || canvas.clientHeight === 0 || nodes.length === 0) return;
@@ -50,8 +55,12 @@ export function WorkflowCanvas({ task, selectedNodeId, onNodeSelect, onPositions
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const frame = requestAnimationFrame(fitCanvas);
-    const observer = new ResizeObserver(fitCanvas);
+    const syncCanvas = () => {
+      if (canvas.clientWidth > 0 && canvas.clientHeight > 0) setCanvasReady(true);
+      fitCanvas();
+    };
+    const frame = requestAnimationFrame(syncCanvas);
+    const observer = new ResizeObserver(syncCanvas);
     observer.observe(canvas);
     return () => {
       cancelAnimationFrame(frame);
@@ -59,7 +68,7 @@ export function WorkflowCanvas({ task, selectedNodeId, onNodeSelect, onPositions
     };
   }, [fitCanvas]);
   return <div ref={canvasRef} className={styles.canvas}>
-    <ReactFlow<AgentFlowNodeType>
+    {canvasReady && <ReactFlow<AgentFlowNodeType>
       nodes={nodes}
       edges={edges}
       nodeTypes={{ agent: AgentFlowNode }}
@@ -83,6 +92,6 @@ export function WorkflowCanvas({ task, selectedNodeId, onNodeSelect, onPositions
     >
       <Background gap={24} size={1} />
       <Controls showInteractive={false} />
-    </ReactFlow>
+    </ReactFlow>}
   </div>;
 }

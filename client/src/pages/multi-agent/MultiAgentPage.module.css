@@ -1,4 +1,4 @@
-.page { min-width: 0; min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); overflow: hidden; background: var(--gradient-workspace); }
+.page { width: 100%; height: 100dvh; min-width: 0; min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); overflow: hidden; background: var(--gradient-workspace); }
 .header { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) repeat(3, auto); align-items: center; gap: var(--space-3); border-bottom: 1px solid var(--color-border); padding: 18px calc(var(--window-controls-width) + var(--space-6)) 18px var(--space-6); }
 .header h1 { margin: 0; font-size: var(--font-title-panel); }
 .header p { max-width: 78ch; overflow: hidden; margin: 4px 0 0; color: var(--color-text-muted); font-size: var(--font-sm); text-overflow: ellipsis; white-space: nowrap; }
