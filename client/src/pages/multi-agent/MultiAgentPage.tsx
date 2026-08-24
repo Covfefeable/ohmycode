@@ -320,7 +320,11 @@ export function MultiAgentPage() {
     if (!task || !adjustment.trim()) return;
     const content = adjustment.trim(); const requestId = crypto.randomUUID();
     setAdjustment(""); setAdjusting(true);
-    setNodeActivities((current) => ({ ...current, [nodeId]: [...(current[nodeId] ?? []), { id: `user-${requestId}`, type: "message", content: `${t("multiAgent.userAdjustment")}: ${content}`, status: "completed" }] }));
+    setNodeActivities((current) => ({ ...current, [nodeId]: [
+      ...(current[nodeId] ?? []).map((step) => step.status === "running" ? { ...step, status: "completed" as const } : step),
+      { id: `run-pending-${requestId}`, type: "run", status: "running" },
+      { id: `user-${requestId}`, type: "message", content: `${t("multiAgent.userAdjustment")}: ${content}`, status: "completed" },
+    ] }));
     const unsubscribe = window.ohmycode.multiAgents.onEvent(requestId, (event) => {
       if (event.type === "task.updated") setTask(event.task);
       if (event.type === "node.event") setNodeActivities((current) => ({ ...current, [event.nodeId]: updateActivity(current[event.nodeId] ?? [], event.event) }));

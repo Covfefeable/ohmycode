@@ -2,7 +2,14 @@ export function updateActivity(steps: AgentActivityStep[], event: ConversationSt
   const next = steps.map((step) => ({ ...step }));
   if (event.type === "run.started") {
     for (const step of next) if (step.status === "running") step.status = "completed";
-    next.push({ id: `run-${event.runId}`, type: "run", status: "running" });
+    let lastRunIndex = -1;
+    for (let index = next.length - 1; index >= 0; index -= 1) {
+      if (next[index].type === "run") { lastRunIndex = index; break; }
+    }
+    const pendingRun = lastRunIndex >= 0
+      && next.slice(lastRunIndex + 1).every((step) => step.type === "message" && step.id.startsWith("user-"));
+    if (pendingRun) next[lastRunIndex] = { id: `run-${event.runId}`, type: "run", status: "running" };
+    else next.push({ id: `run-${event.runId}`, type: "run", status: "running" });
   } else if (event.type === "reasoning.started") {
     for (const step of next) if (step.type === "reasoning") step.status = "completed";
     next.push({ id: event.stepId, type: "reasoning", content: "", status: "running" });
