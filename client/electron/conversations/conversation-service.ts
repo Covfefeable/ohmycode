@@ -34,6 +34,12 @@ function toolError(error: unknown): { error: string; code?: string } {
       error: "Cannot message this agent because it has not started yet. An upstream agent cannot message an unstarted downstream agent.",
     };
   }
+  if (error instanceof ApiError && error.code === "duplicate_agent_message") {
+    return { code: error.code, error: "This duplicates your previous message. Do not retry it; continue or finish your work." };
+  }
+  if (error instanceof ApiError && error.code === "agent_request_already_pending") {
+    return { code: error.code, error: "A request to this agent is already awaiting a result. Do not send another request." };
+  }
   return { error: error instanceof Error ? error.message : "tool_failed" };
 }
 

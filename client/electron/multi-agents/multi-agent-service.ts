@@ -109,13 +109,13 @@ async function runNode(
           }
           onEvent({ type: "node.event", nodeId, event });
           if (event.type === "tool.completed" && agentMessageCalls.delete(event.callId)) {
-            const result = event.result as { sourceStatus?: string };
+            const result = event.result as { sourceStatus?: string; error?: string };
             if (result?.sourceStatus === "paused") {
               pausedForReply = true;
               void stopMessage(nodeRequestId);
             }
             const sent = agentMessageRequests.get(event.callId);
-            if (sent) queueNodeMessage(sent.toNodeId, `Message from workflow agent ${nodeId}:\n${sent.content}`);
+            if (sent && !result?.error) queueNodeMessage(sent.toNodeId, `Message from workflow agent ${nodeId}:\n${sent.content}`);
             agentMessageRequests.delete(event.callId);
             void getMultiAgentTask(taskId).then((value) => onEvent({ type: "task.updated", task: value }));
           }
@@ -206,8 +206,10 @@ async function orchestrateRunningTask(
       onEvent({ type: "task.updated", task });
       continue;
     }
-    const results = await Promise.all(ready.map((node) => runNode(task.id, node, requestId, task.workspacePath, onEvent)));
-    task = results.at(-1) ?? await getMultiAgentTask(task.id);
+    await Promise.all(ready.map((node) => runNode(task.id, node, requestId, task.workspacePath, onEvent)));
+    // Parallel results are snapshots from different commit times. Continue from
+    // one authoritative snapshot only after the entire batch has settled.
+    task = await getMultiAgentTask(task.id);
     onEvent({ type: "task.updated", task });
   }
   return task;

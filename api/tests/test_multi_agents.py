@@ -107,6 +107,18 @@ def test_multi_agent_dag_lifecycle(tmp_path):
         assert revision.status_code == 201
         assert revision.get_json()["sourceStatus"] == "paused"
         assert revision.get_json()["targetStatus"] == "running"
+        duplicate_revision = client.post(
+            f"/api/multi-agents/nodes/{verify['id']}/messages",
+            headers=headers,
+            json={
+                "toNodeId": api_node["id"],
+                "content": "Please revise the API result again",
+                "intent": "revision_request",
+                "expectsReply": True,
+            },
+        )
+        assert duplicate_revision.status_code == 409
+        assert duplicate_revision.get_json()["error"]["code"] == "agent_request_already_pending"
 
         reply = client.post(
             f"/api/multi-agents/nodes/{api_node['id']}/messages",
@@ -127,6 +139,18 @@ def test_multi_agent_dag_lifecycle(tmp_path):
         verify = next(node for node in revised["nodes"] if node["key"] == "verify")
         assert verify["status"] == "running"
         assert revised["status"] == "running"
+
+        inform = client.post(
+            f"/api/multi-agents/nodes/{verify['id']}/messages",
+            headers=headers,
+            json={
+                "toNodeId": api_node["id"],
+                "content": "For your information",
+                "intent": "inform",
+            },
+        )
+        assert inform.status_code == 201
+        assert inform.get_json()["targetStatus"] == "completed"
 
         blocked_delete = client.delete(f"/api/multi-agents/tasks/{task['id']}", headers=headers)
         assert blocked_delete.status_code == 409

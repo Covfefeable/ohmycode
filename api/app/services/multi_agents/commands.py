@@ -233,6 +233,49 @@ def post_message(user_id: UUID, node_id: UUID, payload: dict) -> MultiAgentMessa
         reply_to_id = UUID(str(payload.get("replyToId"))) if payload.get("replyToId") else None
     except (TypeError, ValueError) as error:
         raise ServiceError("validation_error", 422) from error
+    history = list(
+        db.session.scalars(
+            db.select(MultiAgentMessage)
+            .where(MultiAgentMessage.task_id == source.task_id)
+            .order_by(MultiAgentMessage.created_at, MultiAgentMessage.id)
+        )
+    )
+    normalized_content = " ".join(content.casefold().split())
+    last_related = next(
+        (
+            item
+            for item in reversed(history)
+            if item.from_node_id == source.id or item.to_node_id == source.id
+        ),
+        None,
+    )
+    if (
+        last_related
+        and last_related.from_node_id == source.id
+        and last_related.to_node_id == target.id
+        and last_related.message_type == intent
+        and " ".join(last_related.content.casefold().split()) == normalized_content
+    ):
+        raise ServiceError("duplicate_agent_message", 409)
+    if expects_reply:
+        latest_request = next(
+            (
+                item
+                for item in reversed(history)
+                if item.from_node_id == source.id
+                and item.to_node_id == target.id
+                and item.expects_reply
+            ),
+            None,
+        )
+        if latest_request and not any(
+            item.from_node_id == target.id
+            and item.to_node_id == source.id
+            and not item.expects_reply
+            and item.created_at >= latest_request.created_at
+            for item in history
+        ):
+            raise ServiceError("agent_request_already_pending", 409)
     message = MultiAgentMessage(
         task_id=source.task_id,
         from_node_id=source.id,
@@ -246,7 +289,8 @@ def post_message(user_id: UUID, node_id: UUID, payload: dict) -> MultiAgentMessa
     db.session.add(message)
     if expects_reply:
         transition_node(source, "paused")
-    if target.status in {"completed", "paused"}:
+    should_wake_target = expects_reply or intent == "revision_result" or reply_to_id is not None
+    if should_wake_target and target.status in {"completed", "paused"}:
         transition_node(target, "running")
         if target.task.status == "completed":
             transition_task(target.task, "running")
@@ -366,6 +410,11 @@ with intent=revision_result when the requested revision is complete. You may mes
 paused, or completed agents. You must not message a pending/ready agent that has not started yet,
 especially a downstream node; the tool will return target_agent_not_started and you must continue
 without retrying that invalid route. Keep messages concise, actionable, and non-duplicative.
+
+Ordinary inform messages are recorded for visibility but never wake a completed agent. Only send a
+revision_request when the target must do more work, and send exactly one revision_result when that
+work is finished. Do not repeat a request while it is awaiting a result, and do not acknowledge an
+acknowledgement. The service rejects duplicate messages and overlapping revision requests.
 
 Finish with a concise result that states work completed, files changed, tests run, decisions, and
 remaining risks."""
