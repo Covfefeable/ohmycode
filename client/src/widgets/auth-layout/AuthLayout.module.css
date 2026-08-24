@@ -1,11 +1,12 @@
 .page {
-  height: 100vh;
+  height: 100dvh;
   min-height: 0;
   overflow: auto;
   display: grid;
   grid-template-columns: minmax(420px, 520px) 1fr;
   background: var(--color-bg);
   position: relative;
+  isolation: isolate;
 }
 .header {
   position: fixed;
@@ -13,9 +14,8 @@
   height: 78px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 36px 154px 12px 28px;
-  z-index: 1;
+  padding: 36px 28px 12px;
+  z-index: var(--z-header);
 }
 .brand {
   width: 40px;
@@ -26,24 +26,31 @@
   color: var(--color-accent);
   font-weight: 800;
 }
-.language { width: 120px; }
+.brand svg { width: 22px; height: 22px; stroke-width: 1.8; }
 .panel {
+  position: relative;
+  z-index: 1;
   display: grid;
   align-items: center;
   padding: 110px 64px 64px;
-  background: var(--color-panel);
-  border-right: 1px solid var(--color-border);
+  border-right: 1px solid var(--color-border-frosted);
+  background: color-mix(in srgb, var(--color-panel) 68%, transparent);
+  backdrop-filter: blur(28px) saturate(135%);
+  -webkit-backdrop-filter: blur(28px) saturate(135%);
+  box-shadow: inset -1px 0 0 color-mix(in srgb, var(--color-text) 5%, transparent);
 }
 .context {
-  display: grid;
-  align-content: center;
-  gap: 16px;
-  padding: 12%;
-  background: var(--gradient-auth);
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+  overflow: hidden;
+  background: transparent;
 }
-.context span { color: var(--color-accent); font: 700 54px ui-monospace, monospace; }
-.line, .lineShort { height: 1px; background: var(--color-auth-line); width: 70%; }
-.lineShort { width: 45%; }
+.contextCopy { position: absolute; right: clamp(40px, 7vw, 100px); bottom: clamp(44px, 8vh, 88px); display: grid; gap: var(--space-2); color: var(--color-text); text-align: right; text-shadow: 0 2px 24px color-mix(in srgb, var(--color-canvas) 72%, transparent); }
+.contextCopy strong { font-size: clamp(28px, 3vw, 44px); letter-spacing: -.04em; }
+.contextCopy span { color: var(--color-text-soft); font-size: var(--font-md); }
+@supports not (backdrop-filter: blur(1px)) { .panel { background: var(--color-panel); } }
+@media (prefers-reduced-transparency: reduce) { .panel { background: var(--color-panel); backdrop-filter: none; -webkit-backdrop-filter: none; } }
 @media (max-width: 900px) {
   .page { grid-template-columns: 1fr; }
   .context { display: none; }

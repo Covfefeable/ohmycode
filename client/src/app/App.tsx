@@ -16,7 +16,7 @@ function ProtectedRoute() {
 
 function PublicOnlyRoute() {
   const { status } = useAuth();
-  if (status === "booting" || status === "unavailable") return <FullScreenLoading />;
+  if (status === "booting" || status === "unavailable") return <FullScreenLoading kind="auth" />;
   return status === "guest" ? <Outlet /> : <Navigate to="/" replace />;
 }
 
@@ -24,8 +24,8 @@ function ProtectedPages() {
   const location = useLocation();
   const settingsVisible = location.pathname.startsWith("/settings");
   return <>
-    <div style={{ display: settingsVisible ? "none" : "block" }}><AgentWorkspacePage /></div>
-    <div style={{ display: settingsVisible ? "block" : "none" }}><SettingsPage /></div>
+    <div style={{ display: settingsVisible ? "none" : "block", height: "100dvh" }}><AgentWorkspacePage /></div>
+    <div style={{ display: settingsVisible ? "block" : "none", height: "100dvh" }}><SettingsPage /></div>
   </>;
 }
 

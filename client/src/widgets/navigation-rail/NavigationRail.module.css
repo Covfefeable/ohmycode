@@ -19,12 +19,13 @@
   margin-bottom: 24px;
 }
 .brand svg, .rail svg { width: 22px; height: 22px; }
-.account { position: relative; margin-top: auto; }
+.theme { margin-top: auto; }
+.account { position: relative; }
 .accountMenu {
   position: absolute;
   left: calc(100% + 10px);
   bottom: 0;
-  z-index: 100;
+  z-index: var(--z-popover);
   min-width: 148px;
   padding: var(--space-2);
   border: 1px solid var(--color-border-strong);
@@ -38,6 +39,7 @@
 }
 .account::after { content: ""; position: absolute; inset: 0 -12px 0 100%; }
 .account:hover .accountMenu, .account:focus-within .accountMenu { opacity: 1; visibility: visible; transform: translateX(0); }
+.account:hover > button, .account:focus-within > button { background: var(--color-surface-icon-hover); color: var(--color-text); }
 .accountMenu button { width: 100%; display: flex; align-items: center; gap: var(--space-2); border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--color-text); padding: 9px 10px; white-space: nowrap; cursor: pointer; }
-.accountMenu button:hover, .accountMenu button:focus-visible { background: var(--color-surface-icon-hover); outline: none; }
+.accountMenu button:hover, .accountMenu button:focus-visible { background: var(--color-surface-active); color: var(--color-text); }
 .accountMenu button svg { width: 17px; height: 17px; }

@@ -2,14 +2,12 @@
 .field span { color: var(--color-text-soft); font-size: var(--font-sm); font-weight: 650; }
 .field input {
   width: 100%;
-  border: 1px solid var(--color-border-strong);
+  border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-md);
   background: var(--color-surface-input);
   color: var(--color-text);
   padding: 12px 13px;
-  outline: none;
 }
-.field input:focus { border-color: var(--color-accent); box-shadow: var(--shadow-focus); }
-.field input[aria-invalid="true"] { border-color: var(--color-danger); }
+.field input:focus { border-color: var(--color-border-strong); background: var(--color-surface-active); box-shadow: none; }
+.field input[aria-invalid="true"] { background: var(--color-danger-surface); }
 .field small { color: var(--color-danger-text); font-size: var(--font-xs); }
-

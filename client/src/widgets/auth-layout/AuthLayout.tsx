@@ -1,21 +1,21 @@
 import type { PropsWithChildren } from "react";
-import { LanguageSwitcher } from "../../features/language-switcher";
+import { Braces } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { AuthBackground } from "../../features/auth-background";
 import styles from "./AuthLayout.module.css";
 
 export function AuthLayout({ children }: PropsWithChildren) {
+  const { t } = useTranslation();
   return (
     <main className={styles.page}>
+      <AuthBackground />
       <header className={styles.header}>
-        <div className={styles.brand}>OM</div>
-        <div className={styles.language}><LanguageSwitcher /></div>
+        <div className={styles.brand} aria-label="OhMyCode"><Braces /></div>
       </header>
       <section className={styles.panel}>{children}</section>
-      <div className={styles.context} aria-hidden="true">
-        <span>›_</span>
-        <div className={styles.line} />
-        <div className={styles.lineShort} />
+      <div className={styles.context}>
+        <div className={styles.contextCopy}><strong>OhMyCode</strong><span>{t("auth.workspaceTagline")}</span></div>
       </div>
     </main>
   );
 }
-

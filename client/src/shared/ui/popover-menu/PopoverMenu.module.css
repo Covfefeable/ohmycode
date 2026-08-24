@@ -1,7 +1,7 @@
 .root { display: inline-flex; }
-.menu { position: fixed; z-index: 3000; width: max-content; max-width: 220px; display: grid; gap: var(--space-1); padding: var(--space-2); border: 1px solid var(--color-border-strong); border-radius: var(--radius-md); background: var(--color-surface-2); box-shadow: var(--shadow-panel); animation: appear 120ms ease-out; }
+.menu { position: fixed; z-index: var(--z-popover); width: max-content; max-width: 220px; display: grid; gap: var(--space-1); padding: var(--space-2); border: 1px solid var(--color-border-strong); border-radius: var(--radius-md); background: var(--color-surface-2); box-shadow: var(--shadow-panel); animation: appear 120ms ease-out; }
 .menu button { width: auto; min-width: 0; display: flex; align-items: center; gap: var(--space-2); overflow: hidden; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--color-text); padding: 9px 10px; cursor: pointer; text-align: left; white-space: nowrap; }
-.menu button:hover, .menu button:focus-visible { background: var(--color-surface-hover); outline: none; }
+.menu button:hover, .menu button:focus-visible { background: var(--color-surface-hover); }
 .menu button svg { width: 16px; height: 16px; flex: none; }
 .menu button span { overflow: hidden; text-overflow: ellipsis; }
 @keyframes appear { from { opacity: 0; transform: translateY(-4px); } }
