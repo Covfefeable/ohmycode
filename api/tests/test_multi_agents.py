@@ -21,13 +21,10 @@ def test_multi_agent_dag_lifecycle(tmp_path):
         agent = client.post(
             "/api/multi-agents",
             headers=headers,
-            json={"name": "Workspace Agent", "workspacePath": str(tmp_path)},
-        ).get_json()
-        task = client.post(
-            f"/api/multi-agents/{agent['id']}/tasks",
-            headers=headers,
             json={
-                "request": "Implement and verify a feature",
+                "name": "Workspace Agent",
+                "description": "Implement and verify a feature",
+                "division": "Backend and frontend in parallel, followed by verification",
                 "flow": {
                     "title": "Feature workflow",
                     "nodes": [
@@ -51,6 +48,11 @@ def test_multi_agent_dag_lifecycle(tmp_path):
                     ],
                 },
             },
+        ).get_json()
+        task = client.post(
+            f"/api/multi-agents/{agent['id']}/tasks",
+            headers=headers,
+            json={"workspacePath": str(tmp_path)},
         ).get_json()
         started = client.post(
             f"/api/multi-agents/tasks/{task['id']}/start", headers=headers

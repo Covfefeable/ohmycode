@@ -56,7 +56,7 @@ def _json_content(value: str) -> dict:
 
 
 def generate_plan(
-    user_id: UUID, workspace_path: str, request: str, model_id: str | None = None
+    user_id: UUID, request: str, model_id: str | None = None, workspace_path: str | None = None
 ) -> dict:
     model = get_model_configuration(user_id, model_id)
     if not model:
@@ -72,9 +72,14 @@ def generate_plan(
                 {"role": "system", "content": PLANNER_PROMPT},
                 {
                     "role": "user",
-                    "content": (
-                        f"User request:\n{request}\n\nWorkspace outline:\n"
-                        f"{workspace_outline(workspace_path)}"
+                    "content": f"Collaboration brief:\n{request}\n\n"
+                    + (
+                        f"Workspace outline:\n{workspace_outline(workspace_path)}"
+                        if workspace_path
+                        else (
+                            "Design a reusable workflow independent of a specific "
+                            "repository layout."
+                        )
                     ),
                 },
             ],
@@ -105,10 +110,18 @@ def validate_plan(plan: dict) -> dict:
         name = str(item.get("name") or "").strip()[:160]
         role = str(item.get("role") or "").strip()[:500]
         instructions = str(item.get("instructions") or "").strip()
+        model_id = str(item.get("modelId") or "").strip() or None
         if not name or not role or not instructions:
             raise ServiceError("invalid_workflow_plan", 422)
         nodes.append(
-            {"key": key, "name": name, "role": role, "instructions": instructions, "index": index}
+            {
+                "key": key,
+                "name": name,
+                "role": role,
+                "instructions": instructions,
+                "modelId": model_id,
+                "index": index,
+            }
         )
     edges = []
     graph: dict[str, list[str]] = defaultdict(list)

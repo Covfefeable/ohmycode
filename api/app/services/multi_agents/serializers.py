@@ -2,10 +2,36 @@ from ...models import MultiAgent, MultiAgentMessage, MultiAgentTask, WorkspaceCh
 
 
 def serialize_agent(agent: MultiAgent) -> dict:
+    template = agent.template_flow or {}
+    if not template.get("nodes") and agent.tasks:
+        source = agent.tasks[-1]
+        keys = {node.id: node.key for node in source.nodes}
+        template = {
+            "title": source.title,
+            "nodes": [
+                {
+                    "key": node.key,
+                    "name": node.name,
+                    "role": node.role,
+                    "instructions": node.instructions,
+                    "modelId": (
+                        str(node.model_configuration_id) if node.model_configuration_id else None
+                    ),
+                    "position": node.position,
+                }
+                for node in source.nodes
+            ],
+            "edges": [
+                {"source": keys[edge.source_node_id], "target": keys[edge.target_node_id]}
+                for edge in source.edges
+            ],
+        }
     return {
         "id": str(agent.id),
         "name": agent.name,
-        "workspacePath": agent.project.path,
+        "description": agent.description,
+        "division": agent.division,
+        "templateFlow": template,
         "createdAt": agent.created_at.isoformat(),
         "tasks": [
             {
@@ -41,7 +67,7 @@ def serialize_task(task: MultiAgentTask) -> dict:
         "title": task.title,
         "request": task.request,
         "status": task.status,
-        "workspacePath": task.agent.project.path,
+        "workspacePath": task.project.path,
         "nodes": [
             {
                 "id": str(node.id),
@@ -52,6 +78,9 @@ def serialize_task(task: MultiAgentTask) -> dict:
                 "status": node.status,
                 "position": node.position,
                 "conversationId": str(node.conversation_id) if node.conversation_id else None,
+                "modelId": str(node.model_configuration_id)
+                if node.model_configuration_id
+                else None,
                 "finalOutput": node.final_output,
                 "messages": messages.get(str(node.id), []),
                 "changedFiles": [item for item in changes if item["nodeId"] == str(node.id)],

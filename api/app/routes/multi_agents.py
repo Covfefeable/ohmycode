@@ -21,6 +21,7 @@ from ..services.multi_agents import (
     start_node,
     start_task,
     stop_task,
+    update_agent,
 )
 
 multi_agents_bp = Blueprint("multi_agents", __name__)
@@ -42,6 +43,14 @@ def create_agent_route():
     return jsonify(
         serialize_agent(create_agent(user_id(), request.get_json(silent=True) or {}))
     ), 201
+
+
+@multi_agents_bp.patch("/<uuid:agent_id>")
+@jwt_required()
+def update_agent_route(agent_id: UUID):
+    return jsonify(
+        serialize_agent(update_agent(user_id(), agent_id, request.get_json(silent=True) or {}))
+    )
 
 
 @multi_agents_bp.delete("/<uuid:agent_id>")
@@ -122,6 +131,7 @@ def start_node_route(node_id: UUID):
         {
             "nodeId": str(node.id),
             "conversationId": str(node.conversation_id),
+            "modelId": str(node.model_configuration_id) if node.model_configuration_id else None,
             "prompt": prompt,
         }
     )

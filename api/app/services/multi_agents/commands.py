@@ -4,6 +4,7 @@ from uuid import UUID
 from ...extensions import db
 from ...models import (
     Conversation,
+    ModelConfiguration,
     MultiAgent,
     MultiAgentEdge,
     MultiAgentMessage,
@@ -17,23 +18,58 @@ from .planner import generate_plan, validate_plan
 from .queries import get_task, owned_agent, owned_node
 
 
+def _reusable_flow(agent: MultiAgent) -> dict:
+    if (agent.template_flow or {}).get("nodes"):
+        return agent.template_flow
+    if not agent.tasks:
+        raise ServiceError("invalid_workflow_plan", 422)
+    source = agent.tasks[-1]
+    keys = {node.id: node.key for node in source.nodes}
+    return {
+        "title": source.title,
+        "nodes": [
+            {
+                "key": node.key,
+                "name": node.name,
+                "role": node.role,
+                "instructions": node.instructions,
+                "modelId": (
+                    str(node.model_configuration_id) if node.model_configuration_id else None
+                ),
+                "position": node.position,
+            }
+            for node in source.nodes
+        ],
+        "edges": [
+            {"source": keys[edge.source_node_id], "target": keys[edge.target_node_id]}
+            for edge in source.edges
+        ],
+    }
+
+
 def create_agent(user_id: UUID, payload: dict) -> MultiAgent:
-    workspace_path = str(payload.get("workspacePath") or "").strip()[:1024]
-    if not workspace_path or not Path(workspace_path).is_dir():
-        raise ServiceError("workspace_not_found", 422)
-    name = str(payload.get("name") or Path(workspace_path).name).strip()[:200]
-    if not name:
+    name = str(payload.get("name") or "").strip()[:200]
+    description = str(payload.get("description") or "").strip()
+    division = str(payload.get("division") or "").strip()
+    if not name or not description or not division:
         raise ServiceError("validation_error", 422)
-    project = db.session.scalar(
-        db.select(Project).where(Project.user_id == user_id, Project.path == workspace_path)
-    )
-    if not project:
-        project = Project(
-            user_id=user_id, name=Path(workspace_path).name, path=workspace_path, kind="multi_agent"
+    supplied = payload.get("flow")
+    flow = (
+        validate_plan(supplied)
+        if isinstance(supplied, dict)
+        else generate_plan(
+            user_id,
+            f"Name: {name}\nDescription: {description}\nDivision: {division}",
+            payload.get("modelId"),
         )
-        db.session.add(project)
-        db.session.flush()
-    agent = MultiAgent(user_id=user_id, project_id=project.id, name=name)
+    )
+    agent = MultiAgent(
+        user_id=user_id,
+        name=name,
+        description=description,
+        division=division,
+        template_flow=flow,
+    )
     db.session.add(agent)
     db.session.commit()
     return agent
@@ -43,14 +79,7 @@ def delete_agent(user_id: UUID, agent_id: UUID) -> None:
     agent = owned_agent(user_id, agent_id)
     if not agent:
         raise ServiceError("not_found", 404)
-    project = agent.project
     db.session.delete(agent)
-    db.session.flush()
-    remaining = db.session.scalar(
-        db.select(db.func.count(MultiAgent.id)).where(MultiAgent.project_id == project.id)
-    )
-    if not remaining and project.kind == "multi_agent":
-        db.session.delete(project)
     db.session.commit()
 
 
@@ -58,23 +87,45 @@ def create_task(user_id: UUID, agent_id: UUID, payload: dict) -> MultiAgentTask:
     agent = owned_agent(user_id, agent_id)
     if not agent:
         raise ServiceError("not_found", 404)
-    request = str(payload.get("request") or "").strip()
-    if not request:
-        raise ServiceError("validation_error", 422)
-    supplied = payload.get("flow")
-    plan = (
-        validate_plan(supplied)
-        if isinstance(supplied, dict)
-        else generate_plan(user_id, agent.project.path, request, payload.get("modelId"))
+    workspace_path = str(payload.get("workspacePath") or "").strip()[:1024]
+    if not workspace_path or not Path(workspace_path).is_dir():
+        raise ServiceError("workspace_not_found", 422)
+    project = db.session.scalar(
+        db.select(Project).where(Project.user_id == user_id, Project.path == workspace_path)
     )
-    task = MultiAgentTask(agent=agent, title=plan["title"], request=request, status="draft")
+    if not project:
+        project = Project(
+            user_id=user_id,
+            name=Path(workspace_path).name,
+            path=workspace_path,
+            kind="multi_agent",
+        )
+        db.session.add(project)
+        db.session.flush()
+    plan = validate_plan(_reusable_flow(agent))
+    task = MultiAgentTask(
+        agent=agent,
+        project=project,
+        title=str(payload.get("title") or Path(workspace_path).name)[:240],
+        request=str(payload.get("request") or agent.description).strip(),
+        status="draft",
+    )
     db.session.add(task)
     db.session.flush()
     nodes_by_key: dict[str, MultiAgentNode] = {}
     for index, item in enumerate(plan["nodes"]):
-        conversation = Conversation(
-            project_id=agent.project_id, title=item["name"], kind="multi_agent"
+        try:
+            model_configuration_id = UUID(item["modelId"]) if item.get("modelId") else None
+        except (TypeError, ValueError) as error:
+            raise ServiceError("model_not_configured", 422) from error
+        model = (
+            db.session.get(ModelConfiguration, model_configuration_id)
+            if model_configuration_id
+            else None
         )
+        if model_configuration_id and (not model or model.user_id != user_id):
+            model_configuration_id = None
+        conversation = Conversation(project_id=project.id, title=item["name"], kind="multi_agent")
         db.session.add(conversation)
         db.session.flush()
         node = MultiAgentNode(
@@ -84,6 +135,7 @@ def create_task(user_id: UUID, agent_id: UUID, payload: dict) -> MultiAgentTask:
             name=item["name"],
             role=item["role"],
             instructions=item["instructions"],
+            model_configuration_id=model_configuration_id,
             position=item["position"],
             sort_order=index,
         )
@@ -100,6 +152,23 @@ def create_task(user_id: UUID, agent_id: UUID, payload: dict) -> MultiAgentTask:
         )
     db.session.commit()
     return task
+
+
+def update_agent(user_id: UUID, agent_id: UUID, payload: dict) -> MultiAgent:
+    agent = owned_agent(user_id, agent_id)
+    if not agent:
+        raise ServiceError("not_found", 404)
+    if "name" in payload:
+        agent.name = str(payload.get("name") or "").strip()[:200] or agent.name
+    if "description" in payload:
+        agent.description = str(payload.get("description") or "").strip()
+    if "division" in payload:
+        agent.division = str(payload.get("division") or "").strip()
+    flow = payload.get("templateFlow", payload.get("flow"))
+    if isinstance(flow, dict):
+        agent.template_flow = validate_plan(flow)
+    db.session.commit()
+    return agent
 
 
 def replace_flow(user_id: UUID, task_id: UUID, payload: dict) -> MultiAgentTask:

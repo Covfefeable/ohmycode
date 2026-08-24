@@ -11,6 +11,7 @@ from .commands import (
     start_node,
     start_task,
     stop_task,
+    update_agent,
 )
 from .queries import get_task, list_agents
 from .serializers import serialize_agent, serialize_task
@@ -30,6 +31,7 @@ __all__ = [
     "start_node",
     "start_task",
     "stop_task",
+    "update_agent",
     "serialize_agent",
     "serialize_task",
 ]
