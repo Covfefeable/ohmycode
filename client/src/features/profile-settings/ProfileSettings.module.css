@@ -1,4 +1,4 @@
-.section { width: min(680px, 100%); display: grid; gap: var(--space-5); }
+.section { width: min(900px, 100%); display: grid; gap: var(--space-5); }
 .section header p { color: var(--color-accent); font-size: var(--font-xs); font-weight: 800; letter-spacing: .16em; margin: 0; }
 .section h2 { font-size: 32px; margin: var(--space-2) 0; }
 .section header span { color: var(--color-text-muted); }

@@ -1,11 +1,7 @@
-import { BrowserWindow, dialog, ipcMain } from "electron";
+import { BrowserWindow, ipcMain } from "electron";
 import { API_URL } from "../config.js";
 
 export function registerSystemIpc(): void {
-  ipcMain.handle("workspace:select", async () => {
-    const result = await dialog.showOpenDialog({ properties: ["openDirectory"] });
-    return result.canceled ? null : result.filePaths[0];
-  });
   ipcMain.handle("api:status", async () => {
     try {
       const response = await fetch(`${API_URL}/api/health`);

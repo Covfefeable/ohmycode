@@ -1,7 +1,14 @@
 const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("ohmycode", {
-  selectWorkspace: () => ipcRenderer.invoke("workspace:select"),
+  projects: {
+    list: () => ipcRenderer.invoke("projects:list"),
+    create: () => ipcRenderer.invoke("projects:create"),
+    open: (projectId) => ipcRenderer.invoke("projects:open", projectId),
+    delete: (projectId) => ipcRenderer.invoke("projects:delete", projectId),
+    createConversation: (projectId, title) => ipcRenderer.invoke("projects:create-conversation", projectId, title),
+    deleteConversation: (projectId, conversationId) => ipcRenderer.invoke("projects:delete-conversation", projectId, conversationId),
+  },
   apiStatus: () => ipcRenderer.invoke("api:status"),
   auth: {
     bootstrap: () => ipcRenderer.invoke("auth:bootstrap"),

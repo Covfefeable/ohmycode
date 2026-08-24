@@ -7,7 +7,7 @@
   min-height: 0;
   overflow: auto;
 }
-.eyebrow, .sectionLabel {
+.eyebrow {
   font-size: var(--font-xs);
   font-weight: 800;
   letter-spacing: .16em;
@@ -15,12 +15,4 @@
 }
 .eyebrow { color: var(--color-accent); }
 .sidebar h2 { font-size: 22px; margin: 0 0 28px; }
-.tasks { margin-top: 30px; }
-.sectionLabel { color: var(--color-text-faint); }
-.empty {
-  border-top: 1px solid var(--color-border-subtle);
-  padding: 14px 2px;
-  color: var(--color-text-empty);
-  font-size: 13px;
-}
 .sidebar footer { margin-top: auto; display: grid; gap: 14px; }

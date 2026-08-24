@@ -2,7 +2,14 @@
 
 interface Window {
   ohmycode: {
-    selectWorkspace(): Promise<string | null>;
+    projects: {
+      list(): Promise<LocalProject[]>;
+      create(): Promise<{ ok: true; project: LocalProject } | { ok: false; reason: "canceled" | "exists" }>;
+      open(projectId: string): Promise<void>;
+      delete(projectId: string): Promise<void>;
+      createConversation(projectId: string, title: string): Promise<LocalConversation>;
+      deleteConversation(projectId: string, conversationId: string): Promise<void>;
+    };
     apiStatus(): Promise<{ online: boolean; url: string }>;
     auth: {
       bootstrap(): Promise<
@@ -54,3 +61,5 @@ type PublicSettings = {
   profile: { displayName: string; avatarDataUrl: string | null };
   models: ModelConfiguration[];
 };
+type LocalConversation = { id: string; title: string; createdAt: string };
+type LocalProject = { id: string; name: string; path: string; conversations: LocalConversation[] };
