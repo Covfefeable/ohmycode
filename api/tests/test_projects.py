@@ -150,6 +150,26 @@ def test_project_conversation_and_message_lifecycle(monkeypatch):
         usage = client.get("/api/settings", headers=headers).get_json()["tokenUsage"]
         assert sum(day["tokens"] for day in usage) == 150
 
+        failed_conversation = client.post(
+            f"/api/projects/{project_id}/conversations",
+            headers=headers,
+            json={"title": "Failed provider stream"},
+        ).get_json()
+
+        def missing_provider(*_args, **_kwargs):
+            raise FileNotFoundError("provider dependency disappeared")
+
+        monkeypatch.setattr("app.services.agent.chat.httpx.stream", missing_provider)
+        failed_stream = client.post(
+            f"/api/projects/conversations/{failed_conversation['id']}/stream",
+            headers=headers,
+            json={"content": "Continue", "modelId": model_id},
+        )
+        failed_body = failed_stream.get_data(as_text=True)
+        assert '"type": "run.failed"' in failed_body
+        assert '"errorCode": "FileNotFoundError"' in failed_body
+        assert failed_body.endswith("data: [DONE]\n\n")
+
         agent_conversation = client.post(
             f"/api/projects/{project_id}/conversations",
             headers=headers,

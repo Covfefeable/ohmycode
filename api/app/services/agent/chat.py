@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from uuid import UUID
 
 import httpx
+from flask import current_app
 
 from ...extensions import db
 from ...models import AgentRun, Conversation, Message, ModelConfiguration
@@ -377,7 +378,11 @@ def stream_completion(prepared: PreparedCompletion):
             db.session.expire(run)
         if run and run.status == "running":
             fail_run(run, type(error).__name__)
-        if isinstance(error, httpx.HTTPError):
-            yield {"type": "run.failed", "errorCode": type(error).__name__}
-            return
-        raise
+        current_app.logger.exception("Agent stream failed for run %s", prepared.run_id)
+        # An exception escaping a streaming response makes Werkzeug close the
+        # chunked HTTP body without its terminating chunk. Electron/undici then
+        # reports an opaque `Invalid EOF state` instead of the actual run error.
+        # Always finish the SSE protocol normally and keep the diagnostic in
+        # the server log.
+        yield {"type": "run.failed", "errorCode": type(error).__name__}
+        return
