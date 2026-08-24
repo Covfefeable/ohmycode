@@ -1,0 +1,91 @@
+import { useEffect, useState } from "react";
+import { Check, ChevronDown, LoaderCircle, TerminalSquare } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import styles from "./ActivityTimeline.module.css";
+
+function formatToolResult(value: unknown): string {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    const result = value as Record<string, unknown>;
+    if (typeof result.output === "string") {
+      const suffix = result.status === "running"
+        ? `\n\n[${String(result.status)} · terminal ${String(result.terminalId || "")}]`
+        : `\n\n[exit ${String(result.exitCode ?? "-")}]`;
+      return `${result.output}${suffix}`.trim();
+    }
+  }
+  return value ? JSON.stringify(value, null, 2) : "";
+}
+
+function ToolStep({ step }: { step: Extract<AgentActivityStep, { type: "tool" }> }) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(step.status === "running");
+  const input = (typeof step.input === "string" ? JSON.parse(step.input || "{}") : step.input) as Record<string, unknown>;
+  const action = String(input.action || (input.command ? "start" : step.tool));
+  const command = input.command ? String(input.command) : `${action} ${String(input.terminalId || "")}`.trim();
+  const result = formatToolResult(step.result);
+  return <div className={styles.step}>
+    <button className={styles.stepHead} type="button" onClick={() => setOpen((value) => !value)}>
+      {step.status === "running" ? <LoaderCircle className={styles.spinner} /> : <Check />}
+      <TerminalSquare />
+      <span>{step.status === "running" ? t("agent.runningCommand") : t("agent.ranCommand")}</span>
+      <code>{command}</code>
+      <ChevronDown className={`${styles.chevron} ${open ? styles.chevronOpen : ""}`} />
+    </button>
+    {open && result && <pre className={styles.output}>{result}</pre>}
+  </div>;
+}
+
+function ReasoningStep({ step }: { step: Extract<AgentActivityStep, { type: "reasoning" }> }) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(step.status === "running");
+  return <div className={styles.step}>
+    <button className={styles.stepHead} type="button" onClick={() => setOpen((value) => !value)}>
+      {step.status === "running" ? <LoaderCircle className={styles.spinner} /> : <Check />}
+      <span>{t(step.status === "running" ? "agent.thinking" : "agent.thought")}</span>
+      <ChevronDown className={`${styles.chevron} ${open ? styles.chevronOpen : ""}`} />
+    </button>
+    {open && <div className={styles.reasoning}><ReactMarkdown remarkPlugins={[remarkGfm]}>{step.content}</ReactMarkdown></div>}
+  </div>;
+}
+
+function MessageStep({ step }: { step: Extract<AgentActivityStep, { type: "message" }> }) {
+  if (!step.content) return null;
+  return <div className={styles.progressMessage}><ReactMarkdown remarkPlugins={[remarkGfm]}>{step.content}</ReactMarkdown></div>;
+}
+
+function ActivityStep({ step }: { step: AgentActivityStep }) {
+  if (step.type === "reasoning") return <ReasoningStep step={step} />;
+  if (step.type === "message") return <MessageStep step={step} />;
+  return <ToolStep step={step} />;
+}
+
+export function ActivityTimeline({ steps, active, durationMs, startedAt }: { steps: AgentActivityStep[]; active: boolean; durationMs?: number | null; startedAt?: string }) {
+  const { t } = useTranslation();
+  const [manuallyOpen, setManuallyOpen] = useState(false);
+  const open = active || manuallyOpen;
+  const [liveDuration, setLiveDuration] = useState(() => startedAt ? Date.now() - new Date(startedAt).getTime() : 0);
+  useEffect(() => {
+    if (!active || !startedAt) return;
+    const update = () => setLiveDuration(Date.now() - new Date(startedAt).getTime());
+    const timer = window.setInterval(update, 1000);
+    return () => window.clearInterval(timer);
+  }, [active, startedAt]);
+  if (!steps.length) return null;
+  const seconds = Math.max(1, Math.round((durationMs ?? liveDuration) / 1000));
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const remainingSeconds = seconds % 60;
+  const duration = hours > 0
+    ? t("agent.durationHours", { hours, minutes, seconds: remainingSeconds })
+    : minutes > 0 ? t("agent.durationMinutes", { minutes, seconds: remainingSeconds }) : t("agent.durationSeconds", { seconds });
+  return <div className={styles.timeline}>
+    <button className={styles.summary} type="button" onClick={() => setManuallyOpen((value) => !value)}>
+      {active ? <LoaderCircle className={styles.spinner} /> : <Check />}
+      <span>{active ? t("agent.working") : duration}</span>
+      <ChevronDown className={`${styles.chevron} ${open ? styles.chevronOpen : ""}`} />
+    </button>
+    {open && <div className={styles.steps}>{steps.map((step) => <ActivityStep key={`${step.id}-${step.status}`} step={step} />)}</div>}
+  </div>;
+}

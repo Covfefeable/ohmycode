@@ -6,7 +6,7 @@ export type SettingsTab = "profile" | "models";
 export function SettingsSidebar({ tab, onChange }: { tab: SettingsTab; onChange(tab: SettingsTab): void }) {
   const { t } = useTranslation();
   return <aside className={styles.sidebar}>
-    <header><p>{t("settings.eyebrow")}</p><h1>{t("settings.title")}</h1></header>
+    <header><h1>{t("settings.title")}</h1></header>
     <nav>
       <button className={tab === "profile" ? styles.active : ""} onClick={() => onChange("profile")}><CircleUserRound />{t("settings.profileTab")}</button>
       <button className={tab === "models" ? styles.active : ""} onClick={() => onChange("models")}><Bot />{t("settings.modelsTab")}</button>

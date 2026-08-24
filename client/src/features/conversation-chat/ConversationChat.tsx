@@ -7,9 +7,34 @@ import { TaskComposer } from "../task-composer";
 import { useFeedback } from "../feedback";
 import { FullScreenLoading } from "../../shared/ui/full-screen-loading";
 import { Tooltip } from "../../shared/ui/tooltip";
+import { ActivityTimeline } from "./activity-timeline/ActivityTimeline";
 import styles from "./ConversationChat.module.css";
 
 type ConversationChatProps = { conversationId: string; onUpdated(): void };
+
+function updateActivity(steps: AgentActivityStep[], event: ConversationStreamEvent): AgentActivityStep[] {
+  const next = steps.map((step) => ({ ...step }));
+  if (event.type === "reasoning.started") {
+    for (const step of next) if (step.type === "reasoning") step.status = "completed";
+    next.push({ id: event.stepId, type: "reasoning", content: "", status: "running" });
+  } else if (event.type === "reasoning.delta") {
+    const step = [...next].reverse().find((item) => item.type === "reasoning" && item.status === "running");
+    if (step?.type === "reasoning") step.content += event.content;
+  } else if (event.type === "message.started") {
+    for (const step of next) if (step.type === "reasoning") step.status = "completed";
+    next.push({ id: `message-${crypto.randomUUID()}`, type: "message", content: "", status: "running" });
+  } else if (event.type === "message.delta") {
+    const step = [...next].reverse().find((item) => item.type === "message" && item.status === "running");
+    if (step?.type === "message") step.content += event.content;
+  } else if (event.type === "tool.requested") {
+    for (const step of next) if (step.type === "reasoning" || step.type === "message") step.status = "completed";
+    next.push({ id: event.callId, type: "tool", tool: event.tool, input: event.arguments, status: "running" });
+  } else if (event.type === "tool.completed") {
+    const step = next.find((item) => item.type === "tool" && item.id === event.callId);
+    if (step?.type === "tool") { step.result = event.result; step.status = "completed"; }
+  }
+  return next;
+}
 
 export function ConversationChat({ conversationId, onUpdated }: ConversationChatProps) {
   const { t, i18n } = useTranslation();
@@ -24,6 +49,7 @@ export function ConversationChat({ conversationId, onUpdated }: ConversationChat
   const autoScrollLockedRef = useRef(true);
   const lastScrollTopRef = useRef(0);
   const scrollFrameRef = useRef<number | null>(null);
+  const activeRequestIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     void window.ohmycode.conversations.get(conversationId).then(setConversation).catch(() => toast({ type: "error", message: t("agent.loadFailed") }));
@@ -39,14 +65,21 @@ export function ConversationChat({ conversationId, onUpdated }: ConversationChat
     const scroller = scrollRef.current;
     if (!scroller || !conversationLoaded) return;
     autoScrollLockedRef.current = true;
+    const handleWheel = (event: WheelEvent) => {
+      if (event.deltaY < -1) autoScrollLockedRef.current = false;
+    };
     const handleScroll = () => {
       const distanceFromBottom = scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop;
-      if (scroller.scrollTop < lastScrollTopRef.current - 24 && distanceFromBottom > 80) autoScrollLockedRef.current = false;
+      if (scroller.scrollTop < lastScrollTopRef.current - 1 && distanceFromBottom > 36) autoScrollLockedRef.current = false;
       if (distanceFromBottom <= 36) autoScrollLockedRef.current = true;
       lastScrollTopRef.current = scroller.scrollTop;
     };
+    scroller.addEventListener("wheel", handleWheel, { passive: true });
     scroller.addEventListener("scroll", handleScroll, { passive: true });
-    return () => scroller.removeEventListener("scroll", handleScroll);
+    return () => {
+      scroller.removeEventListener("wheel", handleWheel);
+      scroller.removeEventListener("scroll", handleScroll);
+    };
   }, [conversationId, conversationLoaded]);
 
   useEffect(() => {
@@ -70,16 +103,17 @@ export function ConversationChat({ conversationId, onUpdated }: ConversationChat
   async function send(content: string, editMessageId?: string) {
     if (!conversation) return;
     const requestId = crypto.randomUUID();
+    activeRequestIdRef.current = requestId;
     const now = new Date().toISOString();
     const assistantId = `stream-${requestId}`;
     const currentMessages = conversation.messages ?? [];
     const optimisticMessages = editMessageId
       ? currentMessages.slice(0, currentMessages.findIndex((message) => message.id === editMessageId) + 1).map((message) => message.id === editMessageId ? { ...message, content } : message)
       : [...currentMessages, { id: `user-${requestId}`, role: "user" as const, content, createdAt: now }];
-    setConversation({ ...conversation, messages: [...optimisticMessages, { id: assistantId, role: "assistant", content: "", createdAt: now }] });
+    setConversation({ ...conversation, messages: [...optimisticMessages, { id: assistantId, role: "assistant", content: "", createdAt: now, agentStartedAt: now }] });
     if (editMessageId) setEditing(null);
     setSending(true);
-    const queue: string[] = [];
+    const queue: ConversationStreamEvent[] = [];
     let draining = false;
     let networkDone = false;
     let resolveDrain: () => void = () => {};
@@ -87,16 +121,21 @@ export function ConversationChat({ conversationId, onUpdated }: ConversationChat
     const pump = () => {
       const part = queue.shift();
       if (part) {
-        setConversation((current) => current ? { ...current, messages: (current.messages ?? []).map((message) => message.id === assistantId ? { ...message, content: message.content + part } : message) } : current);
+        setConversation((current) => current ? { ...current, messages: (current.messages ?? []).map((message) => message.id === assistantId ? {
+          ...message,
+          activity: updateActivity(message.activity ?? [], part),
+        } : message) } : current);
         window.requestAnimationFrame(pump);
         return;
       }
       draining = false;
       if (networkDone) resolveDrain();
     };
-    const unsubscribe = window.ohmycode.conversations.onChunk(requestId, (chunk) => {
-      const characters = Array.from(chunk);
-      for (let index = 0; index < characters.length; index += 4) queue.push(characters.slice(index, index + 4).join(""));
+    const unsubscribe = window.ohmycode.conversations.onEvent(requestId, (event) => {
+      if (event.type === "reasoning.delta" || event.type === "message.delta") {
+        const characters = Array.from(event.content);
+        for (let index = 0; index < characters.length; index += 4) queue.push({ ...event, content: characters.slice(index, index + 4).join("") });
+      } else queue.push(event);
       if (!draining) { draining = true; window.requestAnimationFrame(pump); }
     });
     try {
@@ -111,8 +150,16 @@ export function ConversationChat({ conversationId, onUpdated }: ConversationChat
       setConversation(await window.ohmycode.conversations.get(conversationId));
     } finally {
       unsubscribe();
+      if (activeRequestIdRef.current === requestId) activeRequestIdRef.current = null;
       setSending(false);
     }
+  }
+
+  async function stop() {
+    const requestId = activeRequestIdRef.current;
+    if (!requestId) return;
+    await window.ohmycode.conversations.stop(requestId);
+    setSending(false);
   }
 
   if (!conversation) return <FullScreenLoading />;
@@ -127,7 +174,10 @@ export function ConversationChat({ conversationId, onUpdated }: ConversationChat
             <button onClick={() => setEditing(null)}>{t("agent.cancel")}</button>
             <button disabled={!editing.content.trim()} onClick={() => void send(editing.content, message.id)}>{t("agent.resend")}</button>
           </div>
-        </div> : <div className={styles.bubble}><ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content || "▍"}</ReactMarkdown></div>}
+        </div> : <>
+          {message.role === "assistant" && <ActivityTimeline active={sending && message.id.startsWith("stream-")} durationMs={message.agentDurationMs} startedAt={message.agentStartedAt} steps={message.activity?.length ? message.activity : message.reasoning ? [{ id: `reasoning-${message.id}`, type: "reasoning", content: message.reasoning, status: "completed" }] : []} />}
+          {(message.content || !message.activity?.some((step) => step.type === "message")) && <div className={message.role === "assistant" ? styles.response : styles.bubble}><ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content || "▍"}</ReactMarkdown></div>}
+        </>}
         {!editing || editing.message.id !== message.id ? <div className={styles.messageActions}>
           <time>{new Intl.DateTimeFormat(i18n.language, { hour: "2-digit", minute: "2-digit" }).format(new Date(message.createdAt))}</time>
           <Tooltip content={t("agent.copy")}><button aria-label={t("agent.copy")} onClick={() => void copy(message)}>{copiedId === message.id ? <Check /> : <Copy />}</button></Tooltip>
@@ -137,6 +187,6 @@ export function ConversationChat({ conversationId, onUpdated }: ConversationChat
       {!conversation.messages?.length && <p className={styles.empty}>{t("agent.emptyConversation")}</p>}
       </div>
     </div></div>
-    <div className={styles.composerDock}><TaskComposer busy={sending || Boolean(editing)} models={models} selectedModelId={selectedModelId} onModelChange={setSelectedModelId} onSubmit={send} /></div>
+    <div className={styles.composerDock}><TaskComposer busy={sending} disabled={Boolean(editing)} models={models} selectedModelId={selectedModelId} onModelChange={setSelectedModelId} onSubmit={send} onStop={stop} /></div>
   </section>;
 }

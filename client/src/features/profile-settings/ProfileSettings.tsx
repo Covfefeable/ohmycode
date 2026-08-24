@@ -4,9 +4,11 @@ import { CircleUserRound } from "lucide-react";
 import { useAuth } from "../auth-session";
 import { useFeedback } from "../feedback";
 import { LanguageSwitcher } from "../language-switcher";
+import { TokenUsageCalendar } from "../token-usage-calendar";
+import { SettingsSectionHeader } from "../../shared/ui/settings-section-header";
 import styles from "./ProfileSettings.module.css";
 
-export function ProfileSettings({ initial }: { initial: PublicSettings["profile"] }) {
+export function ProfileSettings({ initial, tokenUsage }: { initial: PublicSettings["profile"]; tokenUsage: TokenUsageEntry[] }) {
   const { t } = useTranslation();
   const { user } = useAuth();
   const { toast } = useFeedback();
@@ -16,11 +18,11 @@ export function ProfileSettings({ initial }: { initial: PublicSettings["profile"
     catch { toast({ type: "error", message: t("settings.saveFailed") }); }
   }
   return <section className={styles.section}>
-    <header><p>{t("settings.profileEyebrow")}</p><h2>{t("settings.profileTitle")}</h2><span>{t("settings.profileDescription")}</span></header>
+    <SettingsSectionHeader title={t("settings.profileTitle")} description={t("settings.profileDescription")} actions={<button className={styles.primaryAction} onClick={() => void save()}>{t("settings.save")}</button>} />
     <div className={styles.avatar}><CircleUserRound /></div>
     <label><span>{t("auth.displayName")}</span><input value={displayName} onChange={(event) => setDisplayName(event.target.value)} /></label>
     <label><span>{t("auth.email")}</span><input value={user?.email ?? ""} disabled /></label>
     <LanguageSwitcher />
-    <div className={styles.actions}><button className={styles.save} onClick={() => void save()}>{t("settings.save")}</button></div>
+    <TokenUsageCalendar entries={tokenUsage} />
   </section>;
 }

@@ -4,9 +4,10 @@
   background: var(--color-surface-composer-frosted);
   backdrop-filter: blur(28px) saturate(150%);
   -webkit-backdrop-filter: blur(28px) saturate(150%);
-  box-shadow: var(--shadow-panel);
+  box-shadow: none;
   overflow: hidden;
 }
+.composer:focus-within { border-color: var(--color-border-strong); background: color-mix(in srgb, var(--color-surface-composer-frosted) 88%, var(--color-surface-2)); }
 .composer textarea {
   width: 100%;
   min-height: 24px;
@@ -20,6 +21,7 @@
   padding: 14px 16px 8px;
   overflow-y: auto;
 }
+.composer textarea:focus, .composer textarea:focus-visible { outline: none; box-shadow: none; }
 .toolbar {
   padding: 6px 10px 10px 16px;
   display: flex;
@@ -29,7 +31,7 @@
 }
 .actions { display: flex; align-items: center; gap: var(--space-2); }
 .modelSelect { position: relative; min-width: 0; display: inline-flex; }
-.modelSelect select { max-width: 220px; height: 32px; appearance: none; overflow: hidden; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--color-text-muted); padding: 0 34px 0 10px; outline: none; text-overflow: ellipsis; cursor: pointer; }
+.modelSelect select { max-width: 220px; height: 32px; appearance: none; overflow: hidden; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--color-text-muted); padding: 0 34px 0 10px; text-overflow: ellipsis; cursor: pointer; }
 .modelSelect > svg { position: absolute; top: 50%; right: 11px; width: 14px; height: 14px; transform: translateY(-50%); color: var(--color-text-dim); pointer-events: none; }
 .missingModel { opacity: .72; }
 .modelSelect select:hover, .modelSelect select:focus-visible { background: var(--color-surface-control); color: var(--color-text); }
@@ -47,5 +49,5 @@
 }
 .toolbar button:not(:disabled) { background: var(--color-accent); color: var(--color-accent-ink); }
 .toolbar button svg { width: 16px; height: 16px; }
-.spinner { animation: spin 700ms linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
+.toolbar .stop { background: var(--color-surface-control); color: var(--color-text); }
+.toolbar .stop svg { width: 11px; height: 11px; fill: currentColor; }

@@ -13,7 +13,8 @@ interface Window {
     conversations: {
       get(conversationId: string): Promise<LocalConversation>;
       send(conversationId: string, content: string, modelId: string | undefined, requestId: string, editMessageId?: string): Promise<LocalConversation>;
-      onChunk(requestId: string, callback: (chunk: string) => void): () => void;
+      stop(requestId: string): Promise<void>;
+      onEvent(requestId: string, callback: (event: ConversationStreamEvent) => void): () => void;
     };
     apiStatus(): Promise<{ online: boolean; url: string }>;
     auth: {
@@ -35,6 +36,9 @@ interface Window {
       saveProfile(displayName: string): Promise<void>;
       saveModels(models: ModelConfiguration[]): Promise<void>;
       testModel(model: ModelConfiguration): Promise<{ ok: boolean; latencyMs?: number; message?: string }>;
+    };
+    terminal: {
+      execute(action: TerminalAction): Promise<TerminalResult | TerminalResult[]>;
     };
   };
 }
@@ -59,13 +63,37 @@ type ModelConfiguration = {
   name: string;
   baseUrl: string;
   model: string;
+  contextLength: number;
   apiKey?: string;
   hasApiKey?: boolean;
 };
 type PublicSettings = {
   profile: { displayName: string; avatarDataUrl: string | null };
   models: ModelConfiguration[];
+  tokenUsage: TokenUsageEntry[];
 };
-type LocalMessage = { id: string; role: "user" | "assistant"; content: string; createdAt: string };
+type TokenUsageEntry = { date: string; tokens: number };
+type ConversationStreamEvent =
+  | { type: "reasoning.started"; stepId: string }
+  | { type: "run.started"; runId: string }
+  | { type: "run.failed"; errorCode: string }
+  | { type: "reasoning.delta"; content: string }
+  | { type: "message.started" }
+  | { type: "message.delta"; content: string }
+  | { type: "tool.requested"; runId: string; callId: string; tool: "terminal"; arguments: TerminalAction }
+  | { type: "tool.completed"; callId: string; result: unknown };
+type AgentActivityStep =
+  | { id: string; type: "reasoning"; content: string; status: "running" | "completed" }
+  | { id: string; type: "message"; content: string; status: "running" | "completed" }
+  | { id: string; type: "tool"; tool: string; input: string | TerminalAction; result?: unknown; status: "running" | "completed" };
+type LocalMessage = { id: string; role: "user" | "assistant"; content: string; reasoning?: string | null; activity?: AgentActivityStep[] | null; agentDurationMs?: number | null; agentStartedAt?: string; createdAt: string };
 type LocalConversation = { id: string; title: string; createdAt: string; messages?: LocalMessage[] };
 type LocalProject = { id: string; name: string; path: string; conversations: LocalConversation[] };
+type TerminalStatus = "running" | "exited" | "stopped";
+type TerminalAction =
+  | { action: "start"; projectId: string; command: string; cwd?: string; yieldMs?: number }
+  | { action: "read"; terminalId: string; afterCursor?: number; yieldMs?: number }
+  | { action: "write"; terminalId: string; input: string }
+  | { action: "stop"; terminalId: string }
+  | { action: "list"; projectId?: string };
+type TerminalResult = { terminalId: string; command: string; cwd: string; status: TerminalStatus; cursor: number; output: string; truncated?: boolean; exitCode?: number };

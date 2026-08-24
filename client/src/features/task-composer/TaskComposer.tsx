@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowUp, ChevronDown, LoaderCircle } from "lucide-react";
+import { ArrowUp, ChevronDown, Square } from "lucide-react";
 import { Tooltip } from "../../shared/ui/tooltip";
 import styles from "./TaskComposer.module.css";
 
@@ -11,9 +11,10 @@ type TaskComposerProps = {
   selectedModelId: string;
   onModelChange(modelId: string): void;
   onSubmit(content: string): Promise<void>;
+  onStop(): Promise<void>;
 };
 
-export function TaskComposer({ disabled = false, busy = false, models, selectedModelId, onModelChange, onSubmit }: TaskComposerProps) {
+export function TaskComposer({ disabled = false, busy = false, models, selectedModelId, onModelChange, onSubmit, onStop }: TaskComposerProps) {
   const { t } = useTranslation();
   const [content, setContent] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -42,7 +43,7 @@ export function TaskComposer({ disabled = false, busy = false, models, selectedM
             </select>
             <ChevronDown />
           </span></Tooltip>
-          <button aria-label={t("agent.run")} disabled={!content.trim() || disabled || busy || !selectedModelId} onClick={() => void submit()}>{busy ? <LoaderCircle className={styles.spinner} /> : <ArrowUp />}</button>
+          <button className={busy ? styles.stop : ""} aria-label={t(busy ? "agent.stop" : "agent.run")} disabled={!busy && (!content.trim() || disabled || !selectedModelId)} onClick={() => void (busy ? onStop() : submit())}>{busy ? <Square /> : <ArrowUp />}</button>
         </div>
       </div>
     </div>

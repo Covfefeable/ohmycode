@@ -1,5 +1,5 @@
 .root { display: contents; }
-.sticky { position: sticky; top: -32px; z-index: 20; margin: -32px -22px 0; padding: 32px 22px var(--space-3); background: var(--color-panel); }
+.sticky { position: sticky; top: -32px; z-index: var(--z-sticky); margin: -32px -22px 0; padding: 32px 22px var(--space-3); background: var(--color-panel); }
 .create { width: 100%; display: flex; align-items: center; justify-content: center; gap: var(--space-2); overflow: hidden; border: 1px solid var(--color-accent); border-radius: var(--radius-md); background: var(--color-accent); color: var(--color-accent-ink); padding: 10px var(--space-3); font-weight: 750; white-space: nowrap; cursor: pointer; }
 .create svg { width: 17px; height: 17px; flex: none; }
 .label { margin: var(--space-5) 0 0; color: var(--color-text-faint); font-size: var(--font-xs); font-weight: 800; letter-spacing: .12em; }
@@ -10,21 +10,21 @@
 .projectMain { min-width: 0; flex: 1; display: flex; align-items: center; gap: var(--space-1); border: 0; background: transparent; color: var(--color-text-soft); padding: 9px 8px; cursor: pointer; text-align: left; }
 .projectMain > svg { width: 15px; height: 15px; flex: none; }
 .projectName { min-width: 0; flex: 1; }
-.projectName > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.projectName > span { min-width: 0; overflow: hidden; font-size: var(--font-sm); font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
 .projectActions { display: flex; align-items: center; gap: 3px; margin-left: var(--space-2); opacity: 0; pointer-events: none; }
 .projectRow:hover .projectActions, .projectRow:focus-within .projectActions { opacity: 1; pointer-events: auto; }
 .projectActions button { width: 28px; height: 28px; display: grid; place-items: center; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--color-text-dim); padding: 0; cursor: pointer; }
 .projectActions svg { width: 16px; height: 16px; }
 .projectActions button:hover { background: var(--color-surface-control); color: var(--color-text); }
 .danger { color: var(--color-danger-text) !important; }
-.conversations { display: grid; gap: 2px; margin: 2px 0 var(--space-2); padding-left: 24px; }
+.conversations { display: grid; gap: 3px; margin: 4px 0 var(--space-3); padding-left: 28px; }
 .conversation { min-width: 0; display: flex; align-items: center; border-radius: var(--radius-sm); }
 .conversation:hover { background: var(--color-surface-icon-hover); }
 .conversationActive { background: var(--color-surface-active); }
 .conversationActive .conversationName > button { color: var(--color-text); }
 .conversationName { min-width: 0; flex: 1; }
-.conversationName > button { width: 100%; min-width: 0; overflow: hidden; border: 0; background: transparent; color: var(--color-text-muted); padding: 7px 8px; text-align: left; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
-.deleteConversation { width: 26px; height: 26px; display: grid; place-items: center; border: 0; background: transparent; color: var(--color-text-dim); opacity: 0; cursor: pointer; }
+.conversationName > button { width: 100%; min-width: 0; overflow: hidden; border: 0; background: transparent; color: var(--color-text-muted); padding: 9px 10px; font-size: var(--font-xs); text-align: left; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+.deleteConversation { width: 28px; height: 28px; margin-right: var(--space-2); display: grid; place-items: center; flex: 0 0 auto; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--color-text-dim); opacity: 0; cursor: pointer; }
 .conversation:hover .deleteConversation, .conversation:focus-within .deleteConversation { opacity: 1; }
 .deleteConversation:hover { color: var(--color-danger-text); }
 .deleteConversation svg { width: 14px; height: 14px; }

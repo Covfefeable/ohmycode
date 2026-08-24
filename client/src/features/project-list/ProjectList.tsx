@@ -4,6 +4,7 @@ import { ChevronDown, ChevronRight, FolderOpen, MoreHorizontal, Plus, Trash2 } f
 import { useFeedback } from "../feedback";
 import { PopoverMenu } from "../../shared/ui/popover-menu";
 import { Tooltip } from "../../shared/ui/tooltip";
+import { EmptyState } from "../../shared/ui/empty-state";
 import styles from "./ProjectList.module.css";
 
 type ProjectListProps = {
@@ -21,7 +22,21 @@ export function ProjectList({ selectedConversationId, onConversationSelect, onCo
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const revealLabel = navigator.userAgent.includes("Mac") ? t("projects.revealFinder") : t("projects.revealExplorer");
 
-  useEffect(() => { void window.ohmycode.projects.list().then(setProjects); }, [refreshToken]);
+  useEffect(() => {
+    let cancelled = false;
+    let timer: number | undefined;
+    let attempts = 0;
+    const load = () => {
+      attempts += 1;
+      void window.ohmycode.projects.list().then((items) => {
+        if (!cancelled) setProjects(items);
+      }).catch(() => {
+        if (!cancelled && attempts < 5) timer = window.setTimeout(load, 1200);
+      });
+    };
+    load();
+    return () => { cancelled = true; if (timer) window.clearTimeout(timer); };
+  }, [refreshToken]);
 
   function toggle(project: LocalProject) {
     setExpanded((current) => {
@@ -45,6 +60,7 @@ export function ProjectList({ selectedConversationId, onConversationSelect, onCo
     const conversation = await window.ohmycode.projects.createConversation(project.id, t("projects.untitledConversation"));
     setProjects((items) => items.map((item) => item.id === project.id ? { ...item, conversations: [...item.conversations, conversation] } : item));
     setExpanded((current) => new Set(current).add(project.id));
+    onConversationSelect(project, conversation);
   }
 
   async function removeProject(project: LocalProject) {
@@ -85,10 +101,10 @@ export function ProjectList({ selectedConversationId, onConversationSelect, onCo
             <Tooltip className={styles.conversationName} content={conversation.title}><button onClick={() => onConversationSelect(project, conversation)}>{conversation.title}</button></Tooltip>
             <Tooltip content={t("projects.deleteConversation")}><button className={styles.deleteConversation} aria-label={t("projects.deleteConversation")} onClick={() => void removeConversation(project.id, conversation.id)}><Trash2 /></button></Tooltip>
           </div>)}
-          {project.conversations.length === 0 && <span className={styles.empty}>{t("projects.noConversations")}</span>}
+          {project.conversations.length === 0 && <EmptyState compact icon={<FolderOpen />} title={t("projects.noConversations")} />}
         </div>}
       </article>)}
-      {projects.length === 0 && <p className={styles.empty}>{t("projects.empty")}</p>}
+      {projects.length === 0 && <EmptyState icon={<FolderOpen />} title={t("projects.empty")} description={t("projects.emptyDescription")} />}
     </div>
   </section>;
 }
