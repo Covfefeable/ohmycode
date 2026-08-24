@@ -4,7 +4,8 @@
 .section button svg { width: 17px; height: 17px; }
 .primaryAction { border-color: var(--color-accent) !important; background: var(--color-accent) !important; color: var(--color-accent-ink) !important; font-weight: 800; }
 .list { display: grid; gap: var(--space-3); }
-.list article { border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: var(--color-surface-1); padding: var(--space-2) var(--space-3); }
+.list article { position: relative; border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: var(--color-surface-1); padding: var(--space-2) var(--space-3); transition: transform 180ms cubic-bezier(.2, .8, .2, 1), border-color var(--transition-fast), opacity var(--transition-fast), box-shadow var(--transition-fast); }
+.list article[data-dragging] { border-color: var(--color-border-strong); opacity: .58; box-shadow: var(--shadow-panel); }
 .cardHead, .list footer, .actions { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
 .cardHead button { margin-left: auto; border: 0; background: transparent; }
 .cardHead .cardToggle { min-width: 0; flex: 1; justify-content: space-between; margin-left: 0; text-align: left; }
@@ -13,7 +14,9 @@
 .cardToggle small { color: var(--color-text-dim); font-size: var(--font-xs); font-weight: 500; }
 .cardToggle > svg { transition: transform var(--transition-fast); }
 .cardToggle > .open { transform: rotate(180deg); }
-.handle { color: var(--color-text-dim); cursor: grab; font-size: 20px; }
+.handle { color: var(--color-text-dim); cursor: grab; font-size: 20px; touch-action: none; }
+.handle:active { cursor: grabbing; }
+@media (prefers-reduced-motion: reduce) { .list article { transition: none; } }
 .details { border-top: 1px solid var(--color-border); margin-top: var(--space-2); padding: var(--space-3) var(--space-1) var(--space-1); }
 .grid { display: grid; grid-template-columns: minmax(160px, 1fr) minmax(180px, 1fr) 132px; gap: var(--space-3); margin: 0 0 var(--space-3); }
 .grid label { display: grid; gap: var(--space-2); color: var(--color-text-muted); font-size: var(--font-sm); }
