@@ -1,0 +1,24 @@
+.sidebar { min-width: 0; min-height: 0; overflow: auto; border-right: 1px solid var(--color-border); background: var(--color-panel); padding: var(--space-5); }
+.sticky { position: sticky; top: -20px; z-index: var(--z-sticky); margin: -20px -20px 0; padding: 20px 20px var(--space-4); background: var(--color-panel); }
+.sticky h2 { margin: 0 0 var(--space-4); font-size: 16px; }
+.create { width: 100%; height: var(--control-height); display: flex; align-items: center; justify-content: center; gap: var(--space-2); border: 1px solid var(--color-accent); border-radius: var(--radius-md); background: var(--color-accent); color: var(--color-accent-ink); font-weight: 800; cursor: pointer; }
+.create svg { width: 16px; }
+.list { display: grid; gap: var(--space-3); padding-bottom: var(--space-6); }
+.empty { color: var(--color-text-muted); font-size: var(--font-sm); line-height: 1.55; }
+.agent { min-width: 0; }
+.agentRow { min-width: 0; display: grid; grid-template-columns: 14px 17px minmax(0, 1fr) 28px 28px; align-items: center; gap: 5px; color: var(--color-text-soft); }
+.agentRow > svg { width: 14px; height: 14px; }
+.agentRow > svg:nth-child(2) { width: 17px; height: 17px; color: var(--color-accent); }
+.agentRow strong { display: block; overflow: hidden; font-size: var(--font-control); text-overflow: ellipsis; white-space: nowrap; }
+.agentRow button, .deleteTask { width: 28px; height: 28px; display: grid; place-items: center; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--color-text-dim); cursor: pointer; }
+.agentRow button:hover, .deleteTask:hover { background: var(--color-surface-hover); color: var(--color-text); }
+.agentRow button svg, .deleteTask svg { width: 14px; height: 14px; }
+.tasks { display: grid; gap: 2px; margin: 5px 0 var(--space-3) 24px; }
+.tasks > span { padding: 8px 10px; color: var(--color-text-empty); font-size: var(--font-xs); }
+.task { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) 28px; align-items: center; border-radius: var(--radius-sm); }
+.task:hover, .active { background: var(--color-surface-active); }
+.task > button:first-child { min-width: 0; display: grid; gap: 2px; border: 0; background: transparent; color: var(--color-text-muted); padding: 8px 10px; text-align: left; cursor: pointer; }
+.task span { overflow: hidden; font-size: var(--font-xs); text-overflow: ellipsis; white-space: nowrap; }
+.task small { color: var(--color-text-dim); font-size: 10px; }
+.deleteTask { opacity: 0; }
+.task:hover .deleteTask { opacity: 1; }

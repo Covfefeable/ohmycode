@@ -28,7 +28,13 @@ function updateActivity(steps: AgentActivityStep[], event: ConversationStreamEve
     if (step?.type === "message") step.content += event.content;
   } else if (event.type === "tool.requested") {
     for (const step of next) if (step.type === "reasoning" || step.type === "message") step.status = "completed";
-    next.push({ id: event.callId, type: "tool", tool: event.tool, input: event.arguments, status: "running" });
+    next.push({
+      id: event.callId,
+      type: "tool",
+      tool: event.tool,
+      input: event.tool === "terminal" ? event.arguments as TerminalAction : JSON.stringify(event.arguments),
+      status: "running",
+    });
   } else if (event.type === "tool.completed") {
     const step = next.find((item) => item.type === "tool" && item.id === event.callId);
     if (step?.type === "tool") { step.result = event.result; step.status = "completed"; }

@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",
+    "@xyflow/react": "^12.11.3",
     "i18next": "^26.4.0",
     "lucide-react": "^1.33.0",
     "node-pty": "^1.1.0",
@@ -44,5 +45,11 @@
     "typescript-eslint": "latest",
     "wait-on": "latest"
   },
-  "packageManager": "pnpm@10.15.0"
+  "packageManager": "pnpm@10.15.0",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "electron",
+      "node-pty"
+    ]
+  }
 }
