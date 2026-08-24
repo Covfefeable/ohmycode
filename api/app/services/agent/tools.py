@@ -2,7 +2,11 @@ TERMINAL_TOOL = {
     "type": "function",
     "function": {
         "name": "terminal",
-        "description": "Start, inspect, interact with, stop, or list persistent local terminals.",
+        "description": (
+            "Start, inspect, interact with, stop, or list persistent local terminals. "
+            "For a running command, read waits until it exits or yieldMs elapses; use a "
+            "5-30 second yieldMs for installs, builds, downloads, and other long tasks."
+        ),
         "parameters": {
             "type": "object",
             "properties": {

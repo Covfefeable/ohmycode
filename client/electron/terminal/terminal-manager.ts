@@ -66,23 +66,6 @@ function snapshot(session: Session, afterCursor = 0): TerminalResult {
   };
 }
 
-async function waitForActivity(session: Session, afterCursor: number, yieldMs: number, signal?: AbortSignal): Promise<void> {
-  if (session.cursor > afterCursor || session.status !== "running" || yieldMs === 0) return;
-  await new Promise<void>((resolve) => {
-    const timer = setTimeout(done, yieldMs);
-    const dataDisposable = session.process.onData(done);
-    const exitDisposable = session.process.onExit(done);
-    signal?.addEventListener("abort", done, { once: true });
-    function done() {
-      clearTimeout(timer);
-      dataDisposable.dispose();
-      exitDisposable.dispose();
-      signal?.removeEventListener("abort", done);
-      resolve();
-    }
-  });
-}
-
 async function waitForExitOrTimeout(session: Session, yieldMs: number, signal?: AbortSignal): Promise<void> {
   if (session.status !== "running" || yieldMs === 0) return;
   await new Promise<void>((resolve) => {
@@ -162,8 +145,9 @@ export async function executeTerminalAction(action: TerminalAction, signal?: Abo
     }
     return snapshot(session, session.cursor);
   }
-  const afterCursor = action.afterCursor ?? 0;
-  await waitForActivity(session, afterCursor, boundedYield(action.yieldMs), signal);
+  const afterCursor = action.afterCursor
+    ?? (session.status === "running" ? session.cursor : 0);
+  await waitForExitOrTimeout(session, boundedYield(action.yieldMs), signal);
   return snapshot(session, afterCursor);
 }
 
