@@ -73,7 +73,8 @@ export function ActivityTimeline({ steps, active, durationMs, startedAt }: { ste
     return () => window.clearInterval(timer);
   }, [active, startedAt]);
   if (!steps.length) return null;
-  const seconds = Math.max(1, Math.round((durationMs ?? liveDuration) / 1000));
+  const hasDuration = durationMs != null || Boolean(startedAt);
+  const seconds = Math.max(0, Math.round((durationMs ?? liveDuration) / 1000));
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
   const remainingSeconds = seconds % 60;
@@ -83,7 +84,7 @@ export function ActivityTimeline({ steps, active, durationMs, startedAt }: { ste
   return <div className={styles.timeline}>
     <button className={styles.summary} type="button" onClick={() => setManuallyOpen((value) => !value)}>
       {active ? <LoaderCircle className={styles.spinner} /> : <Check />}
-      <span>{active ? t("agent.working") : duration}</span>
+      <span>{active ? t("agent.working") : hasDuration ? duration : t("agent.steps")}</span>
       <ChevronDown className={`${styles.chevron} ${open ? styles.chevronOpen : ""}`} />
     </button>
     {open && <div className={styles.steps}>{steps.map((step) => <ActivityStep key={`${step.id}-${step.status}`} step={step} />)}</div>}

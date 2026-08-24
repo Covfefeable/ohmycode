@@ -21,3 +21,17 @@ export function updateActivity(steps: AgentActivityStep[], event: ConversationSt
   }
   return next;
 }
+
+export function withoutFinalResponse(steps: AgentActivityStep[], finalContent?: string): AgentActivityStep[] {
+  if (!finalContent?.trim()) return steps;
+  const normalizedFinal = finalContent.trim();
+  let finalIndex = -1;
+  for (let index = steps.length - 1; index >= 0; index -= 1) {
+    const step = steps[index];
+    if (step.type === "message" && step.content.trim() === normalizedFinal) {
+      finalIndex = index;
+      break;
+    }
+  }
+  return finalIndex < 0 ? steps : steps.filter((_, index) => index !== finalIndex);
+}

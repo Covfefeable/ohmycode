@@ -42,6 +42,8 @@ export type MultiAgentNode = {
   conversationId?: string | null;
   modelId?: string | null;
   finalOutput?: Record<string, unknown> | null;
+  agentStartedAt?: string | null;
+  agentDurationMs?: number | null;
   messages: MultiAgentMessage[];
   changedFiles: Array<{ id: string; path: string; operation: string; sequence: number }>;
 };

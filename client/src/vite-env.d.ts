@@ -93,7 +93,7 @@ type MultiAgentTemplateNode = { key: string; name: string; role: string; instruc
 type MultiAgentTemplateFlow = { title: string; nodes: MultiAgentTemplateNode[]; edges: Array<{ source: string; target: string }> };
 type MultiAgentSummary = { id: string; name: string; description: string; division: string; templateFlow: MultiAgentTemplateFlow; createdAt: string; tasks: MultiAgentTaskSummary[] };
 type MultiAgentMessage = { id: string; fromNodeId: string | null; toNodeId: string; type: string; senderType: "user" | "agent"; content: string; expectsReply: boolean; replyToId?: string | null; createdAt: string };
-type MultiAgentNodeData = { id: string; key: string; name: string; role: string; instructions: string; status: string; position: { x: number; y: number }; conversationId?: string | null; modelId?: string | null; finalOutput?: Record<string, unknown> | null; messages: MultiAgentMessage[]; changedFiles: Array<{ id: string; path: string; operation: string; sequence: number }> };
+type MultiAgentNodeData = { id: string; key: string; name: string; role: string; instructions: string; status: string; position: { x: number; y: number }; conversationId?: string | null; modelId?: string | null; finalOutput?: Record<string, unknown> | null; agentStartedAt?: string | null; agentDurationMs?: number | null; messages: MultiAgentMessage[]; changedFiles: Array<{ id: string; path: string; operation: string; sequence: number }> };
 type MultiAgentTask = { id: string; agentId: string; title: string; request: string; status: string; workspacePath: string; nodes: MultiAgentNodeData[]; edges: Array<{ id: string; source: string; target: string }>; createdAt: string; updatedAt: string };
 type ConversationStreamEvent =
   | { type: "reasoning.started"; stepId: string }

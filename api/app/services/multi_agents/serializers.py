@@ -1,4 +1,5 @@
-from ...models import MultiAgent, MultiAgentMessage, MultiAgentTask, WorkspaceChange
+from ...extensions import db
+from ...models import AgentRun, MultiAgent, MultiAgentMessage, MultiAgentTask, WorkspaceChange
 
 
 def serialize_agent(agent: MultiAgent) -> dict:
@@ -69,6 +70,15 @@ def serialize_task(task: MultiAgentTask) -> dict:
     outgoing = {edge.source_node_id for edge in work_edges}
     min_x = min((float(node.position.get("x", 0)) for node in work_nodes), default=120)
     max_x = max((float(node.position.get("x", 0)) for node in work_nodes), default=120)
+    conversation_ids = [node.conversation_id for node in work_nodes if node.conversation_id]
+    latest_runs = {}
+    if conversation_ids:
+        for run in db.session.scalars(
+            db.select(AgentRun)
+            .where(AgentRun.conversation_id.in_(conversation_ids))
+            .order_by(AgentRun.started_at)
+        ):
+            latest_runs[run.conversation_id] = run
     boundary_status = "completed" if task.status == "completed" else ("running" if task.status == "running" else task.status)
     serialized_nodes = [
         {
@@ -85,6 +95,16 @@ def serialize_task(task: MultiAgentTask) -> dict:
                 "modelId": str(node.model_configuration_id) if node.model_configuration_id else None,
                 "finalOutput": node.final_output, "messages": messages.get(str(node.id), []),
                 "changedFiles": [item for item in changes if item["nodeId"] == str(node.id)],
+                "agentStartedAt": (
+                    latest_runs[node.conversation_id].started_at.isoformat()
+                    if node.conversation_id in latest_runs else None
+                ),
+                "agentDurationMs": (
+                    max(0, round((latest_runs[node.conversation_id].completed_at - latest_runs[node.conversation_id].started_at).total_seconds() * 1000))
+                    if node.conversation_id in latest_runs
+                    and latest_runs[node.conversation_id].completed_at
+                    else None
+                ),
             }
             for node in work_nodes
         ],
@@ -121,8 +141,6 @@ def serialize_task(task: MultiAgentTask) -> dict:
 
 
 def task_messages(task: MultiAgentTask) -> list[MultiAgentMessage]:
-    from ...extensions import db
-
     return list(
         db.session.scalars(
             db.select(MultiAgentMessage)

@@ -8,6 +8,7 @@ import { useFeedback } from "../feedback";
 import { FullScreenLoading } from "../../shared/ui/full-screen-loading";
 import { Tooltip } from "../../shared/ui/tooltip";
 import { ActivityTimeline } from "./activity-timeline/ActivityTimeline";
+import { withoutFinalResponse } from "./activity-timeline/updateActivity";
 import { updateActivity } from "./activity-timeline/updateActivity";
 import styles from "./ConversationChat.module.css";
 
@@ -170,7 +171,7 @@ export function ConversationChat({ conversationId, onUpdated }: ConversationChat
             <button disabled={!editing.content.trim()} onClick={() => void send(editing.content, message.id)}>{t("agent.resend")}</button>
           </div>
         </div> : <>
-          {message.role === "assistant" && <ActivityTimeline active={sending && message.id.startsWith("stream-")} durationMs={message.agentDurationMs} startedAt={message.agentStartedAt} steps={message.activity?.length ? message.activity : message.reasoning ? [{ id: `reasoning-${message.id}`, type: "reasoning", content: message.reasoning, status: "completed" }] : []} />}
+          {message.role === "assistant" && <ActivityTimeline active={sending && message.id.startsWith("stream-")} durationMs={message.agentDurationMs} startedAt={message.agentStartedAt} steps={message.activity?.length ? withoutFinalResponse(message.activity, message.content) : message.reasoning ? [{ id: `reasoning-${message.id}`, type: "reasoning", content: message.reasoning, status: "completed" }] : []} />}
           {(message.content || !message.activity?.some((step) => step.type === "message")) && <div className={message.role === "assistant" ? styles.response : styles.bubble}><ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content || "▍"}</ReactMarkdown></div>}
         </>}
         {!editing || editing.message.id !== message.id ? <div className={styles.messageActions}>

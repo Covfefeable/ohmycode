@@ -1,0 +1,23 @@
+.composer {
+  border: 1px solid var(--color-border-frosted);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-composer-frosted);
+  backdrop-filter: blur(28px) saturate(150%);
+  -webkit-backdrop-filter: blur(28px) saturate(150%);
+  overflow: hidden;
+}
+.composer:focus-within { border-color: var(--color-border-strong); }
+.composer textarea {
+  width: 100%; min-height: 24px; max-height: 72px; resize: none; overflow-y: auto;
+  border: 0; outline: 0; background: transparent; color: var(--color-text-input);
+  padding: 12px 14px 5px; font: inherit; line-height: 24px;
+}
+.toolbar { display: flex; justify-content: flex-end; padding: 4px 8px 8px; }
+.toolbar button {
+  width: 32px; height: 32px; display: grid; place-items: center; border: 0;
+  border-radius: 50%; background: var(--color-accent); color: var(--color-accent-ink); cursor: pointer;
+}
+.toolbar button:disabled { background: var(--color-surface-control); color: var(--color-text-disabled); cursor: not-allowed; }
+.toolbar svg { width: 16px; height: 16px; }
+.spinner { animation: spin 750ms linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
