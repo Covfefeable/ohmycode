@@ -47,12 +47,16 @@ export function MultiAgentSidebar(props: Props) {
       {!props.agents.length && <p className={styles.empty}>{t("multiAgent.emptyAgents")}</p>}
       {props.agents.map((agent) => <section key={agent.id} className={styles.agent}>
         <div className={`${styles.agentRow} ${agent.id === props.selectedAgentId && !props.selectedTaskId ? styles.agentActive : ""}`}>
-          <button className={styles.toggle} onClick={() => toggle(agent.id)}>{expanded.has(agent.id) ? <ChevronDown /> : <ChevronRight />}</button>
-          <Tooltip content={agent.description}><button className={styles.agentName} onClick={() => props.onSelectAgent(agent.id)}><strong>{agent.name}</strong></button></Tooltip>
-          <Tooltip content={t("multiAgent.runNewTask")}><button onClick={() => props.onRunAgent(agent.id)}><Plus /></button></Tooltip>
-          <PopoverMenu trigger={<Tooltip content={t("projects.more")}><button aria-label={t("projects.more")}><MoreHorizontal /></button></Tooltip>}>
-            <button className={styles.danger} onClick={() => props.onDeleteAgent(agent.id)}><Trash2 /><span>{t("projects.delete")}</span></button>
-          </PopoverMenu>
+          <button className={styles.agentMain} onClick={() => { toggle(agent.id); props.onSelectAgent(agent.id); }}>
+            {expanded.has(agent.id) ? <ChevronDown /> : <ChevronRight />}
+            <Tooltip className={styles.agentName} content={agent.description}><span>{agent.name}</span></Tooltip>
+          </button>
+          <div className={styles.agentActions}>
+            <Tooltip content={t("multiAgent.runNewTask")}><button aria-label={t("multiAgent.runNewTask")} onClick={() => props.onRunAgent(agent.id)}><Plus /></button></Tooltip>
+            <PopoverMenu trigger={<Tooltip content={t("projects.more")}><button aria-label={t("projects.more")}><MoreHorizontal /></button></Tooltip>}>
+              <button className={styles.danger} onClick={() => props.onDeleteAgent(agent.id)}><Trash2 /><span>{t("projects.delete")}</span></button>
+            </PopoverMenu>
+          </div>
         </div>
         {expanded.has(agent.id) && <div className={styles.tasks}>
           {!agent.tasks.length && <span>{t("multiAgent.emptyTasks")}</span>}

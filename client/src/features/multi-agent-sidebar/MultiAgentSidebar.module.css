@@ -10,14 +10,15 @@
 .agent { min-width: 0; }
 .agentRow { min-width: 0; display: flex; align-items: center; padding-right: 7px; border-radius: var(--radius-md); color: var(--color-text-soft); }
 .agentRow:hover { background: var(--color-surface-hover); }
-.toggle { width: 28px !important; height: 34px !important; display: grid !important; place-items: center; flex: none; border: 0; background: transparent; color: var(--color-text-dim); opacity: 1 !important; pointer-events: auto !important; cursor: pointer; }
-.toggle svg { width: 15px !important; height: 15px !important; }
-.agentName { min-width: 0; flex: 1; justify-content: start !important; border: 0; background: transparent; color: var(--color-text-soft); padding: 9px 8px; cursor: pointer; text-align: left; }
-.agentName strong { display: block; overflow: hidden; font-size: var(--font-sm); font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
-.agentRow > button:not(.agentName) { width: 28px; height: 28px; display: grid; place-items: center; flex: none; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--color-text-dim); padding: 0; opacity: 0; cursor: pointer; pointer-events: none; }
-.agentRow:hover > button:not(.agentName), .agentRow:focus-within > button:not(.agentName) { opacity: 1; pointer-events: auto; }
-.agentRow > button:not(.agentName):hover { background: var(--color-surface-control); color: var(--color-text); }
-.agentRow button svg { width: 14px; height: 14px; }
+.agentMain { min-width: 0; flex: 1; display: flex; align-items: center; gap: var(--space-1); border: 0; background: transparent; color: var(--color-text-soft); padding: 9px 8px; cursor: pointer; text-align: left; }
+.agentMain > svg { width: 15px; height: 15px; flex: none; }
+.agentName { min-width: 0; flex: 1; }
+.agentName > span { display: block; overflow: hidden; font-size: var(--font-sm); font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
+.agentActions { display: flex; align-items: center; gap: 3px; margin-left: var(--space-2); opacity: 0; pointer-events: none; }
+.agentRow:hover .agentActions, .agentRow:focus-within .agentActions { opacity: 1; pointer-events: auto; }
+.agentActions button { width: 28px; height: 28px; display: grid; place-items: center; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--color-text-dim); padding: 0; cursor: pointer; }
+.agentActions button:hover { background: var(--color-surface-control); color: var(--color-text); }
+.agentActions svg { width: 16px; height: 16px; }
 .agentActive { background: var(--color-surface-active); }
 .tasks { display: grid; gap: 3px; margin: 4px 0 var(--space-3); padding-left: 28px; }
 .tasks > span { padding: var(--space-2); color: var(--color-text-empty); font-size: var(--font-xs); }
