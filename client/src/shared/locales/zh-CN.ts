@@ -125,9 +125,11 @@ export const zhCN = {
     noFiles: "暂无文件修改",
     draft: "草稿",
     pending: "等待",
+    ready: "可执行",
     running: "执行中",
     completed: "已完成",
     failed: "失败",
+    stopped: "已停止",
   },
   auth: {
     workspaceTagline: "你的本地代码工作空间",

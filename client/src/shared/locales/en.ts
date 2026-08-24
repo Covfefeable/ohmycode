@@ -126,9 +126,11 @@ export const en = {
     noFiles: "No file changes",
     draft: "Draft",
     pending: "Waiting",
+    ready: "Ready",
     running: "Running",
     completed: "Completed",
     failed: "Failed",
+    stopped: "Stopped",
   },
   auth: {
     workspaceTagline: "Your local coding workspace",

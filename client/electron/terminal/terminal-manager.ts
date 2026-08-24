@@ -112,6 +112,7 @@ async function start(action: Extract<TerminalAction, { action: "start" }>, signa
     rows: TERMINAL_CONFIG.rows,
     name: "xterm-256color",
     env: Object.fromEntries(Object.entries(process.env).filter((entry): entry is [string, string] => typeof entry[1] === "string")),
+    ...(process.platform === "win32" ? { useConptyDll: true } : {}),
   });
   const session: Session = {
     id: randomUUID(), projectId: action.projectId, command, cwd, process: child,

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Play, Plus, Save, Square, X } from "lucide-react";
+import { LoaderCircle, Play, Plus, Save, Square, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useFeedback } from "../../features/feedback";
 import { MultiAgentSidebar } from "../../features/multi-agent-sidebar";
@@ -84,8 +84,10 @@ export function MultiAgentPage() {
     setCreating(true);
     try {
       const created = await window.ohmycode.multiAgents.create(draft);
-      const current = await reloadAgents();
-      setDialogOpen(false); setDraft(emptyDraft); selectAgent(created.id, current);
+      if (!created.templateFlow?.nodes?.length) throw new Error("empty_collaboration_flow");
+      setAgents((items) => [...items.filter((item) => item.id !== created.id), created]);
+      setDialogOpen(false); setDraft(emptyDraft); selectAgent(created.id, [created]);
+      void reloadAgents();
     } catch {
       toast({ type: "error", message: t("multiAgent.planFailed") });
     } finally { setCreating(false); }
@@ -223,7 +225,7 @@ export function MultiAgentPage() {
           <label>{t("multiAgent.collaborationName")}<input autoFocus value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></label>
           <label>{t("multiAgent.collaborationDescription")}<textarea value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} /></label>
           <label>{t("multiAgent.division")}<textarea value={draft.division} onChange={(event) => setDraft({ ...draft, division: event.target.value })} /></label>
-          <footer><button onClick={() => setDialogOpen(false)}>{t("multiAgent.cancel")}</button><button className={styles.primary} disabled={creating || !draft.name.trim() || !draft.description.trim() || !draft.division.trim()} onClick={() => void createCollaboration()}>{creating ? t("multiAgent.planning") : t("multiAgent.generateCollaboration")}</button></footer>
+          <footer><button onClick={() => setDialogOpen(false)}>{t("multiAgent.cancel")}</button><button className={styles.primary} disabled={creating || !draft.name.trim() || !draft.description.trim() || !draft.division.trim()} onClick={() => void createCollaboration()}>{creating && <LoaderCircle className={styles.spinner} />}{t("multiAgent.generateCollaboration")}</button></footer>
         </section>
       </div>}
     </main>

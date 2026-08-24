@@ -50,3 +50,6 @@
 .dialog footer button { min-width: 96px; height: var(--control-height); border: 1px solid var(--color-border-strong); border-radius: var(--radius-md); background: var(--color-surface-2); color: var(--color-text); cursor: pointer; }
 .dialog footer .primary { border-color: var(--color-accent); background: var(--color-accent); color: var(--color-accent-ink); font-weight: 800; }
 .dialog footer button:disabled { opacity: .55; cursor: not-allowed; }
+.dialog footer .primary { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); }
+.spinner { width: 15px; height: 15px; animation: spin 750ms linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
