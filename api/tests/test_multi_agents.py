@@ -128,14 +128,92 @@ def test_multi_agent_dag_lifecycle(tmp_path):
         assert verify["status"] == "running"
         assert revised["status"] == "running"
 
-        blocked_delete = client.delete(
-            f"/api/multi-agents/tasks/{task['id']}", headers=headers
-        )
+        blocked_delete = client.delete(f"/api/multi-agents/tasks/{task['id']}", headers=headers)
         assert blocked_delete.status_code == 409
         assert blocked_delete.get_json()["error"]["code"] == "workflow_running_cannot_delete"
-        assert client.post(
-            f"/api/multi-agents/tasks/{task['id']}/stop", headers=headers
-        ).status_code == 200
-        assert client.delete(
-            f"/api/multi-agents/tasks/{task['id']}", headers=headers
-        ).status_code == 204
+        assert (
+            client.post(f"/api/multi-agents/tasks/{task['id']}/stop", headers=headers).status_code
+            == 200
+        )
+        assert (
+            client.delete(f"/api/multi-agents/tasks/{task['id']}", headers=headers).status_code
+            == 204
+        )
+
+
+def test_rerun_reuses_task_and_resets_execution(tmp_path):
+    app = create_app("testing")
+    with app.app_context():
+        db.create_all()
+    with app.test_client() as client:
+        token = client.post(
+            "/api/auth/register",
+            json={
+                "email": "rerun@example.com",
+                "displayName": "Rerun",
+                "password": "secret123",
+            },
+        ).get_json()["tokens"]["accessToken"]
+        headers = {"Authorization": f"Bearer {token}"}
+        agent = client.post(
+            "/api/multi-agents",
+            headers=headers,
+            json={
+                "name": "Reusable",
+                "description": "Run twice",
+                "division": "One worker",
+                "flow": {
+                    "title": "Reusable",
+                    "nodes": [
+                        {
+                            "key": "worker",
+                            "name": "Worker",
+                            "role": "Worker",
+                            "instructions": "Work",
+                        },
+                        {
+                            "key": "reviewer",
+                            "name": "Reviewer",
+                            "role": "Reviewer",
+                            "instructions": "Review",
+                        },
+                    ],
+                    "edges": [{"source": "worker", "target": "reviewer"}],
+                },
+            },
+        ).get_json()
+        task = client.post(
+            f"/api/multi-agents/{agent['id']}/tasks",
+            headers=headers,
+            json={"workspacePath": str(tmp_path), "request": "Do work"},
+        ).get_json()
+        started = client.post(
+            f"/api/multi-agents/tasks/{task['id']}/start", headers=headers
+        ).get_json()
+        worker = next(node for node in started["nodes"] if node["key"] == "worker")
+        client.post(f"/api/multi-agents/nodes/{worker['id']}/start", headers=headers)
+        completed = client.post(
+            f"/api/multi-agents/nodes/{worker['id']}/complete",
+            headers=headers,
+            json={"output": {"content": "done"}},
+        ).get_json()
+        reviewer = next(node for node in completed["nodes"] if node["key"] == "reviewer")
+        client.post(f"/api/multi-agents/nodes/{reviewer['id']}/start", headers=headers)
+        completed = client.post(
+            f"/api/multi-agents/nodes/{reviewer['id']}/complete",
+            headers=headers,
+            json={"output": {"content": "reviewed"}},
+        ).get_json()
+        assert completed["status"] == "completed"
+
+        rerun = client.post(
+            f"/api/multi-agents/tasks/{task['id']}/start", headers=headers
+        ).get_json()
+        rerun_worker = next(node for node in rerun["nodes"] if node["key"] == "worker")
+        assert rerun["id"] == task["id"]
+        assert rerun["status"] == "running"
+        assert rerun_worker["id"] == worker["id"]
+        assert rerun_worker["status"] == "ready"
+        assert rerun_worker["finalOutput"] is None
+        listed = client.get("/api/multi-agents", headers=headers).get_json()
+        assert len(listed[0]["tasks"]) == 1

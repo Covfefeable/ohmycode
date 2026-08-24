@@ -3,6 +3,7 @@ from uuid import UUID
 
 from ...extensions import db
 from ...models import (
+    AgentRun,
     Conversation,
     ModelConfiguration,
     MultiAgent,
@@ -16,6 +17,14 @@ from ...models import (
 from ..errors import ServiceError
 from .planner import END_KEY, START_KEY, generate_plan, validate_plan
 from .queries import get_task, owned_agent, owned_node
+from .state_machine import (
+    NODE_ACTIVE,
+    TASK_TERMINAL,
+    refresh_graph,
+    reset_node,
+    transition_node,
+    transition_task,
+)
 
 
 def _reusable_flow(agent: MultiAgent) -> dict:
@@ -236,10 +245,11 @@ def post_message(user_id: UUID, node_id: UUID, payload: dict) -> MultiAgentMessa
     )
     db.session.add(message)
     if expects_reply:
-        source.status = "paused"
+        transition_node(source, "paused")
     if target.status in {"completed", "paused"}:
-        target.status = "running"
-        target.task.status = "running"
+        transition_node(target, "running")
+        if target.task.status == "completed":
+            transition_task(target.task, "running")
     db.session.commit()
     return message
 
@@ -266,32 +276,46 @@ def post_user_message(user_id: UUID, node_id: UUID, payload: dict) -> MultiAgent
 
 
 def _refresh_ready_nodes(task: MultiAgentTask) -> None:
-    execution_nodes = _execution_nodes(task)
-    for boundary in task.nodes:
-        if boundary.key == START_KEY:
-            boundary.status = "completed"
-            boundary.final_output = boundary.final_output or {"content": task.request}
-    completed = {node.id for node in execution_nodes if node.status == "completed" and node.final_output}
-    incoming: dict[UUID, set[UUID]] = {node.id: set() for node in execution_nodes}
-    for edge in _execution_edges(task):
-        incoming[edge.target_node_id].add(edge.source_node_id)
-    for node in execution_nodes:
-        if node.status == "pending" and incoming[node.id].issubset(completed):
-            node.status = "ready"
-    if execution_nodes and all(node.status == "completed" for node in execution_nodes):
-        for boundary in task.nodes:
-            if boundary.key == END_KEY:
-                boundary.status = "completed"
-                boundary.final_output = boundary.final_output or {"content": "Workflow completed"}
+    if refresh_graph(_execution_nodes(task), _execution_edges(task)) and task.status == "running":
+        transition_task(task, "completed")
+
+
+def _reset_task_run(task: MultiAgentTask) -> None:
+    conversation_ids = [
+        node.conversation_id for node in _execution_nodes(task) if node.conversation_id
+    ]
+    if conversation_ids:
+        for run in db.session.scalars(
+            db.select(AgentRun).where(AgentRun.conversation_id.in_(conversation_ids))
+        ):
+            db.session.delete(run)
+        for conversation in db.session.scalars(
+            db.select(Conversation).where(Conversation.id.in_(conversation_ids))
+        ):
+            conversation.messages.clear()
+    for node in _execution_nodes(task):
+        reset_node(node)
+    for message in list(
+        db.session.scalars(db.select(MultiAgentMessage).where(MultiAgentMessage.task_id == task.id))
+    ):
+        db.session.delete(message)
+    for change in list(
+        db.session.scalars(db.select(WorkspaceChange).where(WorkspaceChange.task_id == task.id))
+    ):
+        db.session.delete(change)
 
 
 def start_task(user_id: UUID, task_id: UUID) -> MultiAgentTask:
     task = get_task(user_id, task_id)
     if not task:
         raise ServiceError("not_found", 404)
-    if task.status != "draft":
+    if task.status == "running":
         raise ServiceError("workflow_not_startable", 409)
-    task.status = "running"
+    if task.status in TASK_TERMINAL:
+        _reset_task_run(task)
+    elif task.status != "draft":
+        raise ServiceError("workflow_not_startable", 409)
+    transition_task(task, "running")
     _refresh_ready_nodes(task)
     db.session.commit()
     return task
@@ -299,14 +323,18 @@ def start_task(user_id: UUID, task_id: UUID) -> MultiAgentTask:
 
 def _node_execution_prompt(node: MultiAgentNode) -> str:
     task = node.task
-    upstream_ids = {edge.source_node_id for edge in _execution_edges(task) if edge.target_node_id == node.id}
+    upstream_ids = {
+        edge.source_node_id for edge in _execution_edges(task) if edge.target_node_id == node.id
+    }
     upstream = [item for item in _execution_nodes(task) if item.id in upstream_ids]
     outputs = (
         "\n\n".join(f"[{item.name}]\n{item.final_output}" for item in upstream if item.final_output)
         or "No upstream nodes."
     )
     peers = ", ".join(
-        f"{item.name} ({item.id}, {item.status})" for item in _execution_nodes(task) if item.id != node.id
+        f"{item.name} ({item.id}, {item.status})"
+        for item in _execution_nodes(task)
+        if item.id != node.id
     )
     return f"""You are the {node.name} node in a multi-agent workflow.
 
@@ -349,7 +377,7 @@ def start_node(user_id: UUID, node_id: UUID) -> tuple[MultiAgentNode, str]:
         raise ServiceError("not_found", 404)
     if node.task.status != "running" or node.status != "ready":
         raise ServiceError("node_not_ready", 409)
-    node.status = "running"
+    transition_node(node, "running")
     db.session.commit()
     return node, _node_execution_prompt(node)
 
@@ -360,8 +388,9 @@ def wake_node(user_id: UUID, node_id: UUID) -> MultiAgentNode:
         raise ServiceError("not_found", 404)
     if node.status not in {"completed", "paused"}:
         raise ServiceError("node_not_resumable", 409)
-    node.status = "running"
-    node.task.status = "running"
+    transition_node(node, "running")
+    if node.task.status == "completed":
+        transition_task(node.task, "running")
     db.session.commit()
     return node
 
@@ -376,11 +405,9 @@ def complete_node(user_id: UUID, node_id: UUID, payload: dict) -> MultiAgentTask
     if not isinstance(output, dict) or not str(output.get("content") or "").strip():
         raise ServiceError("node_output_required", 422)
     node.final_output = output
-    node.status = "completed"
+    transition_node(node, "completed")
     task = node.task
     _refresh_ready_nodes(task)
-    if all(item.status == "completed" for item in _execution_nodes(task)):
-        task.status = "completed"
     db.session.commit()
     return task
 
@@ -389,12 +416,12 @@ def fail_node(user_id: UUID, node_id: UUID, error_code: str) -> MultiAgentTask:
     node = owned_node(user_id, node_id)
     if not node:
         raise ServiceError("not_found", 404)
-    node.status = "failed"
+    transition_node(node, "failed")
     node.final_output = {"error": error_code[:500]}
-    node.task.status = "failed"
+    transition_task(node.task, "failed")
     for sibling in node.task.nodes:
-        if sibling.id != node.id and sibling.status in {"running", "ready"}:
-            sibling.status = "stopped"
+        if sibling.id != node.id and sibling.status in NODE_ACTIVE:
+            transition_node(sibling, "stopped")
     db.session.commit()
     return node.task
 
@@ -404,10 +431,10 @@ def stop_task(user_id: UUID, task_id: UUID) -> MultiAgentTask:
     if not task:
         raise ServiceError("not_found", 404)
     if task.status == "running":
-        task.status = "stopped"
+        transition_task(task, "stopped")
         for node in task.nodes:
-            if node.status in {"running", "ready", "paused"}:
-                node.status = "stopped"
+            if node.status in NODE_ACTIVE:
+                transition_node(node, "stopped")
         db.session.commit()
     return task
 
@@ -443,10 +470,16 @@ def record_changes(user_id: UUID, node_id: UUID, payload: dict) -> MultiAgentTas
         )
     db.session.commit()
     return node.task
+
+
 def _execution_nodes(task: MultiAgentTask) -> list[MultiAgentNode]:
     return [node for node in task.nodes if node.key not in {START_KEY, END_KEY}]
 
 
 def _execution_edges(task: MultiAgentTask) -> list[MultiAgentEdge]:
     node_ids = {node.id for node in _execution_nodes(task)}
-    return [edge for edge in task.edges if edge.source_node_id in node_ids and edge.target_node_id in node_ids]
+    return [
+        edge
+        for edge in task.edges
+        if edge.source_node_id in node_ids and edge.target_node_id in node_ids
+    ]

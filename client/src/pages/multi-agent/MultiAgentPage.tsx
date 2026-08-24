@@ -215,10 +215,9 @@ export function MultiAgentPage() {
   }
 
   async function rerunTask(target: MultiAgentTask) {
-    const created = await window.ohmycode.multiAgents.createTask(target.agentId, target.request, target.workspacePath);
-    setNodeActivities({}); await reloadAgents();
-    setSelectedAgentId(target.agentId); setSelectedTaskId(created.id); setTask(created);
-    await executeTask(created);
+    setNodeActivities({});
+    setSelectedAgentId(target.agentId); setSelectedTaskId(target.id); setTask(target);
+    await executeTask(target);
   }
 
   async function stopCurrentTask() {
