@@ -1,5 +1,5 @@
 .page { width: 100%; height: 100dvh; min-width: 0; min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); overflow: hidden; background: var(--gradient-workspace); }
-.header { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) repeat(3, auto); align-items: center; gap: var(--space-3); border-bottom: 1px solid var(--color-border); padding: 18px calc(var(--window-controls-width) + var(--space-6)) 18px var(--space-6); }
+.header { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); align-items: center; border-bottom: 1px solid var(--color-border); padding: 18px calc(var(--window-controls-width) + var(--space-6)) 18px var(--space-6); }
 .header h1 { margin: 0; font-size: var(--font-title-panel); }
 .header p { max-width: 78ch; overflow: hidden; margin: 4px 0 0; color: var(--color-text-muted); font-size: var(--font-sm); text-overflow: ellipsis; white-space: nowrap; }
 .header button { height: var(--control-height); display: flex; align-items: center; gap: var(--space-2); border: 1px solid var(--color-border-strong); border-radius: var(--radius-md); background: var(--color-surface-2); color: var(--color-text); padding: 0 14px; cursor: pointer; }
@@ -7,7 +7,14 @@
 .header .primary { border-color: var(--color-accent); background: var(--color-accent); color: var(--color-accent-ink); font-weight: 800; }
 .header .primary:disabled { border-color: var(--color-border); background: var(--color-surface-control); color: var(--color-text-disabled); cursor: not-allowed; }
 .header .stop { border-color: var(--color-danger-border); color: var(--color-danger); }
-.workspace { min-width: 0; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; overflow: hidden; }
+.workspace { position: relative; min-width: 0; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; overflow: hidden; }
+.canvasPane { position: relative; min-width: 0; min-height: 0; overflow: hidden; }
+.canvasActions { position: absolute; top: var(--space-4); right: var(--space-4); z-index: var(--z-header); display: flex; gap: 2px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: color-mix(in srgb, var(--color-surface-1) 88%, transparent); padding: 3px; box-shadow: var(--shadow-panel); backdrop-filter: blur(14px); }
+.canvasActions button { height: 34px; display: inline-flex; align-items: center; gap: 7px; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--color-text-muted); padding: 0 11px; font: inherit; font-size: var(--font-sm); white-space: nowrap; cursor: pointer; }
+.canvasActions button:hover { background: var(--color-surface-hover); color: var(--color-text); }
+.canvasActions button svg { width: 15px; }
+.canvasActions .primary { background: var(--color-accent); color: var(--color-accent-ink); font-weight: 750; }
+.canvasActions .stop { color: var(--color-danger); }
 .detail { position: relative; width: min(390px, 34vw); min-height: 0; overflow: auto; border-left: 1px solid var(--color-border); background: var(--color-surface-1); padding: 28px 24px; }
 .close { position: absolute; top: 18px; right: 18px; width: 30px; height: 30px; display: grid; place-items: center; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--color-text-dim); cursor: pointer; }
 .close:hover { background: var(--color-surface-hover); color: var(--color-text); }
@@ -51,5 +58,28 @@
 .dialog footer .primary { border-color: var(--color-accent); background: var(--color-accent); color: var(--color-accent-ink); font-weight: 800; }
 .dialog footer button:disabled { opacity: .55; cursor: not-allowed; }
 .dialog footer .primary { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); }
+.directoryPicker { width: 100%; height: var(--control-height); display: grid; grid-template-columns: 17px minmax(0, 1fr); align-items: center; gap: var(--space-2); border: 1px solid var(--color-border-subtle); border-radius: var(--radius-md); background: var(--color-surface-input); color: var(--color-text-muted); padding: 0 12px; text-align: left; cursor: pointer; }
+.directoryPicker:hover { border-color: var(--color-border-strong); background: var(--color-surface-active); color: var(--color-text); }
+.directoryPicker svg { width: 16px; }
+.directoryPicker span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.activityDialog { width: min(920px, calc(100vw - 64px)); height: min(680px, calc(100vh - 64px)); display: grid; grid-template-rows: auto minmax(0, 1fr); overflow: hidden; border: 1px solid var(--color-border-strong); border-radius: var(--radius-lg); background: var(--color-surface-1); box-shadow: var(--shadow-panel); }
+.activityDialog > header { display: flex; align-items: start; justify-content: space-between; border-bottom: 1px solid var(--color-border); padding: var(--space-5) var(--space-6); }
+.activityDialog header span { color: var(--color-accent); font-size: var(--font-xs); font-weight: 800; }
+.activityDialog h2 { margin: 4px 0 0; font-size: var(--font-title-panel); }
+.activityDialog header button { width: 32px; height: 32px; display: grid; place-items: center; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--color-text-muted); cursor: pointer; }
+.activityDialog header button:hover { background: var(--color-surface-hover); color: var(--color-text); }
+.activityDialog header svg { width: 17px; }
+.activityBody { min-height: 0; display: grid; grid-template-columns: 220px minmax(0, 1fr); }
+.activityBody nav { min-height: 0; overflow: auto; border-right: 1px solid var(--color-border); padding: var(--space-3); }
+.activityBody nav button { width: 100%; display: grid; grid-template-columns: 8px minmax(0, 1fr); align-items: center; gap: 9px; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--color-text-muted); padding: 10px; text-align: left; cursor: pointer; }
+.activityBody nav button:hover, .activityBody nav .activeAgent { background: var(--color-surface-hover); color: var(--color-text); }
+.activityBody nav button > span { width: 7px; height: 7px; border-radius: 50%; background: var(--color-text-dim); }
+.activityBody nav button > .running { background: var(--color-accent); box-shadow: var(--shadow-accent-glow); }
+.activityBody nav button > .completed { background: var(--color-accent); }
+.activityBody nav button > .failed { background: var(--color-danger); }
+.activityContent { min-height: 0; overflow: auto; padding: var(--space-6); }
+.activityContent h3 { margin: 0; font-size: 18px; }
+.activityContent > p { margin: 6px 0 var(--space-5); color: var(--color-text-muted); }
+.activityContent > span { color: var(--color-text-dim); font-size: var(--font-sm); }
 .spinner { width: 15px; height: 15px; animation: spin 750ms linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }

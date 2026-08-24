@@ -15,7 +15,8 @@ interface Window {
       create(payload: { name: string; description: string; division: string }): Promise<MultiAgentSummary>;
       update(agentId: string, payload: Partial<MultiAgentSummary>): Promise<MultiAgentSummary>;
       delete(agentId: string): Promise<void>;
-      createTask(agentId: string): Promise<MultiAgentTask | null>;
+      selectWorkspace(): Promise<string | null>;
+      createTask(agentId: string, request: string, workspacePath: string): Promise<MultiAgentTask>;
       getTask(taskId: string): Promise<MultiAgentTask>;
       saveFlow(taskId: string, positions: Record<string, { x: number; y: number }>): Promise<MultiAgentTask>;
       deleteTask(taskId: string): Promise<void>;

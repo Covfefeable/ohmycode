@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
 import { Bot, Check, Circle, LoaderCircle, TriangleAlert } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -14,7 +15,7 @@ const statusIcon = (status: string) => {
   return <Circle />;
 };
 
-export function AgentFlowNode({ data, selected }: NodeProps<AgentFlowNodeType>) {
+function AgentFlowNodeComponent({ data, selected }: NodeProps<AgentFlowNodeType>) {
   const { t } = useTranslation();
   const node = data.node;
   return <article className={`${styles.node} ${styles[node.status] ?? ""} ${selected ? styles.selected : ""}`}>
@@ -25,3 +26,5 @@ export function AgentFlowNode({ data, selected }: NodeProps<AgentFlowNodeType>) 
     <Handle type="source" position={Position.Right} />
   </article>;
 }
+
+export const AgentFlowNode = memo(AgentFlowNodeComponent);

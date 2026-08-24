@@ -8,39 +8,10 @@ import { useFeedback } from "../feedback";
 import { FullScreenLoading } from "../../shared/ui/full-screen-loading";
 import { Tooltip } from "../../shared/ui/tooltip";
 import { ActivityTimeline } from "./activity-timeline/ActivityTimeline";
+import { updateActivity } from "./activity-timeline/updateActivity";
 import styles from "./ConversationChat.module.css";
 
 type ConversationChatProps = { conversationId: string; onUpdated(): void };
-
-function updateActivity(steps: AgentActivityStep[], event: ConversationStreamEvent): AgentActivityStep[] {
-  const next = steps.map((step) => ({ ...step }));
-  if (event.type === "reasoning.started") {
-    for (const step of next) if (step.type === "reasoning") step.status = "completed";
-    next.push({ id: event.stepId, type: "reasoning", content: "", status: "running" });
-  } else if (event.type === "reasoning.delta") {
-    const step = [...next].reverse().find((item) => item.type === "reasoning" && item.status === "running");
-    if (step?.type === "reasoning") step.content += event.content;
-  } else if (event.type === "message.started") {
-    for (const step of next) if (step.type === "reasoning") step.status = "completed";
-    next.push({ id: `message-${crypto.randomUUID()}`, type: "message", content: "", status: "running" });
-  } else if (event.type === "message.delta") {
-    const step = [...next].reverse().find((item) => item.type === "message" && item.status === "running");
-    if (step?.type === "message") step.content += event.content;
-  } else if (event.type === "tool.requested") {
-    for (const step of next) if (step.type === "reasoning" || step.type === "message") step.status = "completed";
-    next.push({
-      id: event.callId,
-      type: "tool",
-      tool: event.tool,
-      input: event.tool === "terminal" ? event.arguments as TerminalAction : JSON.stringify(event.arguments),
-      status: "running",
-    });
-  } else if (event.type === "tool.completed") {
-    const step = next.find((item) => item.type === "tool" && item.id === event.callId);
-    if (step?.type === "tool") { step.result = event.result; step.status = "completed"; }
-  }
-  return next;
-}
 
 export function ConversationChat({ conversationId, onUpdated }: ConversationChatProps) {
   const { t, i18n } = useTranslation();

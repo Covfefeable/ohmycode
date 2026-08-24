@@ -31,13 +31,16 @@ export function deleteMultiAgent(agentId: string): Promise<void> {
   return apiRequest(`/api/multi-agents/${agentId}`, { method: "DELETE" });
 }
 
-export async function createMultiAgentTask(agentId: string): Promise<MultiAgentTask | null> {
+export async function selectMultiAgentWorkspace(): Promise<string | null> {
   const result = await dialog.showOpenDialog({ properties: ["openDirectory"] });
   if (result.canceled || !result.filePaths[0]) return null;
-  const workspacePath = path.resolve(result.filePaths[0]);
+  return path.resolve(result.filePaths[0]);
+}
+
+export async function createMultiAgentTask(agentId: string, request: string, workspacePath: string): Promise<MultiAgentTask> {
   return apiRequest(`/api/multi-agents/${agentId}/tasks`, {
     method: "POST",
-    body: JSON.stringify({ workspacePath }),
+    body: JSON.stringify({ workspacePath: path.resolve(workspacePath), request: request.trim() }),
   });
 }
 

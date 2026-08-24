@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Background, Controls, MarkerType, ReactFlow, type Connection, type NodeChange, type ReactFlowInstance } from "@xyflow/react";
+import { Background, ConnectionLineType, Controls, MarkerType, ReactFlow, type Connection, type NodeChange, type ReactFlowInstance } from "@xyflow/react";
 import { useTranslation } from "react-i18next";
 import { AgentFlowNode, type AgentFlowNodeType } from "./AgentFlowNode";
 import styles from "./WorkflowCanvas.module.css";
+
+const nodeTypes = { agent: AgentFlowNode };
 
 type Props = {
   task: MultiAgentTask;
@@ -32,8 +34,9 @@ export function WorkflowCanvas({ task, selectedNodeId, onNodeSelect, onPositions
   })), [task.nodes, selectedNodeId, nodePositions]);
   const edges = useMemo(() => task.edges.map((edge) => ({
     ...edge,
-    type: "smoothstep",
+    type: "default",
     markerEnd: { type: MarkerType.ArrowClosed },
+    style: { strokeWidth: 1.5 },
   })), [task.edges]);
   const onNodesChange = useCallback((changes: NodeChange<AgentFlowNodeType>[]) => {
     const positionChanges = changes.filter(
@@ -71,7 +74,7 @@ export function WorkflowCanvas({ task, selectedNodeId, onNodeSelect, onPositions
     {canvasReady && <ReactFlow<AgentFlowNodeType>
       nodes={nodes}
       edges={edges}
-      nodeTypes={{ agent: AgentFlowNode }}
+      nodeTypes={nodeTypes}
       onNodesChange={onNodesChange}
       onNodeClick={(_event, node) => onNodeSelect(node.id)}
       nodesConnectable={editable}
@@ -87,6 +90,7 @@ export function WorkflowCanvas({ task, selectedNodeId, onNodeSelect, onPositions
       }}
       fitView
       fitViewOptions={{ padding: 0.2 }}
+      connectionLineType={ConnectionLineType.Bezier}
       colorMode="dark"
       aria-label={t("multiAgent.title")}
     >
