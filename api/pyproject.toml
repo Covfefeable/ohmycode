@@ -4,12 +4,14 @@ version = "0.1.0"
 description = "Local Flask service for the OhMyCode desktop agent"
 requires-python = ">=3.12"
 dependencies = [
+  "cryptography>=50.0.0",
   "flask>=3.1.2",
   "flask-cors>=6.0.1",
   "flask-jwt-extended>=4.7.1",
   "flask-migrate>=4.1.0",
   "flask-sqlalchemy>=3.1.1",
   "gunicorn[gevent]>=23.0.0",
+  "httpx>=0.28.1",
   "psycopg[binary]>=3.2.10",
   "python-dotenv>=1.1.1",
   "redis>=6.4.0",

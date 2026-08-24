@@ -2,7 +2,10 @@ export type LocalConversation = {
   id: string;
   title: string;
   createdAt: string;
+  messages?: LocalMessage[];
 };
+
+export type LocalMessage = { id: string; role: "user" | "assistant"; content: string; createdAt: string };
 
 export type LocalProject = {
   id: string;
@@ -10,5 +13,3 @@ export type LocalProject = {
   path: string;
   conversations: LocalConversation[];
 };
-
-export type StoredProjects = { projects: LocalProject[] };

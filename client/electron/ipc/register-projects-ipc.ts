@@ -6,7 +6,9 @@ import {
   deleteProject,
   listProjects,
   openProject,
+  getConversation,
 } from "../projects/projects-service.js";
+import { streamMessage } from "../conversations/conversation-service.js";
 
 export function registerProjectsIpc(): void {
   ipcMain.handle("projects:list", listProjects);
@@ -15,4 +17,7 @@ export function registerProjectsIpc(): void {
   ipcMain.handle("projects:delete", (_event, projectId: string) => deleteProject(projectId));
   ipcMain.handle("projects:create-conversation", (_event, projectId: string, title: string) => createConversation(projectId, title));
   ipcMain.handle("projects:delete-conversation", (_event, projectId: string, conversationId: string) => deleteConversation(projectId, conversationId));
+  ipcMain.handle("conversations:get", (_event, conversationId: string) => getConversation(conversationId));
+  ipcMain.handle("conversations:send", (event, conversationId: string, content: string, modelId: string | undefined, requestId: string, editMessageId?: string) =>
+    streamMessage(conversationId, content, modelId, editMessageId, (chunk) => event.sender.send(`conversation:chunk:${requestId}`, chunk)));
 }

@@ -9,6 +9,16 @@ contextBridge.exposeInMainWorld("ohmycode", {
     createConversation: (projectId, title) => ipcRenderer.invoke("projects:create-conversation", projectId, title),
     deleteConversation: (projectId, conversationId) => ipcRenderer.invoke("projects:delete-conversation", projectId, conversationId),
   },
+  conversations: {
+    get: (conversationId) => ipcRenderer.invoke("conversations:get", conversationId),
+    send: (conversationId, content, modelId, requestId, editMessageId) => ipcRenderer.invoke("conversations:send", conversationId, content, modelId, requestId, editMessageId),
+    onChunk: (requestId, callback) => {
+      const channel = `conversation:chunk:${requestId}`;
+      const listener = (_event, chunk) => callback(chunk);
+      ipcRenderer.on(channel, listener);
+      return () => ipcRenderer.removeListener(channel, listener);
+    },
+  },
   apiStatus: () => ipcRenderer.invoke("api:status"),
   auth: {
     bootstrap: () => ipcRenderer.invoke("auth:bootstrap"),

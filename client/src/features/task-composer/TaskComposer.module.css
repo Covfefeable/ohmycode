@@ -1,33 +1,51 @@
 .composer {
-  margin-top: 36px;
-  border: 1px solid var(--color-border-strong);
+  border: 1px solid var(--color-border-frosted);
   border-radius: var(--radius-lg);
-  background: var(--color-surface-composer);
+  background: var(--color-surface-composer-frosted);
+  backdrop-filter: blur(28px) saturate(150%);
+  -webkit-backdrop-filter: blur(28px) saturate(150%);
   box-shadow: var(--shadow-panel);
   overflow: hidden;
 }
 .composer textarea {
   width: 100%;
-  min-height: 120px;
+  min-height: 24px;
+  max-height: 72px;
+  line-height: 24px;
   resize: none;
   border: 0;
   outline: 0;
   background: transparent;
   color: var(--color-text-input);
-  padding: 20px;
+  padding: 14px 16px 8px;
+  overflow-y: auto;
 }
 .toolbar {
-  border-top: 1px solid var(--color-border-muted);
-  padding: 10px 12px;
+  padding: 6px 10px 10px 16px;
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   color: var(--color-text-toolbar);
   font-size: var(--font-sm);
 }
+.actions { display: flex; align-items: center; gap: var(--space-2); }
+.modelSelect { position: relative; min-width: 0; display: inline-flex; }
+.modelSelect select { max-width: 220px; height: 32px; appearance: none; overflow: hidden; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--color-text-muted); padding: 0 34px 0 10px; outline: none; text-overflow: ellipsis; cursor: pointer; }
+.modelSelect > svg { position: absolute; top: 50%; right: 11px; width: 14px; height: 14px; transform: translateY(-50%); color: var(--color-text-dim); pointer-events: none; }
+.missingModel { opacity: .72; }
+.modelSelect select:hover, .modelSelect select:focus-visible { background: var(--color-surface-control); color: var(--color-text); }
 .toolbar button {
   border: 0;
-  border-radius: var(--radius-sm);
-  padding: 7px 12px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  padding: 0;
   background: var(--color-surface-control);
   color: var(--color-text-disabled);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
 }
+.toolbar button:not(:disabled) { background: var(--color-accent); color: var(--color-accent-ink); }
+.toolbar button svg { width: 16px; height: 16px; }
+.spinner { animation: spin 700ms linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }

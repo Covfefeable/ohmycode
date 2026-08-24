@@ -20,7 +20,9 @@
     "react": "latest",
     "react-dom": "latest",
     "react-i18next": "^17.0.12",
+    "react-markdown": "^10.1.0",
     "react-router-dom": "^7.18.2",
+    "remark-gfm": "^4.0.1",
     "vite": "latest"
   },
   "devDependencies": {

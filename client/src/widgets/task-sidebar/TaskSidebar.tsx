@@ -4,15 +4,17 @@ import { ProjectList } from "../../features/project-list";
 import styles from "./TaskSidebar.module.css";
 
 type TaskSidebarProps = {
-  workspace: string | null;
-  onWorkspaceChange(workspace: string | null): void;
+  selectedConversationId: string | null;
+  onConversationSelect(project: LocalProject, conversation: LocalConversation): void;
+  onConversationDelete(conversationId: string): void;
+  refreshToken: number;
 };
 
-export function TaskSidebar({ workspace, onWorkspaceChange }: TaskSidebarProps) {
+export function TaskSidebar({ selectedConversationId, onConversationSelect, onConversationDelete, refreshToken }: TaskSidebarProps) {
   const { t } = useTranslation();
   return (
     <aside className={styles.sidebar}>
-      <ProjectList workspace={workspace} onWorkspaceChange={onWorkspaceChange} heading={<header>
+      <ProjectList selectedConversationId={selectedConversationId} onConversationSelect={onConversationSelect} onConversationDelete={onConversationDelete} refreshToken={refreshToken} heading={<header>
         <p className={styles.eyebrow}>{t("workspace.productName")}</p>
         <h2>{t("workspace.title")}</h2>
       </header>} />

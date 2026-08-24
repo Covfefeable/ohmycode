@@ -10,6 +10,11 @@ interface Window {
       createConversation(projectId: string, title: string): Promise<LocalConversation>;
       deleteConversation(projectId: string, conversationId: string): Promise<void>;
     };
+    conversations: {
+      get(conversationId: string): Promise<LocalConversation>;
+      send(conversationId: string, content: string, modelId: string | undefined, requestId: string, editMessageId?: string): Promise<LocalConversation>;
+      onChunk(requestId: string, callback: (chunk: string) => void): () => void;
+    };
     apiStatus(): Promise<{ online: boolean; url: string }>;
     auth: {
       bootstrap(): Promise<
@@ -61,5 +66,6 @@ type PublicSettings = {
   profile: { displayName: string; avatarDataUrl: string | null };
   models: ModelConfiguration[];
 };
-type LocalConversation = { id: string; title: string; createdAt: string };
+type LocalMessage = { id: string; role: "user" | "assistant"; content: string; createdAt: string };
+type LocalConversation = { id: string; title: string; createdAt: string; messages?: LocalMessage[] };
 type LocalProject = { id: string; name: string; path: string; conversations: LocalConversation[] };
