@@ -77,10 +77,11 @@ async function runNode(
   const nodeId = node.id;
   const queued = queuedNodeMessages.get(nodeId) ?? [];
   queuedNodeMessages.delete(nodeId);
-  const persistedMessage = [...node.messages].reverse().find((message) => message.toNodeId === nodeId);
-  const deliveredMessages = queued.length
-    ? queued
-    : persistedMessage ? [`Message from workflow agent ${persistedMessage.fromNodeId ?? "user"}:\n${persistedMessage.content}`] : [];
+  const runStartedAt = node.agentStartedAt ? new Date(node.agentStartedAt).getTime() : 0;
+  const persistedMessages = node.messages.filter((message) =>
+    message.toNodeId === nodeId && new Date(message.createdAt).getTime() >= runStartedAt,
+  ).map((message) => `Message from ${message.senderType === "user" ? "the user" : `workflow agent ${message.fromNodeId}`}:\n${message.content}`);
+  const deliveredMessages = persistedMessages.length ? persistedMessages : queued;
   const continuing = node.status === "running" && Boolean(node.conversationId) && deliveredMessages.length > 0;
   const started = continuing
     ? {
@@ -120,6 +121,7 @@ async function runNode(
           }
         }, { ownerId: nodeId, workspacePath });
       await new Promise((resolve) => setTimeout(resolve, 50));
+      if (pausedForReply) break;
       const adjustments = activeNodeAdjustments.get(nodeId)?.splice(0) ?? [];
       if (!adjustments.length) break;
       prompt = `The user adjusted your current task while you were working:\n\n${adjustments.join("\n\n")}\n\nContinue from the existing conversation. Revise your result as needed and notify affected agents with agent_message when appropriate.`;
@@ -170,7 +172,11 @@ export async function adjustMultiAgentNode(
   }
   const task = await getMultiAgentTask(taskId);
   const node = task.nodes.find((item) => item.id === nodeId);
-  if (!node || !["completed", "paused"].includes(node.status) || !node.conversationId) throw new Error("node_not_adjustable");
+  // A paused node is waiting for another agent. Persist the user's message now,
+  // then deliver it together with that agent's reply instead of waking the node
+  // prematurely and creating a duplicate review cycle.
+  if (node?.status === "paused") return task;
+  if (!node || node.status !== "completed" || !node.conversationId) throw new Error("node_not_adjustable");
   const awakened = await apiRequest<{ conversationId: string; modelId?: string | null }>(`/api/multi-agents/nodes/${nodeId}/wake`, { method: "POST" });
   onEvent({ type: "task.updated", task: await getMultiAgentTask(taskId) });
   const agentMessageCalls = new Set<string>();
@@ -211,7 +217,7 @@ export async function runMultiAgentTask(
     onEvent({ type: "task.updated", task });
     while (task.status === "running") {
       const ready = task.nodes.filter((node) =>
-        node.status === "ready" || (node.status === "running" && Boolean(node.finalOutput)
+        node.status === "ready" || (node.status === "running"
           && (queuedNodeMessages.has(node.id) || node.messages.some((message) => message.toNodeId === node.id))),
       );
       if (!ready.length) {
