@@ -20,6 +20,7 @@
 .running { border-color: var(--color-accent); }
 .completed .nodeHead > span { color: var(--color-accent); }
 .failed .nodeHead > span { color: var(--color-danger); }
+.paused .nodeHead > span { color: var(--color-warning); }
 .spinner { animation: spin 800ms linear infinite; }
 .node :global(.react-flow__handle) { top: 22px; width: 9px; height: 9px; border: 2px solid var(--color-surface-1); background: var(--color-border-strong); }
 @keyframes spin { to { transform: rotate(360deg); } }

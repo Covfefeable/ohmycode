@@ -209,18 +209,53 @@ def post_message(user_id: UUID, node_id: UUID, payload: dict) -> MultiAgentMessa
     target = owned_node(user_id, target_id)
     if not target or target.task_id != source.task_id:
         raise ServiceError("not_found", 404)
-    if target.status not in {"running", "completed"}:
+    if target.status in {"pending", "ready"}:
         raise ServiceError("agent_not_available", 409)
     content = str(payload.get("content") or "").strip()
     if not content:
         raise ServiceError("validation_error", 422)
+    intent = str(payload.get("intent") or payload.get("type") or "inform")[:32]
+    expects_reply = bool(payload.get("expectsReply")) or intent == "revision_request"
+    try:
+        reply_to_id = UUID(str(payload.get("replyToId"))) if payload.get("replyToId") else None
+    except (TypeError, ValueError) as error:
+        raise ServiceError("validation_error", 422) from error
     message = MultiAgentMessage(
         task_id=source.task_id,
         from_node_id=source.id,
         to_node_id=target.id,
-        message_type=str(payload.get("type") or "update")[:32],
+        message_type=intent,
+        sender_type="agent",
         content=content,
-        expects_reply=bool(payload.get("expectsReply")),
+        expects_reply=expects_reply,
+        reply_to_id=reply_to_id,
+    )
+    db.session.add(message)
+    if expects_reply:
+        source.status = "paused"
+    if target.status in {"completed", "paused"}:
+        target.status = "pending"
+        target.task.status = "running"
+        _refresh_ready_nodes(target.task)
+    db.session.commit()
+    return message
+
+
+def post_user_message(user_id: UUID, node_id: UUID, payload: dict) -> MultiAgentMessage:
+    target = owned_node(user_id, node_id)
+    if not target:
+        raise ServiceError("not_found", 404)
+    content = str(payload.get("content") or "").strip()
+    if not content:
+        raise ServiceError("validation_error", 422)
+    message = MultiAgentMessage(
+        task_id=target.task_id,
+        from_node_id=None,
+        to_node_id=target.id,
+        message_type="user_adjustment",
+        sender_type="user",
+        content=content,
+        expects_reply=False,
     )
     db.session.add(message)
     db.session.commit()
@@ -228,13 +263,23 @@ def post_message(user_id: UUID, node_id: UUID, payload: dict) -> MultiAgentMessa
 
 
 def _refresh_ready_nodes(task: MultiAgentTask) -> None:
-    completed = {node.id for node in task.nodes if node.status == "completed" and node.final_output}
-    incoming: dict[UUID, set[UUID]] = {node.id: set() for node in task.nodes}
-    for edge in task.edges:
+    execution_nodes = _execution_nodes(task)
+    for boundary in task.nodes:
+        if boundary.key == START_KEY:
+            boundary.status = "completed"
+            boundary.final_output = boundary.final_output or {"content": task.request}
+    completed = {node.id for node in execution_nodes if node.status == "completed" and node.final_output}
+    incoming: dict[UUID, set[UUID]] = {node.id: set() for node in execution_nodes}
+    for edge in _execution_edges(task):
         incoming[edge.target_node_id].add(edge.source_node_id)
-    for node in task.nodes:
+    for node in execution_nodes:
         if node.status == "pending" and incoming[node.id].issubset(completed):
             node.status = "ready"
+    if execution_nodes and all(node.status == "completed" for node in execution_nodes):
+        for boundary in task.nodes:
+            if boundary.key == END_KEY:
+                boundary.status = "completed"
+                boundary.final_output = boundary.final_output or {"content": "Workflow completed"}
 
 
 def start_task(user_id: UUID, task_id: UUID) -> MultiAgentTask:
@@ -252,16 +297,28 @@ def start_task(user_id: UUID, task_id: UUID) -> MultiAgentTask:
     return task
 
 
+def resume_task(user_id: UUID, task_id: UUID) -> MultiAgentTask:
+    task = get_task(user_id, task_id)
+    if not task or task.status != "running":
+        raise ServiceError("workflow_not_resumable", 409)
+    for node in _execution_nodes(task):
+        if node.status == "running":
+            node.status = "pending"
+    _refresh_ready_nodes(task)
+    db.session.commit()
+    return task
+
+
 def _node_execution_prompt(node: MultiAgentNode) -> str:
     task = node.task
-    upstream_ids = {edge.source_node_id for edge in task.edges if edge.target_node_id == node.id}
-    upstream = [item for item in task.nodes if item.id in upstream_ids]
+    upstream_ids = {edge.source_node_id for edge in _execution_edges(task) if edge.target_node_id == node.id}
+    upstream = [item for item in _execution_nodes(task) if item.id in upstream_ids]
     outputs = (
         "\n\n".join(f"[{item.name}]\n{item.final_output}" for item in upstream if item.final_output)
         or "No upstream nodes."
     )
     peers = ", ".join(
-        f"{item.name} ({item.id}, {item.status})" for item in task.nodes if item.id != node.id
+        f"{item.name} ({item.id}, {item.status})" for item in _execution_nodes(task) if item.id != node.id
     )
     return f"""You are the {node.name} node in a multi-agent workflow.
 
@@ -304,8 +361,8 @@ def wake_node(user_id: UUID, node_id: UUID) -> MultiAgentNode:
     node = owned_node(user_id, node_id)
     if not node:
         raise ServiceError("not_found", 404)
-    if node.status != "completed":
-        raise ServiceError("node_not_completed", 409)
+    if node.status not in {"completed", "paused"}:
+        raise ServiceError("node_not_resumable", 409)
     node.status = "running"
     node.task.status = "running"
     db.session.commit()
@@ -325,7 +382,7 @@ def complete_node(user_id: UUID, node_id: UUID, payload: dict) -> MultiAgentTask
     node.status = "completed"
     task = node.task
     _refresh_ready_nodes(task)
-    if all(item.status == "completed" for item in task.nodes):
+    if all(item.status == "completed" for item in _execution_nodes(task)):
         task.status = "completed"
     db.session.commit()
     return task
@@ -386,3 +443,10 @@ def record_changes(user_id: UUID, node_id: UUID, payload: dict) -> MultiAgentTas
         )
     db.session.commit()
     return node.task
+def _execution_nodes(task: MultiAgentTask) -> list[MultiAgentNode]:
+    return [node for node in task.nodes if node.key not in {START_KEY, END_KEY}]
+
+
+def _execution_edges(task: MultiAgentTask) -> list[MultiAgentEdge]:
+    node_ids = {node.id for node in _execution_nodes(task)}
+    return [edge for edge in task.edges if edge.source_node_id in node_ids and edge.target_node_id in node_ids]

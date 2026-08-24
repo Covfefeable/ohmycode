@@ -40,6 +40,8 @@ AGENT_MESSAGE_TOOL = {
                 "toNodeId": {"type": "string"},
                 "content": {"type": "string"},
                 "expectsReply": {"type": "boolean"},
+                "intent": {"type": "string", "enum": ["inform", "question", "revision_request", "revision_result"]},
+                "replyToId": {"type": "string"},
             },
             "required": ["toNodeId", "content"],
         },

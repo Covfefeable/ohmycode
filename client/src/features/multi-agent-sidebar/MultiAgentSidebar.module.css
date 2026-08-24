@@ -33,6 +33,7 @@
 .status_running svg { animation: spin 800ms linear infinite; }
 .status_completed { color: var(--color-accent); }
 .status_failed { color: var(--color-danger); }
+.status_paused { color: var(--color-warning); }
 .status_stopped { color: var(--color-warning); }
 .danger { color: var(--color-danger-text) !important; }
 .deleteTask { width: 28px; height: 28px; display: grid; place-items: center; flex: none; margin-right: var(--space-2); border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--color-text-dim); opacity: 0; cursor: pointer; }

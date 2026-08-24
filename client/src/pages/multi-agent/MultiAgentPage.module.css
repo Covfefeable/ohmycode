@@ -85,6 +85,7 @@
 .activityBody nav button > .running { background: var(--color-accent); box-shadow: var(--shadow-accent-glow); }
 .activityBody nav button > .completed { background: var(--color-accent); }
 .activityBody nav button > .failed { background: var(--color-danger); }
+.activityBody nav button > .paused { background: var(--color-warning); }
 .activityContent { min-height: 0; overflow: auto; padding: var(--space-6); }
 .activityContent h3 { margin: 0; font-size: 18px; }
 .activityContent > p { margin: 6px 0 var(--space-5); color: var(--color-text-muted); }

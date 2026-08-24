@@ -130,6 +130,8 @@ export const zhCN = {
     completed: "已完成",
     failed: "失败",
     stopped: "已停止",
+    paused: "暂停",
+    resume: "继续运行",
     activity: "活动",
     liveActivity: "Agent 实时活动",
     runTaskTitle: "运行协作",
@@ -153,6 +155,7 @@ export const zhCN = {
     groupChat: "群聊",
     noAgentMessages: "Agent 之间还没有通讯",
     unknownAgent: "未知 Agent",
+    user: "用户",
   },
   auth: {
     workspaceTagline: "你的本地代码工作空间",

@@ -14,8 +14,10 @@ from ..services.multi_agents import (
     get_task,
     list_agents,
     post_message,
+    post_user_message,
     record_changes,
     replace_flow,
+    resume_task,
     serialize_agent,
     serialize_task,
     start_node,
@@ -99,10 +101,18 @@ def post_message_route(node_id: UUID):
     return jsonify(
         {
             "id": str(message.id),
+            "sourceStatus": message.from_node.status if message.from_node else None,
             "targetStatus": message.to_node.status,
             "targetOutput": message.to_node.final_output,
         }
     ), 201
+
+
+@multi_agents_bp.post("/nodes/<uuid:node_id>/user-messages")
+@jwt_required()
+def post_user_message_route(node_id: UUID):
+    message = post_user_message(user_id(), node_id, request.get_json(silent=True) or {})
+    return jsonify({"id": str(message.id), "targetStatus": message.to_node.status}), 201
 
 
 @multi_agents_bp.post("/nodes/<uuid:node_id>/changes")
@@ -122,6 +132,12 @@ def start_task_route(task_id: UUID):
 @jwt_required()
 def stop_task_route(task_id: UUID):
     return jsonify(serialize_task(stop_task(user_id(), task_id)))
+
+
+@multi_agents_bp.post("/tasks/<uuid:task_id>/resume")
+@jwt_required()
+def resume_task_route(task_id: UUID):
+    return jsonify(serialize_task(resume_task(user_id(), task_id)))
 
 
 @multi_agents_bp.post("/nodes/<uuid:node_id>/start")

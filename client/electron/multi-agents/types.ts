@@ -21,9 +21,10 @@ export type MultiAgentSummary = {
 
 export type MultiAgentMessage = {
   id: string;
-  fromNodeId: string;
+  fromNodeId: string | null;
   toNodeId: string;
   type: string;
+  senderType: "user" | "agent";
   content: string;
   expectsReply: boolean;
   replyToId?: string | null;

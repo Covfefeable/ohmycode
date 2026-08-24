@@ -20,7 +20,7 @@ type ToolRequestEvent = {
   runId: string;
   callId: string;
   tool: "terminal" | "agent_message";
-  arguments: TerminalAction | { toNodeId: string; content: string; expectsReply?: boolean };
+  arguments: TerminalAction | { toNodeId: string; content: string; expectsReply?: boolean; intent?: "inform" | "question" | "revision_request" | "revision_result"; replyToId?: string };
 };
 type ActiveRequest = { controller: AbortController; runId?: string; terminalIds: Set<string> };
 export type AgentExecutionContext = { ownerId: string; workspacePath: string };

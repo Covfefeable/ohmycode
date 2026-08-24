@@ -69,6 +69,12 @@ def test_multi_agent_dag_lifecycle(tmp_path):
                 ).status_code
                 == 200
             )
+            if node["key"] == "api":
+                assert client.post(
+                    f"/api/multi-agents/nodes/{node['id']}/messages",
+                    headers=headers,
+                    json={"toNodeId": verify["id"], "content": "Premature handoff"},
+                ).status_code == 409
             current = client.post(
                 f"/api/multi-agents/nodes/{node['id']}/complete",
                 headers=headers,
@@ -84,3 +90,39 @@ def test_multi_agent_dag_lifecycle(tmp_path):
             json={"output": {"content": "All checks passed"}},
         ).get_json()
         assert completed["status"] == "completed"
+
+        api_node = next(node for node in completed["nodes"] if node["key"] == "api")
+        revision = client.post(
+            f"/api/multi-agents/nodes/{verify['id']}/messages",
+            headers=headers,
+            json={
+                "toNodeId": api_node["id"],
+                "content": "Please revise the API result",
+                "intent": "revision_request",
+                "expectsReply": True,
+            },
+        )
+        assert revision.status_code == 201
+        assert revision.get_json()["sourceStatus"] == "paused"
+        assert revision.get_json()["targetStatus"] == "ready"
+
+        client.post(f"/api/multi-agents/nodes/{api_node['id']}/start", headers=headers)
+        reply = client.post(
+            f"/api/multi-agents/nodes/{api_node['id']}/messages",
+            headers=headers,
+            json={
+                "toNodeId": verify["id"],
+                "content": "The revised API result is ready",
+                "intent": "revision_result",
+            },
+        )
+        assert reply.status_code == 201
+        assert reply.get_json()["targetStatus"] == "pending"
+        revised = client.post(
+            f"/api/multi-agents/nodes/{api_node['id']}/complete",
+            headers=headers,
+            json={"output": {"content": "API revised"}},
+        ).get_json()
+        verify = next(node for node in revised["nodes"] if node["key"] == "verify")
+        assert verify["status"] == "ready"
+        assert revised["status"] == "running"

@@ -46,13 +46,17 @@ def serialize_agent(agent: MultiAgent) -> dict:
 
 
 def serialize_task(task: MultiAgentTask) -> dict:
+    work_nodes = [node for node in task.nodes if node.key not in {"workflow_start", "workflow_end"}]
+    work_node_ids = {node.id for node in work_nodes}
+    work_edges = [edge for edge in task.edges if edge.source_node_id in work_node_ids and edge.target_node_id in work_node_ids]
     messages = {str(node.id): [] for node in task.nodes}
     for message in task_messages(task):
         payload = {
             "id": str(message.id),
-            "fromNodeId": str(message.from_node_id),
+            "fromNodeId": str(message.from_node_id) if message.from_node_id else None,
             "toNodeId": str(message.to_node_id),
             "type": message.message_type,
+            "senderType": message.sender_type,
             "content": message.content,
             "expectsReply": message.expects_reply,
             "replyToId": str(message.reply_to_id) if message.reply_to_id else None,
@@ -61,10 +65,10 @@ def serialize_task(task: MultiAgentTask) -> dict:
         messages.setdefault(str(message.from_node_id), []).append(payload)
         messages.setdefault(str(message.to_node_id), []).append(payload)
     changes = task_changes(task)
-    incoming = {edge.target_node_id for edge in task.edges}
-    outgoing = {edge.source_node_id for edge in task.edges}
-    min_x = min((float(node.position.get("x", 0)) for node in task.nodes), default=120)
-    max_x = max((float(node.position.get("x", 0)) for node in task.nodes), default=120)
+    incoming = {edge.target_node_id for edge in work_edges}
+    outgoing = {edge.source_node_id for edge in work_edges}
+    min_x = min((float(node.position.get("x", 0)) for node in work_nodes), default=120)
+    max_x = max((float(node.position.get("x", 0)) for node in work_nodes), default=120)
     boundary_status = "completed" if task.status == "completed" else ("running" if task.status == "running" else task.status)
     serialized_nodes = [
         {
@@ -82,7 +86,7 @@ def serialize_task(task: MultiAgentTask) -> dict:
                 "finalOutput": node.final_output, "messages": messages.get(str(node.id), []),
                 "changedFiles": [item for item in changes if item["nodeId"] == str(node.id)],
             }
-            for node in task.nodes
+            for node in work_nodes
         ],
         {
             "id": "workflow_end", "key": "workflow_end", "name": "End",
@@ -94,13 +98,13 @@ def serialize_task(task: MultiAgentTask) -> dict:
     ]
     serialized_edges = [
         {"id": "workflow-start-" + str(node.id), "source": "workflow_start", "target": str(node.id)}
-        for node in task.nodes if node.id not in incoming
+        for node in work_nodes if node.id not in incoming
     ] + [
         {"id": str(edge.id), "source": str(edge.source_node_id), "target": str(edge.target_node_id)}
-        for edge in task.edges
+        for edge in work_edges
     ] + [
         {"id": "workflow-end-" + str(node.id), "source": str(node.id), "target": "workflow_end"}
-        for node in task.nodes if node.id not in outgoing
+        for node in work_nodes if node.id not in outgoing
     ]
     return {
         "id": str(task.id),

@@ -113,7 +113,7 @@ export function MultiAgentPage() {
     for (const node of task.nodes) for (const message of node.messages) unique.set(message.id, message);
     return [...unique.values()].sort((a, b) => a.createdAt.localeCompare(b.createdAt)).map((message) => ({
       ...message,
-      fromName: names.get(message.fromNodeId) ?? t("multiAgent.unknownAgent"),
+      fromName: message.senderType === "user" ? t("multiAgent.user") : names.get(message.fromNodeId ?? "") ?? t("multiAgent.unknownAgent"),
       toName: names.get(message.toNodeId) ?? t("multiAgent.unknownAgent"),
     }));
   }, [task, t]);
@@ -312,7 +312,8 @@ export function MultiAgentPage() {
             {!isTemplate && <button onClick={() => setActivityOpen(true)}><Activity />{t("multiAgent.activity")}</button>}
             {isTemplate
               ? <button className={styles.primary} onClick={() => setRunDialogOpen(true)}><Play />{t("multiAgent.run")}</button>
-              : runRequestId ? <button className={styles.stop} onClick={() => void window.ohmycode.multiAgents.stopTask(runRequestId)}><Square />{t("multiAgent.stop")}</button> : null}
+              : runRequestId ? <button className={styles.stop} onClick={() => void window.ohmycode.multiAgents.stopTask(runRequestId)}><Square />{t("multiAgent.stop")}</button>
+                : ["draft", "running", "stopped", "failed"].includes(task.status) ? <button className={styles.primary} onClick={() => void executeTask(task)}><Play />{t("multiAgent.resume")}</button> : null}
           </div>
           <WorkflowCanvas
             key={task.id}
@@ -334,7 +335,7 @@ export function MultiAgentPage() {
           </div>
           {selectedNode && <aside className={styles.detail}>
             <button className={styles.close} onClick={() => setSelectedNodeId(null)}><X /></button>
-            {selectedNode.key !== START_KEY && <span className={styles.status}>{isTemplate ? t("multiAgent.agentNode") : t(`multiAgent.${selectedNode.status}`, { defaultValue: selectedNode.status })}</span>}
+            {selectedNode.key !== START_KEY && <span className={styles.status}>{isTemplate ? t("multiAgent.agentNode") : t(`multiAgent.${selectedNode.status === "ready" ? "pending" : selectedNode.status}`, { defaultValue: selectedNode.status })}</span>}
             {isTemplate && selectedNode.key !== START_KEY && selectedNode.key !== END_KEY ? <>
               <label>{t("multiAgent.nodeName")}<input value={selectedNode.name} onChange={(event) => updateTemplateNode("name", event.target.value)} /></label>
               <label>{t("multiAgent.nodeRole")}<input value={selectedNode.role} onChange={(event) => updateTemplateNode("role", event.target.value)} /></label>
@@ -370,7 +371,7 @@ export function MultiAgentPage() {
         <section className={styles.activityDialog} onMouseDown={(event) => event.stopPropagation()}>
           <header><div><span>{t("multiAgent.liveActivity")}</span><h2>{task.title}</h2></div><div className={styles.activityHeaderActions}><div className={styles.viewSwitch}><button className={activityView === "agent" ? styles.activeView : ""} onClick={() => setActivityView("agent")}>{t("multiAgent.agentView")}</button><button className={activityView === "group" ? styles.activeView : ""} onClick={() => setActivityView("group")}>{t("multiAgent.groupChat")}</button></div><button className={styles.activityClose} onClick={() => setActivityOpen(false)}><X /></button></div></header>
           <div className={`${styles.activityBody} ${activityView === "group" ? styles.groupMode : ""}`}>
-            {activityView === "agent" ? <><nav>{task.nodes.filter((node) => node.key !== START_KEY && node.key !== END_KEY).map((node) => <button className={activityNodeId === node.id ? styles.activeAgent : ""} key={node.id} onClick={() => setActivityNodeId(node.id)}><span className={styles[node.status]} />{node.name}</button>)}</nav><div className={styles.activityContent}>{(() => { const node = task.nodes.find((item) => item.id === activityNodeId && item.key !== START_KEY && item.key !== END_KEY) ?? task.nodes.find((item) => item.key !== START_KEY && item.key !== END_KEY); if (!node) return null; const persisted = (node.finalOutput?.activity as AgentActivityStep[] | undefined) ?? []; const steps = nodeActivities[node.id] ?? persisted; return <div className={styles.activityColumn}><div><h3>{node.name}</h3><p>{node.role}</p>{steps.length ? <ActivityTimeline steps={steps} active={node.status === "running"} /> : <span>{t("multiAgent.waitingForActivity")}</span>}</div>{["running", "completed"].includes(node.status) && <div className={styles.adjustComposer}><textarea value={adjustment} placeholder={t("multiAgent.adjustPlaceholder")} onChange={(event) => setAdjustment(event.target.value)} /><button disabled={adjusting || !adjustment.trim()} onClick={() => void sendAdjustment(node.id)}>{adjusting ? <LoaderCircle className={styles.spinner} /> : <Send />}</button></div>}</div>; })()}</div></> : <div className={styles.groupChat}>{groupMessages.length ? groupMessages.map((message) => <article key={message.id}><header><strong>{message.fromName}</strong><span>→ @{message.toName}</span><time>{new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit" }).format(new Date(message.createdAt))}</time></header><p>{message.content}</p></article>) : <div className={styles.emptyChat}>{t("multiAgent.noAgentMessages")}</div>}</div>}
+            {activityView === "agent" ? <><nav>{task.nodes.filter((node) => node.key !== START_KEY && node.key !== END_KEY).map((node) => <button className={activityNodeId === node.id ? styles.activeAgent : ""} key={node.id} onClick={() => setActivityNodeId(node.id)}><span className={styles[node.status === "ready" ? "pending" : node.status]} />{node.name}</button>)}</nav><div className={styles.activityContent}>{(() => { const node = task.nodes.find((item) => item.id === activityNodeId && item.key !== START_KEY && item.key !== END_KEY) ?? task.nodes.find((item) => item.key !== START_KEY && item.key !== END_KEY); if (!node) return null; const persisted = (node.finalOutput?.activity as AgentActivityStep[] | undefined) ?? []; const steps = nodeActivities[node.id] ?? persisted; return <div className={styles.activityColumn}><div><h3>{node.name}</h3><p>{node.role}</p>{steps.length ? <ActivityTimeline steps={steps} active={node.status === "running"} /> : <span>{t("multiAgent.waitingForActivity")}</span>}</div>{["running", "paused", "completed"].includes(node.status) && <div className={styles.adjustComposer}><textarea value={adjustment} placeholder={t("multiAgent.adjustPlaceholder")} onChange={(event) => setAdjustment(event.target.value)} /><button disabled={adjusting || !adjustment.trim()} onClick={() => void sendAdjustment(node.id)}>{adjusting ? <LoaderCircle className={styles.spinner} /> : <Send />}</button></div>}</div>; })()}</div></> : <div className={styles.groupChat}>{groupMessages.length ? groupMessages.map((message) => <article key={message.id}><header><strong>{message.fromName}</strong><span>→ @{message.toName}</span><time>{new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit" }).format(new Date(message.createdAt))}</time></header><p>{message.content}</p></article>) : <div className={styles.emptyChat}>{t("multiAgent.noAgentMessages")}</div>}</div>}
           </div>
         </section>
       </div>}

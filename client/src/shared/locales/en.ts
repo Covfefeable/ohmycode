@@ -131,6 +131,8 @@ export const en = {
     completed: "Completed",
     failed: "Failed",
     stopped: "Stopped",
+    paused: "Paused",
+    resume: "Resume",
     activity: "Activity",
     liveActivity: "Live agent activity",
     runTaskTitle: "Run collaboration",
@@ -154,6 +156,7 @@ export const en = {
     groupChat: "Group chat",
     noAgentMessages: "No agent-to-agent messages yet",
     unknownAgent: "Unknown agent",
+    user: "User",
   },
   auth: {
     workspaceTagline: "Your local coding workspace",

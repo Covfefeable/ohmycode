@@ -55,7 +55,8 @@ def _multi_agent_context(conversation_id: UUID) -> tuple[list[dict], list[dict]]
         )
     )
     mailbox = "\n".join(
-        f"- {item.from_node.name} -> {item.to_node.name}: {item.content}" for item in messages
+        f"- {item.from_node.name if item.from_node else 'User'} -> {item.to_node.name}: {item.content}"
+        for item in messages
     )
     context = (
         [{"role": "system", "content": f"Workflow agent mailbox:\n{mailbox}"}] if mailbox else []

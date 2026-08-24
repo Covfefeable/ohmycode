@@ -110,20 +110,21 @@ class MultiAgentMessage(db.Model):
     task_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("multi_agent_tasks.id", ondelete="CASCADE"), index=True
     )
-    from_node_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("multi_agent_nodes.id", ondelete="CASCADE"), index=True
+    from_node_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("multi_agent_nodes.id", ondelete="CASCADE"), index=True, nullable=True
     )
     to_node_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("multi_agent_nodes.id", ondelete="CASCADE"), index=True
     )
     message_type: Mapped[str] = mapped_column(String(32), default="update")
+    sender_type: Mapped[str] = mapped_column(String(16), default="agent")
     content: Mapped[str] = mapped_column(Text)
     expects_reply: Mapped[bool] = mapped_column(Boolean, default=False)
     reply_to_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("multi_agent_messages.id", ondelete="SET NULL"), nullable=True
     )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    from_node: Mapped[MultiAgentNode] = relationship(foreign_keys=[from_node_id])
+    from_node: Mapped[MultiAgentNode | None] = relationship(foreign_keys=[from_node_id])
     to_node: Mapped[MultiAgentNode] = relationship(foreign_keys=[to_node_id])
 
 
