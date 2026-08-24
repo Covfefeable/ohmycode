@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Activity, FolderOpen, LoaderCircle, Play, Plus, Redo2, Save, Square, Undo2, X } from "lucide-react";
+import { Activity, FolderOpen, LoaderCircle, Play, Plus, Redo2, Save, Send, Square, Undo2, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useFeedback } from "../../features/feedback";
 import { MultiAgentSidebar } from "../../features/multi-agent-sidebar";
@@ -73,6 +73,8 @@ export function MultiAgentPage() {
   const [nodeActivities, setNodeActivities] = useState<Record<string, AgentActivityStep[]>>({});
   const [undoStack, setUndoStack] = useState<MultiAgentTask[]>([]);
   const [redoStack, setRedoStack] = useState<MultiAgentTask[]>([]);
+  const [adjustment, setAdjustment] = useState("");
+  const [adjusting, setAdjusting] = useState(false);
 
   const reloadAgents = useCallback(async () => {
     const value = await window.ohmycode.multiAgents.list();
@@ -110,11 +112,10 @@ export function MultiAgentPage() {
 
   function commitCanvas(next: MultiAgentTask) {
     if (!task) return;
-    const revision = { ...next, updatedAt: new Date().toISOString() };
     setUndoStack((items) => [...items.slice(-49), task]);
     setRedoStack([]);
-    setTask(revision);
-    setPositions(Object.fromEntries(revision.nodes.map((node) => [node.id, node.position])));
+    setTask(next);
+    setPositions(Object.fromEntries(next.nodes.map((node) => [node.id, node.position])));
   }
 
   function undoCanvas() {
@@ -255,12 +256,26 @@ export function MultiAgentPage() {
     commitCanvas({ ...task, edges: [...task.edges, { id: crypto.randomUUID(), source, target }] });
   }
 
+  async function sendAdjustment(nodeId: string) {
+    if (!task || !adjustment.trim()) return;
+    const content = adjustment.trim(); const requestId = crypto.randomUUID();
+    setAdjustment(""); setAdjusting(true);
+    setNodeActivities((current) => ({ ...current, [nodeId]: [...(current[nodeId] ?? []), { id: `user-${requestId}`, type: "message", content: `${t("multiAgent.userAdjustment")}: ${content}`, status: "completed" }] }));
+    const unsubscribe = window.ohmycode.multiAgents.onEvent(requestId, (event) => {
+      if (event.type === "task.updated") setTask(event.task);
+      if (event.type === "node.event") setNodeActivities((current) => ({ ...current, [event.nodeId]: updateActivity(current[event.nodeId] ?? [], event.event) }));
+    });
+    try { setTask(await window.ohmycode.multiAgents.adjustNode(task.id, nodeId, content, requestId)); }
+    catch { toast({ type: "error", message: t("multiAgent.adjustFailed") }); }
+    finally { unsubscribe(); setAdjusting(false); }
+  }
+
   return <AppShell navigation={<NavigationRail />} sidebar={<MultiAgentSidebar
     agents={agents} selectedAgentId={selectedAgentId} selectedTaskId={selectedTaskId}
     busy={creating} onCreateAgent={() => setDialogOpen(true)} onSelectAgent={selectAgent}
     onRunAgent={(agentId) => { setSelectedAgentId(agentId); setRunDialogOpen(true); }}
     onSelectTask={(taskId) => { setSelectedTaskId(taskId); setSelectedNodeId(null); }}
-    onDeleteAgent={(agentId) => void window.ohmycode.multiAgents.delete(agentId).then(reloadAgents)}
+    onDeleteAgent={(agentId) => void window.ohmycode.multiAgents.delete(agentId).then(async () => { if (agentId === selectedAgentId) { setSelectedAgentId(null); setSelectedTaskId(null); setSelectedNodeId(null); setTask(null); } await reloadAgents(); })}
     onDeleteTask={(taskId) => void window.ohmycode.multiAgents.deleteTask(taskId).then(async () => {
       if (taskId === selectedTaskId) setSelectedTaskId(null); await reloadAgents();
     })}
@@ -282,7 +297,7 @@ export function MultiAgentPage() {
               : runRequestId ? <button className={styles.stop} onClick={() => void window.ohmycode.multiAgents.stopTask(runRequestId)}><Square />{t("multiAgent.stop")}</button> : null}
           </div>
           <WorkflowCanvas
-            key={`${task.id}:${task.updatedAt}`}
+            key={task.id}
             task={task}
             selectedNodeId={selectedNodeId}
             onNodeSelect={setSelectedNodeId}
@@ -307,7 +322,7 @@ export function MultiAgentPage() {
               <label>{t("multiAgent.nodeRole")}<input value={selectedNode.role} onChange={(event) => updateTemplateNode("role", event.target.value)} /></label>
               <label>{t("multiAgent.nodeModel")}<select value={selectedNode.modelId ?? ""} onChange={(event) => updateTemplateNode("modelId", event.target.value)}><option value="">{t("multiAgent.defaultModel")}</option>{models.map((model) => <option key={model.id} value={model.id}>{model.name} · {model.model}</option>)}</select></label>
               <label>{t("multiAgent.nodeInstructions")}<textarea value={selectedNode.instructions} onChange={(event) => updateTemplateNode("instructions", event.target.value)} /></label>
-            </> : <><h2>{selectedNode.key === START_KEY ? t("multiAgent.startNode") : selectedNode.key === END_KEY ? t("multiAgent.endNode") : selectedNode.name}</h2><p>{selectedNode.role}</p>{selectedNode.key !== START_KEY && selectedNode.key !== END_KEY && <><section><h3>{t("multiAgent.nodeModel")}</h3><span>{models.find((model) => model.id === selectedNode.modelId)?.name ?? t("multiAgent.defaultModel")}</span></section><section><h3>{t("multiAgent.nodeInstructions")}</h3><pre>{selectedNode.instructions}</pre></section></>}</>}
+            </> : <><h2>{selectedNode.key === START_KEY ? t("multiAgent.startNode") : selectedNode.key === END_KEY ? t("multiAgent.endNode") : selectedNode.name}</h2><p>{selectedNode.role}</p>{selectedNode.key === START_KEY && !isTemplate && <section><h3>{t("multiAgent.runRequirement")}</h3><pre>{task.request}</pre></section>}{selectedNode.key !== START_KEY && selectedNode.key !== END_KEY && <><section><h3>{t("multiAgent.nodeModel")}</h3><span>{models.find((model) => model.id === selectedNode.modelId)?.name ?? t("multiAgent.defaultModel")}</span></section><section><h3>{t("multiAgent.nodeInstructions")}</h3><pre>{selectedNode.instructions}</pre></section></>}</>}
           </aside>}
         </div>
       </> : <div className={styles.welcome}>
@@ -337,8 +352,8 @@ export function MultiAgentPage() {
         <section className={styles.activityDialog} onMouseDown={(event) => event.stopPropagation()}>
           <header><div><span>{t("multiAgent.liveActivity")}</span><h2>{task.title}</h2></div><button onClick={() => setActivityOpen(false)}><X /></button></header>
           <div className={styles.activityBody}>
-            <nav>{task.nodes.map((node) => <button className={activityNodeId === node.id ? styles.activeAgent : ""} key={node.id} onClick={() => setActivityNodeId(node.id)}><span className={styles[node.status]} />{node.name}</button>)}</nav>
-            <div className={styles.activityContent}>{(() => { const node = task.nodes.find((item) => item.id === activityNodeId) ?? task.nodes[0]; if (!node) return null; const persisted = (node.finalOutput?.activity as AgentActivityStep[] | undefined) ?? []; const steps = nodeActivities[node.id] ?? persisted; return <><h3>{node.name}</h3><p>{node.role}</p>{steps.length ? <ActivityTimeline steps={steps} active={node.status === "running"} /> : <span>{t("multiAgent.waitingForActivity")}</span>}</>; })()}</div>
+            <nav>{task.nodes.filter((node) => node.key !== START_KEY && node.key !== END_KEY).map((node) => <button className={activityNodeId === node.id ? styles.activeAgent : ""} key={node.id} onClick={() => setActivityNodeId(node.id)}><span className={styles[node.status]} />{node.name}</button>)}</nav>
+            <div className={styles.activityContent}>{(() => { const node = task.nodes.find((item) => item.id === activityNodeId && item.key !== START_KEY && item.key !== END_KEY) ?? task.nodes.find((item) => item.key !== START_KEY && item.key !== END_KEY); if (!node) return null; const persisted = (node.finalOutput?.activity as AgentActivityStep[] | undefined) ?? []; const steps = nodeActivities[node.id] ?? persisted; return <div className={styles.activityColumn}><div><h3>{node.name}</h3><p>{node.role}</p>{steps.length ? <ActivityTimeline steps={steps} active={node.status === "running"} /> : <span>{t("multiAgent.waitingForActivity")}</span>}</div>{["running", "completed"].includes(node.status) && <div className={styles.adjustComposer}><textarea value={adjustment} placeholder={t("multiAgent.adjustPlaceholder")} onChange={(event) => setAdjustment(event.target.value)} /><button disabled={adjusting || !adjustment.trim()} onClick={() => void sendAdjustment(node.id)}>{adjusting ? <LoaderCircle className={styles.spinner} /> : <Send />}</button></div>}</div>; })()}</div>
           </div>
         </section>
       </div>}

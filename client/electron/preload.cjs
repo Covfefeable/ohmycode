@@ -21,6 +21,7 @@ contextBridge.exposeInMainWorld("ohmycode", {
     deleteTask: (taskId) => ipcRenderer.invoke("multi-agents:delete-task", taskId),
     runTask: (taskId, requestId) => ipcRenderer.invoke("multi-agents:run-task", taskId, requestId),
     stopTask: (requestId) => ipcRenderer.invoke("multi-agents:stop-task", requestId),
+    adjustNode: (taskId, nodeId, content, requestId) => ipcRenderer.invoke("multi-agents:adjust-node", taskId, nodeId, content, requestId),
     onEvent: (requestId, callback) => {
       const channel = `multi-agent:event:${requestId}`;
       const listener = (_event, streamEvent) => callback(streamEvent);

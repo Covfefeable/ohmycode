@@ -22,6 +22,7 @@ from ..services.multi_agents import (
     start_task,
     stop_task,
     update_agent,
+    wake_node,
 )
 
 multi_agents_bp = Blueprint("multi_agents", __name__)
@@ -135,6 +136,17 @@ def start_node_route(node_id: UUID):
             "prompt": prompt,
         }
     )
+
+
+@multi_agents_bp.post("/nodes/<uuid:node_id>/wake")
+@jwt_required()
+def wake_node_route(node_id: UUID):
+    node = wake_node(user_id(), node_id)
+    return jsonify({
+        "nodeId": str(node.id),
+        "conversationId": str(node.conversation_id),
+        "modelId": str(node.model_configuration_id) if node.model_configuration_id else None,
+    })
 
 
 @multi_agents_bp.post("/nodes/<uuid:node_id>/complete")

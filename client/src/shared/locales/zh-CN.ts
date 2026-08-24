@@ -146,6 +146,9 @@ export const zhCN = {
     endNode: "结束",
     invalidConnection: "这条连线不符合工作流方向约束。",
     cycleNotAllowed: "工作流不能形成闭环。",
+    userAdjustment: "用户调整",
+    adjustPlaceholder: "向该 Agent 发送调整要求；运行中将在下一轮读取，已完成则继续当前会话。",
+    adjustFailed: "无法向该 Agent 发送调整要求。",
   },
   auth: {
     workspaceTagline: "你的本地代码工作空间",

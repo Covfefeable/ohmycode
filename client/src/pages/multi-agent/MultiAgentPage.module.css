@@ -82,5 +82,12 @@
 .activityContent h3 { margin: 0; font-size: 18px; }
 .activityContent > p { margin: 6px 0 var(--space-5); color: var(--color-text-muted); }
 .activityContent > span { color: var(--color-text-dim); font-size: var(--font-sm); }
+.activityColumn { min-height: 100%; display: grid; grid-template-rows: minmax(0, 1fr) auto; }
+.adjustComposer { display: grid; grid-template-columns: minmax(0, 1fr) 38px; align-items: end; gap: var(--space-2); border-top: 1px solid var(--color-border); padding-top: var(--space-4); }
+.adjustComposer textarea { min-height: 64px; max-height: 120px; resize: vertical; border: 1px solid var(--color-border-subtle); border-radius: var(--radius-md); outline: 0; background: var(--color-surface-input); color: var(--color-text); padding: 10px 12px; font: inherit; line-height: 1.5; }
+.adjustComposer textarea:focus { border-color: var(--color-border-strong); }
+.adjustComposer button { width: 38px; height: 38px; display: grid; place-items: center; border: 0; border-radius: 50%; background: var(--color-accent); color: var(--color-accent-ink); cursor: pointer; }
+.adjustComposer button:disabled { opacity: .5; cursor: not-allowed; }
+.adjustComposer svg { width: 16px; }
 .spinner { width: 15px; height: 15px; animation: spin 750ms linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }

@@ -26,6 +26,10 @@ export function WorkflowCanvas({ task, selectedNodeId, onNodeSelect, onPositions
   const [nodePositions, setNodePositions] = useState<Record<string, { x: number; y: number }>>(
     () => Object.fromEntries(task.nodes.map((node) => [node.id, node.position])),
   );
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => setNodePositions(Object.fromEntries(task.nodes.map((node) => [node.id, node.position]))));
+    return () => cancelAnimationFrame(frame);
+  }, [task.nodes]);
   const nodes = useMemo<AgentFlowNodeType[]>(() => task.nodes.map((node) => ({
     id: node.id,
     type: "agent",

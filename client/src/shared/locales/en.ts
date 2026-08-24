@@ -147,6 +147,9 @@ export const en = {
     endNode: "End",
     invalidConnection: "This connection violates the workflow direction rules.",
     cycleNotAllowed: "A workflow cannot contain a cycle.",
+    userAdjustment: "User adjustment",
+    adjustPlaceholder: "Send an adjustment. A running agent reads it next round; a completed agent resumes its conversation.",
+    adjustFailed: "Could not send the adjustment to this agent.",
   },
   auth: {
     workspaceTagline: "Your local coding workspace",

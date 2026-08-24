@@ -1,6 +1,7 @@
 import { ipcMain } from "electron";
 import {
   createMultiAgent,
+  adjustMultiAgentNode,
   deleteMultiAgent,
   deleteMultiAgentTask,
   getMultiAgentTask,
@@ -26,4 +27,6 @@ export function registerMultiAgentIpc(): void {
   ipcMain.handle("multi-agents:run-task", (event, taskId: string, requestId: string) =>
     runMultiAgentTask(taskId, requestId, (runEvent) => event.sender.send(`multi-agent:event:${requestId}`, runEvent)));
   ipcMain.handle("multi-agents:stop-task", (_event, requestId: string) => stopMultiAgentTask(requestId));
+  ipcMain.handle("multi-agents:adjust-node", (event, taskId: string, nodeId: string, content: string, requestId: string) =>
+    adjustMultiAgentNode(taskId, nodeId, content, requestId, (runEvent) => event.sender.send(`multi-agent:event:${requestId}`, runEvent)));
 }

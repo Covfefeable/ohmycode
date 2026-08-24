@@ -61,6 +61,47 @@ def serialize_task(task: MultiAgentTask) -> dict:
         messages.setdefault(str(message.from_node_id), []).append(payload)
         messages.setdefault(str(message.to_node_id), []).append(payload)
     changes = task_changes(task)
+    incoming = {edge.target_node_id for edge in task.edges}
+    outgoing = {edge.source_node_id for edge in task.edges}
+    min_x = min((float(node.position.get("x", 0)) for node in task.nodes), default=120)
+    max_x = max((float(node.position.get("x", 0)) for node in task.nodes), default=120)
+    boundary_status = "completed" if task.status == "completed" else ("running" if task.status == "running" else task.status)
+    serialized_nodes = [
+        {
+            "id": "workflow_start", "key": "workflow_start", "name": "Start",
+            "role": "Workflow entry", "instructions": task.request, "status": boundary_status,
+            "position": {"x": min_x - 300, "y": 100}, "conversationId": None,
+            "modelId": None, "finalOutput": {"content": task.request}, "messages": [], "changedFiles": [],
+        },
+        *[
+            {
+                "id": str(node.id), "key": node.key, "name": node.name, "role": node.role,
+                "instructions": node.instructions, "status": node.status, "position": node.position,
+                "conversationId": str(node.conversation_id) if node.conversation_id else None,
+                "modelId": str(node.model_configuration_id) if node.model_configuration_id else None,
+                "finalOutput": node.final_output, "messages": messages.get(str(node.id), []),
+                "changedFiles": [item for item in changes if item["nodeId"] == str(node.id)],
+            }
+            for node in task.nodes
+        ],
+        {
+            "id": "workflow_end", "key": "workflow_end", "name": "End",
+            "role": "Workflow completion", "instructions": "Waits for all terminal agents.",
+            "status": "completed" if task.status == "completed" else "pending",
+            "position": {"x": max_x + 330, "y": 100}, "conversationId": None,
+            "modelId": None, "finalOutput": None, "messages": [], "changedFiles": [],
+        },
+    ]
+    serialized_edges = [
+        {"id": "workflow-start-" + str(node.id), "source": "workflow_start", "target": str(node.id)}
+        for node in task.nodes if node.id not in incoming
+    ] + [
+        {"id": str(edge.id), "source": str(edge.source_node_id), "target": str(edge.target_node_id)}
+        for edge in task.edges
+    ] + [
+        {"id": "workflow-end-" + str(node.id), "source": str(node.id), "target": "workflow_end"}
+        for node in task.nodes if node.id not in outgoing
+    ]
     return {
         "id": str(task.id),
         "agentId": str(task.agent_id),
@@ -68,33 +109,8 @@ def serialize_task(task: MultiAgentTask) -> dict:
         "request": task.request,
         "status": task.status,
         "workspacePath": task.project.path,
-        "nodes": [
-            {
-                "id": str(node.id),
-                "key": node.key,
-                "name": node.name,
-                "role": node.role,
-                "instructions": node.instructions,
-                "status": node.status,
-                "position": node.position,
-                "conversationId": str(node.conversation_id) if node.conversation_id else None,
-                "modelId": str(node.model_configuration_id)
-                if node.model_configuration_id
-                else None,
-                "finalOutput": node.final_output,
-                "messages": messages.get(str(node.id), []),
-                "changedFiles": [item for item in changes if item["nodeId"] == str(node.id)],
-            }
-            for node in task.nodes
-        ],
-        "edges": [
-            {
-                "id": str(edge.id),
-                "source": str(edge.source_node_id),
-                "target": str(edge.target_node_id),
-            }
-            for edge in task.edges
-        ],
+        "nodes": serialized_nodes,
+        "edges": serialized_edges,
         "createdAt": task.created_at.isoformat(),
         "updatedAt": task.updated_at.isoformat(),
     }

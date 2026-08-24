@@ -297,6 +297,18 @@ def start_node(user_id: UUID, node_id: UUID) -> tuple[MultiAgentNode, str]:
     return node, _node_execution_prompt(node)
 
 
+def wake_node(user_id: UUID, node_id: UUID) -> MultiAgentNode:
+    node = owned_node(user_id, node_id)
+    if not node:
+        raise ServiceError("not_found", 404)
+    if node.status != "completed":
+        raise ServiceError("node_not_completed", 409)
+    node.status = "running"
+    node.task.status = "running"
+    db.session.commit()
+    return node
+
+
 def complete_node(user_id: UUID, node_id: UUID, payload: dict) -> MultiAgentTask:
     node = owned_node(user_id, node_id)
     if not node:

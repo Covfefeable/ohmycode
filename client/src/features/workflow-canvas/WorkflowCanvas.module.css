@@ -15,8 +15,7 @@
 .nodeHead > svg { color: var(--color-accent); }
 .nodeHead strong { overflow: hidden; font-size: var(--font-control); text-overflow: ellipsis; white-space: nowrap; }
 .node p { min-height: 38px; margin: 0; color: var(--color-text-muted); font-size: var(--font-sm); line-height: 1.55; }
-.boundaryNode { width: 148px; padding: 12px; }
-.boundaryNode p { min-height: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.boundaryNode { padding: 14px; }
 .node footer { display: flex; justify-content: flex-end; color: var(--color-text-dim); font-size: var(--font-xs); }
 .running { border-color: var(--color-accent); }
 .completed .nodeHead > span { color: var(--color-accent); }
