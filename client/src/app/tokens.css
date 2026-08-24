@@ -63,6 +63,8 @@
   --font-control: 13px;
   --control-height: 38px;
   --control-min-width: 108px;
+  --window-titlebar-height: 32px;
+  --window-controls-width: 138px;
   --z-sticky: 20;
   --z-header: 10;
   --z-composer: 30;

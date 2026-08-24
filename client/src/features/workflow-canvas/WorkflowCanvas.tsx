@@ -1,5 +1,5 @@
-import { useCallback, useMemo, useState } from "react";
-import { Background, Controls, MarkerType, ReactFlow, applyNodeChanges, type Connection, type NodeChange } from "@xyflow/react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Background, Controls, MarkerType, ReactFlow, applyNodeChanges, type Connection, type NodeChange, type ReactFlowInstance } from "@xyflow/react";
 import { useTranslation } from "react-i18next";
 import { AgentFlowNode, type AgentFlowNodeType } from "./AgentFlowNode";
 import styles from "./WorkflowCanvas.module.css";
@@ -17,6 +17,8 @@ type Props = {
 
 export function WorkflowCanvas({ task, selectedNodeId, onNodeSelect, onPositionsChange, editable = false, onConnect, onDeleteNodes, onDeleteEdges }: Props) {
   const { t } = useTranslation();
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const flowRef = useRef<ReactFlowInstance<AgentFlowNodeType> | null>(null);
   const [nodePositions, setNodePositions] = useState<Record<string, { x: number; y: number }>>(
     () => Object.fromEntries(task.nodes.map((node) => [node.id, node.position])),
   );
@@ -40,7 +42,23 @@ export function WorkflowCanvas({ task, selectedNodeId, onNodeSelect, onPositions
       onPositionsChange(nextPositions);
     }
   }, [nodes, onPositionsChange]);
-  return <div className={styles.canvas}>
+  const fitCanvas = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!flowRef.current || !canvas || canvas.clientWidth === 0 || canvas.clientHeight === 0 || nodes.length === 0) return;
+    void flowRef.current.fitView({ padding: 0.2, duration: 180 });
+  }, [nodes.length]);
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const frame = requestAnimationFrame(fitCanvas);
+    const observer = new ResizeObserver(fitCanvas);
+    observer.observe(canvas);
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+    };
+  }, [fitCanvas]);
+  return <div ref={canvasRef} className={styles.canvas}>
     <ReactFlow<AgentFlowNodeType>
       nodes={nodes}
       edges={edges}
@@ -54,6 +72,10 @@ export function WorkflowCanvas({ task, selectedNodeId, onNodeSelect, onPositions
       onNodesDelete={(deleted) => onDeleteNodes?.(deleted.map((node) => node.id))}
       onEdgesDelete={(deleted) => onDeleteEdges?.(deleted.map((edge) => edge.id))}
       deleteKeyCode={editable ? ["Backspace", "Delete"] : null}
+      onInit={(instance) => {
+        flowRef.current = instance;
+        requestAnimationFrame(fitCanvas);
+      }}
       fitView
       fitViewOptions={{ padding: 0.2 }}
       colorMode="dark"

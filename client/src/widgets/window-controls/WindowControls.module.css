@@ -1,20 +1,20 @@
-.titleArea { position: fixed; inset: 0 0 auto; height: 32px; z-index: var(--z-window-controls); pointer-events: none; }
+.titleArea { position: fixed; inset: 0 0 auto; height: var(--window-titlebar-height); z-index: var(--z-window-controls); pointer-events: none; }
 .dragRegion {
   position: absolute;
-  inset: 0 138px 0 0;
+  inset: 0 var(--window-controls-width) 0 0;
   -webkit-app-region: drag;
 }
 .controls {
   position: absolute;
   inset: 0 0 auto auto;
-  height: 32px;
+  height: var(--window-titlebar-height);
   display: flex;
   pointer-events: auto;
   -webkit-app-region: no-drag;
 }
 .controls button {
   width: 46px;
-  height: 32px;
+  height: var(--window-titlebar-height);
   border: 0;
   background: transparent;
   color: var(--color-text-window);
