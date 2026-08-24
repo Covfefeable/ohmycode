@@ -113,9 +113,8 @@ export async function runMultiAgentTask(
     }
     return task;
   } catch (error) {
-    if (!activeTaskRuns.get(requestId)?.cancelled) {
-      onEvent({ type: "task.failed", error: error instanceof Error ? error.message : "task_failed" });
-    }
+    if (activeTaskRuns.get(requestId)?.cancelled) return getMultiAgentTask(taskId);
+    onEvent({ type: "task.failed", error: error instanceof Error ? error.message : "task_failed" });
     throw error;
   } finally {
     activeTaskRuns.delete(requestId);
@@ -126,7 +125,7 @@ export async function stopMultiAgentTask(requestId: string): Promise<void> {
   const active = activeTaskRuns.get(requestId);
   if (!active) return;
   active.cancelled = true;
+  await apiRequest(`/api/multi-agents/tasks/${active.taskId}/stop`, { method: "POST" });
   const requests = [...active.nodeRequestIds];
   await Promise.allSettled(requests.map((nodeRequestId) => stopMessage(nodeRequestId)));
-  await apiRequest(`/api/multi-agents/tasks/${active.taskId}/stop`, { method: "POST" });
 }
