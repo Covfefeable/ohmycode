@@ -150,6 +150,10 @@ export const en = {
     userAdjustment: "User adjustment",
     adjustPlaceholder: "Send an adjustment. A running agent reads it next round; a completed agent resumes its conversation.",
     adjustFailed: "Could not send the adjustment to this agent.",
+    agentView: "Agent",
+    groupChat: "Group chat",
+    noAgentMessages: "No agent-to-agent messages yet",
+    unknownAgent: "Unknown agent",
   },
   auth: {
     workspaceTagline: "Your local coding workspace",

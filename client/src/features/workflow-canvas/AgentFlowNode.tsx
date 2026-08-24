@@ -23,7 +23,7 @@ function AgentFlowNodeComponent({ data, selected }: NodeProps<AgentFlowNodeType>
   return <article className={`${styles.node} ${isStart || isEnd ? styles.boundaryNode : ""} ${styles[node.status] ?? ""} ${selected ? styles.selected : ""}`}>
     {!isStart && <Handle type="target" position={Position.Left} />}
     <div className={styles.nodeHead}><Tooltip content={t(`multiAgent.${node.status}`, { defaultValue: node.status })}><span>{statusIcon(node.status)}</span></Tooltip>{isStart ? <CirclePlay /> : isEnd ? <Flag /> : <Bot />}<strong>{isStart ? t("multiAgent.startNode") : isEnd ? t("multiAgent.endNode") : node.name}</strong></div>
-    <p>{node.role}</p>
+    <p>{isStart || isEnd ? "" : node.role}</p>
     {node.messages.length > 0 && <footer><span>{node.messages.length} messages</span></footer>}
     {!isEnd && <Handle type="source" position={Position.Right} />}
   </article>;

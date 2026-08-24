@@ -24,6 +24,7 @@
 .detail h2 { margin: 8px 34px 8px 0; font-size: 21px; }
 .detail > p { color: var(--color-text-muted); font-size: var(--font-md); line-height: 1.55; }
 .detail section { margin-top: 24px; }
+.detail .startRequirement { margin-top: 0; }
 .detail h3 { margin: 0 0 10px; font-size: var(--font-control); }
 .detail pre { margin: 0; overflow-wrap: anywhere; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface-input); color: var(--color-text-soft); padding: 12px; font: inherit; font-size: var(--font-sm); line-height: 1.6; white-space: pre-wrap; }
 .detail section p, .detail section code { display: block; border-bottom: 1px solid var(--color-border); color: var(--color-text-muted); padding: 9px 0; font-size: var(--font-sm); line-height: 1.5; }
@@ -70,7 +71,13 @@
 .activityDialog header button { width: 32px; height: 32px; display: grid; place-items: center; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--color-text-muted); cursor: pointer; }
 .activityDialog header button:hover { background: var(--color-surface-hover); color: var(--color-text); }
 .activityDialog header svg { width: 17px; }
+.activityHeaderActions { display: flex; align-items: center; gap: var(--space-3); }
+.activityDialog header .viewSwitch { display: flex; border-radius: var(--radius-sm); background: var(--color-surface-input); padding: 2px; }
+.activityDialog header .viewSwitch button { width: auto; height: 28px; padding: 0 10px; font-size: var(--font-sm); }
+.activityDialog header .viewSwitch .activeView { background: var(--color-surface-active); color: var(--color-text); }
+.activityDialog header .activityClose { width: 32px; height: 32px; }
 .activityBody { min-height: 0; display: grid; grid-template-columns: 220px minmax(0, 1fr); }
+.activityBody.groupMode { grid-template-columns: minmax(0, 1fr); }
 .activityBody nav { min-height: 0; overflow: auto; border-right: 1px solid var(--color-border); padding: var(--space-3); }
 .activityBody nav button { width: 100%; display: grid; grid-template-columns: 8px minmax(0, 1fr); align-items: center; gap: 9px; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--color-text-muted); padding: 10px; text-align: left; cursor: pointer; }
 .activityBody nav button:hover, .activityBody nav .activeAgent { background: var(--color-surface-hover); color: var(--color-text); }
@@ -89,5 +96,14 @@
 .adjustComposer button { width: 38px; height: 38px; display: grid; place-items: center; border: 0; border-radius: 50%; background: var(--color-accent); color: var(--color-accent-ink); cursor: pointer; }
 .adjustComposer button:disabled { opacity: .5; cursor: not-allowed; }
 .adjustComposer svg { width: 16px; }
+.groupChat { min-height: 0; overflow: auto; padding: var(--space-5) var(--space-6); }
+.groupChat article { padding: 14px 0; border-bottom: 1px solid var(--color-border); }
+.groupChat article:last-child { border-bottom: 0; }
+.groupChat article header { display: flex; align-items: center; gap: var(--space-2); border: 0; padding: 0; }
+.groupChat article header strong { color: var(--color-text); font-size: var(--font-control); }
+.groupChat article header span { color: var(--color-accent); font-size: var(--font-sm); font-weight: 650; }
+.groupChat article time { margin-left: auto; color: var(--color-text-dim); font-size: var(--font-xs); }
+.groupChat article p { margin: 7px 0 0; color: var(--color-text-soft); font-size: var(--font-md); line-height: 1.6; white-space: pre-wrap; }
+.emptyChat { display: grid; min-height: 100%; place-items: center; color: var(--color-text-dim); font-size: var(--font-sm); }
 .spinner { width: 15px; height: 15px; animation: spin 750ms linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }

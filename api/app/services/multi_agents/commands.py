@@ -282,8 +282,11 @@ Other workflow agents:
 
 Work only on this node's responsibility. Use the existing terminal capability normally. For
 terminal start actions, set intent to read only when the command cannot modify the workspace;
-otherwise set intent to write. Finish with a concise result that states work completed, files
-changed, tests run, decisions, and remaining risks."""
+otherwise set intent to write. Use agent_message proactively when a discovery affects another
+agent, when you need an upstream clarification, after a meaningful milestone, and before handing
+off a result that downstream work depends on. Address the relevant agent directly and include only
+actionable context; do not send routine narration or duplicate status updates. Finish with a concise
+result that states work completed, files changed, tests run, decisions, and remaining risks."""
 
 
 def start_node(user_id: UUID, node_id: UUID) -> tuple[MultiAgentNode, str]:

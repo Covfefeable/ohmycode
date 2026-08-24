@@ -149,6 +149,10 @@ export const zhCN = {
     userAdjustment: "用户调整",
     adjustPlaceholder: "向该 Agent 发送调整要求；运行中将在下一轮读取，已完成则继续当前会话。",
     adjustFailed: "无法向该 Agent 发送调整要求。",
+    agentView: "Agent",
+    groupChat: "群聊",
+    noAgentMessages: "Agent 之间还没有通讯",
+    unknownAgent: "未知 Agent",
   },
   auth: {
     workspaceTagline: "你的本地代码工作空间",

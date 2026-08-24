@@ -72,12 +72,17 @@ async function runNode(
   const nodeRequestId = `${requestId}:${nodeId}`;
   activeTaskRuns.get(requestId)?.nodeRequestIds.add(nodeRequestId);
   activeNodeAdjustments.set(nodeId, []);
+  const agentMessageCalls = new Set<string>();
   try {
     let prompt = started.prompt;
     let conversation;
     while (true) {
       conversation = await streamMessage(started.conversationId, prompt, started.modelId ?? undefined, undefined, nodeRequestId,
-        (event) => onEvent({ type: "node.event", nodeId, event }), { ownerId: nodeId, workspacePath });
+        (event) => {
+          if (event.type === "tool.requested" && event.tool === "agent_message") agentMessageCalls.add(event.callId);
+          onEvent({ type: "node.event", nodeId, event });
+          if (event.type === "tool.completed" && agentMessageCalls.delete(event.callId)) void getMultiAgentTask(taskId).then((value) => onEvent({ type: "task.updated", task: value }));
+        }, { ownerId: nodeId, workspacePath });
       const adjustments = activeNodeAdjustments.get(nodeId)?.splice(0) ?? [];
       if (!adjustments.length) break;
       prompt = `The user adjusted your current task while you were working:\n\n${adjustments.join("\n\n")}\n\nContinue from the existing conversation. Revise your result as needed and notify affected agents with agent_message when appropriate.`;
@@ -122,8 +127,13 @@ export async function adjustMultiAgentNode(
   if (!node || node.status !== "completed" || !node.conversationId) throw new Error("node_not_adjustable");
   const awakened = await apiRequest<{ conversationId: string; modelId?: string | null }>(`/api/multi-agents/nodes/${nodeId}/wake`, { method: "POST" });
   onEvent({ type: "task.updated", task: await getMultiAgentTask(taskId) });
+  const agentMessageCalls = new Set<string>();
   const conversation = await streamMessage(awakened.conversationId, content.trim(), awakened.modelId ?? undefined, undefined, requestId,
-    (event) => onEvent({ type: "node.event", nodeId, event }), { ownerId: nodeId, workspacePath: task.workspacePath });
+    (event) => {
+      if (event.type === "tool.requested" && event.tool === "agent_message") agentMessageCalls.add(event.callId);
+      onEvent({ type: "node.event", nodeId, event });
+      if (event.type === "tool.completed" && agentMessageCalls.delete(event.callId)) void getMultiAgentTask(taskId).then((value) => onEvent({ type: "task.updated", task: value }));
+    }, { ownerId: nodeId, workspacePath: task.workspacePath });
   const answer = [...(conversation.messages ?? [])].reverse().find((message) => message.role === "assistant");
   if (!answer?.content.trim()) throw new Error("node_returned_no_output");
   const completed = await apiRequest<MultiAgentTask>(`/api/multi-agents/nodes/${nodeId}/complete`, {
