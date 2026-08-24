@@ -392,6 +392,9 @@ def fail_node(user_id: UUID, node_id: UUID, error_code: str) -> MultiAgentTask:
     node.status = "failed"
     node.final_output = {"error": error_code[:500]}
     node.task.status = "failed"
+    for sibling in node.task.nodes:
+        if sibling.id != node.id and sibling.status in {"running", "ready"}:
+            sibling.status = "stopped"
     db.session.commit()
     return node.task
 

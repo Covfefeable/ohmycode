@@ -117,7 +117,9 @@ async function runNode(
       if (!adjustments.length) break;
       prompt = `The user adjusted your current task while you were working:\n\n${adjustments.join("\n\n")}\n\nContinue from the existing conversation. Revise your result as needed and notify affected agents with agent_message when appropriate.`;
     }
-    if (pausedForReply) return getMultiAgentTask(taskId);
+    const latestTask = await getMultiAgentTask(taskId);
+    const latestNode = latestTask.nodes.find((item) => item.id === nodeId);
+    if (pausedForReply || latestNode?.status === "paused") return latestTask;
     const answer = [...(conversation.messages ?? [])].reverse().find((message) => message.role === "assistant");
     if (activeTaskRuns.get(requestId)?.cancelled) throw new Error("task_stopped");
     if (!answer?.content.trim()) throw new Error("node_returned_no_output");
@@ -129,6 +131,9 @@ async function runNode(
     return completed;
   } catch (error) {
     if (!activeTaskRuns.get(requestId)?.cancelled) {
+      const latest = await getMultiAgentTask(taskId).catch(() => null);
+      const currentNode = latest?.nodes.find((item) => item.id === nodeId);
+      if (latest && currentNode?.status === "paused") return latest;
       await apiRequest(`/api/multi-agents/nodes/${nodeId}/fail`, {
         method: "POST",
         body: JSON.stringify({ errorCode: error instanceof Error ? error.message : "node_failed" }),
