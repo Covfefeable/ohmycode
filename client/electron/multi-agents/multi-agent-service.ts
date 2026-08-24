@@ -77,12 +77,16 @@ async function runNode(
   const nodeId = node.id;
   const queued = queuedNodeMessages.get(nodeId) ?? [];
   queuedNodeMessages.delete(nodeId);
-  const continuing = node.status === "running" && Boolean(node.conversationId) && queued.length > 0;
+  const persistedMessage = [...node.messages].reverse().find((message) => message.toNodeId === nodeId);
+  const deliveredMessages = queued.length
+    ? queued
+    : persistedMessage ? [`Message from workflow agent ${persistedMessage.fromNodeId ?? "user"}:\n${persistedMessage.content}`] : [];
+  const continuing = node.status === "running" && Boolean(node.conversationId) && deliveredMessages.length > 0;
   const started = continuing
     ? {
         conversationId: node.conversationId!,
         modelId: node.modelId,
-        prompt: `Another workflow agent sent you the following message:\n\n${queued.join("\n\n")}\n\nContinue from the existing conversation. Apply the message and use agent_message to report the result or ask for clarification when appropriate.`,
+        prompt: `Another workflow agent sent you the following message:\n\n${deliveredMessages.join("\n\n")}\n\nContinue from the existing conversation. Apply the message and use agent_message to report the result or ask for clarification when appropriate.`,
       }
     : await apiRequest<{ conversationId: string; prompt: string; modelId?: string | null }>(`/api/multi-agents/nodes/${nodeId}/start`, { method: "POST" });
   onEvent({ type: "task.updated", task: await getMultiAgentTask(taskId) });
@@ -105,7 +109,10 @@ async function runNode(
           onEvent({ type: "node.event", nodeId, event });
           if (event.type === "tool.completed" && agentMessageCalls.delete(event.callId)) {
             const result = event.result as { sourceStatus?: string };
-            if (result?.sourceStatus === "paused") pausedForReply = true;
+            if (result?.sourceStatus === "paused") {
+              pausedForReply = true;
+              void stopMessage(nodeRequestId);
+            }
             const sent = agentMessageRequests.get(event.callId);
             if (sent) queueNodeMessage(sent.toNodeId, `Message from workflow agent ${nodeId}:\n${sent.content}`);
             agentMessageRequests.delete(event.callId);
@@ -204,7 +211,8 @@ export async function runMultiAgentTask(
     onEvent({ type: "task.updated", task });
     while (task.status === "running") {
       const ready = task.nodes.filter((node) =>
-        node.status === "ready" || (node.status === "running" && queuedNodeMessages.has(node.id)),
+        node.status === "ready" || (node.status === "running" && Boolean(node.finalOutput)
+          && (queuedNodeMessages.has(node.id) || node.messages.some((message) => message.toNodeId === node.id))),
       );
       if (!ready.length) {
         const waiting = task.nodes.some((node) => ["pending", "paused", "running"].includes(node.status));

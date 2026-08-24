@@ -406,7 +406,7 @@ def stop_task(user_id: UUID, task_id: UUID) -> MultiAgentTask:
     if task.status == "running":
         task.status = "stopped"
         for node in task.nodes:
-            if node.status in {"running", "ready"}:
+            if node.status in {"running", "ready", "paused"}:
                 node.status = "stopped"
         db.session.commit()
     return task
