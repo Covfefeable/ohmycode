@@ -1,6 +1,9 @@
 export function updateActivity(steps: AgentActivityStep[], event: ConversationStreamEvent): AgentActivityStep[] {
   const next = steps.map((step) => ({ ...step }));
-  if (event.type === "reasoning.started") {
+  if (event.type === "run.started") {
+    for (const step of next) if (step.status === "running") step.status = "completed";
+    next.push({ id: `run-${event.runId}`, type: "run", status: "running" });
+  } else if (event.type === "reasoning.started") {
     for (const step of next) if (step.type === "reasoning") step.status = "completed";
     next.push({ id: event.stepId, type: "reasoning", content: "", status: "running" });
   } else if (event.type === "reasoning.delta") {

@@ -109,6 +109,7 @@ type MultiAgentRunEvent =
   | { type: "node.event"; nodeId: string; event: ConversationStreamEvent }
   | { type: "task.failed"; error: string };
 type AgentActivityStep =
+  | { id: string; type: "run"; status: "running" | "completed" }
   | { id: string; type: "reasoning"; content: string; status: "running" | "completed" }
   | { id: string; type: "message"; content: string; status: "running" | "completed" }
   | { id: string; type: "tool"; tool: string; input: string | TerminalAction; result?: unknown; status: "running" | "completed" };

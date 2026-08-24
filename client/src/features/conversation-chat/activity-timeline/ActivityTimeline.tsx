@@ -56,15 +56,28 @@ function MessageStep({ step }: { step: Extract<AgentActivityStep, { type: "messa
 }
 
 function ActivityStep({ step }: { step: AgentActivityStep }) {
+  if (step.type === "run") return null;
   if (step.type === "reasoning") return <ReasoningStep step={step} />;
   if (step.type === "message") return <MessageStep step={step} />;
   return <ToolStep step={step} />;
 }
 
-export function ActivityTimeline({ steps, active, durationMs, startedAt }: { steps: AgentActivityStep[]; active: boolean; durationMs?: number | null; startedAt?: string }) {
+function RunSection({ steps, active, duration }: { steps: AgentActivityStep[]; active: boolean; duration?: string }) {
   const { t } = useTranslation();
   const [manuallyOpen, setManuallyOpen] = useState(false);
   const open = active || manuallyOpen;
+  return <div className={styles.runSection}>
+    <button className={styles.summary} type="button" onClick={() => setManuallyOpen((value) => !value)}>
+      {active ? <LoaderCircle className={styles.spinner} /> : <Check />}
+      <span>{active ? t("agent.working") : duration ?? t("agent.steps")}</span>
+      <ChevronDown className={`${styles.chevron} ${open ? styles.chevronOpen : ""}`} />
+    </button>
+    {open && <div className={styles.steps}>{steps.map((step) => <ActivityStep key={`${step.id}-${step.status}`} step={step} />)}</div>}
+  </div>;
+}
+
+export function ActivityTimeline({ steps, active, durationMs, startedAt }: { steps: AgentActivityStep[]; active: boolean; durationMs?: number | null; startedAt?: string }) {
+  const { t } = useTranslation();
   const [liveDuration, setLiveDuration] = useState(() => startedAt ? Date.now() - new Date(startedAt).getTime() : 0);
   useEffect(() => {
     if (!active || !startedAt) return;
@@ -81,12 +94,14 @@ export function ActivityTimeline({ steps, active, durationMs, startedAt }: { ste
   const duration = hours > 0
     ? t("agent.durationHours", { hours, minutes, seconds: remainingSeconds })
     : minutes > 0 ? t("agent.durationMinutes", { minutes, seconds: remainingSeconds }) : t("agent.durationSeconds", { seconds });
-  return <div className={styles.timeline}>
-    <button className={styles.summary} type="button" onClick={() => setManuallyOpen((value) => !value)}>
-      {active ? <LoaderCircle className={styles.spinner} /> : <Check />}
-      <span>{active ? t("agent.working") : hasDuration ? duration : t("agent.steps")}</span>
-      <ChevronDown className={`${styles.chevron} ${open ? styles.chevronOpen : ""}`} />
-    </button>
-    {open && <div className={styles.steps}>{steps.map((step) => <ActivityStep key={`${step.id}-${step.status}`} step={step} />)}</div>}
-  </div>;
+  const runs: AgentActivityStep[][] = [];
+  for (const step of steps) {
+    if (step.type === "run") runs.push([]);
+    else (runs.at(-1) ?? (runs[runs.length] = [])).push(step);
+  }
+  const visibleRuns = runs.filter((run) => run.length > 0);
+  return <div className={styles.timeline}>{visibleRuns.map((run, index) => {
+    const isLast = index === visibleRuns.length - 1;
+    return <RunSection key={`${run[0]?.id ?? "run"}-${index}`} steps={run} active={active && isLast} duration={isLast && hasDuration ? duration : undefined} />;
+  })}</div>;
 }

@@ -1,4 +1,6 @@
-.timeline { width: 100%; display: grid; gap: var(--space-1); margin-bottom: var(--space-3); color: var(--color-text-muted); }
+.timeline { width: 100%; display: grid; gap: var(--space-4); margin-bottom: var(--space-3); color: var(--color-text-muted); }
+.runSection { min-width: 0; display: grid; gap: var(--space-1); }
+.runSection + .runSection { border-top: 1px solid var(--color-border); padding-top: var(--space-3); }
 .summary { width: max-content; max-width: 100%; display: inline-flex; align-items: center; gap: var(--space-2); border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--color-text-muted); padding: 6px 8px; font: inherit; font-size: var(--font-sm); cursor: pointer; }
 .summary:hover { background: var(--color-surface-icon-hover); color: var(--color-text); }
 .summary svg { width: 15px; height: 15px; }
