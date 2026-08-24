@@ -17,7 +17,6 @@ from ..services.multi_agents import (
     post_user_message,
     record_changes,
     replace_flow,
-    resume_task,
     serialize_agent,
     serialize_task,
     start_node,
@@ -132,12 +131,6 @@ def start_task_route(task_id: UUID):
 @jwt_required()
 def stop_task_route(task_id: UUID):
     return jsonify(serialize_task(stop_task(user_id(), task_id)))
-
-
-@multi_agents_bp.post("/tasks/<uuid:task_id>/resume")
-@jwt_required()
-def resume_task_route(task_id: UUID):
-    return jsonify(serialize_task(resume_task(user_id(), task_id)))
 
 
 @multi_agents_bp.post("/nodes/<uuid:node_id>/start")

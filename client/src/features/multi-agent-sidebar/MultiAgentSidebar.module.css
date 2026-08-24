@@ -39,6 +39,7 @@
 .deleteTask { width: 28px; height: 28px; display: grid; place-items: center; flex: none; margin-right: var(--space-2); border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--color-text-dim); opacity: 0; cursor: pointer; }
 .task:hover .deleteTask, .task:focus-within .deleteTask { opacity: 1; }
 .deleteTask:hover { color: var(--color-danger-text); }
+.deleteTask:disabled { opacity: .25 !important; cursor: not-allowed; }
 .deleteTask svg { width: 14px; height: 14px; }
 .footer { margin-top: auto; display: grid; gap: 14px; }
 @keyframes spin { to { transform: rotate(360deg); } }

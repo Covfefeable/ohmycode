@@ -79,6 +79,8 @@ def delete_agent(user_id: UUID, agent_id: UUID) -> None:
     agent = owned_agent(user_id, agent_id)
     if not agent:
         raise ServiceError("not_found", 404)
+    if any(task.status == "running" for task in agent.tasks):
+        raise ServiceError("workflow_running_cannot_delete", 409)
     db.session.delete(agent)
     db.session.commit()
 
@@ -194,6 +196,8 @@ def delete_task(user_id: UUID, task_id: UUID) -> None:
     task = get_task(user_id, task_id)
     if not task:
         raise ServiceError("not_found", 404)
+    if task.status == "running":
+        raise ServiceError("workflow_running_cannot_delete", 409)
     db.session.delete(task)
     db.session.commit()
 
@@ -210,7 +214,7 @@ def post_message(user_id: UUID, node_id: UUID, payload: dict) -> MultiAgentMessa
     if not target or target.task_id != source.task_id:
         raise ServiceError("not_found", 404)
     if target.status in {"pending", "ready"}:
-        raise ServiceError("agent_not_available", 409)
+        raise ServiceError("target_agent_not_started", 409)
     content = str(payload.get("content") or "").strip()
     if not content:
         raise ServiceError("validation_error", 422)
@@ -234,9 +238,8 @@ def post_message(user_id: UUID, node_id: UUID, payload: dict) -> MultiAgentMessa
     if expects_reply:
         source.status = "paused"
     if target.status in {"completed", "paused"}:
-        target.status = "pending"
+        target.status = "running"
         target.task.status = "running"
-        _refresh_ready_nodes(target.task)
     db.session.commit()
     return message
 
@@ -286,24 +289,9 @@ def start_task(user_id: UUID, task_id: UUID) -> MultiAgentTask:
     task = get_task(user_id, task_id)
     if not task:
         raise ServiceError("not_found", 404)
-    if task.status not in {"draft", "failed", "stopped"}:
+    if task.status != "draft":
         raise ServiceError("workflow_not_startable", 409)
     task.status = "running"
-    for node in task.nodes:
-        if node.status in {"failed", "stopped"}:
-            node.status = "pending"
-    _refresh_ready_nodes(task)
-    db.session.commit()
-    return task
-
-
-def resume_task(user_id: UUID, task_id: UUID) -> MultiAgentTask:
-    task = get_task(user_id, task_id)
-    if not task or task.status != "running":
-        raise ServiceError("workflow_not_resumable", 409)
-    for node in _execution_nodes(task):
-        if node.status == "running":
-            node.status = "pending"
     _refresh_ready_nodes(task)
     db.session.commit()
     return task
@@ -334,16 +322,25 @@ Your instructions:
 Completed upstream outputs:
 {outputs}
 
-Other workflow agents:
+Other workflow agents (use the UUID in parentheses as toNodeId):
 {peers}
 
 Work only on this node's responsibility. Use the existing terminal capability normally. For
 terminal start actions, set intent to read only when the command cannot modify the workspace;
-otherwise set intent to write. Use agent_message proactively when a discovery affects another
-agent, when you need an upstream clarification, after a meaningful milestone, and before handing
-off a result that downstream work depends on. Address the relevant agent directly and include only
-actionable context; do not send routine narration or duplicate status updates. Finish with a concise
-result that states work completed, files changed, tests run, decisions, and remaining risks."""
+otherwise set intent to write.
+
+Agent communication is part of your job, not an optional fallback. Use agent_message with the exact
+toNodeId shown above when a parallel agent needs a discovery, when you need clarification from an
+already-started upstream agent, when review requires revision, and when a revised result is ready.
+Use intent=revision_request and expectsReply=true to return completed work for changes; this pauses
+you until the target answers. The target will resume its existing conversation, not restart. Reply
+with intent=revision_result when the requested revision is complete. You may message running,
+paused, or completed agents. You must not message a pending/ready agent that has not started yet,
+especially a downstream node; the tool will return target_agent_not_started and you must continue
+without retrying that invalid route. Keep messages concise, actionable, and non-duplicative.
+
+Finish with a concise result that states work completed, files changed, tests run, decisions, and
+remaining risks."""
 
 
 def start_node(user_id: UUID, node_id: UUID) -> tuple[MultiAgentNode, str]:

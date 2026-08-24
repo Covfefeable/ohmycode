@@ -5,6 +5,7 @@ import { useFeedback } from "../feedback";
 import { PopoverMenu } from "../../shared/ui/popover-menu";
 import { Tooltip } from "../../shared/ui/tooltip";
 import { EmptyState } from "../../shared/ui/empty-state";
+import { ConfirmDialog } from "../../shared/ui/confirm-dialog";
 import styles from "./ProjectList.module.css";
 
 type ProjectListProps = {
@@ -20,6 +21,7 @@ export function ProjectList({ selectedConversationId, onConversationSelect, onCo
   const { toast } = useFeedback();
   const [projects, setProjects] = useState<LocalProject[]>([]);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [deleteTarget, setDeleteTarget] = useState<{ type: "project"; project: LocalProject } | { type: "conversation"; projectId: string; conversationId: string } | null>(null);
   const revealLabel = navigator.userAgent.includes("Mac") ? t("projects.revealFinder") : t("projects.revealExplorer");
 
   useEffect(() => {
@@ -92,19 +94,24 @@ export function ProjectList({ selectedConversationId, onConversationSelect, onCo
             <Tooltip content={t("projects.newConversation")}><button aria-label={t("projects.newConversation")} onClick={() => void addConversation(project)}><Plus /></button></Tooltip>
             <PopoverMenu trigger={<Tooltip content={t("projects.more")}><button aria-label={t("projects.more")}><MoreHorizontal /></button></Tooltip>}>
               <button onClick={() => void window.ohmycode.projects.open(project.id)}><FolderOpen /><span>{revealLabel}</span></button>
-              <button className={styles.danger} onClick={() => void removeProject(project)}><Trash2 /><span>{t("projects.delete")}</span></button>
+              <button className={styles.danger} onClick={() => setDeleteTarget({ type: "project", project })}><Trash2 /><span>{t("projects.delete")}</span></button>
             </PopoverMenu>
           </div>
         </div>
         {expanded.has(project.id) && <div className={styles.conversations}>
           {project.conversations.map((conversation) => <div className={`${styles.conversation} ${selectedConversationId === conversation.id ? styles.conversationActive : ""}`} key={conversation.id}>
             <Tooltip className={styles.conversationName} content={conversation.title}><button onClick={() => onConversationSelect(project, conversation)}>{conversation.title}</button></Tooltip>
-            <Tooltip content={t("projects.deleteConversation")}><button className={styles.deleteConversation} aria-label={t("projects.deleteConversation")} onClick={() => void removeConversation(project.id, conversation.id)}><Trash2 /></button></Tooltip>
+            <Tooltip content={t("projects.deleteConversation")}><button className={styles.deleteConversation} aria-label={t("projects.deleteConversation")} onClick={() => setDeleteTarget({ type: "conversation", projectId: project.id, conversationId: conversation.id })}><Trash2 /></button></Tooltip>
           </div>)}
           {project.conversations.length === 0 && <EmptyState compact icon={<FolderOpen />} title={t("projects.noConversations")} />}
         </div>}
       </article>)}
       {projects.length === 0 && <EmptyState icon={<FolderOpen />} title={t("projects.empty")} description={t("projects.emptyDescription")} />}
     </div>
+    <ConfirmDialog open={Boolean(deleteTarget)} title={t("common.confirmDelete")} description={t("common.deleteWarning")} onCancel={() => setDeleteTarget(null)} onConfirm={() => {
+      const target = deleteTarget; setDeleteTarget(null);
+      if (target?.type === "project") void removeProject(target.project);
+      if (target?.type === "conversation") void removeConversation(target.projectId, target.conversationId);
+    }} />
   </section>;
 }

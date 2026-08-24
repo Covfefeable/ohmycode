@@ -4,6 +4,7 @@ import { Bot, ChevronDown, GripVertical, LoaderCircle, Plus, PlugZap, Trash2 } f
 import { useFeedback } from "../feedback";
 import { EmptyState } from "../../shared/ui/empty-state";
 import { SettingsSectionHeader } from "../../shared/ui/settings-section-header";
+import { ConfirmDialog } from "../../shared/ui/confirm-dialog";
 import styles from "./ModelSettings.module.css";
 
 const newModel = (): ModelConfiguration => ({ id: crypto.randomUUID(), name: "", baseUrl: "https://api.openai.com/v1", model: "", contextLength: 262144, apiKey: "" });
@@ -15,6 +16,7 @@ export function ModelSettings({ initial }: { initial: ModelConfiguration[] }) {
   const [dragged, setDragged] = useState<string | null>(null);
   const [testingId, setTestingId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(initial[0]?.id ?? null);
+  const [deleteModelId, setDeleteModelId] = useState<string | null>(null);
   function update(id: string, patch: Partial<ModelConfiguration>) { setModels((items) => items.map((item) => item.id === id ? { ...item, ...patch } : item)); }
   function drop(target: string) { if (!dragged || dragged === target) return; setModels((items) => { const next = [...items]; const from = next.findIndex((item) => item.id === dragged); const to = next.findIndex((item) => item.id === target); const [item] = next.splice(from, 1); next.splice(to, 0, item); return next; }); setDragged(null); }
   async function test(model: ModelConfiguration) {
@@ -41,7 +43,7 @@ export function ModelSettings({ initial }: { initial: ModelConfiguration[] }) {
   return <section className={styles.section}>
     <SettingsSectionHeader title={t("settings.modelsTitle")} description={t("settings.modelsDescription")} actions={<><button onClick={() => { const item = newModel(); setModels((items) => [...items, item]); setExpandedId(item.id); }}><Plus />{t("settings.addModel")}</button><button className={styles.primaryAction} onClick={() => void save()}>{t("settings.saveModels")}</button></>} />
     <div className={styles.list}>{models.map((model, index) => <article key={model.id} draggable onDragStart={() => setDragged(model.id)} onDragOver={(event) => event.preventDefault()} onDrop={() => drop(model.id)}>
-      <div className={styles.cardHead}><span className={styles.handle}><GripVertical /></span><button className={styles.cardToggle} aria-expanded={expandedId === model.id} onClick={() => setExpandedId((id) => id === model.id ? null : model.id)}><span><strong>{model.name || t("settings.unnamedModel")}</strong><small>{index === 0 ? t("settings.defaultModel") : model.model || `#${index + 1}`}</small></span><ChevronDown className={expandedId === model.id ? styles.open : ""} /></button><button aria-label={t("settings.removeModel")} onClick={() => setModels((items) => items.filter((item) => item.id !== model.id))}><Trash2 /></button></div>
+      <div className={styles.cardHead}><span className={styles.handle}><GripVertical /></span><button className={styles.cardToggle} aria-expanded={expandedId === model.id} onClick={() => setExpandedId((id) => id === model.id ? null : model.id)}><span><strong>{model.name || t("settings.unnamedModel")}</strong><small>{index === 0 ? t("settings.defaultModel") : model.model || `#${index + 1}`}</small></span><ChevronDown className={expandedId === model.id ? styles.open : ""} /></button><button aria-label={t("settings.removeModel")} onClick={() => setDeleteModelId(model.id)}><Trash2 /></button></div>
       {expandedId === model.id && <div className={styles.details}><div className={styles.grid}>
         <label><span>{t("settings.configName")}</span><input value={model.name} onChange={(e) => update(model.id, { name: e.target.value })} /></label>
         <label><span>{t("settings.modelName")}</span><input value={model.model} onChange={(e) => update(model.id, { model: e.target.value })} /></label>
@@ -53,5 +55,6 @@ export function ModelSettings({ initial }: { initial: ModelConfiguration[] }) {
       </div>}
     </article>)}</div>
     {models.length === 0 && <EmptyState icon={<Bot />} title={t("settings.noModels")} description={t("settings.noModelsDescription")} />}
+    <ConfirmDialog open={Boolean(deleteModelId)} title={t("common.confirmDelete")} description={t("common.deleteWarning")} onCancel={() => setDeleteModelId(null)} onConfirm={() => { const id = deleteModelId; setDeleteModelId(null); if (id) setModels((items) => items.filter((item) => item.id !== id)); }} />
   </section>;
 }

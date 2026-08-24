@@ -55,7 +55,7 @@ export function MultiAgentSidebar(props: Props) {
           <div className={styles.agentActions}>
             <Tooltip content={t("multiAgent.runNewTask")}><button aria-label={t("multiAgent.runNewTask")} onClick={() => props.onRunAgent(agent.id)}><Plus /></button></Tooltip>
             <PopoverMenu trigger={<Tooltip content={t("projects.more")}><button aria-label={t("projects.more")}><MoreHorizontal /></button></Tooltip>}>
-              <button className={styles.danger} onClick={() => props.onDeleteAgent(agent.id)}><Trash2 /><span>{t("projects.delete")}</span></button>
+              <Tooltip content={agent.tasks.some((task) => task.status === "running") ? t("multiAgent.stopBeforeDelete") : t("projects.delete")}><span><button className={styles.danger} disabled={agent.tasks.some((task) => task.status === "running")} onClick={() => props.onDeleteAgent(agent.id)}><Trash2 /><span>{t("projects.delete")}</span></button></span></Tooltip>
             </PopoverMenu>
           </div>
         </div>
@@ -64,7 +64,7 @@ export function MultiAgentSidebar(props: Props) {
           {agent.tasks.map((task) => <div key={task.id} className={`${styles.task} ${task.id === props.selectedTaskId ? styles.active : ""}`}>
             <button onClick={() => props.onSelectTask(task.id)}><span>{task.title}</span></button>
             {statusIcon(task.status)}
-            <button className={styles.deleteTask} onClick={() => props.onDeleteTask(task.id)}><Trash2 /></button>
+            <Tooltip content={task.status === "running" ? t("multiAgent.stopBeforeDelete") : t("projects.delete")}><span><button className={styles.deleteTask} disabled={task.status === "running"} onClick={() => props.onDeleteTask(task.id)}><Trash2 /></button></span></Tooltip>
           </div>)}
         </div>}
       </section>)}

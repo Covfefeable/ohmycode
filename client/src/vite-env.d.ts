@@ -21,7 +21,7 @@ interface Window {
       saveFlow(taskId: string, positions: Record<string, { x: number; y: number }>): Promise<MultiAgentTask>;
       deleteTask(taskId: string): Promise<void>;
       runTask(taskId: string, requestId: string): Promise<MultiAgentTask>;
-      stopTask(requestId: string): Promise<void>;
+      stopTask(requestId: string | null, taskId?: string): Promise<void>;
       adjustNode(taskId: string, nodeId: string, content: string, requestId: string): Promise<MultiAgentTask>;
       onEvent(requestId: string, callback: (event: MultiAgentRunEvent) => void): () => void;
     };

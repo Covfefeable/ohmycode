@@ -1,4 +1,5 @@
 export const zhCN = {
+  common: { cancel: "取消", delete: "删除", confirmDelete: "确认删除", deleteWarning: "此操作无法撤销。" },
   window: {
     minimize: "最小化",
     maximize: "最大化或还原",
@@ -133,6 +134,9 @@ export const zhCN = {
     stopped: "已停止",
     paused: "暂停",
     resume: "继续运行",
+    rerun: "重新运行",
+    stopBeforeDelete: "正在运行的任务需要先停止，再删除。",
+    deleteFailed: "删除失败，请稍后重试。",
     activity: "活动",
     liveActivity: "Agent 实时活动",
     runTaskTitle: "运行协作",
@@ -155,6 +159,7 @@ export const zhCN = {
     agentView: "Agent",
     groupChat: "群聊",
     noAgentMessages: "Agent 之间还没有通讯",
+    receivedMessages: "收到的消息",
     unknownAgent: "未知 Agent",
     user: "用户",
   },

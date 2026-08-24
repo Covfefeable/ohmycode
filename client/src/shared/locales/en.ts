@@ -1,4 +1,5 @@
 export const en = {
+  common: { cancel: "Cancel", delete: "Delete", confirmDelete: "Confirm deletion", deleteWarning: "This action cannot be undone." },
   window: {
     minimize: "Minimize",
     maximize: "Maximize or restore",
@@ -134,6 +135,9 @@ export const en = {
     stopped: "Stopped",
     paused: "Paused",
     resume: "Resume",
+    rerun: "Run again",
+    stopBeforeDelete: "Stop the running task before deleting it.",
+    deleteFailed: "Deletion failed. Please try again.",
     activity: "Activity",
     liveActivity: "Live agent activity",
     runTaskTitle: "Run collaboration",
@@ -156,6 +160,7 @@ export const en = {
     agentView: "Agent",
     groupChat: "Group chat",
     noAgentMessages: "No agent-to-agent messages yet",
+    receivedMessages: "Messages received",
     unknownAgent: "Unknown agent",
     user: "User",
   },

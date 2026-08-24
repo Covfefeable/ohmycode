@@ -20,7 +20,7 @@ contextBridge.exposeInMainWorld("ohmycode", {
     saveFlow: (taskId, positions) => ipcRenderer.invoke("multi-agents:save-flow", taskId, positions),
     deleteTask: (taskId) => ipcRenderer.invoke("multi-agents:delete-task", taskId),
     runTask: (taskId, requestId) => ipcRenderer.invoke("multi-agents:run-task", taskId, requestId),
-    stopTask: (requestId) => ipcRenderer.invoke("multi-agents:stop-task", requestId),
+    stopTask: (requestId, taskId) => ipcRenderer.invoke("multi-agents:stop-task", requestId, taskId),
     adjustNode: (taskId, nodeId, content, requestId) => ipcRenderer.invoke("multi-agents:adjust-node", taskId, nodeId, content, requestId),
     onEvent: (requestId, callback) => {
       const channel = `multi-agent:event:${requestId}`;

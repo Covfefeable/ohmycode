@@ -70,11 +70,13 @@ def test_multi_agent_dag_lifecycle(tmp_path):
                 == 200
             )
             if node["key"] == "api":
-                assert client.post(
+                unavailable = client.post(
                     f"/api/multi-agents/nodes/{node['id']}/messages",
                     headers=headers,
                     json={"toNodeId": verify["id"], "content": "Premature handoff"},
-                ).status_code == 409
+                )
+                assert unavailable.status_code == 409
+                assert unavailable.get_json()["error"]["code"] == "target_agent_not_started"
             current = client.post(
                 f"/api/multi-agents/nodes/{node['id']}/complete",
                 headers=headers,
@@ -104,9 +106,8 @@ def test_multi_agent_dag_lifecycle(tmp_path):
         )
         assert revision.status_code == 201
         assert revision.get_json()["sourceStatus"] == "paused"
-        assert revision.get_json()["targetStatus"] == "ready"
+        assert revision.get_json()["targetStatus"] == "running"
 
-        client.post(f"/api/multi-agents/nodes/{api_node['id']}/start", headers=headers)
         reply = client.post(
             f"/api/multi-agents/nodes/{api_node['id']}/messages",
             headers=headers,
@@ -117,12 +118,24 @@ def test_multi_agent_dag_lifecycle(tmp_path):
             },
         )
         assert reply.status_code == 201
-        assert reply.get_json()["targetStatus"] == "pending"
+        assert reply.get_json()["targetStatus"] == "running"
         revised = client.post(
             f"/api/multi-agents/nodes/{api_node['id']}/complete",
             headers=headers,
             json={"output": {"content": "API revised"}},
         ).get_json()
         verify = next(node for node in revised["nodes"] if node["key"] == "verify")
-        assert verify["status"] == "ready"
+        assert verify["status"] == "running"
         assert revised["status"] == "running"
+
+        blocked_delete = client.delete(
+            f"/api/multi-agents/tasks/{task['id']}", headers=headers
+        )
+        assert blocked_delete.status_code == 409
+        assert blocked_delete.get_json()["error"]["code"] == "workflow_running_cannot_delete"
+        assert client.post(
+            f"/api/multi-agents/tasks/{task['id']}/stop", headers=headers
+        ).status_code == 200
+        assert client.delete(
+            f"/api/multi-agents/tasks/{task['id']}", headers=headers
+        ).status_code == 204

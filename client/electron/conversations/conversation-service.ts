@@ -1,4 +1,4 @@
-import { apiFetch, apiRequest } from "../api/api-client.js";
+import { ApiError, apiFetch, apiRequest } from "../api/api-client.js";
 import type { LocalConversation } from "../projects/types.js";
 import type { LocalMessage } from "../projects/types.js";
 import { executeTerminalAction } from "../terminal/terminal-manager.js";
@@ -26,6 +26,16 @@ type ActiveRequest = { controller: AbortController; runId?: string; terminalIds:
 export type AgentExecutionContext = { ownerId: string; workspacePath: string };
 const terminalWriteLeases = new Map<string, () => void>();
 const activeRequests = new Map<string, ActiveRequest>();
+
+function toolError(error: unknown): { error: string; code?: string } {
+  if (error instanceof ApiError && error.code === "target_agent_not_started") {
+    return {
+      code: error.code,
+      error: "Cannot message this agent because it has not started yet. An upstream agent cannot message an unstarted downstream agent.",
+    };
+  }
+  return { error: error instanceof Error ? error.message : "tool_failed" };
+}
 
 async function forwardServerStream(response: Response, onEvent: (event: ConversationStreamEvent) => void): Promise<ToolRequestEvent[]> {
   if (!response.body) throw new Error("missing_server_stream");
@@ -120,7 +130,7 @@ export async function streamMessage(
           onEvent({ type: "tool.completed", callId: request.callId, result });
           return { callId: request.callId, result };
         } catch (error) {
-          const result = { error: error instanceof Error ? error.message : "terminal_failed" };
+          const result = toolError(error);
           onEvent({ type: "tool.completed", callId: request.callId, result });
           return { callId: request.callId, result };
         }

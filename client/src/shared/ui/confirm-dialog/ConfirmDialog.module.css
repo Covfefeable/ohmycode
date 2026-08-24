@@ -1,0 +1,10 @@
+.backdrop { position: fixed; inset: 0; z-index: var(--z-toast); display: grid; place-items: center; background: color-mix(in srgb, var(--color-surface-deep) 62%, transparent); backdrop-filter: blur(8px); padding: var(--space-5); }
+.dialog { width: min(420px, 100%); display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: var(--space-4); border: 1px solid var(--color-border-strong); border-radius: var(--radius-lg); background: var(--color-surface-1); box-shadow: var(--shadow-panel); padding: var(--space-5); }
+.icon { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 50%; background: color-mix(in srgb, var(--color-danger) 12%, transparent); color: var(--color-danger-text); }
+.icon svg { width: 19px; }
+.dialog h2 { margin: 1px 0 7px; color: var(--color-text); font-size: var(--font-title-panel); }
+.dialog p { margin: 0; color: var(--color-text-muted); font-size: var(--font-sm); line-height: 1.55; }
+.dialog footer { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: var(--space-2); padding-top: var(--space-2); }
+.dialog footer button { height: var(--control-height); min-width: 82px; border: 1px solid var(--color-border-strong); border-radius: var(--radius-md); background: var(--color-surface-2); color: var(--color-text); padding: 0 15px; cursor: pointer; }
+.dialog footer .danger { border-color: transparent; background: var(--color-danger); color: white; font-weight: 700; }
+.dialog footer button:disabled { opacity: .55; cursor: not-allowed; }

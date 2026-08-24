@@ -33,7 +33,14 @@ AGENT_MESSAGE_TOOL = {
     "type": "function",
     "function": {
         "name": "agent_message",
-        "description": "Send a concise question or update to another available workflow agent.",
+        "description": (
+            "Communicate with another already-started workflow agent by its exact node UUID. "
+            "Use proactively for cross-agent discoveries, upstream questions, review revisions, "
+            "and revision handoffs. A completed target resumes its existing conversation. "
+            "Never message a pending/ready agent that has not started, including an unstarted "
+            "downstream node. For revision requests use intent=revision_request and "
+            "expectsReply=true; reply with intent=revision_result."
+        ),
         "parameters": {
             "type": "object",
             "properties": {
