@@ -211,7 +211,12 @@ export function MultiAgentPage() {
             </>}
           </aside>}
         </div>
-      </> : <div className={styles.empty}>{t("multiAgent.selectCollaboration")}</div>}
+      </> : <div className={styles.welcome}>
+        <div className={styles.promptMark}>›_</div>
+        <p className={styles.welcomeEyebrow}>{t("multiAgent.collaboration")}</p>
+        <h1>{t("multiAgent.welcomeTitle")}</h1>
+        <p className={styles.welcomeDescription}>{t("multiAgent.welcomeDescription")}</p>
+      </div>}
       {dialogOpen && <div className={styles.backdrop} onMouseDown={() => !creating && setDialogOpen(false)}>
         <section className={styles.dialog} onMouseDown={(event) => event.stopPropagation()}>
           <header><div><span>{t("multiAgent.collaboration")}</span><h2>{t("multiAgent.createCollaboration")}</h2></div><button onClick={() => setDialogOpen(false)}><X /></button></header>

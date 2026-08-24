@@ -1,6 +1,7 @@
 import { ChevronDown, FolderKanban, Plus, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Tooltip } from "../../shared/ui/tooltip";
+import { ApiStatus } from "../api-status";
 import styles from "./MultiAgentSidebar.module.css";
 
 type Props = {
@@ -20,8 +21,10 @@ export function MultiAgentSidebar(props: Props) {
   const { t } = useTranslation();
   return <aside className={styles.sidebar}>
     <div className={styles.sticky}>
+      <p className={styles.eyebrow}>{t("workspace.productName")}</p>
       <h2>{t("multiAgent.title")}</h2>
       <button className={styles.create} disabled={props.busy} onClick={props.onCreateAgent}><Plus />{t("multiAgent.createCollaboration")}</button>
+      <p className={styles.label}>{t("multiAgent.collaborations")}</p>
     </div>
     <div className={styles.list}>
       {!props.agents.length && <p className={styles.empty}>{t("multiAgent.emptyAgents")}</p>}
@@ -42,5 +45,6 @@ export function MultiAgentSidebar(props: Props) {
         </div>
       </section>)}
     </div>
+    <footer className={styles.footer}><ApiStatus /></footer>
   </aside>;
 }
