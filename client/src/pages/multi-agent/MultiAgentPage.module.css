@@ -31,7 +31,7 @@
 .planner textarea:focus { border-color: color-mix(in srgb, var(--color-accent) 58%, var(--color-border-strong)); }
 .planner button { width: max-content; justify-self: end; border: 1px solid var(--color-accent); border-radius: var(--radius-md); background: var(--color-accent); color: var(--color-accent-ink); padding: 10px 18px; font-weight: 800; cursor: pointer; }
 .planner button:disabled { opacity: .55; cursor: not-allowed; }
-.welcome { width: min(840px, 100%); align-self: center; justify-self: center; padding: 60px; }
+.welcome { grid-row: 1 / -1; width: min(840px, 100%); align-self: center; justify-self: center; padding: 60px; }
 .promptMark { margin-bottom: 28px; color: var(--color-accent); font: 700 30px ui-monospace, SFMono-Regular, Menlo, monospace; }
 .welcomeEyebrow { margin: 0 0 8px; color: var(--color-accent); font-size: var(--font-xs); font-weight: 800; letter-spacing: .16em; }
 .welcome h1 { margin: 0 0 16px; font-size: clamp(34px, 4vw, 54px); letter-spacing: -.045em; }
