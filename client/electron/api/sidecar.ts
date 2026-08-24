@@ -54,6 +54,10 @@ export async function startApiSidecar(): Promise<void> {
     console.error(`[api] service at ${API_URL} is incompatible with this client`);
     return;
   }
+  if (app.isPackaged) {
+    console.info(`[api] external service at ${API_URL} is currently offline`);
+    return;
+  }
   const apiRoot = apiDirectory();
   const launch = apiLaunch(apiRoot);
   apiProcess = spawn(

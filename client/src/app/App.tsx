@@ -1,4 +1,4 @@
-import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
+import { HashRouter, Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import { LoginPage } from "../pages/login";
 import { RegisterPage } from "../pages/register";
 import { AgentWorkspacePage } from "../pages/agent-workspace";
@@ -34,7 +34,7 @@ function ProtectedPages() {
 
 export default function App() {
   return (
-    <BrowserRouter>
+    <HashRouter>
       <FeedbackProvider><AuthProvider>
         <WindowControls />
         <Routes>
@@ -50,6 +50,6 @@ export default function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AuthProvider></FeedbackProvider>
-    </BrowserRouter>
+    </HashRouter>
   );
 }

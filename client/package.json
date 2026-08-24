@@ -9,6 +9,7 @@
     "dev": "concurrently -k \"vite\" \"pnpm electron:dev\"",
     "electron:dev": "wait-on tcp:5173 && tsc -p electron/tsconfig.json && cross-env VITE_DEV_SERVER_URL=http://127.0.0.1:5173 electron .",
     "build": "tsc -b && vite build && tsc -p electron/tsconfig.json",
+    "dist:win": "pnpm build && electron-builder --win nsis --x64",
     "typecheck": "tsc -b --pretty false",
     "lint": "eslint .",
     "preview": "vite preview"
@@ -37,6 +38,7 @@
     "concurrently": "latest",
     "cross-env": "latest",
     "electron": "latest",
+    "electron-builder": "^26.15.3",
     "eslint": "latest",
     "eslint-plugin-react-hooks": "latest",
     "eslint-plugin-react-refresh": "latest",
@@ -51,5 +53,37 @@
       "electron",
       "node-pty"
     ]
+  },
+  "build": {
+    "appId": "com.ohmycode.desktop",
+    "productName": "OhMyCode",
+    "npmRebuild": false,
+    "artifactName": "OhMyCode-Setup-${version}-${arch}.${ext}",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "electron/preload.cjs",
+      "package.json"
+    ],
+    "asarUnpack": [
+      "**/node_modules/node-pty/**/*"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
   }
 }

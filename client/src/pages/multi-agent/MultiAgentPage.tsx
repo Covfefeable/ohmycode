@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Activity, FolderOpen, LoaderCircle, Play, Plus, Redo2, Save, Square, Undo2, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { useLocation } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useFeedback } from "../../features/feedback";
@@ -58,6 +59,7 @@ function templateAsTask(agent: MultiAgentSummary): MultiAgentTask {
 
 export function MultiAgentPage() {
   const { t } = useTranslation();
+  const location = useLocation();
   const { toast } = useFeedback();
   const [agents, setAgents] = useState<MultiAgentSummary[]>([]);
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
@@ -102,6 +104,21 @@ export function MultiAgentPage() {
       setPositions(Object.fromEntries(value.nodes.map((node) => [node.id, node.position])));
     }).catch(() => toast({ type: "error", message: t("multiAgent.loadFailed") }));
   }, [selectedTaskId, t, toast]);
+
+  useEffect(() => {
+    if (!location.pathname.startsWith("/agents")) return;
+    // The page stays mounted while another workspace is visible so active runs
+    // keep streaming. Recreate only React Flow when its formerly hidden
+    // container becomes visible, then refresh the persisted task snapshot.
+    if (selectedTaskId) {
+      void window.ohmycode.multiAgents.getTask(selectedTaskId)
+        .then((value) => {
+          setTask(value);
+          setPositions(Object.fromEntries(value.nodes.map((node) => [node.id, node.position])));
+        })
+        .catch(() => toast({ type: "error", message: t("multiAgent.loadFailed") }));
+    }
+  }, [location.pathname, selectedTaskId, t, toast]);
 
   const selectedAgent = useMemo(
     () => agents.find((agent) => agent.id === selectedAgentId) ?? null,
@@ -373,7 +390,7 @@ export function MultiAgentPage() {
                   : ["stopped", "failed", "completed"].includes(task.status) ? <button className={styles.primary} onClick={() => void rerunTask(task)}><Play />{t("multiAgent.rerun")}</button> : null}
           </div>
           <WorkflowCanvas
-            key={task.id}
+            key={`${task.id}:${location.key}`}
             task={task}
             selectedNodeId={selectedNodeId}
             onNodeSelect={selectCanvasNode}
