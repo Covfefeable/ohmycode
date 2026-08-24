@@ -11,9 +11,10 @@ contextBridge.exposeInMainWorld("ohmycode", {
   },
   multiAgents: {
     list: () => ipcRenderer.invoke("multi-agents:list"),
-    create: () => ipcRenderer.invoke("multi-agents:create"),
+    create: (payload) => ipcRenderer.invoke("multi-agents:create", payload),
+    update: (agentId, payload) => ipcRenderer.invoke("multi-agents:update", agentId, payload),
     delete: (agentId) => ipcRenderer.invoke("multi-agents:delete", agentId),
-    planTask: (agentId, request, modelId) => ipcRenderer.invoke("multi-agents:plan-task", agentId, request, modelId),
+    createTask: (agentId) => ipcRenderer.invoke("multi-agents:create-task", agentId),
     getTask: (taskId) => ipcRenderer.invoke("multi-agents:get-task", taskId),
     saveFlow: (taskId, positions) => ipcRenderer.invoke("multi-agents:save-flow", taskId, positions),
     deleteTask: (taskId) => ipcRenderer.invoke("multi-agents:delete-task", taskId),

@@ -8,7 +8,13 @@ export type MultiAgentTaskSummary = {
 export type MultiAgentSummary = {
   id: string;
   name: string;
-  workspacePath: string;
+  description: string;
+  division: string;
+  templateFlow: {
+    title: string;
+    nodes: Array<{ key: string; name: string; role: string; instructions: string; modelId?: string | null; position: { x: number; y: number } }>;
+    edges: Array<{ source: string; target: string }>;
+  };
   createdAt: string;
   tasks: MultiAgentTaskSummary[];
 };
@@ -33,6 +39,7 @@ export type MultiAgentNode = {
   status: string;
   position: { x: number; y: number };
   conversationId?: string | null;
+  modelId?: string | null;
   finalOutput?: Record<string, unknown> | null;
   messages: MultiAgentMessage[];
   changedFiles: Array<{ id: string; path: string; operation: string; sequence: number }>;

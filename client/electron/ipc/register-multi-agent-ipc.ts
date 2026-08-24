@@ -5,17 +5,19 @@ import {
   deleteMultiAgentTask,
   getMultiAgentTask,
   listMultiAgents,
-  planMultiAgentTask,
+  createMultiAgentTask,
   runMultiAgentTask,
   saveMultiAgentFlow,
   stopMultiAgentTask,
+  updateMultiAgent,
 } from "../multi-agents/multi-agent-service.js";
 
 export function registerMultiAgentIpc(): void {
   ipcMain.handle("multi-agents:list", listMultiAgents);
-  ipcMain.handle("multi-agents:create", createMultiAgent);
+  ipcMain.handle("multi-agents:create", (_event, payload) => createMultiAgent(payload));
+  ipcMain.handle("multi-agents:update", (_event, agentId: string, payload) => updateMultiAgent(agentId, payload));
   ipcMain.handle("multi-agents:delete", (_event, agentId: string) => deleteMultiAgent(agentId));
-  ipcMain.handle("multi-agents:plan-task", (_event, agentId: string, request: string, modelId?: string) => planMultiAgentTask(agentId, request, modelId));
+  ipcMain.handle("multi-agents:create-task", (_event, agentId: string) => createMultiAgentTask(agentId));
   ipcMain.handle("multi-agents:get-task", (_event, taskId: string) => getMultiAgentTask(taskId));
   ipcMain.handle("multi-agents:save-flow", (_event, taskId: string, positions) => saveMultiAgentFlow(taskId, positions));
   ipcMain.handle("multi-agents:delete-task", (_event, taskId: string) => deleteMultiAgentTask(taskId));

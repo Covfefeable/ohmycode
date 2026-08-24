@@ -10,6 +10,8 @@
 .agentRow > svg { width: 14px; height: 14px; }
 .agentRow > svg:nth-child(2) { width: 17px; height: 17px; color: var(--color-accent); }
 .agentRow strong { display: block; overflow: hidden; font-size: var(--font-control); text-overflow: ellipsis; white-space: nowrap; }
+.agentName { width: 100% !important; min-width: 0; justify-content: start !important; padding: 0 4px; text-align: left; }
+.agentActive { border-radius: var(--radius-sm); background: var(--color-surface-active); }
 .agentRow button, .deleteTask { width: 28px; height: 28px; display: grid; place-items: center; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--color-text-dim); cursor: pointer; }
 .agentRow button:hover, .deleteTask:hover { background: var(--color-surface-hover); color: var(--color-text); }
 .agentRow button svg, .deleteTask svg { width: 14px; height: 14px; }

@@ -16,24 +16,28 @@ export function listMultiAgents(): Promise<MultiAgentSummary[]> {
   return apiRequest("/api/multi-agents");
 }
 
-export async function createMultiAgent(): Promise<MultiAgentSummary | null> {
-  const result = await dialog.showOpenDialog({ properties: ["openDirectory"] });
-  if (result.canceled || !result.filePaths[0]) return null;
-  const workspacePath = path.resolve(result.filePaths[0]);
+export async function createMultiAgent(payload: { name: string; description: string; division: string }): Promise<MultiAgentSummary> {
   return apiRequest("/api/multi-agents", {
     method: "POST",
-    body: JSON.stringify({ name: path.basename(workspacePath), workspacePath }),
+    body: JSON.stringify(payload),
   });
+}
+
+export function updateMultiAgent(agentId: string, payload: Partial<MultiAgentSummary>): Promise<MultiAgentSummary> {
+  return apiRequest(`/api/multi-agents/${agentId}`, { method: "PATCH", body: JSON.stringify(payload) });
 }
 
 export function deleteMultiAgent(agentId: string): Promise<void> {
   return apiRequest(`/api/multi-agents/${agentId}`, { method: "DELETE" });
 }
 
-export function planMultiAgentTask(agentId: string, request: string, modelId?: string): Promise<MultiAgentTask> {
+export async function createMultiAgentTask(agentId: string): Promise<MultiAgentTask | null> {
+  const result = await dialog.showOpenDialog({ properties: ["openDirectory"] });
+  if (result.canceled || !result.filePaths[0]) return null;
+  const workspacePath = path.resolve(result.filePaths[0]);
   return apiRequest(`/api/multi-agents/${agentId}/tasks`, {
     method: "POST",
-    body: JSON.stringify({ request, modelId }),
+    body: JSON.stringify({ workspacePath }),
   });
 }
 
@@ -59,7 +63,7 @@ async function runNode(
   workspacePath: string,
   onEvent: (event: MultiAgentRunEvent) => void,
 ): Promise<MultiAgentTask> {
-  const started = await apiRequest<{ conversationId: string; prompt: string }>(`/api/multi-agents/nodes/${nodeId}/start`, { method: "POST" });
+  const started = await apiRequest<{ conversationId: string; prompt: string; modelId?: string | null }>(`/api/multi-agents/nodes/${nodeId}/start`, { method: "POST" });
   onEvent({ type: "task.updated", task: await getMultiAgentTask(taskId) });
   const nodeRequestId = `${requestId}:${nodeId}`;
   activeTaskRuns.get(requestId)?.nodeRequestIds.add(nodeRequestId);
@@ -67,7 +71,7 @@ async function runNode(
     const conversation = await streamMessage(
       started.conversationId,
       started.prompt,
-      undefined,
+      started.modelId ?? undefined,
       undefined,
       nodeRequestId,
       (event) => onEvent({ type: "node.event", nodeId, event }),

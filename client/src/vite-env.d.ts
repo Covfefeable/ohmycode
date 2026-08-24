@@ -12,9 +12,10 @@ interface Window {
     };
     multiAgents: {
       list(): Promise<MultiAgentSummary[]>;
-      create(): Promise<MultiAgentSummary | null>;
+      create(payload: { name: string; description: string; division: string }): Promise<MultiAgentSummary>;
+      update(agentId: string, payload: Partial<MultiAgentSummary>): Promise<MultiAgentSummary>;
       delete(agentId: string): Promise<void>;
-      planTask(agentId: string, request: string, modelId?: string): Promise<MultiAgentTask>;
+      createTask(agentId: string): Promise<MultiAgentTask | null>;
       getTask(taskId: string): Promise<MultiAgentTask>;
       saveFlow(taskId: string, positions: Record<string, { x: number; y: number }>): Promise<MultiAgentTask>;
       deleteTask(taskId: string): Promise<void>;
@@ -86,9 +87,11 @@ type PublicSettings = {
 };
 type TokenUsageEntry = { date: string; tokens: number };
 type MultiAgentTaskSummary = { id: string; title: string; status: string; createdAt: string };
-type MultiAgentSummary = { id: string; name: string; workspacePath: string; createdAt: string; tasks: MultiAgentTaskSummary[] };
+type MultiAgentTemplateNode = { key: string; name: string; role: string; instructions: string; modelId?: string | null; position: { x: number; y: number } };
+type MultiAgentTemplateFlow = { title: string; nodes: MultiAgentTemplateNode[]; edges: Array<{ source: string; target: string }> };
+type MultiAgentSummary = { id: string; name: string; description: string; division: string; templateFlow: MultiAgentTemplateFlow; createdAt: string; tasks: MultiAgentTaskSummary[] };
 type MultiAgentMessage = { id: string; fromNodeId: string; toNodeId: string; type: string; content: string; expectsReply: boolean; replyToId?: string | null; createdAt: string };
-type MultiAgentNodeData = { id: string; key: string; name: string; role: string; instructions: string; status: string; position: { x: number; y: number }; conversationId?: string | null; finalOutput?: Record<string, unknown> | null; messages: MultiAgentMessage[]; changedFiles: Array<{ id: string; path: string; operation: string; sequence: number }> };
+type MultiAgentNodeData = { id: string; key: string; name: string; role: string; instructions: string; status: string; position: { x: number; y: number }; conversationId?: string | null; modelId?: string | null; finalOutput?: Record<string, unknown> | null; messages: MultiAgentMessage[]; changedFiles: Array<{ id: string; path: string; operation: string; sequence: number }> };
 type MultiAgentTask = { id: string; agentId: string; title: string; request: string; status: string; workspacePath: string; nodes: MultiAgentNodeData[]; edges: Array<{ id: string; source: string; target: string }>; createdAt: string; updatedAt: string };
 type ConversationStreamEvent =
   | { type: "reasoning.started"; stepId: string }
