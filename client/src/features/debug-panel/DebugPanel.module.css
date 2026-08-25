@@ -1,0 +1,18 @@
+.backdrop { position: fixed; inset: 0; z-index: calc(var(--z-tooltip) + 20); display: grid; place-items: center; padding: var(--space-6); background: #0008; backdrop-filter: blur(8px); }
+.dialog { width: min(460px, 100%); overflow: hidden; border: 1px solid var(--color-border-strong); border-radius: var(--radius-lg); background: var(--color-surface-1); box-shadow: var(--shadow-panel); color: var(--color-text); }
+.dialog header { height: 54px; display: flex; align-items: center; justify-content: space-between; padding: 0 var(--space-5); border-bottom: 1px solid var(--color-border); }
+.dialog header span { display: flex; align-items: center; gap: var(--space-2); }
+.dialog h2 { margin: 0; font-size: var(--font-md); font-weight: 650; }
+.dialog svg { width: 16px; height: 16px; }
+.dialog button { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); height: 34px; border: 0; border-radius: var(--radius-md); padding: 0 var(--space-3); background: transparent; color: var(--color-text-muted); font: inherit; cursor: pointer; transition: background var(--transition-fast), color var(--transition-fast); }
+.dialog button:hover { background: var(--color-surface-hover); color: var(--color-text); }
+.dialog button:disabled { cursor: default; opacity: .5; }
+.content { display: grid; gap: var(--space-4); padding: var(--space-5); }
+.content label { display: grid; gap: var(--space-2); color: var(--color-text-soft); font-size: var(--font-sm); }
+.content input { width: 100%; height: var(--control-height); box-sizing: border-box; border: 1px solid var(--color-border-field); border-radius: var(--radius-md); outline: 0; padding: 0 var(--space-3); background: var(--color-surface-input); color: var(--color-text-input); font: inherit; }
+.content input:focus { border-color: var(--color-accent); box-shadow: var(--shadow-focus); }
+.content p { margin: calc(var(--space-3) * -1) 0 0; color: var(--color-text-dim); font-size: var(--font-xs); }
+.content .toolButton { width: fit-content; border: 1px solid var(--color-border); background: var(--color-surface-2); color: var(--color-text); }
+.dialog footer { display: flex; justify-content: flex-end; gap: var(--space-2); padding: var(--space-3) var(--space-5); border-top: 1px solid var(--color-border); }
+.dialog footer .primary { min-width: 72px; background: var(--color-accent); color: var(--color-accent-ink); }
+.dialog footer .primary:hover { filter: brightness(.96); background: var(--color-accent); color: var(--color-accent-ink); }

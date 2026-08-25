@@ -1,18 +1,22 @@
 import path from "node:path";
 import { BrowserWindow, ipcMain, shell } from "electron";
-import { API_URL } from "../config.js";
+import { getApiUrl, setApiUrl } from "../config.js";
 import { safeExistingPath } from "../files/workspace.js";
 import { listProjects } from "../projects/projects-service.js";
 
 export function registerSystemIpc(): void {
   ipcMain.handle("api:status", async () => {
+    const apiUrl = getApiUrl();
     try {
-      const response = await fetch(`${API_URL}/api/health`, { signal: AbortSignal.timeout(3_000) });
-      return { online: response.ok, url: API_URL };
+      const response = await fetch(`${apiUrl}/api/health`, { signal: AbortSignal.timeout(3_000) });
+      return { online: response.ok, url: apiUrl };
     } catch {
-      return { online: false, url: API_URL };
+      return { online: false, url: apiUrl };
     }
   });
+  ipcMain.handle("debug:get-config", () => ({ apiUrl: getApiUrl() }));
+  ipcMain.handle("debug:set-api-url", (_event, apiUrl: string) => ({ apiUrl: setApiUrl(apiUrl) }));
+  ipcMain.on("debug:open-devtools", (event) => BrowserWindow.fromWebContents(event.sender)?.webContents.openDevTools({ mode: "detach" }));
   ipcMain.handle("system:open-path", async (_event, targetPath: string, projectId?: string) => {
     if (!targetPath.trim()) throw new Error("path_required");
     let resolvedPath = targetPath;

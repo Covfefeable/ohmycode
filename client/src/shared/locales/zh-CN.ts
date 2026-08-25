@@ -31,6 +31,7 @@ export const zhCN = {
     connected: "在线",
     starting: "API 启动中",
   },
+  debug: { title: "调试配置", close: "关闭调试配置", apiUrl: "服务端 Base URL", apiUrlHint: "保存后，后续网络请求会立即使用新的地址。", openDevTools: "打开开发者工具", save: "保存", saved: "Base URL 已更新。", invalidUrl: "请输入有效的 HTTP 或 HTTPS 地址。" },
   projects: {
     create: "创建项目",
     title: "项目",

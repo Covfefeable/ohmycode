@@ -31,6 +31,7 @@ export const en = {
     connected: "Online",
     starting: "API starting",
   },
+  debug: { title: "Debug settings", close: "Close debug settings", apiUrl: "Server base URL", apiUrlHint: "New requests use the updated address immediately after saving.", openDevTools: "Open developer tools", save: "Save", saved: "Base URL updated.", invalidUrl: "Enter a valid HTTP or HTTPS URL." },
   projects: {
     create: "Create project",
     title: "PROJECTS",

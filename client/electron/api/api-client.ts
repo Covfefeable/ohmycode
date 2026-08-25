@@ -1,6 +1,6 @@
 import { readTokens, storeTokens } from "../auth/token-store.js";
 import type { AuthTokens } from "../auth/types.js";
-import { API_URL } from "../config.js";
+import { getApiUrl } from "../config.js";
 
 export class ApiError extends Error {
   constructor(public status: number, public code: string) { super(code); }
@@ -18,7 +18,7 @@ export async function apiErrorFromResponse(response: Response): Promise<ApiError
 }
 
 async function refreshAccessToken(refreshToken: string): Promise<AuthTokens | null> {
-  const response = await fetch(`${API_URL}/api/auth/refresh`, { method: "POST", headers: { Authorization: `Bearer ${refreshToken}` } });
+  const response = await fetch(`${getApiUrl()}/api/auth/refresh`, { method: "POST", headers: { Authorization: `Bearer ${refreshToken}` } });
   if (!response.ok) return null;
   const payload = await response.json() as { tokens: AuthTokens };
   await storeTokens(payload.tokens);
@@ -28,7 +28,7 @@ async function refreshAccessToken(refreshToken: string): Promise<AuthTokens | nu
 export async function apiFetch(pathname: string, init: RequestInit = {}): Promise<Response> {
   let tokens = await readTokens();
   if (!tokens) throw new ApiError(401, "authorization_required");
-  const execute = (accessToken: string) => fetch(`${API_URL}${pathname}`, {
+  const execute = (accessToken: string) => fetch(`${getApiUrl()}${pathname}`, {
     ...init,
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}`, ...init.headers },
   });

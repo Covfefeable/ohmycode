@@ -16,6 +16,7 @@ export async function createMainWindow(): Promise<BrowserWindow> {
     icon: path.join(app.getAppPath(), "build/icon.png"),
     backgroundColor: "#0b0d10",
     frame: false,
+    autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(app.getAppPath(), "electron/preload.cjs"),
       contextIsolation: true,
@@ -23,9 +24,17 @@ export async function createMainWindow(): Promise<BrowserWindow> {
       sandbox: true,
     },
   });
+  window.removeMenu();
 
   window.webContents.on("did-fail-load", (_event, code, description, url) => {
     console.error(`[renderer] failed to load ${url}: ${code} ${description}`);
+  });
+  window.webContents.on("before-input-event", (event, input) => {
+    const key = input.key.toLowerCase();
+    const blocked = key === "f12"
+      || (input.control && input.shift && key === "i")
+      || (input.meta && input.alt && key === "i");
+    if (blocked) event.preventDefault();
   });
   window.webContents.setWindowOpenHandler(({ url }) => {
     openExternalWebUrl(url);

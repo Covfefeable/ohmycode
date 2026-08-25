@@ -33,6 +33,11 @@ interface Window {
       onThreadEvent(conversationId: string, callback: (event: RuntimeEvent) => void): () => void;
     };
     apiStatus(): Promise<{ online: boolean; url: string }>;
+    debug: {
+      getConfig(): Promise<{ apiUrl: string }>;
+      setApiUrl(apiUrl: string): Promise<{ apiUrl: string }>;
+      openDevTools(): void;
+    };
     openPath(targetPath: string, projectId?: string): Promise<void>;
     auth: {
       bootstrap(): Promise<

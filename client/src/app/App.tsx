@@ -8,6 +8,7 @@ import { AuthProvider, useAuth } from "../features/auth-session";
 import { FullScreenLoading } from "../shared/ui/full-screen-loading";
 import { WindowControls } from "../widgets/window-controls";
 import { FeedbackProvider } from "../features/feedback";
+import { DebugPanel } from "../features/debug-panel";
 
 function ProtectedRoute() {
   const { status } = useAuth();
@@ -37,6 +38,7 @@ export default function App() {
     <HashRouter>
       <FeedbackProvider><AuthProvider>
         <WindowControls />
+        <DebugPanel />
         <Routes>
           <Route element={<PublicOnlyRoute />}>
             <Route path="/login" element={<LoginPage />} />

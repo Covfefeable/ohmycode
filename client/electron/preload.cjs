@@ -42,6 +42,11 @@ contextBridge.exposeInMainWorld("ohmycode", {
     },
   },
   apiStatus: () => ipcRenderer.invoke("api:status"),
+  debug: {
+    getConfig: () => ipcRenderer.invoke("debug:get-config"),
+    setApiUrl: (apiUrl) => ipcRenderer.invoke("debug:set-api-url", apiUrl),
+    openDevTools: () => ipcRenderer.send("debug:open-devtools"),
+  },
   openPath: (targetPath, projectId) => ipcRenderer.invoke("system:open-path", targetPath, projectId),
   auth: {
     bootstrap: () => ipcRenderer.invoke("auth:bootstrap"),

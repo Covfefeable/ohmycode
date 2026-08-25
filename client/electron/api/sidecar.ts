@@ -2,7 +2,7 @@ import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { app } from "electron";
-import { API_URL, isLocalApiUrl } from "../config.js";
+import { getApiUrl, isLocalApiUrl } from "../config.js";
 
 let apiProcess: ChildProcess | undefined;
 const REQUIRED_CAPABILITIES = ["auth", "projects", "settings", "agent-runs", "token-usage", "multi-agent"];
@@ -31,8 +31,9 @@ function apiLaunch(apiRoot: string): { executable: string; args: string[] } {
 }
 
 async function inspectRunningApi(): Promise<"compatible" | "incompatible" | "unresponsive" | "offline"> {
+  const apiUrl = getApiUrl();
   try {
-    const response = await fetch(`${API_URL}/api/health`, { signal: AbortSignal.timeout(3_000) });
+    const response = await fetch(`${apiUrl}/api/health`, { signal: AbortSignal.timeout(3_000) });
     if (!response.ok) return "offline";
     const payload = (await response.json()) as { capabilities?: string[] };
     return REQUIRED_CAPABILITIES.every((capability) => payload.capabilities?.includes(capability))
@@ -45,22 +46,23 @@ async function inspectRunningApi(): Promise<"compatible" | "incompatible" | "unr
 }
 
 export async function startApiSidecar(): Promise<void> {
+  const apiUrl = getApiUrl();
   if (process.env.OHMYCODE_MANAGE_API === "false" || !isLocalApiUrl()) return;
   const apiStatus = await inspectRunningApi();
   if (apiStatus === "compatible") {
-    console.info(`[api] using existing service at ${API_URL}`);
+    console.info(`[api] using existing service at ${apiUrl}`);
     return;
   }
   if (apiStatus === "incompatible") {
-    console.error(`[api] service at ${API_URL} is incompatible with this client`);
+    console.error(`[api] service at ${apiUrl} is incompatible with this client`);
     return;
   }
   if (apiStatus === "unresponsive") {
-    console.error(`[api] service at ${API_URL} accepted a connection but did not respond`);
+    console.error(`[api] service at ${apiUrl} accepted a connection but did not respond`);
     return;
   }
   if (app.isPackaged) {
-    console.info(`[api] external service at ${API_URL} is currently offline`);
+    console.info(`[api] external service at ${apiUrl} is currently offline`);
     return;
   }
   const apiRoot = apiDirectory();

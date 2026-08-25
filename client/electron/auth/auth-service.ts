@@ -1,11 +1,11 @@
-import { API_URL } from "../config.js";
+import { getApiUrl } from "../config.js";
 import { clearTokens, readTokens, storeTokens } from "./token-store.js";
 import type { ApiResult, AuthPayload, AuthTokens } from "./types.js";
 
 async function authRequest(pathname: string, init: RequestInit = {}): Promise<ApiResult> {
   const timeoutSignal = AbortSignal.timeout(8_000);
   const signal = init.signal ? AbortSignal.any([init.signal, timeoutSignal]) : timeoutSignal;
-  const response = await fetch(`${API_URL}/api/auth${pathname}`, {
+  const response = await fetch(`${getApiUrl()}/api/auth${pathname}`, {
     ...init,
     signal,
     headers: { "Content-Type": "application/json", ...init.headers },
