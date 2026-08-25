@@ -3,6 +3,50 @@ import uuid
 
 from app import create_app
 from app.extensions import db
+from app.models import Project, User
+
+
+def test_hidden_multi_agent_project_is_promoted_to_workspace():
+    app = create_app("testing")
+    with app.app_context():
+        db.create_all()
+
+    with app.test_client() as client:
+        registration = client.post(
+            "/api/auth/register",
+            json={
+                "email": "promotion@example.com",
+                "displayName": "Promotion User",
+                "password": "secret123",
+            },
+        )
+        headers = {
+            "Authorization": f"Bearer {registration.get_json()['tokens']['accessToken']}"
+        }
+        with app.app_context():
+            user = db.session.scalar(db.select(User).where(User.email == "promotion@example.com"))
+            hidden = Project(
+                user_id=user.id,
+                name="hidden-run",
+                path="C:/Users/admin/Desktop",
+                kind="multi_agent",
+            )
+            db.session.add(hidden)
+            db.session.commit()
+            hidden_id = str(hidden.id)
+
+        created = client.post(
+            "/api/projects",
+            headers=headers,
+            json={"name": "Desktop", "path": "C:/Users/admin/Desktop"},
+        )
+
+        assert created.status_code == 201
+        assert created.get_json()["id"] == hidden_id
+        assert any(
+            project["id"] == hidden_id
+            for project in client.get("/api/projects", headers=headers).get_json()
+        )
 
 
 def test_project_conversation_and_message_lifecycle(monkeypatch):

@@ -25,6 +25,11 @@ def create_project(user_id: UUID, payload: dict) -> Project:
         db.select(Project).where(Project.user_id == user_id, Project.path == project_path)
     )
     if existing:
+        if existing.kind == "multi_agent":
+            existing.kind = "workspace"
+            existing.name = name
+            db.session.commit()
+            return existing
         raise ServiceError("project_exists", 409)
     project = Project(user_id=user_id, name=name, path=project_path, kind="workspace")
     db.session.add(project)
