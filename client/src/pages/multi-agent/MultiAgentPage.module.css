@@ -79,9 +79,11 @@
 .state.running { background: var(--color-accent); }
 .state.ready, .state.queued { background: var(--color-warning); }
 .state.failed { background: var(--color-danger); }
-.activityDrawer { position: absolute; top: 0; right: 0; z-index: var(--z-header); width: min(390px,38vw); height: 100%; box-sizing: border-box; overflow: auto; border-left: 1px solid var(--color-border); background: var(--color-surface-1); padding: 28px 24px; box-shadow: var(--shadow-panel); }
-.activityDrawer h2 { margin: 0 32px 6px 0; font-size: 20px; }
-.activityDrawer > p { margin: 0 0 22px; color: var(--color-text-muted); font-size: var(--font-sm); line-height: 1.5; }
+.activityDrawer { position: absolute; top: 0; right: 0; z-index: var(--z-header); width: min(390px,38vw); height: 100%; box-sizing: border-box; overflow: auto; border-left: 1px solid var(--color-border); background: var(--color-surface-1); box-shadow: var(--shadow-panel); }
+.drawerHeader { position: sticky; top: 0; z-index: 1; padding: 28px 56px 18px 24px; border-bottom: 1px solid var(--color-border); background: var(--color-surface-1); }
+.drawerHeader h2 { margin: 0 0 6px; font-size: 20px; }
+.drawerHeader p { margin: 0; color: var(--color-text-muted); font-size: var(--font-sm); line-height: 1.5; }
+.drawerBody { padding: 22px 24px 28px; }
 .close { position: absolute; top: 18px; right: 18px; width: 30px; height: 30px; display: grid; place-items: center; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--color-text-muted); cursor: pointer; }
 .close:hover { background: var(--color-surface-hover); color: var(--color-text); }
 .close svg { width: 16px; }

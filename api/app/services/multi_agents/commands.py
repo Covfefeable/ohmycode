@@ -439,8 +439,19 @@ def _reset_task(task: MultiAgentTask) -> None:
     for node in task.members:
         node.status, node.final_output = "idle", None
     for message in task_messages(task):
-        if message.message_type != "brief":
-            db.session.delete(message)
+        db.session.delete(message)
+    db.session.flush()
+    db.session.add(
+        MultiAgentMessage(
+            task_id=task.id,
+            sequence=1,
+            from_node_id=None,
+            to_node_id=_host(task).id,
+            message_type="brief",
+            sender_type="user",
+            content=task.request,
+        )
+    )
 
 
 def task_messages(task: MultiAgentTask) -> list[MultiAgentMessage]:

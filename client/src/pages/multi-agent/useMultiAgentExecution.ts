@@ -46,6 +46,9 @@ export function useMultiAgentExecution(options: Options) {
       toast({ type: "error", message: t("multiAgent.memberModelMissing") });
       return;
     }
+    if (["completed", "failed", "stopped"].includes(target.status)) {
+      setActivities({});
+    }
     const requestId = crypto.randomUUID();
     setRunRequestId(requestId);
     const unsubscribe = window.ohmycode.multiAgents.onEvent(requestId, (event) => {

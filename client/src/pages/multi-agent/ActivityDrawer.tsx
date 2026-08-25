@@ -13,12 +13,16 @@ export function ActivityDrawer({ member, liveActivity, onClose }: Props) {
   const finalText = typeof member.finalOutput?.content === "string" ? member.finalOutput.content : "";
   const steps = withoutFinalResponse(liveActivity ?? persisted, finalText);
   return <aside className={styles.activityDrawer}>
-    <button className={styles.close} onClick={onClose}><X /></button>
-    <h2>{member.name}</h2>
-    <p>{member.role}</p>
-    {steps.length
-      ? <ActivityTimeline steps={steps} active={member.status === "running"} durationMs={member.agentDurationMs} startedAt={member.agentStartedAt ?? undefined} />
-      : <span className={styles.noActivity}>{t("multiAgent.waitingForActivity")}</span>}
-    {finalText && <div className={styles.finalOutput}><MarkdownContent>{finalText}</MarkdownContent></div>}
+    <header className={styles.drawerHeader}>
+      <button className={styles.close} onClick={onClose}><X /></button>
+      <h2>{member.name}</h2>
+      <p>{member.role}</p>
+    </header>
+    <div className={styles.drawerBody}>
+      {steps.length
+        ? <ActivityTimeline steps={steps} active={member.status === "running"} durationMs={member.agentDurationMs} startedAt={member.agentStartedAt ?? undefined} />
+        : <span className={styles.noActivity}>{t("multiAgent.waitingForActivity")}</span>}
+      {finalText && <div className={styles.finalOutput}><MarkdownContent>{finalText}</MarkdownContent></div>}
+    </div>
   </aside>;
 }

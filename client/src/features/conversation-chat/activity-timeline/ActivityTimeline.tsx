@@ -64,7 +64,12 @@ function ToolStep({ step }: { step: Extract<AgentActivityStep, { type: "tool" }>
   const projectId = typeof input.projectId === "string" ? input.projectId : undefined;
   const displayedFilePath = pathName(clickableFilePath);
   const fileTool = ["read_file", "apply_patch", "search_files", "list_directory"].includes(step.tool);
-  const fileLabel = step.status === "running" ? t("agent.usingFileTool") : t((failed ? {
+  const fileLabel = step.status === "running" ? t(({
+    read_file: "agent.readingFile",
+    apply_patch: "agent.editingFile",
+    search_files: "agent.searchingFiles",
+    list_directory: "agent.listingDirectory",
+  })[step.tool] ?? "agent.usingFileTool") : t((failed ? {
     read_file: "agent.readFileFailed",
     apply_patch: "agent.editFileFailed",
     search_files: "agent.searchFilesFailed",

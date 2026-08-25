@@ -2,7 +2,7 @@ from uuid import UUID
 
 from app import create_app
 from app.extensions import db
-from app.models import AgentEvent, AgentRun
+from app.models import AgentEvent, AgentRun, Message
 
 
 def _setup(client):
@@ -178,6 +178,37 @@ def test_user_message_queues_target_and_host_recovers(tmp_path):
         resumed = client.get(f"/api/multi-agents/tasks/{task['id']}", headers=headers).get_json()
         assert resumed["status"] == "running"
         assert resumed["currentSpeakerId"] == reviewer["id"]
+
+        db.session.add(
+            Message(
+                conversation_id=UUID(host["conversationId"]),
+                role="assistant",
+                content="Internal host context",
+            )
+        )
+        db.session.commit()
+        before_stop_message_ids = [item["id"] for item in resumed["messages"]]
+        stopped = client.post(
+            f"/api/multi-agents/tasks/{task['id']}/stop", headers=headers
+        ).get_json()
+        assert [item["id"] for item in stopped["messages"]] == before_stop_message_ids
+        assert db.session.scalar(
+            db.select(db.func.count(Message.id)).where(
+                Message.conversation_id == UUID(host["conversationId"])
+            )
+        ) == 1
+
+        restarted = client.post(
+            f"/api/multi-agents/tasks/{task['id']}/start", headers=headers
+        ).get_json()
+        assert len(restarted["messages"]) == 1
+        assert restarted["messages"][0]["id"] not in before_stop_message_ids
+        assert restarted["messages"][0]["content"] == task["request"]
+        assert db.session.scalar(
+            db.select(db.func.count(Message.id)).where(
+                Message.conversation_id == UUID(host["conversationId"])
+            )
+        ) == 0
 
 
 def test_remote_service_treats_client_workspace_path_as_opaque():
