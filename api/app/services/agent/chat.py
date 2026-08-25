@@ -130,7 +130,7 @@ def _sse_json_payloads(lines):
 
 def _provider_payloads(prepared: PreparedCompletion):
     for attempt in range(MODEL_STREAM_ATTEMPTS):
-        emitted = False
+        meaningful_output = False
         try:
             with httpx.stream(
                 "POST",
@@ -144,13 +144,25 @@ def _provider_payloads(prepared: PreparedCompletion):
             ) as provider_response:
                 provider_response.raise_for_status()
                 for parsed in _sse_json_payloads(provider_response.iter_lines()):
-                    emitted = True
+                    choice = (parsed.get("choices") or [{}])[0]
+                    delta = choice.get("delta") or {}
+                    message = choice.get("message") or {}
+                    if (
+                        delta.get("content")
+                        or delta.get("reasoning_content")
+                        or delta.get("reasoning")
+                        or delta.get("tool_calls")
+                        or choice.get("text")
+                        or message.get("content")
+                        or message.get("tool_calls")
+                    ):
+                        meaningful_output = True
                     yield parsed
-            if emitted:
+            if meaningful_output:
                 return
         except httpx.HTTPStatusError as error:
             retryable = error.response.status_code == 429 or error.response.status_code >= 500
-            if emitted or not retryable or attempt == MODEL_STREAM_ATTEMPTS - 1:
+            if meaningful_output or not retryable or attempt == MODEL_STREAM_ATTEMPTS - 1:
                 raise
             time.sleep(min(2**attempt, 4))
         except (
@@ -160,7 +172,7 @@ def _provider_payloads(prepared: PreparedCompletion):
             httpx.ReadTimeout,
             httpx.RemoteProtocolError,
         ):
-            if emitted or attempt == MODEL_STREAM_ATTEMPTS - 1:
+            if meaningful_output or attempt == MODEL_STREAM_ATTEMPTS - 1:
                 raise
 
 

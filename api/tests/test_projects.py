@@ -171,7 +171,7 @@ def test_project_conversation_and_message_lifecycle(monkeypatch):
 
         class EmptyProviderResponse(ProviderResponse):
             def iter_lines(self):
-                return iter(["data: [DONE]"])
+                return iter(['data: {"choices":[]}', "data: [DONE]"])
 
         provider_responses = iter([EmptyProviderResponse(), ProviderResponse()])
         provider_payloads = []
