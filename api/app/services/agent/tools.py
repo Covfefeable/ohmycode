@@ -27,7 +27,95 @@ TERMINAL_TOOL = {
     },
 }
 
-AGENT_TOOLS = [TERMINAL_TOOL]
+READ_FILE_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "read_file",
+        "description": (
+            "Read a UTF-8 text file with line numbers. "
+            "Inspect relevant files before editing them."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "path": {"type": "string"},
+                "startLine": {"type": "integer", "minimum": 1},
+                "endLine": {"type": "integer", "minimum": 1},
+                "maxBytes": {"type": "integer", "minimum": 1, "maximum": 262144},
+            },
+            "required": ["path"],
+        },
+    },
+}
+
+SEARCH_FILES_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "search_files",
+        "description": (
+            "Search workspace file names or UTF-8 file contents. "
+            "Use this before broad shell searches."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string"},
+                "path": {"type": "string"},
+                "mode": {"type": "string", "enum": ["content", "files"]},
+                "glob": {"type": "string"},
+                "maxResults": {"type": "integer", "minimum": 1, "maximum": 500},
+            },
+            "required": ["query"],
+        },
+    },
+}
+
+LIST_DIRECTORY_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "list_directory",
+        "description": (
+            "List files and directories in the workspace with bounded depth and result count."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "path": {"type": "string"},
+                "depth": {"type": "integer", "minimum": 1, "maximum": 5},
+                "includeHidden": {"type": "boolean"},
+                "maxEntries": {"type": "integer", "minimum": 1, "maximum": 1000},
+            },
+        },
+    },
+}
+
+APPLY_PATCH_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "apply_patch",
+        "description": (
+            "Apply a patch inside the workspace. Read every existing target file first. The patch "
+            "must start with the literal line '*** Begin Patch', use literal section headers such "
+            "as '*** Update File: path/to/file', and end with the literal line '*** End Patch'. "
+            "Every context line must begin with a space, '+' or '-'. "
+            "Never replace '***' with '###'."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {"patch": {"type": "string"}},
+            "required": ["patch"],
+        },
+    },
+}
+
+FILE_TOOL_NAMES = {"read_file", "search_files", "list_directory", "apply_patch"}
+AGENT_TOOLS = [
+    READ_FILE_TOOL,
+    SEARCH_FILES_TOOL,
+    LIST_DIRECTORY_TOOL,
+    APPLY_PATCH_TOOL,
+    TERMINAL_TOOL,
+]
 
 AGENT_MESSAGE_TOOL = {
     "type": "function",
@@ -47,7 +135,10 @@ AGENT_MESSAGE_TOOL = {
                 "toNodeId": {"type": "string"},
                 "content": {"type": "string"},
                 "expectsReply": {"type": "boolean"},
-                "intent": {"type": "string", "enum": ["inform", "question", "revision_request", "revision_result"]},
+                "intent": {
+                    "type": "string",
+                    "enum": ["inform", "question", "revision_request", "revision_result"],
+                },
                 "replyToId": {"type": "string"},
             },
             "required": ["toNodeId", "content"],

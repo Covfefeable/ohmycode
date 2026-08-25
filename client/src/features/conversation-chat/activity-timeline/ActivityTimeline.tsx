@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Check, ChevronDown, LoaderCircle, TerminalSquare } from "lucide-react";
+import { Check, ChevronDown, CircleX, FilePenLine, FileSearch, FileText, FolderOpen, LoaderCircle, TerminalSquare } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { MarkdownContent } from "../../../shared/ui/markdown-content";
 import styles from "./ActivityTimeline.module.css";
@@ -7,6 +7,7 @@ import styles from "./ActivityTimeline.module.css";
 function formatToolResult(value: unknown): string {
   if (value && typeof value === "object" && !Array.isArray(value)) {
     const result = value as Record<string, unknown>;
+    if (typeof result.operation === "string" && typeof result.output === "string") return result.output;
     if (typeof result.output === "string") {
       const suffix = result.status === "running"
         ? `\n\n[${String(result.status)} · terminal ${String(result.terminalId || "")}]`
@@ -17,18 +18,101 @@ function formatToolResult(value: unknown): string {
   return value ? JSON.stringify(value, null, 2) : "";
 }
 
+function parseToolInput(value: unknown): Record<string, unknown> {
+  if (value && typeof value === "object" && !Array.isArray(value)) return value as Record<string, unknown>;
+  if (typeof value !== "string") return {};
+  try {
+    const parsed = JSON.parse(value || "{}");
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed as Record<string, unknown> : {};
+  } catch {
+    return {};
+  }
+}
+
+function pathName(value: string): string {
+  const normalized = value.replace(/[\\/]+$/, "");
+  return normalized.split(/[\\/]/).at(-1) || value;
+}
+
+function patchTarget(value: unknown): string {
+  if (typeof value !== "string") return "";
+  return value.match(/^\*\*\* (?:Add|Update|Delete) File: (.+)$/m)?.[1]?.trim() ?? "";
+}
+
+function toolFailed(value: unknown): boolean {
+  if (Array.isArray(value)) return value.some(toolFailed);
+  if (!value || typeof value !== "object") return false;
+  const result = value as Record<string, unknown>;
+  return typeof result.error === "string"
+    || (typeof result.exitCode === "number" && result.exitCode !== 0);
+}
+
 function ToolStep({ step }: { step: Extract<AgentActivityStep, { type: "tool" }> }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(step.status === "running");
-  const input = (typeof step.input === "string" ? JSON.parse(step.input || "{}") : step.input) as Record<string, unknown>;
+  const input = parseToolInput(step.input);
   const action = String(input.action || (input.command ? "start" : step.tool));
   const command = input.command ? String(input.command) : `${action} ${String(input.terminalId || "")}`.trim();
   const result = formatToolResult(step.result);
+  const failed = toolFailed(step.result);
+  const metadata = step.result && typeof step.result === "object" && !Array.isArray(step.result)
+    ? step.result as Record<string, unknown>
+    : {};
+  const resolvedFilePath = typeof metadata.path === "string" ? metadata.path : "";
+  const requestedFilePath = typeof input.path === "string" ? input.path : patchTarget(input.patch);
+  const clickableFilePath = resolvedFilePath || requestedFilePath;
+  const projectId = typeof input.projectId === "string" ? input.projectId : undefined;
+  const displayedFilePath = pathName(clickableFilePath);
+  const fileTool = ["read_file", "apply_patch", "search_files", "list_directory"].includes(step.tool);
+  const fileLabel = step.status === "running" ? t("agent.usingFileTool") : t((failed ? {
+    read_file: "agent.readFileFailed",
+    apply_patch: "agent.editFileFailed",
+    search_files: "agent.searchFilesFailed",
+    list_directory: "agent.listDirectoryFailed",
+  } : {
+    read_file: "agent.readFile",
+    apply_patch: "agent.editedFile",
+    search_files: "agent.searchedFiles",
+    list_directory: "agent.listedDirectory",
+  })[step.tool] ?? "agent.usingFileTool");
+  const FileIcon = step.tool === "read_file" ? FileText : step.tool === "apply_patch" ? FilePenLine : step.tool === "search_files" ? FileSearch : FolderOpen;
+  if (fileTool) return <div className={styles.step}>
+    <div
+      className={styles.fileStepHead}
+      role="button"
+      tabIndex={0}
+      aria-expanded={open}
+      onClick={() => setOpen((value) => !value)}
+      onKeyDown={(event) => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        setOpen((value) => !value);
+      }}
+    >
+      {step.status === "running" ? <LoaderCircle className={styles.spinner} /> : failed ? <CircleX className={styles.failed} /> : <Check />}
+      <FileIcon />
+      <span>{fileLabel}</span>
+      {clickableFilePath
+        ? <button
+            className={styles.pathLink}
+            type="button"
+            title={resolvedFilePath || requestedFilePath}
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              void window.ohmycode.openPath(clickableFilePath, projectId);
+            }}
+          >{displayedFilePath}</button>
+        : null}
+      <button className={styles.expandButton} type="button" aria-expanded={open} onClick={(event) => { event.stopPropagation(); setOpen((value) => !value); }}><ChevronDown className={`${styles.chevron} ${open ? styles.chevronOpen : ""}`} /></button>
+    </div>
+    {open && result && <pre className={styles.output}>{result}</pre>}
+  </div>;
   return <div className={styles.step}>
     <button className={styles.stepHead} type="button" onClick={() => setOpen((value) => !value)}>
-      {step.status === "running" ? <LoaderCircle className={styles.spinner} /> : <Check />}
+      {step.status === "running" ? <LoaderCircle className={styles.spinner} /> : failed ? <CircleX className={styles.failed} /> : <Check />}
       <TerminalSquare />
-      <span>{step.status === "running" ? t("agent.runningCommand") : t("agent.ranCommand")}</span>
+      <span>{step.status === "running" ? t("agent.runningCommand") : failed ? t("agent.commandFailed") : t("agent.ranCommand")}</span>
       <code>{command}</code>
       <ChevronDown className={`${styles.chevron} ${open ? styles.chevronOpen : ""}`} />
     </button>

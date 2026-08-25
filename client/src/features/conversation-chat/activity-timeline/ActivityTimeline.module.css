@@ -14,7 +14,18 @@
 .stepHead svg { width: 15px; height: 15px; flex: none; }
 .stepHead > span { flex: none; }
 .stepHead code { min-width: 0; flex: 1; overflow: hidden; color: var(--color-text-dim); font-size: var(--font-xs); text-overflow: ellipsis; white-space: nowrap; }
+.fileStepHead { width: 100%; min-width: 0; display: flex; align-items: center; gap: var(--space-2); overflow: hidden; border-radius: var(--radius-sm); color: var(--color-text-muted); padding: 6px 8px; font-size: var(--font-sm); cursor: pointer; }
+.fileStepHead:hover { background: var(--color-surface-icon-hover); color: var(--color-text); }
+.fileStepHead > svg { width: 15px; height: 15px; flex: none; }
+.fileStepHead > span { height: 20px; display: inline-flex; align-items: center; line-height: 20px; }
+.pathLink { position: relative; width: max-content; height: 20px; min-width: 0; max-width: 100%; flex: 0 1 auto; display: inline-block; overflow: hidden; border: 0; background: transparent; color: var(--color-text-dim); padding: 0; font: inherit; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: var(--font-xs); line-height: 20px; text-align: left; text-overflow: ellipsis; vertical-align: middle; white-space: nowrap; cursor: pointer; }
+.pathLink::after { position: absolute; right: 0; bottom: 1px; left: 0; height: 1px; background: transparent; content: ""; pointer-events: none; }
+.pathLink:hover { color: var(--color-accent); }
+.pathLink:hover::after { background: currentColor; }
+.expandButton { width: 18px; height: 18px; flex: none; display: grid; place-items: center; margin-left: auto; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--color-text-dim); padding: 0; cursor: pointer; }
+.expandButton svg { width: 15px; height: 15px; }
 .spinner { color: var(--color-accent); animation: spin 800ms linear infinite; }
+.failed { color: var(--color-danger); }
 .chevron { margin-left: auto; transition: transform var(--transition-fast); }
 .chevronOpen { transform: rotate(180deg); }
 .reasoning, .output { max-height: 320px; overflow: auto; margin: 2px 8px var(--space-2) 30px; border-left: 1px solid var(--color-border-strong); padding: var(--space-2) var(--space-4); color: var(--color-text-dim); font-size: var(--font-sm); line-height: 1.65; }

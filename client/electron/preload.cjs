@@ -41,6 +41,7 @@ contextBridge.exposeInMainWorld("ohmycode", {
     },
   },
   apiStatus: () => ipcRenderer.invoke("api:status"),
+  openPath: (targetPath, projectId) => ipcRenderer.invoke("system:open-path", targetPath, projectId),
   auth: {
     bootstrap: () => ipcRenderer.invoke("auth:bootstrap"),
     login: (payload) => ipcRenderer.invoke("auth:login", payload),

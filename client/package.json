@@ -9,6 +9,7 @@
     "dev": "concurrently -k \"vite\" \"pnpm electron:dev\"",
     "electron:dev": "wait-on tcp:5173 && tsc -p electron/tsconfig.json && cross-env VITE_DEV_SERVER_URL=http://127.0.0.1:5173 electron .",
     "build": "tsc -b && vite build && tsc -p electron/tsconfig.json",
+    "test:file-tools": "tsc -p electron/tsconfig.json && node electron/files/file-tools.smoke.mjs",
     "dist:win": "pnpm build && electron-builder --win nsis --x64",
     "typecheck": "tsc -b --pretty false",
     "lint": "eslint .",

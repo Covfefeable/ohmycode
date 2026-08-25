@@ -35,7 +35,7 @@ from .runs import (
     get_owned_run,
     start_run,
 )
-from .tools import AGENT_MESSAGE_TOOL, AGENT_TOOLS, normalize_terminal_arguments
+from .tools import AGENT_MESSAGE_TOOL, AGENT_TOOLS, FILE_TOOL_NAMES, normalize_terminal_arguments
 
 
 def _multi_agent_context(conversation_id: UUID) -> tuple[list[dict], list[dict]]:
@@ -55,7 +55,8 @@ def _multi_agent_context(conversation_id: UUID) -> tuple[list[dict], list[dict]]
         )
     )
     mailbox = "\n".join(
-        f"- {item.from_node.name if item.from_node else 'User'} -> {item.to_node.name}: {item.content}"
+        f"- {item.from_node.name if item.from_node else 'User'} -> "
+        f"{item.to_node.name}: {item.content}"
         for item in messages
     )
     context = (
@@ -114,6 +115,7 @@ def prepare_completion(
     content: str,
     model_id: str | None,
     edit_message_id: str | None,
+    workspace_instructions: str = "",
 ) -> PreparedCompletion:
     conversation = prepare_user_prompt(user_id, conversation_id, content, edit_message_id)
     configuration = get_model_configuration(user_id, model_id)
@@ -148,6 +150,16 @@ def prepare_completion(
                     "role": "system",
                     "content": AGENT_SYSTEM_INSTRUCTIONS,
                 },
+                *(
+                    [
+                        {
+                            "role": "system",
+                            "content": f"Workspace instructions:\n{workspace_instructions}",
+                        }
+                    ]
+                    if workspace_instructions.strip()
+                    else []
+                ),
                 *cancelled_run_context(conversation_id, run.id),
                 *mailbox,
                 *context.messages,
@@ -231,7 +243,9 @@ def _message_activity(run: AgentRun, final_reasoning: str) -> list[dict]:
     return activity
 
 
-def resume_completion(user_id: UUID, run_id: UUID, results: list[dict]) -> PreparedCompletion:
+def resume_completion(
+    user_id: UUID, run_id: UUID, results: list[dict], workspace_instructions: str = ""
+) -> PreparedCompletion:
     run = get_owned_run(user_id, run_id)
     if run.status != "waiting_tool" or not results:
         raise ServiceError("invalid_run_state", 409)
@@ -283,6 +297,16 @@ def resume_completion(user_id: UUID, run_id: UUID, results: list[dict]) -> Prepa
             "tools": tools,
             "messages": [
                 {"role": "system", "content": AGENT_SYSTEM_INSTRUCTIONS},
+                *(
+                    [
+                        {
+                            "role": "system",
+                            "content": f"Workspace instructions:\n{workspace_instructions}",
+                        }
+                    ]
+                    if workspace_instructions.strip()
+                    else []
+                ),
                 *cancelled_run_context(run.conversation_id, run.id),
                 *mailbox,
                 *model_messages,
@@ -360,7 +384,9 @@ def stream_completion(prepared: PreparedCompletion):
             calls = [tool_calls[index] for index in sorted(tool_calls)]
             conversation = db.session.get(Conversation, prepared.conversation_id)
             if not conversation or any(
-                call["function"]["name"] not in {"terminal", "agent_message"} for call in calls
+                call["function"]["name"]
+                not in {"terminal", "agent_message", *FILE_TOOL_NAMES}
+                for call in calls
             ):
                 fail_run(run, "unsupported_tool")
                 return
@@ -377,6 +403,8 @@ def stream_completion(prepared: PreparedCompletion):
                         **normalize_terminal_arguments(arguments),
                         "projectId": str(conversation.project_id),
                     }
+                elif tool_name in FILE_TOOL_NAMES:
+                    arguments = {**arguments, "projectId": str(conversation.project_id)}
                 requests.append({"callId": call["id"], "tool": tool_name, "arguments": arguments})
             if reasoning:
                 append_event(run, "reasoning.completed", {"content": reasoning})

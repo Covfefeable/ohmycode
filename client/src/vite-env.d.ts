@@ -32,6 +32,7 @@ interface Window {
       onEvent(requestId: string, callback: (event: ConversationStreamEvent) => void): () => void;
     };
     apiStatus(): Promise<{ online: boolean; url: string }>;
+    openPath(targetPath: string, projectId?: string): Promise<void>;
     auth: {
       bootstrap(): Promise<
         | { authenticated: false }
@@ -102,7 +103,7 @@ type ConversationStreamEvent =
   | { type: "reasoning.delta"; content: string }
   | { type: "message.started" }
   | { type: "message.delta"; content: string }
-  | { type: "tool.requested"; runId: string; callId: string; tool: "terminal" | "agent_message"; arguments: TerminalAction | { toNodeId: string; content: string; expectsReply?: boolean } }
+  | { type: "tool.requested"; runId: string; callId: string; tool: "terminal" | "agent_message" | "read_file" | "search_files" | "list_directory" | "apply_patch"; arguments: TerminalAction | Record<string, unknown> }
   | { type: "tool.completed"; callId: string; result: unknown };
 type MultiAgentRunEvent =
   | { type: "task.updated"; task: MultiAgentTask }

@@ -26,6 +26,7 @@ def resume_run_route(run_id: UUID):
         UUID(get_jwt_identity()),
         run_id,
         payload.get("results") if isinstance(payload.get("results"), list) else [],
+        str(payload.get("workspaceInstructions") or ""),
     )
 
     @stream_with_context

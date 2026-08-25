@@ -5,6 +5,10 @@ import { executeTerminalAction } from "../terminal/terminal-manager.js";
 import type { TerminalAction } from "../terminal/types.js";
 import { acquireWorkspaceWriteLock } from "../multi-agents/workspace-write-lock.js";
 import { recordWorkspaceChanges, snapshotWorkspace } from "../multi-agents/workspace-changes.js";
+import { executeFileTool } from "../files/file-tools.js";
+import { loadAgentInstructions, renderAgentInstructions } from "../files/agents-instructions.js";
+import type { FileToolName, FileToolRequest } from "../files/types.js";
+import { listProjects } from "../projects/projects-service.js";
 
 export type ConversationStreamEvent = {
   type: "reasoning.delta" | "message.delta";
@@ -19,13 +23,25 @@ type ToolRequestEvent = {
   type: "tool.requested";
   runId: string;
   callId: string;
-  tool: "terminal" | "agent_message";
-  arguments: TerminalAction | { toNodeId: string; content: string; expectsReply?: boolean; intent?: "inform" | "question" | "revision_request" | "revision_result"; replyToId?: string };
+  tool: "terminal" | "agent_message" | FileToolName;
+  arguments: TerminalAction | FileToolRequest | { toNodeId: string; content: string; expectsReply?: boolean; intent?: "inform" | "question" | "revision_request" | "revision_result"; replyToId?: string };
 };
-type ActiveRequest = { controller: AbortController; runId?: string; terminalIds: Set<string> };
+type ActiveRequest = {
+  controller: AbortController;
+  runId?: string;
+  terminalIds: Set<string>;
+  inspectedPaths: Set<string>;
+  failedToolCalls: Map<string, number>;
+};
 export type AgentExecutionContext = { ownerId: string; workspacePath: string };
 const terminalWriteLeases = new Map<string, () => void>();
 const activeRequests = new Map<string, ActiveRequest>();
+
+async function conversationWorkspace(conversationId: string, executionContext?: AgentExecutionContext): Promise<string | undefined> {
+  if (executionContext) return executionContext.workspacePath;
+  const project = (await listProjects()).find((item) => item.conversations.some((conversation) => conversation.id === conversationId));
+  return project?.path;
+}
 
 function toolError(error: unknown): { error: string; code?: string } {
   if (error instanceof ApiError && error.code === "target_agent_not_started") {
@@ -41,6 +57,19 @@ function toolError(error: unknown): { error: string; code?: string } {
     return { code: error.code, error: "A request to this agent is already awaiting a result. Do not send another request." };
   }
   return { error: error instanceof Error ? error.message : "tool_failed" };
+}
+
+function toolSignature(request: ToolRequestEvent): string {
+  const sortValue = (value: unknown): unknown => {
+    if (Array.isArray(value)) return value.map(sortValue);
+    if (value && typeof value === "object") {
+      return Object.fromEntries(Object.entries(value as Record<string, unknown>)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([key, item]) => [key, sortValue(item)]));
+    }
+    return value;
+  };
+  return `${request.tool}:${JSON.stringify(sortValue(request.arguments))}`;
 }
 
 async function forwardServerStream(response: Response, onEvent: (event: ConversationStreamEvent) => void): Promise<ToolRequestEvent[]> {
@@ -77,12 +106,21 @@ export async function streamMessage(
   onEvent: (event: ConversationStreamEvent) => void,
   executionContext?: AgentExecutionContext,
 ): Promise<LocalConversation> {
-  const active: ActiveRequest = { controller: new AbortController(), terminalIds: new Set() };
+  const active: ActiveRequest = {
+    controller: new AbortController(),
+    terminalIds: new Set(),
+    inspectedPaths: new Set(),
+    failedToolCalls: new Map(),
+  };
   activeRequests.set(requestId, active);
   try {
+    const workspaceRoot = await conversationWorkspace(conversationId, executionContext);
+    const workspaceInstructions = workspaceRoot
+      ? renderAgentInstructions(await loadAgentInstructions(workspaceRoot))
+      : "";
     let response = await apiFetch(`/api/projects/conversations/${conversationId}/stream`, {
       method: "POST",
-      body: JSON.stringify({ content, modelId, editMessageId }),
+      body: JSON.stringify({ content, modelId, editMessageId, workspaceInstructions }),
       signal: active.controller.signal,
     });
     if (!response.ok) throw new Error(`server_stream_${response.status}`);
@@ -93,7 +131,11 @@ export async function streamMessage(
       });
       if (requests.length === 0 || active.controller.signal.aborted) break;
       const results = await Promise.all(requests.map(async (request) => {
+        const signature = toolSignature(request);
         try {
+          if ((active.failedToolCalls.get(signature) ?? 0) >= 2) {
+            throw new Error("repeated_failed_tool_call: this exact operation has already failed twice; diagnose the cause and choose a different approach");
+          }
           if (request.tool === "agent_message") {
             if (!executionContext) throw new Error("agent_message_unavailable");
             const result = await apiRequest(`/api/multi-agents/nodes/${executionContext.ownerId}/messages`, {
@@ -101,7 +143,27 @@ export async function streamMessage(
               body: JSON.stringify(request.arguments),
             });
             onEvent({ type: "tool.completed", callId: request.callId, result });
+            active.failedToolCalls.delete(signature);
             return { callId: request.callId, result };
+          }
+          if (["read_file", "search_files", "list_directory", "apply_patch"].includes(request.tool)) {
+            let release: (() => void) | undefined;
+            if (executionContext && request.tool === "apply_patch") {
+              const unlock = await acquireWorkspaceWriteLock(executionContext.workspacePath, executionContext.ownerId);
+              const before = snapshotWorkspace(executionContext.workspacePath);
+              release = () => { void recordWorkspaceChanges(executionContext.ownerId, executionContext.workspacePath, before).finally(unlock); };
+            }
+            try {
+              const result = await executeFileTool(request.tool as FileToolName, request.arguments as FileToolRequest, workspaceRoot, active.inspectedPaths);
+              if (request.tool === "read_file") active.inspectedPaths.add(result.path);
+              release?.();
+              onEvent({ type: "tool.completed", callId: request.callId, result });
+              active.failedToolCalls.delete(signature);
+              return { callId: request.callId, result };
+            } catch (error) {
+              release?.();
+              throw error;
+            }
           }
           const terminalAction = request.arguments as TerminalAction;
           let release: (() => void) | undefined;
@@ -134,8 +196,10 @@ export async function streamMessage(
             }
           }
           onEvent({ type: "tool.completed", callId: request.callId, result });
+          active.failedToolCalls.delete(signature);
           return { callId: request.callId, result };
         } catch (error) {
+          active.failedToolCalls.set(signature, (active.failedToolCalls.get(signature) ?? 0) + 1);
           const result = toolError(error);
           onEvent({ type: "tool.completed", callId: request.callId, result });
           return { callId: request.callId, result };
@@ -144,7 +208,7 @@ export async function streamMessage(
       if (active.controller.signal.aborted) break;
       response = await apiFetch(`/api/agent-runs/${requests[0].runId}/resume`, {
         method: "POST",
-        body: JSON.stringify({ results }),
+        body: JSON.stringify({ results, workspaceInstructions }),
         signal: active.controller.signal,
       });
       if (!response.ok) throw new Error(`server_resume_${response.status}`);
