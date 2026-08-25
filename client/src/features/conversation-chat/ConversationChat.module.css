@@ -8,15 +8,6 @@
 .bubble, .response { min-width: 0; color: var(--color-text-soft); font-size: var(--font-chat); line-height: 1.65; overflow-wrap: anywhere; }
 .bubble { border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: 11px 14px; }
 .response { width: 100%; padding: 0 8px; }
-.bubble > :first-child, .response > :first-child { margin-top: 0; }
-.bubble > :last-child, .response > :last-child { margin-bottom: 0; }
-.bubble p, .response p { margin: var(--space-2) 0; }
-.bubble pre, .response pre { max-width: 100%; overflow: auto; border-radius: var(--radius-md); background: var(--color-surface-deep); padding: var(--space-3); }
-.bubble code, .response code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
-.bubble :not(pre) > code, .response :not(pre) > code { border-radius: var(--radius-sm); background: var(--color-surface-deep); padding: 2px 5px; }
-.bubble a, .response a { color: var(--color-accent); }
-.bubble table, .response table { display: block; max-width: 100%; overflow: auto; border-collapse: collapse; }
-.bubble th, .bubble td, .response th, .response td { border: 1px solid var(--color-border-strong); padding: 6px 9px; }
 .user { justify-self: end; }
 .user .bubble { background: var(--color-surface-2); }
 .assistant { width: 100%; max-width: 100% !important; justify-self: stretch; }

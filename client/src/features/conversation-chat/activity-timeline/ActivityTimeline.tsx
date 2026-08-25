@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 import { Check, ChevronDown, LoaderCircle, TerminalSquare } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import { MarkdownContent } from "../../../shared/ui/markdown-content";
 import styles from "./ActivityTimeline.module.css";
 
 function formatToolResult(value: unknown): string {
@@ -46,13 +45,13 @@ function ReasoningStep({ step }: { step: Extract<AgentActivityStep, { type: "rea
       <span>{t(step.status === "running" ? "agent.thinking" : "agent.thought")}</span>
       <ChevronDown className={`${styles.chevron} ${open ? styles.chevronOpen : ""}`} />
     </button>
-    {open && <div className={styles.reasoning}><ReactMarkdown remarkPlugins={[remarkGfm]}>{step.content}</ReactMarkdown></div>}
+    {open && <div className={styles.reasoning}><MarkdownContent>{step.content}</MarkdownContent></div>}
   </div>;
 }
 
 function MessageStep({ step }: { step: Extract<AgentActivityStep, { type: "message" }> }) {
   if (!step.content) return null;
-  return <div className={styles.progressMessage}><ReactMarkdown remarkPlugins={[remarkGfm]}>{step.content}</ReactMarkdown></div>;
+  return <div className={styles.progressMessage}><MarkdownContent>{step.content}</MarkdownContent></div>;
 }
 
 function ActivityStep({ step }: { step: AgentActivityStep }) {

@@ -1,5 +1,5 @@
 export const en = {
-  common: { cancel: "Cancel", delete: "Delete", confirmDelete: "Confirm deletion", deleteWarning: "This action cannot be undone." },
+  common: { cancel: "Cancel", delete: "Delete", confirmDelete: "Confirm deletion", deleteWarning: "This action cannot be undone.", copy: "Copy", copied: "Copied", code: "Code" },
   window: {
     minimize: "Minimize",
     maximize: "Maximize or restore",

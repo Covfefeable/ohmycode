@@ -1,5 +1,5 @@
 export const zhCN = {
-  common: { cancel: "取消", delete: "删除", confirmDelete: "确认删除", deleteWarning: "此操作无法撤销。" },
+  common: { cancel: "取消", delete: "删除", confirmDelete: "确认删除", deleteWarning: "此操作无法撤销。", copy: "复制", copied: "已复制", code: "代码" },
   window: {
     minimize: "最小化",
     maximize: "最大化或还原",

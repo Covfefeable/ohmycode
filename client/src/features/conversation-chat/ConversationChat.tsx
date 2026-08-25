@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Check, Copy, Pencil } from "lucide-react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import { TaskComposer } from "../task-composer";
 import { useFeedback } from "../feedback";
 import { FullScreenLoading } from "../../shared/ui/full-screen-loading";
 import { Tooltip } from "../../shared/ui/tooltip";
+import { MarkdownContent } from "../../shared/ui/markdown-content";
 import { ActivityTimeline } from "./activity-timeline/ActivityTimeline";
 import { withoutFinalResponse } from "./activity-timeline/updateActivity";
 import { updateActivity } from "./activity-timeline/updateActivity";
@@ -172,7 +171,7 @@ export function ConversationChat({ conversationId, onUpdated }: ConversationChat
           </div>
         </div> : <>
           {message.role === "assistant" && <ActivityTimeline active={sending && message.id.startsWith("stream-")} durationMs={message.agentDurationMs} startedAt={message.agentStartedAt} steps={message.activity?.length ? withoutFinalResponse(message.activity, message.content) : message.reasoning ? [{ id: `reasoning-${message.id}`, type: "reasoning", content: message.reasoning, status: "completed" }] : []} />}
-          {(message.content || !message.activity?.some((step) => step.type === "message")) && <div className={message.role === "assistant" ? styles.response : styles.bubble}><ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content || "▍"}</ReactMarkdown></div>}
+          {(message.content || !message.activity?.some((step) => step.type === "message")) && <div className={message.role === "assistant" ? styles.response : styles.bubble}><MarkdownContent>{message.content || "▍"}</MarkdownContent></div>}
         </>}
         {!editing || editing.message.id !== message.id ? <div className={styles.messageActions}>
           <time>{new Intl.DateTimeFormat(i18n.language, { hour: "2-digit", minute: "2-digit" }).format(new Date(message.createdAt))}</time>
