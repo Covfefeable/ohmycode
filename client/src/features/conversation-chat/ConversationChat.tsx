@@ -47,10 +47,11 @@ export function ConversationChat({ conversationId, active, onUpdated }: Conversa
     let disposed = false;
     let snapshotLoaded = false;
     const pending: RuntimeEvent[] = [];
-    const handledSequences = new Set<number>();
+    const handledEvents = new Set<string>();
     const applyRuntimeEvent = (event: RuntimeEvent) => {
-      if (disposed || handledSequences.has(event.sequence)) return;
-      handledSequences.add(event.sequence);
+      const eventKey = `${event.turnId}:${event.sequence}`;
+      if (disposed || handledEvents.has(eventKey)) return;
+      handledEvents.add(eventKey);
       if (event.type === "turn.started") {
         activeTurnIdRef.current = event.turnId;
         setSending(true);
