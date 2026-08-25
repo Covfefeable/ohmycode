@@ -93,6 +93,41 @@ class PreparedCompletion:
     payload: dict
 
 
+def _sse_json_payloads(lines):
+    data_lines: list[str] = []
+
+    def decode_event():
+        if not data_lines:
+            return None
+        data = "\n".join(data_lines).strip()
+        if not data or data == "[DONE]":
+            data_lines.clear()
+            return None
+        payload = json.loads(data)
+        data_lines.clear()
+        return payload
+
+    for line in lines:
+        if line == "":
+            payload = decode_event()
+            if payload is not None:
+                yield payload
+            continue
+        if line.startswith("data:"):
+            if data_lines:
+                try:
+                    payload = decode_event()
+                except json.JSONDecodeError:
+                    payload = None
+                else:
+                    if payload is not None:
+                        yield payload
+            data_lines.append(line[5:].lstrip())
+    payload = decode_event()
+    if payload is not None:
+        yield payload
+
+
 def _provider_payloads(prepared: PreparedCompletion):
     for attempt in range(MODEL_STREAM_ATTEMPTS):
         emitted = False
@@ -108,12 +143,8 @@ def _provider_payloads(prepared: PreparedCompletion):
                 timeout=MODEL_REQUEST_TIMEOUT_SECONDS,
             ) as provider_response:
                 provider_response.raise_for_status()
-                for line in provider_response.iter_lines():
-                    data = line.removeprefix("data:").strip()
-                    if not data or data == "[DONE]":
-                        continue
+                for parsed in _sse_json_payloads(provider_response.iter_lines()):
                     emitted = True
-                    parsed = json.loads(data)
                     yield parsed
             if emitted:
                 return
