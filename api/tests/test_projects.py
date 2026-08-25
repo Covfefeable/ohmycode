@@ -174,9 +174,15 @@ def test_project_conversation_and_message_lifecycle(monkeypatch):
                 return iter(["data: [DONE]"])
 
         provider_responses = iter([EmptyProviderResponse(), ProviderResponse()])
+        provider_payloads = []
+
+        def provider_stream(*_args, **kwargs):
+            provider_payloads.append(kwargs["json"])
+            return next(provider_responses)
+
         monkeypatch.setattr(
             "app.services.agent.chat.httpx.stream",
-            lambda *_args, **_kwargs: next(provider_responses),
+            provider_stream,
         )
         requested_turn_id = str(uuid.uuid4())
         streamed = client.post(
@@ -210,6 +216,9 @@ def test_project_conversation_and_message_lifecycle(monkeypatch):
         assert final_detail["messages"][-1]["agentDurationMs"] is not None
         sent_message = final_detail["messages"][-2]
         assert sent_message["attachments"][0]["name"] == "architecture.md"
+        user_context = provider_payloads[-1]["messages"][-1]["content"]
+        assert "architecture.md" in user_context
+        assert "C:/repos/ohmycode/docs/architecture.md" in user_context
         usage = client.get("/api/settings", headers=headers).get_json()["tokenUsage"]
         assert sum(day["tokens"] for day in usage) == 150
 
