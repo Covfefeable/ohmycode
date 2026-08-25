@@ -2,7 +2,8 @@ import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { app } from "electron";
 
-const DEFAULT_API_URL = process.env.OHMYCODE_API_URL ?? "http://ai.llmol.com:8765";
+const DEVELOPMENT_API_URL = "http://127.0.0.1:8765";
+const PRODUCTION_API_URL = "http://ai.llmol.com:8765";
 let apiUrl: string | null = null;
 
 function configPath(): string {
@@ -19,11 +20,17 @@ function normalizeApiUrl(value: string): string {
 
 export function getApiUrl(): string {
   if (apiUrl) return apiUrl;
+  const defaultApiUrl = process.env.OHMYCODE_API_URL
+    ?? (app.isPackaged ? PRODUCTION_API_URL : DEVELOPMENT_API_URL);
+  if (!app.isPackaged) {
+    apiUrl = normalizeApiUrl(defaultApiUrl);
+    return apiUrl;
+  }
   try {
     const stored = JSON.parse(readFileSync(configPath(), "utf8")) as { apiUrl?: unknown };
-    apiUrl = typeof stored.apiUrl === "string" ? normalizeApiUrl(stored.apiUrl) : normalizeApiUrl(DEFAULT_API_URL);
+    apiUrl = typeof stored.apiUrl === "string" ? normalizeApiUrl(stored.apiUrl) : normalizeApiUrl(defaultApiUrl);
   } catch {
-    apiUrl = normalizeApiUrl(DEFAULT_API_URL);
+    apiUrl = normalizeApiUrl(defaultApiUrl);
   }
   return apiUrl;
 }
