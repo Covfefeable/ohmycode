@@ -136,6 +136,7 @@ export const zhCN = {
     start: "开始执行",
     stop: "停止",
     runFailed: "协作任务执行失败，请稍后重试。",
+    stopFailed: "停止协作任务失败，请稍后重试。",
     saveLayout: "保存布局",
     saved: "布局已保存",
     planFailed: "协作生成失败，请稍后重试。",

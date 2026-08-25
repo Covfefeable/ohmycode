@@ -147,9 +147,15 @@ export function useMultiAgentExecution(options: Options) {
 
   async function stopTask() {
     if (!options.task) return;
-    await window.ohmycode.multiAgents.stopTask(runRequestId, options.task.id);
-    options.setTask(await window.ohmycode.multiAgents.getTask(options.task.id));
-    await options.reloadAgents();
+    try {
+      await window.ohmycode.multiAgents.stopTask(runRequestId, options.task.id);
+      const stopped = await window.ohmycode.multiAgents.getTask(options.task.id);
+      options.setTask(stopped);
+      setRunRequestId(null);
+      await options.reloadAgents();
+    } catch (error) {
+      toast({ type: "error", message: t(multiAgentErrorKey(error, "multiAgent.stopFailed")) });
+    }
   }
 
   return {

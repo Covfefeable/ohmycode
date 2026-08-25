@@ -144,11 +144,13 @@ export function useCollaborationWorkspace() {
           setSelectedTaskId(null);
         }
       } else {
-        await window.ohmycode.multiAgents.deleteTask(target.id);
-        if (selectedTaskId === target.id) {
+        const wasSelected = selectedTaskId === target.id;
+        if (wasSelected) {
           setTask(null);
           setSelectedTaskId(null);
+          setSelectedMemberId(null);
         }
+        await window.ohmycode.multiAgents.deleteTask(target.id);
       }
       await reloadAgents();
     } catch {

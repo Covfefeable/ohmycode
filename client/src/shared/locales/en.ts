@@ -137,6 +137,7 @@ export const en = {
     start: "Start",
     stop: "Stop",
     runFailed: "The collaborative task failed. Try again later.",
+    stopFailed: "Could not stop the collaborative task. Try again later.",
     saveLayout: "Save layout",
     saved: "Layout saved",
     planFailed: "Could not generate the collaboration. Try again later.",

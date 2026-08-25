@@ -67,7 +67,7 @@ export function MultiAgentPage() {
           <TaskRoster
             task={task}
             selectedMemberId={workspace.selectedMemberId}
-            running={Boolean(execution.runRequestId || task.status === "running")}
+            running={task.status === "running"}
             onSelectMember={workspace.setSelectedMemberId}
             onStop={() => void execution.stopTask()}
             onRerun={() => void execution.executeTask(task)}
