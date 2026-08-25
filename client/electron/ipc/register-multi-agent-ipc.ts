@@ -1,14 +1,13 @@
 import { ipcMain } from "electron";
 import {
   createMultiAgent,
-  adjustMultiAgentNode,
   deleteMultiAgent,
   deleteMultiAgentTask,
   getMultiAgentTask,
   listMultiAgents,
   createMultiAgentTask,
   runMultiAgentTask,
-  saveMultiAgentFlow,
+  sendCollaborationMessage,
   selectMultiAgentWorkspace,
   stopMultiAgentTask,
   updateMultiAgent,
@@ -22,11 +21,10 @@ export function registerMultiAgentIpc(): void {
   ipcMain.handle("multi-agents:select-workspace", selectMultiAgentWorkspace);
   ipcMain.handle("multi-agents:create-task", (_event, agentId: string, request: string, workspacePath: string) => createMultiAgentTask(agentId, request, workspacePath));
   ipcMain.handle("multi-agents:get-task", (_event, taskId: string) => getMultiAgentTask(taskId));
-  ipcMain.handle("multi-agents:save-flow", (_event, taskId: string, positions) => saveMultiAgentFlow(taskId, positions));
   ipcMain.handle("multi-agents:delete-task", (_event, taskId: string) => deleteMultiAgentTask(taskId));
   ipcMain.handle("multi-agents:run-task", (event, taskId: string, requestId: string) =>
     runMultiAgentTask(taskId, requestId, (runEvent) => event.sender.send(`multi-agent:event:${requestId}`, runEvent)));
   ipcMain.handle("multi-agents:stop-task", (_event, requestId: string | null, taskId?: string) => stopMultiAgentTask(requestId, taskId));
-  ipcMain.handle("multi-agents:adjust-node", (event, taskId: string, nodeId: string, content: string, requestId: string) =>
-    adjustMultiAgentNode(taskId, nodeId, content, requestId, (runEvent) => event.sender.send(`multi-agent:event:${requestId}`, runEvent)));
+  ipcMain.handle("multi-agents:send-message", (_event, taskId: string, nodeId: string, content: string) =>
+    sendCollaborationMessage(taskId, nodeId, content));
 }

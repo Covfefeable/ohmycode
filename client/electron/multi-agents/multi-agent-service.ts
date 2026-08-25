@@ -9,242 +9,114 @@ export type MultiAgentRunEvent =
   | { type: "node.event"; nodeId: string; event: ConversationStreamEvent }
   | { type: "task.failed"; error: string };
 
-type ActiveTaskRun = { taskId: string; nodeRequestIds: Set<string>; cancelled: boolean };
-const activeTaskRuns = new Map<string, ActiveTaskRun>();
-const activeNodeAdjustments = new Map<string, string[]>();
-const queuedNodeMessages = new Map<string, string[]>();
+type ActiveRun = { taskId: string; nodeRequestId?: string; cancelled: boolean };
+const activeRuns = new Map<string, ActiveRun>();
 
-function queueNodeMessage(nodeId: string, content: string): void {
-  const active = activeNodeAdjustments.get(nodeId);
-  if (active) active.push(content);
-  else queuedNodeMessages.set(nodeId, [...(queuedNodeMessages.get(nodeId) ?? []), content]);
-}
+export const listMultiAgents = (): Promise<MultiAgentSummary[]> => apiRequest("/api/multi-agents");
+export const createMultiAgent = (payload: { name: string; description: string; division: string }): Promise<MultiAgentSummary> => apiRequest("/api/multi-agents", { method: "POST", body: JSON.stringify(payload) });
+export const updateMultiAgent = (agentId: string, payload: Partial<MultiAgentSummary>): Promise<MultiAgentSummary> => apiRequest(`/api/multi-agents/${agentId}`, { method: "PATCH", body: JSON.stringify(payload) });
+export const deleteMultiAgent = (agentId: string): Promise<void> => apiRequest(`/api/multi-agents/${agentId}`, { method: "DELETE" });
+export async function selectMultiAgentWorkspace(): Promise<string | null> { const result = await dialog.showOpenDialog({ properties: ["openDirectory"] }); return result.canceled || !result.filePaths[0] ? null : path.resolve(result.filePaths[0]); }
+export const createMultiAgentTask = (agentId: string, request: string, workspacePath: string): Promise<MultiAgentTask> => apiRequest(`/api/multi-agents/${agentId}/tasks`, { method: "POST", body: JSON.stringify({ request: request.trim(), workspacePath: path.resolve(workspacePath) }) });
+export const getMultiAgentTask = (taskId: string): Promise<MultiAgentTask> => apiRequest(`/api/multi-agents/tasks/${taskId}`);
+export const deleteMultiAgentTask = (taskId: string): Promise<void> => apiRequest(`/api/multi-agents/tasks/${taskId}`, { method: "DELETE" });
 
-export function listMultiAgents(): Promise<MultiAgentSummary[]> {
-  return apiRequest("/api/multi-agents");
-}
-
-export async function createMultiAgent(payload: { name: string; description: string; division: string }): Promise<MultiAgentSummary> {
-  return apiRequest("/api/multi-agents", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
-}
-
-export function updateMultiAgent(agentId: string, payload: Partial<MultiAgentSummary>): Promise<MultiAgentSummary> {
-  return apiRequest(`/api/multi-agents/${agentId}`, { method: "PATCH", body: JSON.stringify(payload) });
-}
-
-export function deleteMultiAgent(agentId: string): Promise<void> {
-  return apiRequest(`/api/multi-agents/${agentId}`, { method: "DELETE" });
-}
-
-export async function selectMultiAgentWorkspace(): Promise<string | null> {
-  const result = await dialog.showOpenDialog({ properties: ["openDirectory"] });
-  if (result.canceled || !result.filePaths[0]) return null;
-  return path.resolve(result.filePaths[0]);
-}
-
-export async function createMultiAgentTask(agentId: string, request: string, workspacePath: string): Promise<MultiAgentTask> {
-  return apiRequest(`/api/multi-agents/${agentId}/tasks`, {
-    method: "POST",
-    body: JSON.stringify({ workspacePath: path.resolve(workspacePath), request: request.trim() }),
-  });
-}
-
-export function getMultiAgentTask(taskId: string): Promise<MultiAgentTask> {
-  return apiRequest(`/api/multi-agents/tasks/${taskId}`);
-}
-
-export function saveMultiAgentFlow(taskId: string, positions: Record<string, { x: number; y: number }>): Promise<MultiAgentTask> {
-  return apiRequest(`/api/multi-agents/tasks/${taskId}/flow`, {
-    method: "PATCH",
-    body: JSON.stringify({ positions }),
-  });
-}
-
-export function deleteMultiAgentTask(taskId: string): Promise<void> {
-  return apiRequest(`/api/multi-agents/tasks/${taskId}`, { method: "DELETE" });
-}
-
-async function runNode(
-  taskId: string,
-  node: MultiAgentTask["nodes"][number],
-  requestId: string,
-  workspacePath: string,
-  onEvent: (event: MultiAgentRunEvent) => void,
-): Promise<MultiAgentTask> {
-  const nodeId = node.id;
-  const queued = queuedNodeMessages.get(nodeId) ?? [];
-  queuedNodeMessages.delete(nodeId);
-  const runStartedAt = node.agentStartedAt ? new Date(node.agentStartedAt).getTime() : 0;
-  const persistedMessages = node.messages.filter((message) =>
-    message.toNodeId === nodeId && new Date(message.createdAt).getTime() >= runStartedAt,
-  ).map((message) => `Message from ${message.senderType === "user" ? "the user" : `workflow agent ${message.fromNodeId}`}:\n${message.content}`);
-  const deliveredMessages = persistedMessages.length ? persistedMessages : queued;
-  const continuing = node.status === "running" && Boolean(node.conversationId) && deliveredMessages.length > 0;
-  const started = continuing
-    ? {
-        conversationId: node.conversationId!,
-        modelId: node.modelId,
-        prompt: `Another workflow agent sent you the following message:\n\n${deliveredMessages.join("\n\n")}\n\nContinue from the existing conversation. Apply the message and use agent_message to report the result or ask for clarification when appropriate.`,
-      }
-    : await apiRequest<{ conversationId: string; prompt: string; modelId?: string | null }>(`/api/multi-agents/nodes/${nodeId}/start`, { method: "POST" });
-  onEvent({ type: "task.updated", task: await getMultiAgentTask(taskId) });
-  const nodeRequestId = `${requestId}:${nodeId}`;
-  activeTaskRuns.get(requestId)?.nodeRequestIds.add(nodeRequestId);
-  activeNodeAdjustments.set(nodeId, []);
-  const agentMessageCalls = new Set<string>();
-  const agentMessageRequests = new Map<string, { toNodeId: string; content: string }>();
-  let pausedForReply = false;
+async function runTurn(task: MultiAgentTask, memberId: string, requestId: string, onEvent: (event: MultiAgentRunEvent) => void): Promise<MultiAgentTask> {
+  const member = task.members.find((item) => item.id === memberId);
+  if (!member) throw new Error("speaker_not_found");
+  const started = await apiRequest<{ conversationId: string; prompt: string; modelId?: string | null }>(`/api/multi-agents/nodes/${member.id}/start`, { method: "POST" });
+  const nodeRequestId = `${requestId}:${member.id}:${crypto.randomUUID()}`;
+  const active = activeRuns.get(requestId);
+  if (active) active.nodeRequestId = nodeRequestId;
+  let handedOff = false;
+  let streamError: string | undefined;
+  let transportError: unknown;
+  let conversation;
   try {
-    let prompt = started.prompt;
-    let conversation;
-    while (true) {
-      conversation = await streamMessage(started.conversationId, prompt, started.modelId ?? undefined, undefined, nodeRequestId,
-        (event) => {
-          if (event.type === "tool.requested" && event.tool === "agent_message") {
-            agentMessageCalls.add(event.callId);
-            agentMessageRequests.set(event.callId, event.arguments as { toNodeId: string; content: string });
-          }
-          onEvent({ type: "node.event", nodeId, event });
-          if (event.type === "tool.completed" && agentMessageCalls.delete(event.callId)) {
-            const result = event.result as { sourceStatus?: string; error?: string };
-            if (result?.sourceStatus === "paused") {
-              pausedForReply = true;
-              void stopMessage(nodeRequestId);
-            }
-            const sent = agentMessageRequests.get(event.callId);
-            if (sent && !result?.error) queueNodeMessage(sent.toNodeId, `Message from workflow agent ${nodeId}:\n${sent.content}`);
-            agentMessageRequests.delete(event.callId);
-            void getMultiAgentTask(taskId).then((value) => onEvent({ type: "task.updated", task: value }));
-          }
-        }, { ownerId: nodeId, workspacePath });
-      await new Promise((resolve) => setTimeout(resolve, 50));
-      if (pausedForReply) break;
-      const adjustments = activeNodeAdjustments.get(nodeId)?.splice(0) ?? [];
-      if (!adjustments.length) break;
-      prompt = `The user adjusted your current task while you were working:\n\n${adjustments.join("\n\n")}\n\nContinue from the existing conversation. Revise your result as needed and notify affected agents with agent_message when appropriate.`;
-    }
-    const latestTask = await getMultiAgentTask(taskId);
-    const latestNode = latestTask.nodes.find((item) => item.id === nodeId);
-    if (pausedForReply || latestNode?.status === "paused") return latestTask;
-    const answer = [...(conversation.messages ?? [])].reverse().find((message) => message.role === "assistant");
-    if (activeTaskRuns.get(requestId)?.cancelled) throw new Error("task_stopped");
-    if (!answer?.content.trim()) throw new Error("node_returned_no_output");
-    const completed = await apiRequest<MultiAgentTask>(`/api/multi-agents/nodes/${nodeId}/complete`, {
-      method: "POST",
-      body: JSON.stringify({ output: { content: answer.content, reasoning: answer.reasoning, activity: answer.activity } }),
-    });
-    onEvent({ type: "task.updated", task: completed });
-    return completed;
+    conversation = await streamMessage(started.conversationId, started.prompt, started.modelId ?? undefined, undefined, nodeRequestId, (event) => {
+      onEvent({ type: "node.event", nodeId: member.id, event });
+      if (event.type === "run.failed") streamError = event.errorCode;
+      if (event.type === "tool.completed") {
+        const result = event.result as { sourceStatus?: string; status?: string };
+        if (result?.sourceStatus === "idle" || result?.status === "completed") {
+          handedOff = true;
+          void stopMessage(nodeRequestId);
+        }
+        void getMultiAgentTask(task.id).then((latest) => onEvent({ type: "task.updated", task: latest }));
+      }
+    }, { ownerId: member.id, workspacePath: task.workspacePath });
   } catch (error) {
-    if (!activeTaskRuns.get(requestId)?.cancelled) {
-      const latest = await getMultiAgentTask(taskId).catch(() => null);
-      const currentNode = latest?.nodes.find((item) => item.id === nodeId);
-      if (latest && currentNode?.status === "paused") return latest;
-      await apiRequest(`/api/multi-agents/nodes/${nodeId}/fail`, {
+    transportError = error;
+  } finally {
+    if (active) active.nodeRequestId = undefined;
+  }
+  let latest = await getMultiAgentTask(task.id);
+  if (transportError) {
+    const latestMember = latest.members.find((item) => item.id === member.id);
+    if (latest.status === "running" && latestMember?.status === "running") {
+      const message = transportError instanceof Error ? transportError.message : "connection_closed";
+      latest = await apiRequest(`/api/multi-agents/nodes/${member.id}/fail`, {
         method: "POST",
-        body: JSON.stringify({ errorCode: error instanceof Error ? error.message : "node_failed" }),
+        body: JSON.stringify({ errorCode: `stream_transport_${message}`.slice(0, 500) }),
       });
     }
-    throw error;
-  } finally {
-    activeNodeAdjustments.delete(nodeId);
-    activeTaskRuns.get(requestId)?.nodeRequestIds.delete(nodeRequestId);
+    onEvent({ type: "task.updated", task: latest });
+    return latest;
   }
+  if (streamError) {
+    latest = await apiRequest(`/api/multi-agents/nodes/${member.id}/fail`, {
+      method: "POST",
+      body: JSON.stringify({ errorCode: streamError }),
+    });
+    onEvent({ type: "task.updated", task: latest });
+    return latest;
+  }
+  if (!handedOff && latest.status === "running" && latest.members.find((item) => item.id === member.id)?.status === "running") {
+    const answer = [...(conversation?.messages ?? [])].reverse().find((message) => message.role === "assistant");
+    latest = await apiRequest(`/api/multi-agents/nodes/${member.id}/complete`, { method: "POST", body: JSON.stringify({ output: { content: answer?.content ?? "" } }) });
+  }
+  onEvent({ type: "task.updated", task: latest });
+  return latest;
 }
 
-export async function adjustMultiAgentNode(
-  taskId: string,
-  nodeId: string,
-  content: string,
-  requestId: string,
-  onEvent: (event: MultiAgentRunEvent) => void,
-): Promise<MultiAgentTask> {
-  await apiRequest(`/api/multi-agents/nodes/${nodeId}/user-messages`, {
-    method: "POST", body: JSON.stringify({ content }),
-  });
-  const queue = activeNodeAdjustments.get(nodeId);
-  if (queue) {
-    queue.push(content.trim());
-    return getMultiAgentTask(taskId);
-  }
-  const task = await getMultiAgentTask(taskId);
-  const node = task.nodes.find((item) => item.id === nodeId);
-  // A paused node is waiting for another agent. Persist the user's message now,
-  // then deliver it together with that agent's reply instead of waking the node
-  // prematurely and creating a duplicate review cycle.
-  if (node?.status === "paused") return task;
-  if (!node || node.status !== "completed" || !node.conversationId) throw new Error("node_not_adjustable");
-  activeTaskRuns.set(requestId, { taskId, nodeRequestIds: new Set(), cancelled: false });
-  try {
-    await apiRequest(`/api/multi-agents/nodes/${nodeId}/wake`, { method: "POST" });
-    return await orchestrateRunningTask(await getMultiAgentTask(taskId), requestId, onEvent);
-  } finally {
-    activeTaskRuns.delete(requestId);
-  }
-}
-
-async function orchestrateRunningTask(
-  initialTask: MultiAgentTask,
-  requestId: string,
-  onEvent: (event: MultiAgentRunEvent) => void,
-): Promise<MultiAgentTask> {
-  let task = initialTask;
-  onEvent({ type: "task.updated", task });
+async function orchestrate(task: MultiAgentTask, requestId: string, onEvent: (event: MultiAgentRunEvent) => void): Promise<MultiAgentTask> {
   while (task.status === "running") {
-    const ready = task.nodes.filter((node) =>
-      node.status === "ready" || (node.status === "running"
-        && (queuedNodeMessages.has(node.id) || node.messages.some((message) => message.toNodeId === node.id))),
-    );
-    if (!ready.length) {
-      const waiting = task.nodes.some((node) => ["pending", "paused", "running"].includes(node.status));
-      if (!waiting) throw new Error("workflow_has_no_runnable_nodes");
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      task = await getMultiAgentTask(task.id);
-      onEvent({ type: "task.updated", task });
-      continue;
+    if (activeRuns.get(requestId)?.cancelled) return getMultiAgentTask(task.id);
+    let speaker = task.members.find((item) => item.status === "ready");
+    if (!speaker) {
+      task = await apiRequest(`/api/multi-agents/tasks/${task.id}/recover-host`, { method: "POST" });
+      speaker = task.members.find((item) => item.status === "ready");
     }
-    await Promise.all(ready.map((node) => runNode(task.id, node, requestId, task.workspacePath, onEvent)));
-    // Parallel results are snapshots from different commit times. Continue from
-    // one authoritative snapshot only after the entire batch has settled.
-    task = await getMultiAgentTask(task.id);
-    onEvent({ type: "task.updated", task });
+    if (!speaker) throw new Error("collaboration_has_no_speaker");
+    task = await runTurn(task, speaker.id, requestId, onEvent);
   }
   return task;
 }
 
-export async function runMultiAgentTask(
-  taskId: string,
-  requestId: string,
-  onEvent: (event: MultiAgentRunEvent) => void,
-): Promise<MultiAgentTask> {
-  activeTaskRuns.set(requestId, { taskId, nodeRequestIds: new Set(), cancelled: false });
+export async function runMultiAgentTask(taskId: string, requestId: string, onEvent: (event: MultiAgentRunEvent) => void): Promise<MultiAgentTask> {
+  activeRuns.set(requestId, { taskId, cancelled: false });
   try {
-    let task = await getMultiAgentTask(taskId);
-    if (task.status === "running") throw new Error("workflow_already_running");
-    task = await apiRequest<MultiAgentTask>(`/api/multi-agents/tasks/${taskId}/start`, { method: "POST" });
-    return await orchestrateRunningTask(task, requestId, onEvent);
+    const started = await apiRequest<MultiAgentTask>(`/api/multi-agents/tasks/${taskId}/start`, { method: "POST" });
+    onEvent({ type: "task.updated", task: started });
+    return await orchestrate(started, requestId, onEvent);
   } catch (error) {
-    if (activeTaskRuns.get(requestId)?.cancelled) return getMultiAgentTask(taskId);
-    onEvent({ type: "task.failed", error: error instanceof Error ? error.message : "task_failed" });
+    if (activeRuns.get(requestId)?.cancelled) return getMultiAgentTask(taskId);
+    const message = error instanceof Error ? error.message : "collaboration_failed";
+    onEvent({ type: "task.failed", error: message });
     throw error;
-  } finally {
-    activeTaskRuns.delete(requestId);
-  }
+  } finally { activeRuns.delete(requestId); }
 }
 
 export async function stopMultiAgentTask(requestId: string | null, taskId?: string): Promise<void> {
-  if (!requestId && taskId) {
-    await apiRequest(`/api/multi-agents/tasks/${taskId}/stop`, { method: "POST" });
-    return;
-  }
-  if (!requestId) return;
-  const active = activeTaskRuns.get(requestId);
-  if (!active) return;
-  active.cancelled = true;
-  await apiRequest(`/api/multi-agents/tasks/${active.taskId}/stop`, { method: "POST" });
-  const requests = [...active.nodeRequestIds];
-  await Promise.allSettled(requests.map((nodeRequestId) => stopMessage(nodeRequestId)));
+  const active = requestId ? activeRuns.get(requestId) : undefined;
+  const targetTaskId = active?.taskId ?? taskId;
+  if (!targetTaskId) return;
+  if (active) active.cancelled = true;
+  await apiRequest(`/api/multi-agents/tasks/${targetTaskId}/stop`, { method: "POST" });
+  if (active?.nodeRequestId) await stopMessage(active.nodeRequestId);
+}
+
+export async function sendCollaborationMessage(taskId: string, memberId: string, content: string): Promise<MultiAgentTask> {
+  await apiRequest(`/api/multi-agents/nodes/${memberId}/user-messages`, { method: "POST", body: JSON.stringify({ content }) });
+  return getMultiAgentTask(taskId);
 }

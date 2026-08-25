@@ -1,4 +1,5 @@
 import json
+import time
 from dataclasses import dataclass
 from uuid import UUID
 
@@ -29,13 +30,20 @@ from .context import (
 from .prompts import AGENT_SYSTEM_INSTRUCTIONS
 from .runs import (
     append_event,
+    build_run_activity,
     cancelled_run_context,
     complete_run,
     fail_run,
     get_owned_run,
     start_run,
 )
-from .tools import AGENT_MESSAGE_TOOL, AGENT_TOOLS, FILE_TOOL_NAMES, normalize_terminal_arguments
+from .tools import (
+    AGENT_MESSAGE_TOOL,
+    AGENT_TOOLS,
+    FILE_TOOL_NAMES,
+    FINISH_COLLABORATION_TOOL,
+    normalize_terminal_arguments,
+)
 
 
 def _multi_agent_context(conversation_id: UUID) -> tuple[list[dict], list[dict]]:
@@ -46,19 +54,25 @@ def _multi_agent_context(conversation_id: UUID) -> tuple[list[dict], list[dict]]
         return AGENT_TOOLS, []
     messages = list(
         db.session.scalars(
-        db.select(MultiAgentMessage)
-            .where(MultiAgentMessage.to_node_id == node.id)
-            .order_by(MultiAgentMessage.created_at)
+            db.select(MultiAgentMessage)
+            .where(MultiAgentMessage.task_id == node.task_id)
+            .order_by(MultiAgentMessage.sequence)
         )
     )
-    mailbox = "\n".join(
-        f"- From {item.from_node.name if item.from_node else 'User'}: {item.content}"
+    mailbox = "\n\n".join(
+        f"[{item.from_node.name if item.from_node else 'User'} "
+        f"@ {item.to_node.name}]\n{item.content}"
         for item in messages
     )
     context = (
-        [{"role": "system", "content": f"Workflow agent mailbox:\n{mailbox}"}] if mailbox else []
+        [{"role": "system", "content": f"Latest collaboration group chat:\n{mailbox}"}]
+        if mailbox
+        else []
     )
-    return [*AGENT_TOOLS, AGENT_MESSAGE_TOOL], context
+    tools = [*AGENT_TOOLS, AGENT_MESSAGE_TOOL]
+    if node.is_host:
+        tools.append(FINISH_COLLABORATION_TOOL)
+    return tools, context
 
 
 @dataclass(frozen=True)
@@ -94,6 +108,11 @@ def _provider_payloads(prepared: PreparedCompletion):
                     yield parsed
             if emitted:
                 return
+        except httpx.HTTPStatusError as error:
+            retryable = error.response.status_code == 429 or error.response.status_code >= 500
+            if emitted or not retryable or attempt == MODEL_STREAM_ATTEMPTS - 1:
+                raise
+            time.sleep(min(2**attempt, 4))
         except (
             httpx.ConnectError,
             httpx.ConnectTimeout,
@@ -103,6 +122,29 @@ def _provider_payloads(prepared: PreparedCompletion):
         ):
             if emitted or attempt == MODEL_STREAM_ATTEMPTS - 1:
                 raise
+
+
+def _provider_error_code(error: Exception) -> str:
+    if not isinstance(error, httpx.HTTPStatusError):
+        return type(error).__name__
+    response = error.response
+    detail = ""
+    try:
+        payload = response.json()
+        provider_error = payload.get("error") if isinstance(payload, dict) else None
+        if isinstance(provider_error, dict):
+            detail = str(
+                provider_error.get("code")
+                or provider_error.get("type")
+                or provider_error.get("message")
+                or ""
+            )
+        elif provider_error:
+            detail = str(provider_error)
+    except (ValueError, TypeError):
+        detail = ""
+    normalized = "_".join(detail.strip().split())[:300]
+    return f"provider_http_{response.status_code}{f':{normalized}' if normalized else ''}"
 
 
 def prepare_completion(
@@ -187,56 +229,6 @@ def _tool_history(run: AgentRun, after_sequence: int = 0) -> list[dict]:
                     }
                 )
     return history
-
-
-def _message_activity(run: AgentRun, final_reasoning: str) -> list[dict]:
-    activity: list[dict] = []
-    tools: dict[str, dict] = {}
-    for event in run.events:
-        if event.event_type == "reasoning.completed" and event.payload.get("content"):
-            activity.append(
-                {
-                    "id": f"reasoning-{event.sequence}",
-                    "type": "reasoning",
-                    "content": event.payload["content"],
-                    "status": "completed",
-                }
-            )
-        elif event.event_type == "message.progress" and event.payload.get("content"):
-            activity.append(
-                {
-                    "id": f"message-{event.sequence}",
-                    "type": "message",
-                    "content": event.payload["content"],
-                    "status": "completed",
-                }
-            )
-        elif event.event_type == "tool.requested":
-            for call in event.payload.get("toolCalls", []):
-                step = {
-                    "id": call["id"],
-                    "type": "tool",
-                    "tool": call["function"]["name"],
-                    "input": call["function"].get("arguments", "{}"),
-                    "status": "running",
-                }
-                tools[call["id"]] = step
-                activity.append(step)
-        elif event.event_type == "tool.output":
-            for item in event.payload.get("results", []):
-                if step := tools.get(item.get("callId")):
-                    step["result"] = item.get("result")
-                    step["status"] = "completed"
-    if final_reasoning:
-        activity.append(
-            {
-                "id": f"reasoning-final-{run.last_event_sequence}",
-                "type": "reasoning",
-                "content": final_reasoning,
-                "status": "completed",
-            }
-        )
-    return activity
 
 
 def resume_completion(
@@ -381,7 +373,12 @@ def stream_completion(prepared: PreparedCompletion):
             conversation = db.session.get(Conversation, prepared.conversation_id)
             if not conversation or any(
                 call["function"]["name"]
-                not in {"terminal", "agent_message", *FILE_TOOL_NAMES}
+                not in {
+                    "terminal",
+                    "agent_message",
+                    "finish_collaboration",
+                    *FILE_TOOL_NAMES,
+                }
                 for call in calls
             ):
                 fail_run(run, "unsupported_tool")
@@ -424,7 +421,7 @@ def stream_completion(prepared: PreparedCompletion):
                 role="assistant",
                 content=answer,
                 reasoning=full_reasoning or None,
-                activity=_message_activity(run, reasoning) or None,
+                activity=build_run_activity(run, reasoning) or None,
             )
             db.session.add(message)
             db.session.flush()
@@ -437,13 +434,14 @@ def stream_completion(prepared: PreparedCompletion):
         run = db.session.get(AgentRun, prepared.run_id)
         if run:
             db.session.expire(run)
+        error_code = _provider_error_code(error)
         if run and run.status == "running":
-            fail_run(run, type(error).__name__)
+            fail_run(run, error_code)
         current_app.logger.exception("Agent stream failed for run %s", prepared.run_id)
         # An exception escaping a streaming response makes Werkzeug close the
         # chunked HTTP body without its terminating chunk. Electron/undici then
         # reports an opaque `Invalid EOF state` instead of the actual run error.
         # Always finish the SSE protocol normally and keep the diagnostic in
         # the server log.
-        yield {"type": "run.failed", "errorCode": type(error).__name__}
+        yield {"type": "run.failed", "errorCode": error_code}
         return

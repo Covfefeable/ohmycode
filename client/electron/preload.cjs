@@ -17,11 +17,10 @@ contextBridge.exposeInMainWorld("ohmycode", {
     selectWorkspace: () => ipcRenderer.invoke("multi-agents:select-workspace"),
     createTask: (agentId, request, workspacePath) => ipcRenderer.invoke("multi-agents:create-task", agentId, request, workspacePath),
     getTask: (taskId) => ipcRenderer.invoke("multi-agents:get-task", taskId),
-    saveFlow: (taskId, positions) => ipcRenderer.invoke("multi-agents:save-flow", taskId, positions),
     deleteTask: (taskId) => ipcRenderer.invoke("multi-agents:delete-task", taskId),
     runTask: (taskId, requestId) => ipcRenderer.invoke("multi-agents:run-task", taskId, requestId),
     stopTask: (requestId, taskId) => ipcRenderer.invoke("multi-agents:stop-task", requestId, taskId),
-    adjustNode: (taskId, nodeId, content, requestId) => ipcRenderer.invoke("multi-agents:adjust-node", taskId, nodeId, content, requestId),
+    sendMessage: (taskId, nodeId, content) => ipcRenderer.invoke("multi-agents:send-message", taskId, nodeId, content),
     onEvent: (requestId, callback) => {
       const channel = `multi-agent:event:${requestId}`;
       const listener = (_event, streamEvent) => callback(streamEvent);

@@ -32,8 +32,7 @@ READ_FILE_TOOL = {
     "function": {
         "name": "read_file",
         "description": (
-            "Read a UTF-8 text file with line numbers. "
-            "Inspect relevant files before editing them."
+            "Read a UTF-8 text file with line numbers. Inspect relevant files before editing them."
         ),
         "parameters": {
             "type": "object",
@@ -122,28 +121,32 @@ AGENT_MESSAGE_TOOL = {
     "function": {
         "name": "agent_message",
         "description": (
-            "Communicate with another already-started workflow agent by its exact node UUID. "
-            "Use only for information that changes the recipient's next action, blocking "
-            "upstream questions, review revisions, and revision handoffs. Do not send routine "
-            "status updates, acknowledgements, greetings, or restatements. A completed target "
-            "resumes its existing conversation. "
-            "Never message a pending/ready agent that has not started, including an unstarted "
-            "downstream node. For revision requests use intent=revision_request and "
-            "expectsReply=true; reply with intent=revision_result."
+            "Post a group-chat message and hand the single active turn to another collaboration "
+            "member by exact node UUID. Everyone sees the message. You cannot target yourself."
         ),
         "parameters": {
             "type": "object",
             "properties": {
                 "toNodeId": {"type": "string"},
                 "content": {"type": "string"},
-                "expectsReply": {"type": "boolean"},
-                "intent": {
-                    "type": "string",
-                    "enum": ["inform", "question", "revision_request", "revision_result"],
-                },
-                "replyToId": {"type": "string"},
             },
             "required": ["toNodeId", "content"],
+        },
+    },
+}
+
+FINISH_COLLABORATION_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "finish_collaboration",
+        "description": (
+            "Host only: end the collaboration when the user goal is complete "
+            "and publish the final answer."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {"content": {"type": "string"}},
+            "required": ["content"],
         },
     },
 }

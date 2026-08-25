@@ -1,88 +1,43 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Activity, FolderOpen, LoaderCircle, Play, Plus, Redo2, Save, Square, Undo2, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ArrowUp, Bot, FolderOpen, LoaderCircle, Play, Plus, Save, Square, Trash2, Users, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { useLocation } from "react-router-dom";
 import { useFeedback } from "../../features/feedback";
 import { MultiAgentSidebar } from "../../features/multi-agent-sidebar";
-import { WorkflowCanvas } from "../../features/workflow-canvas";
 import { ActivityTimeline } from "../../features/conversation-chat/activity-timeline/ActivityTimeline";
-import { updateActivity } from "../../features/conversation-chat/activity-timeline/updateActivity";
-import { withoutFinalResponse } from "../../features/conversation-chat/activity-timeline/updateActivity";
-import { MessageComposer } from "../../features/message-composer";
+import { updateActivity, withoutFinalResponse } from "../../features/conversation-chat/activity-timeline/updateActivity";
 import { ConfirmDialog } from "../../shared/ui/confirm-dialog";
 import { MarkdownContent } from "../../shared/ui/markdown-content";
+import { Tooltip } from "../../shared/ui/tooltip";
 import { AppShell } from "../../shared/layout/app-shell";
 import { NavigationRail } from "../../widgets/navigation-rail";
 import styles from "./MultiAgentPage.module.css";
 
 type CollaborationDraft = { name: string; description: string; division: string };
 const emptyDraft: CollaborationDraft = { name: "", description: "", division: "" };
-const START_KEY = "workflow_start";
-const END_KEY = "workflow_end";
-
-function withBoundaryFlow(flow: MultiAgentTemplateFlow): MultiAgentTemplateFlow {
-  if (flow.nodes.some((node) => node.key === START_KEY) && flow.nodes.some((node) => node.key === END_KEY)) return flow;
-  const incoming = new Set(flow.edges.map((edge) => edge.target));
-  const outgoing = new Set(flow.edges.map((edge) => edge.source));
-  const minX = Math.min(...flow.nodes.map((node) => node.position.x), 120);
-  const maxX = Math.max(...flow.nodes.map((node) => node.position.x), 120);
-  return {
-    ...flow,
-    nodes: [
-      { key: START_KEY, name: "Start", role: "Workflow entry", instructions: "Starts all root agents.", position: { x: minX - 300, y: 100 } },
-      ...flow.nodes,
-      { key: END_KEY, name: "End", role: "Workflow completion", instructions: "Waits for all terminal agents.", position: { x: maxX + 330, y: 100 } },
-    ],
-    edges: [
-      ...flow.edges,
-      ...flow.nodes.filter((node) => !incoming.has(node.key)).map((node) => ({ source: START_KEY, target: node.key })),
-      ...flow.nodes.filter((node) => !outgoing.has(node.key)).map((node) => ({ source: node.key, target: END_KEY })),
-    ],
-  };
-}
-
-function templateAsTask(agent: MultiAgentSummary): MultiAgentTask {
-  const flow = withBoundaryFlow(agent.templateFlow);
-  return {
-    id: `template:${agent.id}`, agentId: agent.id, title: agent.name,
-    request: agent.description, status: "template", workspacePath: "",
-    nodes: flow.nodes.map((node) => ({
-      ...node, id: node.key, status: "template", messages: [], changedFiles: [],
-    })),
-    edges: flow.edges.map((edge, index) => ({
-      id: `template-edge-${index}`, source: edge.source, target: edge.target,
-    })),
-    createdAt: agent.createdAt, updatedAt: agent.createdAt,
-  };
-}
 
 export function MultiAgentPage() {
   const { t } = useTranslation();
-  const location = useLocation();
   const { toast } = useFeedback();
+  const chatEndRef = useRef<HTMLDivElement>(null);
   const [agents, setAgents] = useState<MultiAgentSummary[]>([]);
+  const [models, setModels] = useState<ModelConfiguration[]>([]);
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [task, setTask] = useState<MultiAgentTask | null>(null);
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
-  const [positions, setPositions] = useState<Record<string, { x: number; y: number }>>({});
-  const [models, setModels] = useState<ModelConfiguration[]>([]);
+  const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [draft, setDraft] = useState<CollaborationDraft>(emptyDraft);
   const [creating, setCreating] = useState(false);
-  const [runRequestId, setRunRequestId] = useState<string | null>(null);
   const [runDialogOpen, setRunDialogOpen] = useState(false);
   const [runDescription, setRunDescription] = useState("");
   const [runWorkspacePath, setRunWorkspacePath] = useState("");
-  const [activityOpen, setActivityOpen] = useState(false);
-  const [activityNodeId, setActivityNodeId] = useState<string | null>(null);
-  const [nodeActivities, setNodeActivities] = useState<Record<string, AgentActivityStep[]>>({});
-  const [undoStack, setUndoStack] = useState<MultiAgentTask[]>([]);
-  const [redoStack, setRedoStack] = useState<MultiAgentTask[]>([]);
-  const [adjustment, setAdjustment] = useState("");
-  const [adjusting, setAdjusting] = useState(false);
-  const [activityView, setActivityView] = useState<"agent" | "group">("agent");
-  const [deleteTarget, setDeleteTarget] = useState<{ type: "agent"; id: string } | { type: "task"; id: string } | null>(null);
+  const [runRequestId, setRunRequestId] = useState<string | null>(null);
+  const [activities, setActivities] = useState<Record<string, AgentActivityStep[]>>({});
+  const [message, setMessage] = useState("");
+  const [mentionTargetId, setMentionTargetId] = useState<string | null>(null);
+  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{ type: "agent" | "task"; id: string } | null>(null);
 
   const reloadAgents = useCallback(async () => {
     const value = await window.ohmycode.multiAgents.list();
@@ -98,93 +53,32 @@ export function MultiAgentPage() {
 
   useEffect(() => {
     if (!selectedTaskId) return;
-    void window.ohmycode.multiAgents.getTask(selectedTaskId).then((value) => {
-      setTask(value);
-      setPositions(Object.fromEntries(value.nodes.map((node) => [node.id, node.position])));
-    }).catch(() => toast({ type: "error", message: t("multiAgent.loadFailed") }));
+    void window.ohmycode.multiAgents.getTask(selectedTaskId).then(setTask)
+      .catch(() => toast({ type: "error", message: t("multiAgent.loadFailed") }));
   }, [selectedTaskId, t, toast]);
 
-  useEffect(() => {
-    if (!location.pathname.startsWith("/agents")) return;
-    // The page stays mounted while another workspace is visible so active runs
-    // keep streaming. Recreate only React Flow when its formerly hidden
-    // container becomes visible, then refresh the persisted task snapshot.
-    if (selectedTaskId) {
-      void window.ohmycode.multiAgents.getTask(selectedTaskId)
-        .then((value) => {
-          setTask(value);
-          setPositions(Object.fromEntries(value.nodes.map((node) => [node.id, node.position])));
-        })
-        .catch(() => toast({ type: "error", message: t("multiAgent.loadFailed") }));
-    }
-  }, [location.pathname, selectedTaskId, t, toast]);
+  useEffect(() => { chatEndRef.current?.scrollIntoView({ block: "end" }); }, [task?.messages.length]);
 
-  const selectedAgent = useMemo(
-    () => agents.find((agent) => agent.id === selectedAgentId) ?? null,
-    [agents, selectedAgentId],
-  );
-  const selectedNode = useMemo(
-    () => task?.nodes.find((node) => node.id === selectedNodeId) ?? null,
-    [task, selectedNodeId],
-  );
-  const isTemplate = task?.status === "template";
-  const groupMessages = useMemo(() => {
-    if (!task) return [];
-    const names = new Map(task.nodes.map((node) => [node.id, node.name]));
-    const unique = new Map<string, MultiAgentMessage>();
-    for (const node of task.nodes) for (const message of node.messages) unique.set(message.id, message);
-    return [...unique.values()].sort((a, b) => a.createdAt.localeCompare(b.createdAt)).map((message) => ({
-      ...message,
-      fromName: message.senderType === "user" ? t("multiAgent.user") : names.get(message.fromNodeId ?? "") ?? t("multiAgent.unknownAgent"),
-      toName: names.get(message.toNodeId) ?? t("multiAgent.unknownAgent"),
-    }));
-  }, [task, t]);
+  const selectedAgent = agents.find((item) => item.id === selectedAgentId) ?? null;
+  const selectedMember = task?.members.find((item) => item.id === selectedMemberId) ?? null;
+  const names = useMemo(() => new Map(task?.members.map((item) => [item.id, item.name]) ?? []), [task]);
+  const mentionMembers = useMemo(() => {
+    if (!task || mentionQuery === null) return [];
+    const query = mentionQuery.trim().toLocaleLowerCase();
+    return task.members.filter((member) => !query || member.name.toLocaleLowerCase().includes(query));
+  }, [mentionQuery, task]);
 
-  const resetRunDialog = useCallback(() => {
-    setRunDialogOpen(false); setRunDescription(""); setRunWorkspacePath("");
-  }, []);
-
-  function commitCanvas(next: MultiAgentTask) {
-    if (!task) return;
-    setUndoStack((items) => [...items.slice(-49), task]);
-    setRedoStack([]);
-    setTask(next);
-    setPositions(Object.fromEntries(next.nodes.map((node) => [node.id, node.position])));
+  function templateTask(agent: MultiAgentSummary): MultiAgentTask {
+    return { id: `template:${agent.id}`, agentId: agent.id, title: agent.name, request: agent.description,
+      status: "template", workspacePath: "", currentSpeakerId: null, messages: [],
+      members: agent.templateTeam.members.map((member) => ({ ...member, id: member.key, status: "idle", changedFiles: [] })),
+      createdAt: agent.createdAt, updatedAt: agent.createdAt };
   }
-
-  function undoCanvas() {
-    const previous = undoStack.at(-1);
-    if (!task || !previous) return;
-    setUndoStack((items) => items.slice(0, -1)); setRedoStack((items) => [...items, task]);
-    setTask(previous); setPositions(Object.fromEntries(previous.nodes.map((node) => [node.id, node.position])));
-  }
-
-  function redoCanvas() {
-    const next = redoStack.at(-1);
-    if (!task || !next) return;
-    setRedoStack((items) => items.slice(0, -1)); setUndoStack((items) => [...items, task]);
-    setTask(next); setPositions(Object.fromEntries(next.nodes.map((node) => [node.id, node.position])));
-  }
-
-  useEffect(() => {
-    if (!isTemplate) return;
-    const handleKey = (event: KeyboardEvent) => {
-      if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== "z") return;
-      event.preventDefault();
-      if (event.shiftKey) redoCanvas(); else undoCanvas();
-    };
-    window.addEventListener("keydown", handleKey);
-    return () => window.removeEventListener("keydown", handleKey);
-  });
 
   function selectAgent(agentId: string, source = agents) {
     const agent = source.find((item) => item.id === agentId);
     if (!agent) return;
-    const template = templateAsTask(agent);
-    setSelectedAgentId(agentId); setSelectedTaskId(null); setSelectedNodeId(null);
-    setTask(template);
-    setUndoStack([]); setRedoStack([]);
-    setPositions(Object.fromEntries(template.nodes.map((node) => [node.id, node.position])));
+    setSelectedAgentId(agentId); setSelectedTaskId(null); setSelectedMemberId(null); setTask(templateTask(agent));
   }
 
   async function createCollaboration() {
@@ -192,13 +86,42 @@ export function MultiAgentPage() {
     setCreating(true);
     try {
       const created = await window.ohmycode.multiAgents.create(draft);
-      if (!created.templateFlow?.nodes?.length) throw new Error("empty_collaboration_flow");
-      setAgents((items) => [...items.filter((item) => item.id !== created.id), created]);
-      setDialogOpen(false); setDraft(emptyDraft); selectAgent(created.id, [created]);
+      if (!created.templateTeam.members.length) throw new Error("empty_team");
+      const source = [...agents.filter((item) => item.id !== created.id), created];
+      setAgents(source); selectAgent(created.id, source); setDialogOpen(false); setDraft(emptyDraft);
       void reloadAgents();
-    } catch {
-      toast({ type: "error", message: t("multiAgent.planFailed") });
-    } finally { setCreating(false); }
+    } catch { toast({ type: "error", message: t("multiAgent.planFailed") }); }
+    finally { setCreating(false); }
+  }
+
+  async function saveTeam() {
+    if (!selectedAgent || !task) return;
+    const updated = await window.ohmycode.multiAgents.update(selectedAgent.id, {
+      templateTeam: { title: task.title, members: task.members.map(({ key, name, role, instructions, modelId, isHost, sortOrder }) => ({ key, name, role, instructions, modelId, isHost, sortOrder })) },
+    } as Partial<MultiAgentSummary>);
+    setAgents((items) => items.map((item) => item.id === updated.id ? updated : item));
+    setTask(templateTask(updated));
+    toast({ type: "success", message: t("multiAgent.saved") });
+  }
+
+  function updateMember(field: "name" | "role" | "instructions" | "modelId", value: string) {
+    if (!task || !selectedMemberId) return;
+    setTask({ ...task, members: task.members.map((member) => member.id === selectedMemberId ? { ...member, [field]: field === "modelId" ? value || null : value } : member) });
+  }
+
+  function addMember() {
+    if (!task) return;
+    const key = `agent_${crypto.randomUUID().slice(0, 8)}`;
+    setTask({ ...task, members: [...task.members, { id: key, key, name: t("multiAgent.newAgentNode"), role: t("multiAgent.newAgentRole"), instructions: "", isHost: false, sortOrder: task.members.length, status: "idle", changedFiles: [] }] });
+    setSelectedMemberId(key);
+  }
+
+  function removeMember(memberId: string) {
+    if (!task) return;
+    const member = task.members.find((item) => item.id === memberId);
+    if (!member || member.isHost) return;
+    setTask({ ...task, members: task.members.filter((item) => item.id !== memberId).map((item, index) => ({ ...item, sortOrder: index })) });
+    if (selectedMemberId === memberId) setSelectedMemberId(null);
   }
 
   async function executeTask(target: MultiAgentTask) {
@@ -206,250 +129,115 @@ export function MultiAgentPage() {
     setRunRequestId(requestId);
     const unsubscribe = window.ohmycode.multiAgents.onEvent(requestId, (event) => {
       if (event.type === "task.updated") setTask(event.task);
-      if (event.type === "node.event") {
-        setNodeActivities((current) => ({
-          ...current,
-          [event.nodeId]: updateActivity(current[event.nodeId] ?? [], event.event),
-        }));
-      }
+      if (event.type === "node.event") setActivities((current) => ({ ...current, [event.nodeId]: updateActivity(current[event.nodeId] ?? [], event.event) }));
     });
-    try {
-      setTask(await window.ohmycode.multiAgents.runTask(target.id, requestId));
-      await reloadAgents();
-    } catch {
-      toast({ type: "error", message: t("multiAgent.runFailed") });
-      setTask(await window.ohmycode.multiAgents.getTask(target.id));
-    } finally { unsubscribe(); setRunRequestId(null); }
+    try { setTask(await window.ohmycode.multiAgents.runTask(target.id, requestId)); await reloadAgents(); }
+    catch { toast({ type: "error", message: t("multiAgent.runFailed") }); setTask(await window.ohmycode.multiAgents.getTask(target.id)); }
+    finally { unsubscribe(); setRunRequestId(null); await reloadAgents(); }
   }
 
-  async function runCollaboration(agentId: string, request: string, workspacePath: string) {
-    const created = await window.ohmycode.multiAgents.createTask(agentId, request, workspacePath);
-    resetRunDialog(); setNodeActivities({});
-    await reloadAgents();
-    setSelectedAgentId(agentId); setSelectedTaskId(created.id); setTask(created);
-    await executeTask(created);
+  async function runCollaboration() {
+    if (!selectedAgentId || !runDescription.trim() || !runWorkspacePath) return;
+    const created = await window.ohmycode.multiAgents.createTask(selectedAgentId, runDescription, runWorkspacePath);
+    setRunDialogOpen(false); setRunDescription(""); setRunWorkspacePath(""); setActivities({});
+    setSelectedTaskId(created.id); setTask(created); setMentionTargetId(null); setMentionQuery(null);
+    await reloadAgents(); await executeTask(created);
   }
 
-  async function rerunTask(target: MultiAgentTask) {
-    setNodeActivities({});
-    setSelectedAgentId(target.agentId); setSelectedTaskId(target.id); setTask(target);
-    await executeTask(target);
+  async function sendGroupMessage() {
+    if (!task || !message.trim()) return;
+    const target = task.members.find((item) => item.id === mentionTargetId);
+    const targetId = target?.id || task.members.find((item) => item.isHost)?.id;
+    if (!targetId) return;
+    const content = target
+      ? message.replace(new RegExp(`^@${target.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*`), "").trim()
+      : message.trim();
+    if (!content) return;
+    setSending(true);
+    try { setTask(await window.ohmycode.multiAgents.sendMessage(task.id, targetId, content)); setMessage(""); setMentionTargetId(null); setMentionQuery(null); }
+    catch { toast({ type: "error", message: t("multiAgent.adjustFailed") }); }
+    finally { setSending(false); }
   }
 
-  async function stopCurrentTask() {
+  function changeGroupMessage(value: string) {
+    setMessage(value);
+    if (mentionTargetId) {
+      const target = task?.members.find((item) => item.id === mentionTargetId);
+      if (!target || !value.startsWith(`@${target.name}`)) setMentionTargetId(null);
+    }
+    const match = value.match(/(?:^|\s)@([^\s@]*)$/);
+    setMentionQuery(match ? match[1] : null);
+  }
+
+  function selectMention(member: MultiAgentMemberData) {
+    const selectedTarget = task?.members.find((item) => item.id === mentionTargetId);
+    const withoutSelected = selectedTarget
+      ? message.replace(new RegExp(`^@${selectedTarget.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*`), "")
+      : message;
+    const next = withoutSelected.replace(/(?:^|\s)@[^\s@]*$/, "").trimStart();
+    setMessage(`@${member.name} ${next}`);
+    setMentionTargetId(member.id);
+    setMentionQuery(null);
+  }
+
+  async function stopTask() {
     if (!task) return;
     await window.ohmycode.multiAgents.stopTask(runRequestId, task.id);
     setTask(await window.ohmycode.multiAgents.getTask(task.id));
+    await reloadAgents();
   }
 
   async function confirmDelete() {
-    const target = deleteTarget;
-    if (!target) return;
-    setDeleteTarget(null);
+    if (!deleteTarget) return;
+    const target = deleteTarget; setDeleteTarget(null);
     try {
-      if (target.type === "agent") {
-        await window.ohmycode.multiAgents.delete(target.id);
-        if (target.id === selectedAgentId) { setSelectedAgentId(null); setSelectedTaskId(null); setSelectedNodeId(null); setTask(null); }
-        await reloadAgents();
-      } else if (target.type === "task") {
-        await window.ohmycode.multiAgents.deleteTask(target.id);
-        if (target.id === selectedTaskId) { setSelectedTaskId(null); setTask(null); }
-        await reloadAgents();
-      }
-    } catch (error) {
-      const code = error instanceof Error ? error.message : "";
-      toast({ type: "error", message: code.includes("workflow_running_cannot_delete") ? t("multiAgent.stopBeforeDelete") : t("multiAgent.deleteFailed") });
-    }
+      if (target.type === "agent") { await window.ohmycode.multiAgents.delete(target.id); if (selectedAgentId === target.id) { setTask(null); setSelectedAgentId(null); setSelectedTaskId(null); } }
+      else { await window.ohmycode.multiAgents.deleteTask(target.id); if (selectedTaskId === target.id) { setTask(null); setSelectedTaskId(null); } }
+      await reloadAgents();
+    } catch { toast({ type: "error", message: t("multiAgent.deleteFailed") }); }
   }
 
-  function updateTemplateNode(field: "name" | "role" | "instructions" | "modelId", value: string) {
-    if (!task || !selectedNodeId) return;
-    setTask({
-      ...task,
-      nodes: task.nodes.map((node) => node.id === selectedNodeId
-        ? { ...node, [field]: field === "modelId" ? value || null : value }
-        : node),
-    });
-  }
-
-  async function saveTemplate() {
-    if (!selectedAgent || !task) return;
-    const flow: MultiAgentTemplateFlow = {
-      title: task.title,
-      nodes: task.nodes.map((node) => ({
-        key: node.key, name: node.name, role: node.role, instructions: node.instructions,
-        modelId: node.modelId, position: positions[node.id] ?? node.position,
-      })),
-      edges: task.edges.map((edge) => ({ source: edge.source, target: edge.target })),
-    };
-    const updated = await window.ohmycode.multiAgents.update(
-      selectedAgent.id,
-      { templateFlow: flow } as Partial<MultiAgentSummary>,
-    );
-    setAgents((items) => items.map((item) => item.id === updated.id ? updated : item));
-    setTask(templateAsTask(updated));
-    toast({ type: "success", message: t("multiAgent.saved") });
-  }
-
-  function addTemplateNode() {
-    if (!task) return;
-    const key = `agent_${crypto.randomUUID().slice(0, 8)}`;
-    commitCanvas({
-      ...task,
-      nodes: [...task.nodes, {
-        id: key, key, name: t("multiAgent.newAgentNode"), role: t("multiAgent.newAgentRole"),
-        instructions: "", status: "template", position: { x: 120, y: 120 },
-        messages: [], changedFiles: [],
-      }],
-    });
-    setSelectedNodeId(key);
-  }
-
-  function connectNodes(source: string, target: string) {
-    if (!task) return;
-    if (source === target || target === START_KEY || source === END_KEY || task.edges.some((edge) => edge.source === source && edge.target === target)) {
-      toast({ type: "error", message: t("multiAgent.invalidConnection") }); return;
-    }
-    const graph = new Map<string, string[]>();
-    for (const edge of task.edges) graph.set(edge.source, [...(graph.get(edge.source) ?? []), edge.target]);
-    const pending = [target]; const visited = new Set<string>();
-    while (pending.length) {
-      const node = pending.pop()!;
-      if (node === source) { toast({ type: "error", message: t("multiAgent.cycleNotAllowed") }); return; }
-      if (visited.has(node)) continue;
-      visited.add(node); pending.push(...(graph.get(node) ?? []));
-    }
-    commitCanvas({ ...task, edges: [...task.edges, { id: crypto.randomUUID(), source, target }] });
-  }
-
-  function selectCanvasNode(nodeId: string) {
-    const node = task?.nodes.find((item) => item.id === nodeId);
-    if (!node || node.key === END_KEY || (isTemplate && node.key === START_KEY)) { setSelectedNodeId(null); return; }
-    setSelectedNodeId(nodeId);
-  }
-
-  async function sendAdjustment(nodeId: string) {
-    if (!task || !adjustment.trim()) return;
-    const content = adjustment.trim(); const requestId = crypto.randomUUID();
-    const targetNode = task.nodes.find((node) => node.id === nodeId);
-    const persistedSteps = (targetNode?.finalOutput?.activity as AgentActivityStep[] | undefined) ?? [];
-    const previousAnswer = typeof targetNode?.finalOutput?.content === "string" ? targetNode.finalOutput.content.trim() : "";
-    setAdjustment(""); setAdjusting(true);
-    setNodeActivities((current) => {
-      const previousActivity = (current[nodeId] ?? persistedSteps)
-        .map((step) => step.status === "running" ? { ...step, status: "completed" as const } : step);
-      const previous = previousActivity.some((step) => step.type === "run")
-        ? previousActivity
-        : [{ id: `run-previous-${requestId}`, type: "run" as const, status: "completed" as const }, ...previousActivity];
-      const answerRecorded = previous.some((step) => step.type === "message" && step.content.trim() === previousAnswer);
-      return { ...current, [nodeId]: [
-        ...previous,
-        ...previousAnswer && !answerRecorded ? [{ id: `answer-before-${requestId}`, type: "message" as const, content: previousAnswer, status: "completed" as const }] : [],
-        { id: `run-pending-${requestId}`, type: "run", status: "running" },
-        { id: `user-${requestId}`, type: "message", content: `${t("multiAgent.userAdjustment")}: ${content}`, status: "completed" },
-      ] };
-    });
-    const unsubscribe = window.ohmycode.multiAgents.onEvent(requestId, (event) => {
-      if (event.type === "task.updated") setTask(event.task);
-      if (event.type === "node.event") setNodeActivities((current) => ({ ...current, [event.nodeId]: updateActivity(current[event.nodeId] ?? [], event.event) }));
-    });
-    try { setTask(await window.ohmycode.multiAgents.adjustNode(task.id, nodeId, content, requestId)); }
-    catch { toast({ type: "error", message: t("multiAgent.adjustFailed") }); }
-    finally { unsubscribe(); setAdjusting(false); }
-  }
-
+  const isTemplate = task?.status === "template";
   return <AppShell navigation={<NavigationRail />} sidebar={<MultiAgentSidebar
-    agents={agents} selectedAgentId={selectedAgentId} selectedTaskId={selectedTaskId}
-    busy={creating} onCreateAgent={() => setDialogOpen(true)} onSelectAgent={selectAgent}
-    onRunAgent={(agentId) => { setSelectedAgentId(agentId); setRunDialogOpen(true); }}
-    onSelectTask={(taskId) => { setSelectedTaskId(taskId); setSelectedNodeId(null); }}
-    onDeleteAgent={(agentId) => setDeleteTarget({ type: "agent", id: agentId })}
-    onDeleteTask={(taskId) => setDeleteTarget({ type: "task", id: taskId })}
+    agents={agents} selectedAgentId={selectedAgentId} selectedTaskId={selectedTaskId} busy={creating}
+    onCreateAgent={() => setDialogOpen(true)} onSelectAgent={selectAgent}
+    onRunAgent={(id) => { setSelectedAgentId(id); setRunDialogOpen(true); }}
+    onSelectTask={(id) => { setSelectedTaskId(id); setSelectedMemberId(null); }}
+    onDeleteAgent={(id) => setDeleteTarget({ type: "agent", id })} onDeleteTask={(id) => setDeleteTarget({ type: "task", id })}
   />}>
     <main className={styles.page}>
       {task ? <>
-        <header className={styles.header}>
-          <div><h1>{task.title}</h1><p>{task.request}</p></div>
-        </header>
-        <div className={styles.workspace}>
-          <div className={styles.canvasPane}><div className={styles.canvasActions}>
-            {isTemplate && <button disabled={!undoStack.length} onClick={undoCanvas} aria-label={t("multiAgent.undo")}><Undo2 /></button>}
-            {isTemplate && <button disabled={!redoStack.length} onClick={redoCanvas} aria-label={t("multiAgent.redo")}><Redo2 /></button>}
-            {isTemplate && <button onClick={addTemplateNode}><Plus />{t("multiAgent.addNode")}</button>}
-            {isTemplate && <button onClick={() => void saveTemplate()}><Save />{t("multiAgent.saveTemplate")}</button>}
-            {!isTemplate && <button onClick={() => setActivityOpen(true)}><Activity />{t("multiAgent.activity")}</button>}
-            {isTemplate
-              ? <button className={styles.primary} onClick={() => setRunDialogOpen(true)}><Play />{t("multiAgent.run")}</button>
-              : runRequestId || task.status === "running" ? <button className={styles.stop} onClick={() => void stopCurrentTask()}><Square />{t("multiAgent.stop")}</button>
-                : task.status === "draft" ? <button className={styles.primary} onClick={() => void executeTask(task)}><Play />{t("multiAgent.start")}</button>
-                  : ["stopped", "failed", "completed"].includes(task.status) ? <button className={styles.primary} onClick={() => void rerunTask(task)}><Play />{t("multiAgent.rerun")}</button> : null}
-          </div>
-          <WorkflowCanvas
-            key={`${task.id}:${location.key}`}
-            task={task}
-            selectedNodeId={selectedNodeId}
-            onNodeSelect={selectCanvasNode}
-            onPositionsChange={(nextPositions) => {
-              if (!task) return;
-              commitCanvas({ ...task, nodes: task.nodes.map((node) => ({ ...node, position: nextPositions[node.id] ?? node.position })) });
-            }}
-            editable={isTemplate}
-            onConnect={(connection) => {
-              if (!connection.source || !connection.target) return;
-              connectNodes(connection.source, connection.target);
-            }}
-            onDeleteNodes={(nodeIds) => {
-              const ids = nodeIds.filter((id) => id !== START_KEY && id !== END_KEY);
-              if (ids.length) commitCanvas({ ...task, nodes: task.nodes.filter((node) => !ids.includes(node.id)), edges: task.edges.filter((edge) => !ids.includes(edge.source) && !ids.includes(edge.target)) });
-            }}
-            onDeleteEdges={(ids) => {
-              if (ids.length) commitCanvas({ ...task, edges: task.edges.filter((edge) => !ids.includes(edge.id)) });
-            }}
-          />
-          </div>
-          {selectedNode && <aside className={styles.detail}>
-            <button className={styles.close} onClick={() => setSelectedNodeId(null)}><X /></button>
-            {selectedNode.key !== START_KEY && <span className={styles.status}>{isTemplate ? t("multiAgent.agentNode") : t(`multiAgent.${selectedNode.status === "ready" ? "pending" : selectedNode.status}`, { defaultValue: selectedNode.status })}</span>}
-            {isTemplate && selectedNode.key !== START_KEY && selectedNode.key !== END_KEY ? <>
-              <label>{t("multiAgent.nodeName")}<input value={selectedNode.name} onChange={(event) => updateTemplateNode("name", event.target.value)} /></label>
-              <label>{t("multiAgent.nodeRole")}<input value={selectedNode.role} onChange={(event) => updateTemplateNode("role", event.target.value)} /></label>
-              <label>{t("multiAgent.nodeModel")}<select value={selectedNode.modelId ?? ""} onChange={(event) => updateTemplateNode("modelId", event.target.value)}><option value="">{t("multiAgent.defaultModel")}</option>{models.map((model) => <option key={model.id} value={model.id}>{model.name} · {model.model}</option>)}</select></label>
-              <label>{t("multiAgent.nodeInstructions")}<textarea value={selectedNode.instructions} onChange={(event) => updateTemplateNode("instructions", event.target.value)} /></label>
-            </> : <>{selectedNode.key === START_KEY && !isTemplate ? <section className={styles.startRequirement}><h3>{t("multiAgent.runRequirement")}</h3><pre>{task.request}</pre></section> : <><h2>{selectedNode.name}</h2><p>{selectedNode.role}</p><section><h3>{t("multiAgent.nodeModel")}</h3><span>{models.find((model) => model.id === selectedNode.modelId)?.name ?? t("multiAgent.defaultModel")}</span></section><section><h3>{t("multiAgent.nodeInstructions")}</h3><pre>{selectedNode.instructions}</pre></section></>}</>}
-          </aside>}
-        </div>
-      </> : <div className={styles.welcome}>
-        <div className={styles.promptMark}>›_</div>
-        <p className={styles.welcomeEyebrow}>{t("multiAgent.collaboration")}</p>
-        <h1>{t("multiAgent.welcomeTitle")}</h1>
-        <p className={styles.welcomeDescription}>{t("multiAgent.welcomeDescription")}</p>
-      </div>}
-      {dialogOpen && <div className={styles.backdrop} onMouseDown={() => !creating && setDialogOpen(false)}>
-        <section className={styles.dialog} onMouseDown={(event) => event.stopPropagation()}>
-          <header><div><span>{t("multiAgent.collaboration")}</span><h2>{t("multiAgent.createCollaboration")}</h2></div><button onClick={() => setDialogOpen(false)}><X /></button></header>
-          <label>{t("multiAgent.collaborationName")}<input autoFocus value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></label>
-          <label>{t("multiAgent.collaborationDescription")}<textarea value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} /></label>
-          <label>{t("multiAgent.division")}<textarea value={draft.division} onChange={(event) => setDraft({ ...draft, division: event.target.value })} /></label>
-          <footer><button onClick={() => setDialogOpen(false)}>{t("multiAgent.cancel")}</button><button className={styles.primary} disabled={creating || !draft.name.trim() || !draft.description.trim() || !draft.division.trim()} onClick={() => void createCollaboration()}>{creating && <LoaderCircle className={styles.spinner} />}{t("multiAgent.generateCollaboration")}</button></footer>
-        </section>
-      </div>}
-      {runDialogOpen && selectedAgentId && <div className={styles.backdrop} onMouseDown={resetRunDialog}>
-        <section className={styles.dialog} onMouseDown={(event) => event.stopPropagation()}>
-          <header><div><span>{t("multiAgent.run")}</span><h2>{t("multiAgent.runTaskTitle")}</h2></div><button onClick={resetRunDialog}><X /></button></header>
-          <label>{t("multiAgent.runRequirement")}<textarea autoFocus value={runDescription} placeholder={t("multiAgent.runRequirementPlaceholder")} onChange={(event) => setRunDescription(event.target.value)} /></label>
-          <label>{t("multiAgent.workspaceDirectory")}<button type="button" className={styles.directoryPicker} onClick={() => void window.ohmycode.multiAgents.selectWorkspace().then((value) => value && setRunWorkspacePath(value))}><FolderOpen /><span>{runWorkspacePath || t("multiAgent.chooseDirectory")}</span></button></label>
-          <footer><button onClick={resetRunDialog}>{t("multiAgent.cancel")}</button><button className={styles.primary} disabled={!runDescription.trim() || !runWorkspacePath} onClick={() => void runCollaboration(selectedAgentId, runDescription, runWorkspacePath)}>{t("multiAgent.start")}</button></footer>
-        </section>
-      </div>}
-      {activityOpen && task && <div className={styles.backdrop} onMouseDown={() => setActivityOpen(false)}>
-        <section className={styles.activityDialog} onMouseDown={(event) => event.stopPropagation()}>
-          <header><div><span>{t("multiAgent.liveActivity")}</span><h2>{task.title}</h2></div><div className={styles.activityHeaderActions}><div className={styles.viewSwitch}><button className={activityView === "agent" ? styles.activeView : ""} onClick={() => setActivityView("agent")}>{t("multiAgent.agentView")}</button><button className={activityView === "group" ? styles.activeView : ""} onClick={() => setActivityView("group")}>{t("multiAgent.groupChat")}</button></div><button className={styles.activityClose} onClick={() => setActivityOpen(false)}><X /></button></div></header>
-          <div className={`${styles.activityBody} ${activityView === "group" ? styles.groupMode : ""}`}>
-            {activityView === "agent" ? <><nav>{task.nodes.filter((node) => node.key !== START_KEY && node.key !== END_KEY).map((node) => <button className={activityNodeId === node.id ? styles.activeAgent : ""} key={node.id} onClick={() => setActivityNodeId(node.id)}><span className={styles[node.status === "ready" ? "pending" : node.status]} />{node.name}</button>)}</nav><div className={styles.activityContent}>{(() => { const node = task.nodes.find((item) => item.id === activityNodeId && item.key !== START_KEY && item.key !== END_KEY) ?? task.nodes.find((item) => item.key !== START_KEY && item.key !== END_KEY); if (!node) return null; const persisted = (node.finalOutput?.activity as AgentActivityStep[] | undefined) ?? []; const finalContent = typeof node.finalOutput?.content === "string" ? node.finalOutput.content : ""; const liveSteps = nodeActivities[node.id] ?? persisted; const hasFollowupRun = liveSteps.filter((step) => step.type === "run").length > 1; const showCurrentFinal = Boolean(finalContent) && (node.status === "completed" || !hasFollowupRun); const steps = withoutFinalResponse(liveSteps, showCurrentFinal ? finalContent : undefined); return <div className={styles.activityColumn}><div className={styles.nodeWorkspace}><div className={styles.activityScroll}><h3>{node.name}</h3><p>{node.role}</p>{steps.length ? <ActivityTimeline steps={steps} active={node.status === "running"} durationMs={node.agentDurationMs} startedAt={node.agentStartedAt ?? undefined} /> : !finalContent && <span>{t("multiAgent.waitingForActivity")}</span>}{showCurrentFinal && <div className={styles.finalOutput}><MarkdownContent>{finalContent}</MarkdownContent></div>}</div><aside className={styles.nodeMessages}><h4>{t("multiAgent.receivedMessages")}</h4>{node.messages.length ? node.messages.map((message) => <article key={message.id}><header><strong>{message.senderType === "user" ? t("multiAgent.user") : task.nodes.find((item) => item.id === message.fromNodeId)?.name ?? t("multiAgent.unknownAgent")}</strong><time>{new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit" }).format(new Date(message.createdAt))}</time></header><p>{message.content}</p></article>) : <span>{t("multiAgent.noMessages")}</span>}</aside></div>{["running", "paused", "completed"].includes(node.status) && <div className={styles.adjustComposer}><MessageComposer value={adjustment} busy={adjusting} placeholder={t("multiAgent.adjustPlaceholder")} onChange={setAdjustment} onSubmit={() => void sendAdjustment(node.id)} /></div>}</div>; })()}</div></> : <div className={styles.groupChat}>{groupMessages.length ? groupMessages.map((message) => <article className={message.senderType === "user" ? styles.userChatMessage : styles.agentChatMessage} key={message.id}><div className={styles.chatMeta}><strong>{message.fromName}</strong><time>{new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit" }).format(new Date(message.createdAt))}</time></div><div className={styles.chatBubble}><span>@{message.toName}</span><p>{message.content}</p></div></article>) : <div className={styles.emptyChat}>{t("multiAgent.noAgentMessages")}</div>}</div>}
-          </div>
-        </section>
-      </div>}
-      <ConfirmDialog open={Boolean(deleteTarget)} title={t("common.confirmDelete")} description={deleteTarget?.type === "task" && agents.flatMap((agent) => agent.tasks).find((item) => item.id === deleteTarget.id)?.status === "running" ? t("multiAgent.stopBeforeDelete") : t("common.deleteWarning")} onCancel={() => setDeleteTarget(null)} onConfirm={() => void confirmDelete()} />
+        <header className={styles.header}><div><h1>{task.title}</h1><p>{task.request}</p></div></header>
+        {isTemplate ? <div className={styles.teamEditor}>
+          <section className={styles.memberList}>
+            <div className={styles.memberHeading}>
+              <span><Users />{t("multiAgent.teamMembers")}</span>
+              <div className={styles.memberActions}>
+                <Tooltip content={t("multiAgent.addAgent")}><button aria-label={t("multiAgent.addAgent")} onClick={addMember}><Plus /></button></Tooltip>
+                <Tooltip content={t("multiAgent.saveTemplate")}><button aria-label={t("multiAgent.saveTemplate")} onClick={() => void saveTeam()}><Save /></button></Tooltip>
+                <Tooltip content={t("multiAgent.run")}><button className={styles.primary} aria-label={t("multiAgent.run")} onClick={() => setRunDialogOpen(true)}><Play /></button></Tooltip>
+              </div>
+            </div>
+            {task.members.map((member) => <button key={member.id} className={selectedMemberId === member.id ? styles.selectedMember : ""} onClick={() => setSelectedMemberId(member.id)}><span className={styles.avatar}>{member.isHost ? <Bot /> : member.name.slice(0, 1)}</span><span><strong>{member.name}</strong><small>{member.isHost ? t("multiAgent.host") : member.role}</small></span></button>)}
+          </section>
+          <section className={styles.memberEditor}>{selectedMember ? <><div className={styles.editorTitle}><span className={styles.avatar}>{selectedMember.isHost ? <Bot /> : selectedMember.name.slice(0, 1)}</span><div><h2>{selectedMember.name}</h2><p>{selectedMember.isHost ? t("multiAgent.hostDescription") : selectedMember.role}</p></div>{!selectedMember.isHost && <button className={styles.deleteMember} title={t("common.delete")} onClick={() => removeMember(selectedMember.id)}><Trash2 /></button>}</div><label>{t("multiAgent.nodeName")}<input value={selectedMember.name} onChange={(e) => updateMember("name", e.target.value)} /></label><label>{t("multiAgent.nodeRole")}<input value={selectedMember.role} onChange={(e) => updateMember("role", e.target.value)} /></label><label>{t("multiAgent.nodeModel")}<select value={selectedMember.modelId ?? ""} onChange={(e) => updateMember("modelId", e.target.value)}><option value="">{t("multiAgent.defaultModel")}</option>{models.map((model) => <option key={model.id} value={model.id}>{model.name} - {model.model}</option>)}</select></label><label>{t("multiAgent.nodeInstructions")}<textarea value={selectedMember.instructions} onChange={(e) => updateMember("instructions", e.target.value)} /></label></> : <div className={styles.editorEmpty}>{t("multiAgent.selectMember")}</div>}</section>
+        </div> : <div className={styles.chatLayout}>
+          <section className={styles.chatPanel}>
+            <div className={styles.chatMessages}>{task.messages.map((item) => { const mine = item.senderType === "user"; const sender = mine ? t("multiAgent.user") : names.get(item.fromNodeId ?? "") ?? t("multiAgent.unknownAgent"); const target = names.get(item.toNodeId) ?? t("multiAgent.host"); return <article className={mine ? styles.userMessage : styles.agentMessage} key={item.id}><span className={styles.messageAvatar}>{mine ? t("multiAgent.youShort") : sender.slice(0, 1)}</span><div><header><strong>{sender}</strong><time>{new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit" }).format(new Date(item.createdAt))}</time></header><div className={styles.bubble}>{item.type !== "final" && <b>@{target}</b>}<MarkdownContent>{item.content}</MarkdownContent></div></div></article>; })}<div ref={chatEndRef} /></div>
+            <div className={styles.composer}>
+              {mentionQuery !== null && <div className={styles.mentionMenu}>{mentionMembers.length ? mentionMembers.map((member) => <button key={member.id} onMouseDown={(event) => event.preventDefault()} onClick={() => selectMention(member)}><span className={styles.avatar}>{member.isHost ? <Bot /> : member.name.slice(0, 1)}</span><span><strong>{member.name}</strong><small>{member.isHost ? t("multiAgent.host") : member.role}</small></span></button>) : <span className={styles.noMention}>{t("multiAgent.unknownAgent")}</span>}</div>}
+              <textarea rows={1} value={message} placeholder={t("multiAgent.groupMessagePlaceholder")} onChange={(e) => changeGroupMessage(e.target.value)} onKeyDown={(e) => { if (e.key === "Escape") setMentionQuery(null); if (e.key === "Enter" && !e.shiftKey && mentionQuery === null) { e.preventDefault(); void sendGroupMessage(); } }} />
+              <div className={styles.composerToolbar}><button aria-label={t("multiAgent.send")} disabled={sending || !message.trim()} onClick={() => void sendGroupMessage()}>{sending ? <LoaderCircle className={styles.spinner} /> : <ArrowUp />}</button></div>
+            </div>
+          </section>
+          <aside className={styles.roster}><div className={styles.rosterHeading}><h2>{t("multiAgent.teamMembers")}</h2><div className={styles.taskActions}>{(runRequestId || task.status === "running") && <Tooltip content={t("multiAgent.stop")}><button aria-label={t("multiAgent.stop")} onClick={() => void stopTask()}><Square /></button></Tooltip>}{["completed", "failed", "stopped"].includes(task.status) && <Tooltip content={t("multiAgent.rerun")}><button aria-label={t("multiAgent.rerun")} onClick={() => void executeTask(task)}><Play /></button></Tooltip>}</div></div>{task.members.map((member) => <button key={member.id} className={selectedMemberId === member.id ? styles.selectedMember : ""} onClick={() => setSelectedMemberId(member.id)}><span className={styles.avatar}>{member.isHost ? <Bot /> : member.name.slice(0, 1)}</span><span><strong>{member.name}</strong><small>{member.isHost ? t("multiAgent.host") : t(`multiAgent.${member.status}`, { defaultValue: member.status })}</small></span><i className={`${styles.state} ${styles[member.status]}`} /></button>)}</aside>
+          {selectedMember && <aside className={styles.activityDrawer}><button className={styles.close} onClick={() => setSelectedMemberId(null)}><X /></button><h2>{selectedMember.name}</h2><p>{selectedMember.role}</p>{(() => { const persisted = (selectedMember.finalOutput?.activity as AgentActivityStep[] | undefined) ?? []; const finalText = typeof selectedMember.finalOutput?.content === "string" ? selectedMember.finalOutput.content : ""; const steps = withoutFinalResponse(activities[selectedMember.id] ?? persisted, finalText); return <>{steps.length ? <ActivityTimeline steps={steps} active={selectedMember.status === "running"} durationMs={selectedMember.agentDurationMs} startedAt={selectedMember.agentStartedAt ?? undefined} /> : <span className={styles.noActivity}>{t("multiAgent.waitingForActivity")}</span>}{finalText && <div className={styles.finalOutput}><MarkdownContent>{finalText}</MarkdownContent></div>}</>; })()}</aside>}
+        </div>}
+      </> : <div className={styles.welcome}><div className={styles.promptMark}>›_</div><p>{t("multiAgent.collaboration")}</p><h1>{t("multiAgent.welcomeTitle")}</h1><span>{t("multiAgent.welcomeDescriptionChat")}</span></div>}
+
+      {dialogOpen && <div className={styles.backdrop} onMouseDown={() => !creating && setDialogOpen(false)}><section className={styles.dialog} onMouseDown={(e) => e.stopPropagation()}><header><h2>{t("multiAgent.createCollaboration")}</h2><button onClick={() => setDialogOpen(false)}><X /></button></header><label>{t("multiAgent.collaborationName")}<input autoFocus value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} /></label><label>{t("multiAgent.collaborationDescription")}<textarea value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} /></label><label>{t("multiAgent.division")}<textarea value={draft.division} onChange={(e) => setDraft({ ...draft, division: e.target.value })} /></label><footer><button onClick={() => setDialogOpen(false)}>{t("multiAgent.cancel")}</button><button className={styles.primary} disabled={creating || !draft.name.trim() || !draft.description.trim() || !draft.division.trim()} onClick={() => void createCollaboration()}>{creating && <LoaderCircle className={styles.spinner} />}{t("multiAgent.generateCollaboration")}</button></footer></section></div>}
+      {runDialogOpen && selectedAgentId && <div className={styles.backdrop} onMouseDown={() => setRunDialogOpen(false)}><section className={styles.dialog} onMouseDown={(e) => e.stopPropagation()}><header><h2>{t("multiAgent.runTaskTitle")}</h2><button onClick={() => setRunDialogOpen(false)}><X /></button></header><label>{t("multiAgent.runRequirement")}<textarea autoFocus value={runDescription} onChange={(e) => setRunDescription(e.target.value)} /></label><label>{t("multiAgent.workspaceDirectory")}<button className={styles.directoryPicker} onClick={() => void window.ohmycode.multiAgents.selectWorkspace().then((value) => value && setRunWorkspacePath(value))}><FolderOpen /><span>{runWorkspacePath || t("multiAgent.chooseDirectory")}</span></button></label><footer><button onClick={() => setRunDialogOpen(false)}>{t("multiAgent.cancel")}</button><button className={styles.primary} disabled={!runDescription.trim() || !runWorkspacePath} onClick={() => void runCollaboration()}>{t("multiAgent.start")}</button></footer></section></div>}
+      <ConfirmDialog open={Boolean(deleteTarget)} title={t("common.confirmDelete")} description={t("common.deleteWarning")} onCancel={() => setDeleteTarget(null)} onConfirm={() => void confirmDelete()} />
     </main>
   </AppShell>;
 }

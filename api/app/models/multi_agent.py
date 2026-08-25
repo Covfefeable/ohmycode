@@ -4,7 +4,17 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, Text, func
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..extensions import db
@@ -21,15 +31,11 @@ class MultiAgent(db.Model):
     user_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), index=True
     )
-    project_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("projects.id", ondelete="SET NULL"), nullable=True, index=True
-    )
     name: Mapped[str] = mapped_column(String(200))
     description: Mapped[str] = mapped_column(Text, default="")
     division: Mapped[str] = mapped_column(Text, default="")
-    template_flow: Mapped[dict] = mapped_column(JSON, default=dict)
+    template_team: Mapped[dict] = mapped_column(JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    project: Mapped[Project | None] = relationship()
     tasks: Mapped[list[MultiAgentTask]] = relationship(
         back_populates="agent", cascade="all, delete-orphan", order_by="MultiAgentTask.created_at"
     )
@@ -54,11 +60,8 @@ class MultiAgentTask(db.Model):
     )
     agent: Mapped[MultiAgent] = relationship(back_populates="tasks")
     project: Mapped[Project] = relationship()
-    nodes: Mapped[list[MultiAgentNode]] = relationship(
+    members: Mapped[list[MultiAgentNode]] = relationship(
         back_populates="task", cascade="all, delete-orphan", order_by="MultiAgentNode.sort_order"
-    )
-    edges: Mapped[list[MultiAgentEdge]] = relationship(
-        back_populates="task", cascade="all, delete-orphan"
     )
 
 
@@ -79,37 +82,23 @@ class MultiAgentNode(db.Model):
     name: Mapped[str] = mapped_column(String(160))
     role: Mapped[str] = mapped_column(String(500))
     instructions: Mapped[str] = mapped_column(Text)
+    is_host: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     status: Mapped[str] = mapped_column(String(32), default="pending", index=True)
-    position: Mapped[dict] = mapped_column(JSON, default=dict)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
     final_output: Mapped[dict | None] = mapped_column(JSON, nullable=True)
-    task: Mapped[MultiAgentTask] = relationship(back_populates="nodes")
+    task: Mapped[MultiAgentTask] = relationship(back_populates="members")
     conversation: Mapped[Conversation | None] = relationship()
-
-
-class MultiAgentEdge(db.Model):
-    __tablename__ = "multi_agent_edges"
-
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    task_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("multi_agent_tasks.id", ondelete="CASCADE"), index=True
-    )
-    source_node_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("multi_agent_nodes.id", ondelete="CASCADE"), index=True
-    )
-    target_node_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("multi_agent_nodes.id", ondelete="CASCADE"), index=True
-    )
-    task: Mapped[MultiAgentTask] = relationship(back_populates="edges")
 
 
 class MultiAgentMessage(db.Model):
     __tablename__ = "multi_agent_messages"
+    __table_args__ = (UniqueConstraint("task_id", "sequence"),)
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     task_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("multi_agent_tasks.id", ondelete="CASCADE"), index=True
     )
+    sequence: Mapped[int] = mapped_column(Integer, default=0)
     from_node_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("multi_agent_nodes.id", ondelete="CASCADE"), index=True, nullable=True
     )
@@ -119,10 +108,6 @@ class MultiAgentMessage(db.Model):
     message_type: Mapped[str] = mapped_column(String(32), default="update")
     sender_type: Mapped[str] = mapped_column(String(16), default="agent")
     content: Mapped[str] = mapped_column(Text)
-    expects_reply: Mapped[bool] = mapped_column(Boolean, default=False)
-    reply_to_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("multi_agent_messages.id", ondelete="SET NULL"), nullable=True
-    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     from_node: Mapped[MultiAgentNode | None] = relationship(foreign_keys=[from_node_id])
     to_node: Mapped[MultiAgentNode] = relationship(foreign_keys=[to_node_id])

@@ -1,6 +1,8 @@
 import json
 import uuid
 
+import httpx
+
 from app import create_app
 from app.extensions import db
 from app.models import Project, User
@@ -213,6 +215,38 @@ def test_project_conversation_and_message_lifecycle(monkeypatch):
         assert '"type": "run.failed"' in failed_body
         assert '"errorCode": "FileNotFoundError"' in failed_body
         assert failed_body.endswith("data: [DONE]\n\n")
+
+        balance_conversation = client.post(
+            f"/api/projects/{project_id}/conversations",
+            headers=headers,
+            json={"title": "Provider balance failure"},
+        ).get_json()
+
+        def insufficient_balance(*_args, **_kwargs):
+            request = httpx.Request("POST", "https://example.com/chat/completions")
+            response = httpx.Response(
+                402,
+                request=request,
+                json={
+                    "error": {
+                        "message": "Insufficient Balance",
+                        "code": "invalid_request_error",
+                    }
+                },
+            )
+            raise httpx.HTTPStatusError(
+                "Payment Required", request=request, response=response
+            )
+
+        monkeypatch.setattr("app.services.agent.chat.httpx.stream", insufficient_balance)
+        balance_stream = client.post(
+            f"/api/projects/conversations/{balance_conversation['id']}/stream",
+            headers=headers,
+            json={"content": "Continue", "modelId": model_id},
+        )
+        balance_body = balance_stream.get_data(as_text=True)
+        assert '"errorCode": "provider_http_402:invalid_request_error"' in balance_body
+        assert balance_body.endswith("data: [DONE]\n\n")
 
         agent_conversation = client.post(
             f"/api/projects/{project_id}/conversations",

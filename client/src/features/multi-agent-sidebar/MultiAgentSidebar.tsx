@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CheckCircle2, ChevronDown, ChevronRight, Circle, CircleAlert, Clock3, LoaderCircle, MoreHorizontal, PauseCircle, Plus, Square, Trash2 } from "lucide-react";
+import { CheckCircle2, ChevronDown, ChevronRight, Circle, CircleAlert, Clock3, LoaderCircle, MoreHorizontal, Plus, Square, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { PopoverMenu } from "../../shared/ui/popover-menu";
 import { Tooltip } from "../../shared/ui/tooltip";
@@ -27,9 +27,8 @@ export function MultiAgentSidebar(props: Props) {
     const icon = status === "running" ? <LoaderCircle />
       : status === "completed" ? <CheckCircle2 />
         : status === "failed" ? <CircleAlert />
-          : status === "paused" ? <PauseCircle />
           : status === "stopped" ? <Square />
-            : status === "pending" || status === "ready" ? <Clock3 /> : <Circle />;
+            : status === "pending" || status === "ready" || status === "queued" ? <Clock3 /> : <Circle />;
     return <Tooltip content={label}><span className={`${styles.taskStatus} ${styles[`status_${status}`] ?? ""}`}>{icon}</span></Tooltip>;
   };
   const toggle = (agentId: string) => setExpanded((current) => {

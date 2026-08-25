@@ -27,6 +27,66 @@ def append_event(run: AgentRun, event_type: str, payload: dict | None = None) ->
     return event
 
 
+def build_run_activity(
+    run: AgentRun, final_reasoning: str = "", *, include_run_boundary: bool = False
+) -> list[dict]:
+    activity: list[dict] = []
+    tools: dict[str, dict] = {}
+    for event in run.events:
+        if event.event_type == "run.started" and include_run_boundary:
+            activity.append(
+                {
+                    "id": f"run-{run.id}",
+                    "type": "run",
+                    "status": "running" if run.status == "running" else "completed",
+                }
+            )
+        elif event.event_type == "reasoning.completed" and event.payload.get("content"):
+            activity.append(
+                {
+                    "id": f"reasoning-{run.id}-{event.sequence}",
+                    "type": "reasoning",
+                    "content": event.payload["content"],
+                    "status": "completed",
+                }
+            )
+        elif event.event_type == "message.progress" and event.payload.get("content"):
+            activity.append(
+                {
+                    "id": f"message-{run.id}-{event.sequence}",
+                    "type": "message",
+                    "content": event.payload["content"],
+                    "status": "completed",
+                }
+            )
+        elif event.event_type == "tool.requested":
+            for call in event.payload.get("toolCalls", []):
+                step = {
+                    "id": call["id"],
+                    "type": "tool",
+                    "tool": call["function"]["name"],
+                    "input": call["function"].get("arguments", "{}"),
+                    "status": "running",
+                }
+                tools[call["id"]] = step
+                activity.append(step)
+        elif event.event_type == "tool.output":
+            for item in event.payload.get("results", []):
+                if step := tools.get(item.get("callId")):
+                    step["result"] = item.get("result")
+                    step["status"] = "completed"
+    if final_reasoning:
+        activity.append(
+            {
+                "id": f"reasoning-final-{run.id}-{run.last_event_sequence}",
+                "type": "reasoning",
+                "content": final_reasoning,
+                "status": "completed",
+            }
+        )
+    return activity
+
+
 def get_owned_run(user_id: UUID, run_id: UUID) -> AgentRun:
     run = db.session.scalar(
         db.select(AgentRun)

@@ -23,8 +23,8 @@ type ToolRequestEvent = {
   type: "tool.requested";
   runId: string;
   callId: string;
-  tool: "terminal" | "agent_message" | FileToolName;
-  arguments: TerminalAction | FileToolRequest | { toNodeId: string; content: string; expectsReply?: boolean; intent?: "inform" | "question" | "revision_request" | "revision_result"; replyToId?: string };
+  tool: "terminal" | "agent_message" | "finish_collaboration" | FileToolName;
+  arguments: TerminalAction | FileToolRequest | { toNodeId: string; content: string } | { content: string };
 };
 type ActiveRequest = {
   controller: AbortController;
@@ -44,17 +44,8 @@ async function conversationWorkspace(conversationId: string, executionContext?: 
 }
 
 function toolError(error: unknown): { error: string; code?: string } {
-  if (error instanceof ApiError && error.code === "target_agent_not_started") {
-    return {
-      code: error.code,
-      error: "Cannot message this agent because it has not started yet. An upstream agent cannot message an unstarted downstream agent.",
-    };
-  }
-  if (error instanceof ApiError && error.code === "duplicate_agent_message") {
-    return { code: error.code, error: "This duplicates your previous message. Do not retry it; continue or finish your work." };
-  }
-  if (error instanceof ApiError && error.code === "agent_request_already_pending") {
-    return { code: error.code, error: "A request to this agent is already awaiting a result. Do not send another request." };
+  if (error instanceof ApiError && error.code === "agent_cannot_schedule_itself") {
+    return { code: error.code, error: "You cannot hand the collaboration turn to yourself. Choose another member." };
   }
   return { error: error instanceof Error ? error.message : "tool_failed" };
 }
@@ -88,7 +79,6 @@ async function forwardServerStream(response: Response, onEvent: (event: Conversa
       const data = line.slice(5).trim();
       if (!data || data === "[DONE]") continue;
       const event = JSON.parse(data) as ConversationStreamEvent | ToolRequestEvent;
-      if (event.type === "run.failed") throw new Error(event.errorCode);
       if (event.type === "tool.requested") toolRequests.push(event);
       onEvent(event);
     }
@@ -139,6 +129,16 @@ export async function streamMessage(
           if (request.tool === "agent_message") {
             if (!executionContext) throw new Error("agent_message_unavailable");
             const result = await apiRequest(`/api/multi-agents/nodes/${executionContext.ownerId}/messages`, {
+              method: "POST",
+              body: JSON.stringify(request.arguments),
+            });
+            onEvent({ type: "tool.completed", callId: request.callId, result });
+            active.failedToolCalls.delete(signature);
+            return { callId: request.callId, result };
+          }
+          if (request.tool === "finish_collaboration") {
+            if (!executionContext) throw new Error("finish_collaboration_unavailable");
+            const result = await apiRequest(`/api/multi-agents/nodes/${executionContext.ownerId}/finish`, {
               method: "POST",
               body: JSON.stringify(request.arguments),
             });

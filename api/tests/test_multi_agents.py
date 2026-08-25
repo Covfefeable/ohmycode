@@ -1,243 +1,180 @@
+from uuid import UUID
+
 from app import create_app
 from app.extensions import db
+from app.models import AgentEvent, AgentRun
 
 
-def test_multi_agent_dag_lifecycle(tmp_path):
-    app = create_app("testing")
-    with app.app_context():
-        db.create_all()
+def _setup(client):
+    token = client.post(
+        "/api/auth/register",
+        json={"email": "team@example.com", "displayName": "Team", "password": "secret123"},
+    ).get_json()["tokens"]["accessToken"]
+    return {"Authorization": f"Bearer {token}"}
 
-    with app.test_client() as client:
-        registration = client.post(
-            "/api/auth/register",
-            json={
-                "email": "multi-agent@example.com",
-                "displayName": "Workflow User",
-                "password": "secret123",
+
+def _create_team(client, headers):
+    response = client.post(
+        "/api/multi-agents",
+        headers=headers,
+        json={
+            "name": "Writing room",
+            "description": "Create and review an article",
+            "division": "A host coordinates a writer and reviewer",
+            "team": {
+                "title": "Writing room",
+                "members": [
+                    {
+                        "key": "host",
+                        "name": "Host",
+                        "role": "Coordinator",
+                        "instructions": "Coordinate and finish",
+                        "isHost": True,
+                    },
+                    {
+                        "key": "writer",
+                        "name": "Writer",
+                        "role": "Writer",
+                        "instructions": "Write the draft",
+                        "isHost": False,
+                    },
+                    {
+                        "key": "reviewer",
+                        "name": "Reviewer",
+                        "role": "Reviewer",
+                        "instructions": "Review the draft",
+                        "isHost": False,
+                    },
+                ],
             },
-        )
-        token = registration.get_json()["tokens"]["accessToken"]
-        headers = {"Authorization": f"Bearer {token}"}
-        agent = client.post(
-            "/api/multi-agents",
-            headers=headers,
-            json={
-                "name": "Workspace Agent",
-                "description": "Implement and verify a feature",
-                "division": "Backend and frontend in parallel, followed by verification",
-                "flow": {
-                    "title": "Feature workflow",
-                    "nodes": [
-                        {
-                            "key": "api",
-                            "name": "API",
-                            "role": "Backend",
-                            "instructions": "Build API",
-                        },
-                        {"key": "ui", "name": "UI", "role": "Frontend", "instructions": "Build UI"},
-                        {
-                            "key": "verify",
-                            "name": "Verify",
-                            "role": "QA",
-                            "instructions": "Run tests",
-                        },
-                    ],
-                    "edges": [
-                        {"source": "api", "target": "verify"},
-                        {"source": "ui", "target": "verify"},
-                    ],
-                },
-            },
-        ).get_json()
-        task = client.post(
-            f"/api/multi-agents/{agent['id']}/tasks",
-            headers=headers,
-            json={"workspacePath": str(tmp_path)},
-        ).get_json()
-        started = client.post(
-            f"/api/multi-agents/tasks/{task['id']}/start", headers=headers
-        ).get_json()
-        roots = [node for node in started["nodes"] if node["status"] == "ready"]
-        assert {node["key"] for node in roots} == {"api", "ui"}
-        verify = next(node for node in started["nodes"] if node["key"] == "verify")
-        assert verify["status"] == "pending"
-
-        for node in roots:
-            assert (
-                client.post(
-                    f"/api/multi-agents/nodes/{node['id']}/start", headers=headers
-                ).status_code
-                == 200
-            )
-            if node["key"] == "api":
-                unavailable = client.post(
-                    f"/api/multi-agents/nodes/{node['id']}/messages",
-                    headers=headers,
-                    json={"toNodeId": verify["id"], "content": "Premature handoff"},
-                )
-                assert unavailable.status_code == 409
-                assert unavailable.get_json()["error"]["code"] == "target_agent_not_started"
-            current = client.post(
-                f"/api/multi-agents/nodes/{node['id']}/complete",
-                headers=headers,
-                json={"output": {"content": f"{node['name']} done"}},
-            ).get_json()
-
-        verify = next(node for node in current["nodes"] if node["key"] == "verify")
-        assert verify["status"] == "ready"
-        client.post(f"/api/multi-agents/nodes/{verify['id']}/start", headers=headers)
-        completed = client.post(
-            f"/api/multi-agents/nodes/{verify['id']}/complete",
-            headers=headers,
-            json={"output": {"content": "All checks passed"}},
-        ).get_json()
-        assert completed["status"] == "completed"
-
-        api_node = next(node for node in completed["nodes"] if node["key"] == "api")
-        revision = client.post(
-            f"/api/multi-agents/nodes/{verify['id']}/messages",
-            headers=headers,
-            json={
-                "toNodeId": api_node["id"],
-                "content": "Please revise the API result",
-                "intent": "revision_request",
-                "expectsReply": True,
-            },
-        )
-        assert revision.status_code == 201
-        assert revision.get_json()["sourceStatus"] == "paused"
-        assert revision.get_json()["targetStatus"] == "running"
-        duplicate_revision = client.post(
-            f"/api/multi-agents/nodes/{verify['id']}/messages",
-            headers=headers,
-            json={
-                "toNodeId": api_node["id"],
-                "content": "Please revise the API result again",
-                "intent": "revision_request",
-                "expectsReply": True,
-            },
-        )
-        assert duplicate_revision.status_code == 409
-        assert duplicate_revision.get_json()["error"]["code"] == "agent_request_already_pending"
-
-        reply = client.post(
-            f"/api/multi-agents/nodes/{api_node['id']}/messages",
-            headers=headers,
-            json={
-                "toNodeId": verify["id"],
-                "content": "The revised API result is ready",
-                "intent": "revision_result",
-            },
-        )
-        assert reply.status_code == 201
-        assert reply.get_json()["targetStatus"] == "running"
-        revised = client.post(
-            f"/api/multi-agents/nodes/{api_node['id']}/complete",
-            headers=headers,
-            json={"output": {"content": "API revised"}},
-        ).get_json()
-        verify = next(node for node in revised["nodes"] if node["key"] == "verify")
-        assert verify["status"] == "running"
-        assert revised["status"] == "running"
-
-        inform = client.post(
-            f"/api/multi-agents/nodes/{verify['id']}/messages",
-            headers=headers,
-            json={
-                "toNodeId": api_node["id"],
-                "content": "For your information",
-                "intent": "inform",
-            },
-        )
-        assert inform.status_code == 201
-        assert inform.get_json()["targetStatus"] == "completed"
-
-        blocked_delete = client.delete(f"/api/multi-agents/tasks/{task['id']}", headers=headers)
-        assert blocked_delete.status_code == 409
-        assert blocked_delete.get_json()["error"]["code"] == "workflow_running_cannot_delete"
-        assert (
-            client.post(f"/api/multi-agents/tasks/{task['id']}/stop", headers=headers).status_code
-            == 200
-        )
-        assert (
-            client.delete(f"/api/multi-agents/tasks/{task['id']}", headers=headers).status_code
-            == 204
-        )
+        },
+    )
+    assert response.status_code == 201
+    return response.get_json()
 
 
-def test_rerun_reuses_task_and_resets_execution(tmp_path):
+def test_host_driven_group_chat_lifecycle(tmp_path):
     app = create_app("testing")
     with app.app_context():
         db.create_all()
     with app.test_client() as client:
-        token = client.post(
-            "/api/auth/register",
-            json={
-                "email": "rerun@example.com",
-                "displayName": "Rerun",
-                "password": "secret123",
-            },
-        ).get_json()["tokens"]["accessToken"]
-        headers = {"Authorization": f"Bearer {token}"}
-        agent = client.post(
-            "/api/multi-agents",
-            headers=headers,
-            json={
-                "name": "Reusable",
-                "description": "Run twice",
-                "division": "One worker",
-                "flow": {
-                    "title": "Reusable",
-                    "nodes": [
-                        {
-                            "key": "worker",
-                            "name": "Worker",
-                            "role": "Worker",
-                            "instructions": "Work",
-                        },
-                        {
-                            "key": "reviewer",
-                            "name": "Reviewer",
-                            "role": "Reviewer",
-                            "instructions": "Review",
-                        },
-                    ],
-                    "edges": [{"source": "worker", "target": "reviewer"}],
-                },
-            },
-        ).get_json()
+        headers = _setup(client)
+        agent = _create_team(client, headers)
+        assert sum(member["isHost"] for member in agent["templateTeam"]["members"]) == 1
         task = client.post(
             f"/api/multi-agents/{agent['id']}/tasks",
             headers=headers,
-            json={"workspacePath": str(tmp_path), "request": "Do work"},
+            json={"workspacePath": str(tmp_path), "request": "Write a concise launch post"},
         ).get_json()
-        started = client.post(
-            f"/api/multi-agents/tasks/{task['id']}/start", headers=headers
-        ).get_json()
-        worker = next(node for node in started["nodes"] if node["key"] == "worker")
-        client.post(f"/api/multi-agents/nodes/{worker['id']}/start", headers=headers)
-        completed = client.post(
-            f"/api/multi-agents/nodes/{worker['id']}/complete",
-            headers=headers,
-            json={"output": {"content": "done"}},
-        ).get_json()
-        reviewer = next(node for node in completed["nodes"] if node["key"] == "reviewer")
-        client.post(f"/api/multi-agents/nodes/{reviewer['id']}/start", headers=headers)
-        completed = client.post(
-            f"/api/multi-agents/nodes/{reviewer['id']}/complete",
-            headers=headers,
-            json={"output": {"content": "reviewed"}},
-        ).get_json()
-        assert completed["status"] == "completed"
+        host = next(member for member in task["members"] if member["isHost"])
+        writer = next(member for member in task["members"] if member["key"] == "writer")
+        assert task["messages"][0]["content"] == "Write a concise launch post"
 
-        rerun = client.post(
+        started = client.post(f"/api/multi-agents/tasks/{task['id']}/start", headers=headers)
+        assert started.get_json()["currentSpeakerId"] == host["id"]
+        client.post(f"/api/multi-agents/nodes/{host['id']}/start", headers=headers)
+        self_handoff = client.post(
+            f"/api/multi-agents/nodes/{host['id']}/messages",
+            headers=headers,
+            json={"toNodeId": host["id"], "content": "Continue"},
+        )
+        assert self_handoff.status_code == 409
+        handoff = client.post(
+            f"/api/multi-agents/nodes/{host['id']}/messages",
+            headers=headers,
+            json={"toNodeId": writer["id"], "content": "@Writer draft the launch post"},
+        )
+        assert handoff.status_code == 201
+        state = client.get(f"/api/multi-agents/tasks/{task['id']}", headers=headers).get_json()
+        assert state["currentSpeakerId"] == writer["id"]
+        assert len(state["messages"]) == 2
+
+        writer_start = client.post(
+            f"/api/multi-agents/nodes/{writer['id']}/start", headers=headers
+        ).get_json()
+        run = AgentRun(conversation_id=UUID(writer_start["conversationId"]), status="completed")
+        db.session.add(run)
+        db.session.flush()
+        db.session.add_all(
+            [
+                AgentEvent(
+                    run=run,
+                    sequence=1,
+                    event_type="run.started",
+                    payload={},
+                ),
+                AgentEvent(
+                    run=run,
+                    sequence=2,
+                    event_type="reasoning.completed",
+                    payload={"content": "Planning the draft"},
+                ),
+                AgentEvent(
+                    run=run,
+                    sequence=3,
+                    event_type="message.progress",
+                    payload={"content": "Draft complete"},
+                ),
+            ]
+        )
+        run.last_event_sequence = 3
+        db.session.commit()
+        client.post(
+            f"/api/multi-agents/nodes/{writer['id']}/complete",
+            headers=headers,
+            json={"output": {"content": "Draft complete"}},
+        )
+        state = client.get(f"/api/multi-agents/tasks/{task['id']}", headers=headers).get_json()
+        writer_state = next(member for member in state["members"] if member["id"] == writer["id"])
+        assert [step["type"] for step in writer_state["finalOutput"]["activity"]] == [
+            "run",
+            "reasoning",
+            "message",
+        ]
+        assert state["currentSpeakerId"] == host["id"]
+        client.post(f"/api/multi-agents/nodes/{host['id']}/start", headers=headers)
+        finished = client.post(
+            f"/api/multi-agents/nodes/{host['id']}/finish",
+            headers=headers,
+            json={"content": "Final launch post"},
+        ).get_json()
+        assert finished["status"] == "completed"
+        assert finished["messages"][-1]["type"] == "final"
+
+
+def test_user_message_queues_target_and_host_recovers(tmp_path):
+    app = create_app("testing")
+    with app.app_context():
+        db.create_all()
+    with app.test_client() as client:
+        headers = _setup(client)
+        agent = _create_team(client, headers)
+        task = client.post(
+            f"/api/multi-agents/{agent['id']}/tasks",
+            headers=headers,
+            json={"workspacePath": str(tmp_path), "request": "Prepare content"},
+        ).get_json()
+        task = client.post(
             f"/api/multi-agents/tasks/{task['id']}/start", headers=headers
         ).get_json()
-        rerun_worker = next(node for node in rerun["nodes"] if node["key"] == "worker")
-        assert rerun["id"] == task["id"]
-        assert rerun["status"] == "running"
-        assert rerun_worker["id"] == worker["id"]
-        assert rerun_worker["status"] == "ready"
-        assert rerun_worker["finalOutput"] is None
-        listed = client.get("/api/multi-agents", headers=headers).get_json()
-        assert len(listed[0]["tasks"]) == 1
+        host = next(member for member in task["members"] if member["isHost"])
+        reviewer = next(member for member in task["members"] if member["key"] == "reviewer")
+        client.post(f"/api/multi-agents/nodes/{host['id']}/start", headers=headers)
+        client.post(
+            f"/api/multi-agents/nodes/{reviewer['id']}/user-messages",
+            headers=headers,
+            json={"content": "Check the tone next"},
+        )
+        queued = client.get(f"/api/multi-agents/tasks/{task['id']}", headers=headers).get_json()
+        assert (
+            next(item for item in queued["members"] if item["id"] == reviewer["id"])["status"]
+            == "queued"
+        )
+        client.post(
+            f"/api/multi-agents/nodes/{host['id']}/complete",
+            headers=headers,
+            json={"output": {"content": "No explicit handoff"}},
+        )
+        resumed = client.get(f"/api/multi-agents/tasks/{task['id']}", headers=headers).get_json()
+        assert resumed["status"] == "running"
+        assert resumed["currentSpeakerId"] == reviewer["id"]

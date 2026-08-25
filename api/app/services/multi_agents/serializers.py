@@ -1,38 +1,17 @@
 from ...extensions import db
 from ...models import AgentRun, MultiAgent, MultiAgentMessage, MultiAgentTask, WorkspaceChange
+from ..agent.runs import build_run_activity
+from .planner import validate_plan
 
 
 def serialize_agent(agent: MultiAgent) -> dict:
-    template = agent.template_flow or {}
-    if not template.get("nodes") and agent.tasks:
-        source = agent.tasks[-1]
-        keys = {node.id: node.key for node in source.nodes}
-        template = {
-            "title": source.title,
-            "nodes": [
-                {
-                    "key": node.key,
-                    "name": node.name,
-                    "role": node.role,
-                    "instructions": node.instructions,
-                    "modelId": (
-                        str(node.model_configuration_id) if node.model_configuration_id else None
-                    ),
-                    "position": node.position,
-                }
-                for node in source.nodes
-            ],
-            "edges": [
-                {"source": keys[edge.source_node_id], "target": keys[edge.target_node_id]}
-                for edge in source.edges
-            ],
-        }
+    team = validate_plan(agent.template_team or {})
     return {
         "id": str(agent.id),
         "name": agent.name,
         "description": agent.description,
         "division": agent.division,
-        "templateFlow": template,
+        "templateTeam": team,
         "createdAt": agent.created_at.isoformat(),
         "tasks": [
             {
@@ -47,85 +26,63 @@ def serialize_agent(agent: MultiAgent) -> dict:
 
 
 def serialize_task(task: MultiAgentTask) -> dict:
-    work_nodes = [node for node in task.nodes if node.key not in {"workflow_start", "workflow_end"}]
-    work_node_ids = {node.id for node in work_nodes}
-    work_edges = [edge for edge in task.edges if edge.source_node_id in work_node_ids and edge.target_node_id in work_node_ids]
-    messages = {str(node.id): [] for node in task.nodes}
-    for message in task_messages(task):
-        payload = {
+    all_messages = [
+        {
             "id": str(message.id),
             "fromNodeId": str(message.from_node_id) if message.from_node_id else None,
             "toNodeId": str(message.to_node_id),
             "type": message.message_type,
             "senderType": message.sender_type,
             "content": message.content,
-            "expectsReply": message.expects_reply,
-            "replyToId": str(message.reply_to_id) if message.reply_to_id else None,
             "createdAt": message.created_at.isoformat(),
         }
-        messages.setdefault(str(message.from_node_id), []).append(payload)
-        messages.setdefault(str(message.to_node_id), []).append(payload)
+        for message in task_messages(task)
+    ]
+    conversation_ids = [node.conversation_id for node in task.members if node.conversation_id]
+    runs_by_conversation: dict = {}
+    for run in db.session.scalars(
+        db.select(AgentRun)
+        .where(AgentRun.conversation_id.in_(conversation_ids))
+        .order_by(AgentRun.started_at)
+    ):
+        runs_by_conversation.setdefault(run.conversation_id, []).append(run)
     changes = task_changes(task)
-    incoming = {edge.target_node_id for edge in work_edges}
-    outgoing = {edge.source_node_id for edge in work_edges}
-    min_x = min((float(node.position.get("x", 0)) for node in work_nodes), default=120)
-    max_x = max((float(node.position.get("x", 0)) for node in work_nodes), default=120)
-    conversation_ids = [node.conversation_id for node in work_nodes if node.conversation_id]
-    latest_runs = {}
-    if conversation_ids:
-        for run in db.session.scalars(
-            db.select(AgentRun)
-            .where(AgentRun.conversation_id.in_(conversation_ids))
-            .order_by(AgentRun.started_at)
-        ):
-            latest_runs[run.conversation_id] = run
-    boundary_status = "completed" if task.status == "completed" else ("running" if task.status == "running" else task.status)
-    serialized_nodes = [
-        {
-            "id": "workflow_start", "key": "workflow_start", "name": "Start",
-            "role": "Workflow entry", "instructions": task.request, "status": boundary_status,
-            "position": {"x": min_x - 300, "y": 100}, "conversationId": None,
-            "modelId": None, "finalOutput": {"content": task.request}, "messages": [], "changedFiles": [],
-        },
-        *[
+    members = []
+    for node in task.members:
+        runs = runs_by_conversation.get(node.conversation_id, [])
+        run = runs[-1] if runs else None
+        activity = [
+            step
+            for item in runs
+            for step in build_run_activity(item, include_run_boundary=True)
+        ]
+        final_output = {**(node.final_output or {})}
+        if activity:
+            final_output["activity"] = activity
+        members.append(
             {
-                "id": str(node.id), "key": node.key, "name": node.name, "role": node.role,
-                "instructions": node.instructions, "status": node.status, "position": node.position,
+                "id": str(node.id),
+                "key": node.key,
+                "name": node.name,
+                "role": node.role,
+                "instructions": node.instructions,
+                "isHost": node.is_host,
+                "status": node.status,
                 "conversationId": str(node.conversation_id) if node.conversation_id else None,
-                "modelId": str(node.model_configuration_id) if node.model_configuration_id else None,
-                "finalOutput": node.final_output, "messages": messages.get(str(node.id), []),
+                "modelId": str(node.model_configuration_id)
+                if node.model_configuration_id
+                else None,
+                "finalOutput": final_output or None,
                 "changedFiles": [item for item in changes if item["nodeId"] == str(node.id)],
-                "agentStartedAt": (
-                    latest_runs[node.conversation_id].started_at.isoformat()
-                    if node.conversation_id in latest_runs else None
-                ),
-                "agentDurationMs": (
-                    max(0, round((latest_runs[node.conversation_id].completed_at - latest_runs[node.conversation_id].started_at).total_seconds() * 1000))
-                    if node.conversation_id in latest_runs
-                    and latest_runs[node.conversation_id].completed_at
-                    else None
-                ),
+                "agentStartedAt": run.started_at.isoformat() if run else None,
+                "agentDurationMs": max(
+                    0, round((run.completed_at - run.started_at).total_seconds() * 1000)
+                )
+                if run and run.completed_at
+                else None,
             }
-            for node in work_nodes
-        ],
-        {
-            "id": "workflow_end", "key": "workflow_end", "name": "End",
-            "role": "Workflow completion", "instructions": "Waits for all terminal agents.",
-            "status": "completed" if task.status == "completed" else "pending",
-            "position": {"x": max_x + 330, "y": 100}, "conversationId": None,
-            "modelId": None, "finalOutput": None, "messages": [], "changedFiles": [],
-        },
-    ]
-    serialized_edges = [
-        {"id": "workflow-start-" + str(node.id), "source": "workflow_start", "target": str(node.id)}
-        for node in work_nodes if node.id not in incoming
-    ] + [
-        {"id": str(edge.id), "source": str(edge.source_node_id), "target": str(edge.target_node_id)}
-        for edge in work_edges
-    ] + [
-        {"id": "workflow-end-" + str(node.id), "source": str(node.id), "target": "workflow_end"}
-        for node in work_nodes if node.id not in outgoing
-    ]
+        )
+    active = next((node for node in task.members if node.status in {"ready", "running"}), None)
     return {
         "id": str(task.id),
         "agentId": str(task.agent_id),
@@ -133,8 +90,9 @@ def serialize_task(task: MultiAgentTask) -> dict:
         "request": task.request,
         "status": task.status,
         "workspacePath": task.project.path,
-        "nodes": serialized_nodes,
-        "edges": serialized_edges,
+        "members": members,
+        "messages": all_messages,
+        "currentSpeakerId": str(active.id) if active else None,
         "createdAt": task.created_at.isoformat(),
         "updatedAt": task.updated_at.isoformat(),
     }
@@ -145,14 +103,12 @@ def task_messages(task: MultiAgentTask) -> list[MultiAgentMessage]:
         db.session.scalars(
             db.select(MultiAgentMessage)
             .where(MultiAgentMessage.task_id == task.id)
-            .order_by(MultiAgentMessage.created_at)
+            .order_by(MultiAgentMessage.sequence)
         )
     )
 
 
 def task_changes(task: MultiAgentTask) -> list[dict]:
-    from ...extensions import db
-
     return [
         {
             "id": str(item.id),

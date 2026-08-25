@@ -18,11 +18,10 @@ interface Window {
       selectWorkspace(): Promise<string | null>;
       createTask(agentId: string, request: string, workspacePath: string): Promise<MultiAgentTask>;
       getTask(taskId: string): Promise<MultiAgentTask>;
-      saveFlow(taskId: string, positions: Record<string, { x: number; y: number }>): Promise<MultiAgentTask>;
       deleteTask(taskId: string): Promise<void>;
       runTask(taskId: string, requestId: string): Promise<MultiAgentTask>;
       stopTask(requestId: string | null, taskId?: string): Promise<void>;
-      adjustNode(taskId: string, nodeId: string, content: string, requestId: string): Promise<MultiAgentTask>;
+      sendMessage(taskId: string, nodeId: string, content: string): Promise<MultiAgentTask>;
       onEvent(requestId: string, callback: (event: MultiAgentRunEvent) => void): () => void;
     };
     conversations: {
@@ -90,12 +89,12 @@ type PublicSettings = {
 };
 type TokenUsageEntry = { date: string; tokens: number };
 type MultiAgentTaskSummary = { id: string; title: string; status: string; createdAt: string };
-type MultiAgentTemplateNode = { key: string; name: string; role: string; instructions: string; modelId?: string | null; position: { x: number; y: number } };
-type MultiAgentTemplateFlow = { title: string; nodes: MultiAgentTemplateNode[]; edges: Array<{ source: string; target: string }> };
-type MultiAgentSummary = { id: string; name: string; description: string; division: string; templateFlow: MultiAgentTemplateFlow; createdAt: string; tasks: MultiAgentTaskSummary[] };
-type MultiAgentMessage = { id: string; fromNodeId: string | null; toNodeId: string; type: string; senderType: "user" | "agent"; content: string; expectsReply: boolean; replyToId?: string | null; createdAt: string };
-type MultiAgentNodeData = { id: string; key: string; name: string; role: string; instructions: string; status: string; position: { x: number; y: number }; conversationId?: string | null; modelId?: string | null; finalOutput?: Record<string, unknown> | null; agentStartedAt?: string | null; agentDurationMs?: number | null; messages: MultiAgentMessage[]; changedFiles: Array<{ id: string; path: string; operation: string; sequence: number }> };
-type MultiAgentTask = { id: string; agentId: string; title: string; request: string; status: string; workspacePath: string; nodes: MultiAgentNodeData[]; edges: Array<{ id: string; source: string; target: string }>; createdAt: string; updatedAt: string };
+type MultiAgentTemplateMember = { key: string; name: string; role: string; instructions: string; modelId?: string | null; isHost: boolean; sortOrder: number };
+type MultiAgentTemplateTeam = { title: string; members: MultiAgentTemplateMember[] };
+type MultiAgentSummary = { id: string; name: string; description: string; division: string; templateTeam: MultiAgentTemplateTeam; createdAt: string; tasks: MultiAgentTaskSummary[] };
+type MultiAgentMessage = { id: string; fromNodeId: string | null; toNodeId: string; type: string; senderType: "user" | "agent"; content: string; createdAt: string };
+type MultiAgentMemberData = MultiAgentTemplateMember & { id: string; status: string; conversationId?: string | null; finalOutput?: Record<string, unknown> | null; agentStartedAt?: string | null; agentDurationMs?: number | null; changedFiles: Array<{ id: string; path: string; operation: string; sequence: number }> };
+type MultiAgentTask = { id: string; agentId: string; title: string; request: string; status: string; workspacePath: string; members: MultiAgentMemberData[]; messages: MultiAgentMessage[]; currentSpeakerId?: string | null; createdAt: string; updatedAt: string };
 type ConversationStreamEvent =
   | { type: "reasoning.started"; stepId: string }
   | { type: "run.started"; runId: string }
@@ -103,7 +102,7 @@ type ConversationStreamEvent =
   | { type: "reasoning.delta"; content: string }
   | { type: "message.started" }
   | { type: "message.delta"; content: string }
-  | { type: "tool.requested"; runId: string; callId: string; tool: "terminal" | "agent_message" | "read_file" | "search_files" | "list_directory" | "apply_patch"; arguments: TerminalAction | Record<string, unknown> }
+  | { type: "tool.requested"; runId: string; callId: string; tool: "terminal" | "agent_message" | "finish_collaboration" | "read_file" | "search_files" | "list_directory" | "apply_patch"; arguments: TerminalAction | Record<string, unknown> }
   | { type: "tool.completed"; callId: string; result: unknown };
 type MultiAgentRunEvent =
   | { type: "task.updated"; task: MultiAgentTask }

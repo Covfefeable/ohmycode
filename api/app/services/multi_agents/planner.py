@@ -1,8 +1,5 @@
 import json
-import os
 import re
-from collections import defaultdict, deque
-from pathlib import Path
 from uuid import UUID
 
 import httpx
@@ -11,58 +8,14 @@ from ..errors import ServiceError
 from ..model_credentials import decrypt_api_key
 from ..settings import get_model_configuration
 
-PLANNER_PROMPT = """You design small, practical coding-agent DAGs. Return JSON only.
-The workflow must obey strict dependencies: a target starts only after every source completes.
-Create 2-6 focused agent nodes. Independent nodes may run in parallel. Add one integration or
-verification node when useful. Do not add project-management filler or checkpoint nodes.
-Schema: {"title": string, "nodes": [{"key": string, "name": string, "role": string,
-"instructions": string}], "edges": [{"source": node_key, "target": node_key}]}.
-Keys must be short lowercase snake_case and unique. The graph must be acyclic."""
-
-START_KEY = "workflow_start"
-END_KEY = "workflow_end"
-
-
-def _add_boundary_nodes(raw_nodes: list, raw_edges: list) -> tuple[list, list]:
-    keys = {str(item.get("key") or "") for item in raw_nodes if isinstance(item, dict)}
-    has_start, has_end = START_KEY in keys, END_KEY in keys
-    if has_start != has_end:
-        raise ServiceError("invalid_workflow_boundaries", 422)
-    if has_start:
-        return raw_nodes, raw_edges
-    incoming = {str(item.get("target") or "") for item in raw_edges if isinstance(item, dict)}
-    outgoing = {str(item.get("source") or "") for item in raw_edges if isinstance(item, dict)}
-    agent_keys = [str(item.get("key") or "") for item in raw_nodes if isinstance(item, dict)]
-    nodes = [
-        {"key": START_KEY, "name": "Start", "role": "Workflow entry", "instructions": "Starts all root agents."},
-        *raw_nodes,
-        {"key": END_KEY, "name": "End", "role": "Workflow completion", "instructions": "Waits for all terminal agents."},
-    ]
-    edges = [*raw_edges]
-    edges.extend({"source": START_KEY, "target": key} for key in agent_keys if key not in incoming)
-    edges.extend({"source": key, "target": END_KEY} for key in agent_keys if key not in outgoing)
-    return nodes, edges
-
-
-def workspace_outline(workspace_path: str) -> str:
-    root = Path(workspace_path)
-    if not root.is_dir():
-        raise ServiceError("workspace_not_found", 422)
-    ignored = {".git", ".venv", "node_modules", "dist", "dist-electron", "__pycache__"}
-    lines: list[str] = []
-    for current, directories, files in os.walk(root):
-        directories[:] = sorted(item for item in directories if item not in ignored)[:20]
-        relative = Path(current).relative_to(root)
-        depth = len(relative.parts)
-        if depth > 2:
-            directories[:] = []
-            continue
-        for filename in sorted(files)[:30]:
-            path = relative / filename
-            lines.append(str(path).replace("\\", "/"))
-            if len(lines) >= 160:
-                return "\n".join(lines)
-    return "\n".join(lines)
+PLANNER_PROMPT = """Design a reusable AI collaboration team. Return JSON only.
+Create exactly one host and 1-8 focused participant roles. The host receives the user's run brief,
+controls the conversation, delegates one speaker at a time, resolves stalls, and ends the task.
+Participants collaborate through a shared group chat. Do not create workflow, start, end, routing,
+checkpoint, or project-management filler roles.
+Schema: {"title": string, "members": [{"key": string, "name": string, "role": string,
+"instructions": string, "isHost": boolean}]}.
+Keys must be unique lowercase snake_case. Exactly one member must have isHost=true."""
 
 
 def _json_content(value: str) -> dict:
@@ -73,15 +26,13 @@ def _json_content(value: str) -> dict:
     try:
         result = json.loads(cleaned)
     except json.JSONDecodeError as error:
-        raise ServiceError("invalid_workflow_plan", 502) from error
+        raise ServiceError("invalid_collaboration_team", 502) from error
     if not isinstance(result, dict):
-        raise ServiceError("invalid_workflow_plan", 502)
+        raise ServiceError("invalid_collaboration_team", 502)
     return result
 
 
-def generate_plan(
-    user_id: UUID, request: str, model_id: str | None = None, workspace_path: str | None = None
-) -> dict:
+def generate_plan(user_id: UUID, request: str, model_id: str | None = None) -> dict:
     model = get_model_configuration(user_id, model_id)
     if not model:
         raise ServiceError("model_not_configured", 422)
@@ -94,109 +45,43 @@ def generate_plan(
             "response_format": {"type": "json_object"},
             "messages": [
                 {"role": "system", "content": PLANNER_PROMPT},
-                {
-                    "role": "user",
-                    "content": f"Collaboration brief:\n{request}\n\n"
-                    + (
-                        f"Workspace outline:\n{workspace_outline(workspace_path)}"
-                        if workspace_path
-                        else (
-                            "Design a reusable workflow independent of a specific "
-                            "repository layout."
-                        )
-                    ),
-                },
+                {"role": "user", "content": f"Collaboration brief:\n{request}"},
             ],
         },
         timeout=120,
     )
     response.raise_for_status()
-    content = response.json()["choices"][0]["message"]["content"]
-    return validate_plan(_json_content(content))
+    return validate_plan(_json_content(response.json()["choices"][0]["message"]["content"]))
 
 
 def validate_plan(plan: dict) -> dict:
-    raw_nodes = plan.get("nodes")
-    raw_edges = plan.get("edges")
-    if not isinstance(raw_nodes, list) or not 1 < len(raw_nodes) <= 10:
-        raise ServiceError("invalid_workflow_plan", 422)
-    if not isinstance(raw_edges, list):
-        raise ServiceError("invalid_workflow_plan", 422)
-    raw_nodes, raw_edges = _add_boundary_nodes(raw_nodes, raw_edges)
-    nodes = []
-    keys: set[str] = set()
-    for index, item in enumerate(raw_nodes):
+    raw_members = plan.get("members")
+    if not isinstance(raw_members, list) or not 2 <= len(raw_members) <= 10:
+        raise ServiceError("invalid_collaboration_team", 422)
+    members, keys = [], set()
+    for index, item in enumerate(raw_members):
         if not isinstance(item, dict):
-            raise ServiceError("invalid_workflow_plan", 422)
+            raise ServiceError("invalid_collaboration_team", 422)
         key = re.sub(r"[^a-z0-9_]+", "_", str(item.get("key") or "").lower()).strip("_")
         if not key or key in keys:
-            raise ServiceError("invalid_workflow_plan", 422)
+            raise ServiceError("invalid_collaboration_team", 422)
         keys.add(key)
-        name = str(item.get("name") or "").strip()[:160]
-        role = str(item.get("role") or "").strip()[:500]
-        instructions = str(item.get("instructions") or "").strip()
-        model_id = str(item.get("modelId") or "").strip() or None
-        if not name or not role or not instructions:
-            raise ServiceError("invalid_workflow_plan", 422)
-        nodes.append(
-            {
-                "key": key,
-                "name": name,
-                "role": role,
-                "instructions": instructions,
-                "modelId": model_id,
-                "index": index,
-            }
-        )
-    edges = []
-    graph: dict[str, list[str]] = defaultdict(list)
-    indegree = {key: 0 for key in keys}
-    seen_edges: set[tuple[str, str]] = set()
-    for item in raw_edges:
-        if not isinstance(item, dict):
-            raise ServiceError("invalid_workflow_plan", 422)
-        source, target = str(item.get("source") or ""), str(item.get("target") or "")
-        if source not in keys or target not in keys or source == target:
-            raise ServiceError("invalid_workflow_plan", 422)
-        if (source, target) in seen_edges:
-            continue
-        seen_edges.add((source, target))
-        graph[source].append(target)
-        indegree[target] += 1
-        edges.append({"source": source, "target": target})
-    queue = deque(key for key, degree in indegree.items() if degree == 0)
-    layers = {key: 0 for key in queue}
-    visited = 0
-    while queue:
-        source = queue.popleft()
-        visited += 1
-        for target in graph[source]:
-            layers[target] = max(layers.get(target, 0), layers[source] + 1)
-            indegree[target] -= 1
-            if indegree[target] == 0:
-                queue.append(target)
-    if visited != len(nodes):
-        raise ServiceError("workflow_cycle", 422)
-    if indegree[START_KEY] != 0 or graph[END_KEY]:
-        raise ServiceError("invalid_workflow_boundaries", 422)
-    reachable = {START_KEY}
-    queue = deque([START_KEY])
-    while queue:
-        for target in graph[queue.popleft()]:
-            if target not in reachable:
-                reachable.add(target)
-                queue.append(target)
-    if reachable != keys:
-        raise ServiceError("invalid_workflow_boundaries", 422)
-    row_counts: dict[int, int] = defaultdict(int)
-    for node in nodes:
-        layer = layers.get(node["key"], 0)
-        row = row_counts[layer]
-        row_counts[layer] += 1
-        node["position"] = {"x": 80 + layer * 330, "y": 100 + row * 190}
-        node.pop("index")
+        member = {
+            "key": key,
+            "name": str(item.get("name") or "").strip()[:160],
+            "role": str(item.get("role") or "").strip()[:500],
+            "instructions": str(item.get("instructions") or "").strip(),
+            "modelId": str(item.get("modelId") or "").strip() or None,
+            "isHost": bool(item.get("isHost")),
+            "sortOrder": index,
+        }
+        if not member["name"] or not member["role"] or not member["instructions"]:
+            raise ServiceError("invalid_collaboration_team", 422)
+        members.append(member)
+    if sum(member["isHost"] for member in members) != 1:
+        raise ServiceError("collaboration_requires_one_host", 422)
+    members.sort(key=lambda item: (not item["isHost"], item["sortOrder"]))
     return {
-        "title": str(plan.get("title") or "New task").strip()[:240],
-        "nodes": nodes,
-        "edges": edges,
+        "title": str(plan.get("title") or "New collaboration").strip()[:240],
+        "members": members,
     }

@@ -11,19 +11,20 @@ from ..services.multi_agents import (
     delete_agent,
     delete_task,
     fail_node,
+    finish_collaboration,
     get_task,
     list_agents,
     post_message,
     post_user_message,
     record_changes,
-    replace_flow,
+    recover_host,
+    replace_team,
     serialize_agent,
     serialize_task,
     start_node,
     start_task,
     stop_task,
     update_agent,
-    wake_node,
 )
 
 multi_agents_bp = Blueprint("multi_agents", __name__)
@@ -78,11 +79,11 @@ def get_task_route(task_id: UUID):
     return jsonify(serialize_task(task))
 
 
-@multi_agents_bp.patch("/tasks/<uuid:task_id>/flow")
+@multi_agents_bp.patch("/tasks/<uuid:task_id>/team")
 @jwt_required()
-def replace_flow_route(task_id: UUID):
+def replace_team_route(task_id: UUID):
     return jsonify(
-        serialize_task(replace_flow(user_id(), task_id, request.get_json(silent=True) or {}))
+        serialize_task(replace_team(user_id(), task_id, request.get_json(silent=True) or {}))
     )
 
 
@@ -102,7 +103,6 @@ def post_message_route(node_id: UUID):
             "id": str(message.id),
             "sourceStatus": message.from_node.status if message.from_node else None,
             "targetStatus": message.to_node.status,
-            "targetOutput": message.to_node.final_output,
         }
     ), 201
 
@@ -127,6 +127,12 @@ def start_task_route(task_id: UUID):
     return jsonify(serialize_task(start_task(user_id(), task_id)))
 
 
+@multi_agents_bp.post("/tasks/<uuid:task_id>/recover-host")
+@jwt_required()
+def recover_host_route(task_id: UUID):
+    return jsonify(serialize_task(recover_host(user_id(), task_id)))
+
+
 @multi_agents_bp.post("/tasks/<uuid:task_id>/stop")
 @jwt_required()
 def stop_task_route(task_id: UUID):
@@ -147,15 +153,14 @@ def start_node_route(node_id: UUID):
     )
 
 
-@multi_agents_bp.post("/nodes/<uuid:node_id>/wake")
+@multi_agents_bp.post("/nodes/<uuid:node_id>/finish")
 @jwt_required()
-def wake_node_route(node_id: UUID):
-    node = wake_node(user_id(), node_id)
-    return jsonify({
-        "nodeId": str(node.id),
-        "conversationId": str(node.conversation_id),
-        "modelId": str(node.model_configuration_id) if node.model_configuration_id else None,
-    })
+def finish_collaboration_route(node_id: UUID):
+    return jsonify(
+        serialize_task(
+            finish_collaboration(user_id(), node_id, request.get_json(silent=True) or {})
+        )
+    )
 
 
 @multi_agents_bp.post("/nodes/<uuid:node_id>/complete")

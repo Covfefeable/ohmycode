@@ -7,7 +7,6 @@ from .message import Message
 from .model_configuration import ModelConfiguration
 from .multi_agent import (
     MultiAgent,
-    MultiAgentEdge,
     MultiAgentMessage,
     MultiAgentNode,
     MultiAgentTask,
@@ -25,7 +24,6 @@ __all__ = [
     "Message",
     "ModelConfiguration",
     "MultiAgent",
-    "MultiAgentEdge",
     "MultiAgentMessage",
     "MultiAgentNode",
     "MultiAgentTask",

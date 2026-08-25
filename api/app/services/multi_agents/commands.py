@@ -7,7 +7,6 @@ from ...models import (
     Conversation,
     ModelConfiguration,
     MultiAgent,
-    MultiAgentEdge,
     MultiAgentMessage,
     MultiAgentNode,
     MultiAgentTask,
@@ -15,45 +14,38 @@ from ...models import (
     WorkspaceChange,
 )
 from ..errors import ServiceError
-from .planner import END_KEY, START_KEY, generate_plan, validate_plan
+from .planner import generate_plan, validate_plan
 from .queries import get_task, owned_agent, owned_node
-from .state_machine import (
-    NODE_ACTIVE,
-    TASK_TERMINAL,
-    refresh_graph,
-    reset_node,
-    transition_node,
-    transition_task,
-)
+
+TASK_TERMINAL = {"completed", "failed", "stopped"}
 
 
-def _reusable_flow(agent: MultiAgent) -> dict:
-    if (agent.template_flow or {}).get("nodes"):
-        return agent.template_flow
-    if not agent.tasks:
-        raise ServiceError("invalid_workflow_plan", 422)
-    source = agent.tasks[-1]
-    keys = {node.id: node.key for node in source.nodes}
-    return {
-        "title": source.title,
-        "nodes": [
-            {
-                "key": node.key,
-                "name": node.name,
-                "role": node.role,
-                "instructions": node.instructions,
-                "modelId": (
-                    str(node.model_configuration_id) if node.model_configuration_id else None
-                ),
-                "position": node.position,
-            }
-            for node in source.nodes
-        ],
-        "edges": [
-            {"source": keys[edge.source_node_id], "target": keys[edge.target_node_id]}
-            for edge in source.edges
-        ],
-    }
+def _team(agent: MultiAgent) -> dict:
+    return validate_plan(agent.template_team or {})
+
+
+def _host(task: MultiAgentTask) -> MultiAgentNode:
+    host = next((node for node in task.members if node.is_host), None)
+    if not host:
+        raise ServiceError("collaboration_host_missing", 409)
+    return host
+
+
+def _activate_next(task: MultiAgentTask, fallback: MultiAgentNode | None = None) -> None:
+    queued = next((node for node in task.members if node.status == "queued"), None)
+    (queued or fallback or _host(task)).status = "ready"
+
+
+def _next_message_sequence(task_id: UUID) -> int:
+    db.session.execute(
+        db.select(MultiAgentTask.id).where(MultiAgentTask.id == task_id).with_for_update()
+    )
+    current = db.session.scalar(
+        db.select(db.func.max(MultiAgentMessage.sequence)).where(
+            MultiAgentMessage.task_id == task_id
+        )
+    )
+    return (current or 0) + 1
 
 
 def create_agent(user_id: UUID, payload: dict) -> MultiAgent:
@@ -62,8 +54,8 @@ def create_agent(user_id: UUID, payload: dict) -> MultiAgent:
     division = str(payload.get("division") or "").strip()
     if not name or not description or not division:
         raise ServiceError("validation_error", 422)
-    supplied = payload.get("flow")
-    flow = (
+    supplied = payload.get("team") or payload.get("flow")
+    team = (
         validate_plan(supplied)
         if isinstance(supplied, dict)
         else generate_plan(
@@ -73,13 +65,26 @@ def create_agent(user_id: UUID, payload: dict) -> MultiAgent:
         )
     )
     agent = MultiAgent(
-        user_id=user_id,
-        name=name,
-        description=description,
-        division=division,
-        template_flow=flow,
+        user_id=user_id, name=name, description=description, division=division, template_team=team
     )
     db.session.add(agent)
+    db.session.commit()
+    return agent
+
+
+def update_agent(user_id: UUID, agent_id: UUID, payload: dict) -> MultiAgent:
+    agent = owned_agent(user_id, agent_id)
+    if not agent:
+        raise ServiceError("not_found", 404)
+    if "name" in payload:
+        agent.name = str(payload.get("name") or "").strip()[:200] or agent.name
+    if "description" in payload:
+        agent.description = str(payload.get("description") or "").strip()
+    if "division" in payload:
+        agent.division = str(payload.get("division") or "").strip()
+    team = payload.get("templateTeam") or payload.get("team")
+    if isinstance(team, dict):
+        agent.template_team = validate_plan(team)
     db.session.commit()
     return agent
 
@@ -99,44 +104,38 @@ def create_task(user_id: UUID, agent_id: UUID, payload: dict) -> MultiAgentTask:
     if not agent:
         raise ServiceError("not_found", 404)
     workspace_path = str(payload.get("workspacePath") or "").strip()[:1024]
+    request = str(payload.get("request") or "").strip()
     if not workspace_path or not Path(workspace_path).is_dir():
         raise ServiceError("workspace_not_found", 422)
+    if not request:
+        raise ServiceError("validation_error", 422)
     project = db.session.scalar(
         db.select(Project).where(Project.user_id == user_id, Project.path == workspace_path)
     )
     if not project:
         project = Project(
-            user_id=user_id,
-            name=Path(workspace_path).name,
-            path=workspace_path,
-            kind="multi_agent",
+            user_id=user_id, name=Path(workspace_path).name, path=workspace_path, kind="multi_agent"
         )
         db.session.add(project)
         db.session.flush()
-    plan = validate_plan(_reusable_flow(agent))
     task = MultiAgentTask(
         agent=agent,
         project=project,
         title=str(payload.get("title") or Path(workspace_path).name)[:240],
-        request=str(payload.get("request") or agent.description).strip(),
+        request=request,
         status="draft",
     )
     db.session.add(task)
     db.session.flush()
-    nodes_by_key: dict[str, MultiAgentNode] = {}
-    executable_nodes = [item for item in plan["nodes"] if item["key"] not in {START_KEY, END_KEY}]
-    for index, item in enumerate(executable_nodes):
+    nodes = []
+    for index, item in enumerate(_team(agent)["members"]):
         try:
-            model_configuration_id = UUID(item["modelId"]) if item.get("modelId") else None
-        except (TypeError, ValueError) as error:
-            raise ServiceError("model_not_configured", 422) from error
-        model = (
-            db.session.get(ModelConfiguration, model_configuration_id)
-            if model_configuration_id
-            else None
-        )
-        if model_configuration_id and (not model or model.user_id != user_id):
-            model_configuration_id = None
+            model_id = UUID(item["modelId"]) if item.get("modelId") else None
+        except (TypeError, ValueError):
+            model_id = None
+        model = db.session.get(ModelConfiguration, model_id) if model_id else None
+        if model and model.user_id != user_id:
+            model_id = None
         conversation = Conversation(project_id=project.id, title=item["name"], kind="multi_agent")
         db.session.add(conversation)
         db.session.flush()
@@ -147,56 +146,26 @@ def create_task(user_id: UUID, agent_id: UUID, payload: dict) -> MultiAgentTask:
             name=item["name"],
             role=item["role"],
             instructions=item["instructions"],
-            model_configuration_id=model_configuration_id,
-            position=item["position"],
+            model_configuration_id=model_id,
+            is_host=item["isHost"],
+            status="idle",
             sort_order=index,
         )
         db.session.add(node)
-        nodes_by_key[item["key"]] = node
+        nodes.append(node)
     db.session.flush()
-    for item in plan["edges"]:
-        if item["source"] in {START_KEY, END_KEY} or item["target"] in {START_KEY, END_KEY}:
-            continue
-        db.session.add(
-            MultiAgentEdge(
-                task=task,
-                source_node_id=nodes_by_key[item["source"]].id,
-                target_node_id=nodes_by_key[item["target"]].id,
-            )
+    host = next(node for node in nodes if node.is_host)
+    db.session.add(
+        MultiAgentMessage(
+            task_id=task.id,
+            sequence=1,
+            from_node_id=None,
+            to_node_id=host.id,
+            message_type="brief",
+            sender_type="user",
+            content=request,
         )
-    db.session.commit()
-    return task
-
-
-def update_agent(user_id: UUID, agent_id: UUID, payload: dict) -> MultiAgent:
-    agent = owned_agent(user_id, agent_id)
-    if not agent:
-        raise ServiceError("not_found", 404)
-    if "name" in payload:
-        agent.name = str(payload.get("name") or "").strip()[:200] or agent.name
-    if "description" in payload:
-        agent.description = str(payload.get("description") or "").strip()
-    if "division" in payload:
-        agent.division = str(payload.get("division") or "").strip()
-    flow = payload.get("templateFlow", payload.get("flow"))
-    if isinstance(flow, dict):
-        agent.template_flow = validate_plan(flow)
-    db.session.commit()
-    return agent
-
-
-def replace_flow(user_id: UUID, task_id: UUID, payload: dict) -> MultiAgentTask:
-    task = get_task(user_id, task_id)
-    if not task:
-        raise ServiceError("not_found", 404)
-    if task.status != "draft":
-        raise ServiceError("workflow_locked", 409)
-    positions = payload.get("positions")
-    if isinstance(positions, dict):
-        for node in task.nodes:
-            value = positions.get(str(node.id))
-            if isinstance(value, dict):
-                node.position = {"x": float(value.get("x", 0)), "y": float(value.get("y", 0))}
+    )
     db.session.commit()
     return task
 
@@ -211,10 +180,102 @@ def delete_task(user_id: UUID, task_id: UUID) -> None:
     db.session.commit()
 
 
+def replace_team(user_id: UUID, task_id: UUID, payload: dict) -> MultiAgentTask:
+    task = get_task(user_id, task_id)
+    if not task:
+        raise ServiceError("not_found", 404)
+    raise ServiceError("collaboration_team_managed_on_template", 409)
+
+
+def _chat_transcript(task: MultiAgentTask) -> str:
+    names = {node.id: node.name for node in task.members}
+    rows = []
+    for message in task_messages(task):
+        sender = (
+            "用户" if message.sender_type == "user" else names.get(message.from_node_id, "Agent")
+        )
+        target = names.get(message.to_node_id, "主持人")
+        rows.append(f"[{sender} @ {target}]\n{message.content}")
+    return "\n\n".join(rows) or "No messages yet."
+
+
+def _execution_prompt(node: MultiAgentNode) -> str:
+    task = node.task
+    peers = "\n".join(
+        f"- {item.name}: {item.id}{' (主持人)' if item.is_host else ''}" for item in task.members
+    )
+    host_rules = (
+        "You are the host. Decide who should speak next. Delegate using agent_message. "
+        "When the user's goal is fully satisfied, call finish_collaboration with the final "
+        "answer. You may not delegate to yourself."
+        if node.is_host
+        else "Complete your assigned turn, then use agent_message to hand control to the "
+        "host or another useful role. "
+        "You may not delegate to yourself. If uncertain, hand control back to the host."
+    )
+    return f"""You are {node.name} in a single-speaker group collaboration.
+
+Role: {node.role}
+Instructions: {node.instructions}
+
+Participants (use the UUID as toNodeId):
+{peers}
+
+Latest complete group chat:
+{_chat_transcript(task)}
+
+{host_rules}
+Only one agent runs at a time. Every agent sees the latest group chat on its next turn.
+Messages are visible to the entire group even though one recipient is @mentioned. Use tools
+when needed, then explicitly hand off or finish.
+Do not send empty acknowledgements or routine status chatter."""
+
+
+def start_task(user_id: UUID, task_id: UUID) -> MultiAgentTask:
+    task = get_task(user_id, task_id)
+    if not task:
+        raise ServiceError("not_found", 404)
+    if task.status == "running":
+        raise ServiceError("workflow_not_startable", 409)
+    if task.status in TASK_TERMINAL:
+        _reset_task(task)
+    elif task.status != "draft":
+        raise ServiceError("workflow_not_startable", 409)
+    task.status = "running"
+    for node in task.members:
+        node.status = "idle"
+    _host(task).status = "ready"
+    db.session.commit()
+    return task
+
+
+def start_node(user_id: UUID, node_id: UUID) -> tuple[MultiAgentNode, str]:
+    node = owned_node(user_id, node_id)
+    if not node or node.task.status != "running" or node.status != "ready":
+        raise ServiceError("node_not_ready", 409)
+    if any(item.status == "running" for item in node.task.members):
+        raise ServiceError("another_agent_is_running", 409)
+    node.status = "running"
+    db.session.commit()
+    return node, _execution_prompt(node)
+
+
+def recover_host(user_id: UUID, task_id: UUID) -> MultiAgentTask:
+    task = get_task(user_id, task_id)
+    if not task:
+        raise ServiceError("not_found", 404)
+    if task.status == "running" and not any(
+        node.status in {"ready", "running"} for node in task.members
+    ):
+        _host(task).status = "ready"
+        db.session.commit()
+    return task
+
+
 def post_message(user_id: UUID, node_id: UUID, payload: dict) -> MultiAgentMessage:
     source = owned_node(user_id, node_id)
-    if not source:
-        raise ServiceError("not_found", 404)
+    if not source or source.status != "running":
+        raise ServiceError("agent_not_running", 409)
     try:
         target_id = UUID(str(payload.get("toNodeId")))
     except (TypeError, ValueError) as error:
@@ -222,78 +283,29 @@ def post_message(user_id: UUID, node_id: UUID, payload: dict) -> MultiAgentMessa
     target = owned_node(user_id, target_id)
     if not target or target.task_id != source.task_id:
         raise ServiceError("not_found", 404)
-    if target.status in {"pending", "ready"}:
-        raise ServiceError("target_agent_not_started", 409)
+    if target.id == source.id:
+        raise ServiceError("agent_cannot_schedule_itself", 409)
     content = str(payload.get("content") or "").strip()
     if not content:
         raise ServiceError("validation_error", 422)
-    intent = str(payload.get("intent") or payload.get("type") or "inform")[:32]
-    expects_reply = bool(payload.get("expectsReply")) or intent == "revision_request"
-    try:
-        reply_to_id = UUID(str(payload.get("replyToId"))) if payload.get("replyToId") else None
-    except (TypeError, ValueError) as error:
-        raise ServiceError("validation_error", 422) from error
-    history = list(
-        db.session.scalars(
-            db.select(MultiAgentMessage)
-            .where(MultiAgentMessage.task_id == source.task_id)
-            .order_by(MultiAgentMessage.created_at, MultiAgentMessage.id)
-        )
-    )
-    normalized_content = " ".join(content.casefold().split())
-    last_related = next(
-        (
-            item
-            for item in reversed(history)
-            if item.from_node_id == source.id or item.to_node_id == source.id
-        ),
-        None,
-    )
-    if (
-        last_related
-        and last_related.from_node_id == source.id
-        and last_related.to_node_id == target.id
-        and last_related.message_type == intent
-        and " ".join(last_related.content.casefold().split()) == normalized_content
-    ):
-        raise ServiceError("duplicate_agent_message", 409)
-    if expects_reply:
-        latest_request = next(
-            (
-                item
-                for item in reversed(history)
-                if item.from_node_id == source.id
-                and item.to_node_id == target.id
-                and item.expects_reply
-            ),
-            None,
-        )
-        if latest_request and not any(
-            item.from_node_id == target.id
-            and item.to_node_id == source.id
-            and not item.expects_reply
-            and item.created_at >= latest_request.created_at
-            for item in history
-        ):
-            raise ServiceError("agent_request_already_pending", 409)
+    if target.task.status != "running":
+        raise ServiceError("collaboration_not_running", 409)
     message = MultiAgentMessage(
         task_id=source.task_id,
+        sequence=_next_message_sequence(source.task_id),
         from_node_id=source.id,
         to_node_id=target.id,
-        message_type=intent,
+        message_type="message",
         sender_type="agent",
         content=content,
-        expects_reply=expects_reply,
-        reply_to_id=reply_to_id,
     )
     db.session.add(message)
-    if expects_reply:
-        transition_node(source, "paused")
-    should_wake_target = expects_reply or intent == "revision_result" or reply_to_id is not None
-    if should_wake_target and target.status in {"completed", "paused"}:
-        transition_node(target, "running")
-        if target.task.status == "completed":
-            transition_task(target.task, "running")
+    source.status = "idle"
+    if any(node.status == "queued" for node in target.task.members):
+        target.status = "queued"
+        _activate_next(target.task)
+    else:
+        target.status = "ready"
     db.session.commit()
     return message
 
@@ -307,173 +319,88 @@ def post_user_message(user_id: UUID, node_id: UUID, payload: dict) -> MultiAgent
         raise ServiceError("validation_error", 422)
     message = MultiAgentMessage(
         task_id=target.task_id,
+        sequence=_next_message_sequence(target.task_id),
         from_node_id=None,
         to_node_id=target.id,
-        message_type="user_adjustment",
+        message_type="user_message",
         sender_type="user",
         content=content,
-        expects_reply=False,
     )
     db.session.add(message)
+    if target.task.status == "running" and any(
+        node.status == "running" for node in target.task.members
+    ):
+        if target.status != "running":
+            target.status = "queued"
+    elif target.task.status == "running":
+        for node in target.task.members:
+            if node.status == "ready":
+                node.status = "idle"
+        target.status = "ready"
     db.session.commit()
     return message
 
 
-def _refresh_ready_nodes(task: MultiAgentTask) -> None:
-    if refresh_graph(_execution_nodes(task), _execution_edges(task)) and task.status == "running":
-        transition_task(task, "completed")
-
-
-def _reset_task_run(task: MultiAgentTask) -> None:
-    conversation_ids = [
-        node.conversation_id for node in _execution_nodes(task) if node.conversation_id
-    ]
-    if conversation_ids:
-        for run in db.session.scalars(
-            db.select(AgentRun).where(AgentRun.conversation_id.in_(conversation_ids))
-        ):
-            db.session.delete(run)
-        for conversation in db.session.scalars(
-            db.select(Conversation).where(Conversation.id.in_(conversation_ids))
-        ):
-            conversation.messages.clear()
-    for node in _execution_nodes(task):
-        reset_node(node)
-    for message in list(
-        db.session.scalars(db.select(MultiAgentMessage).where(MultiAgentMessage.task_id == task.id))
-    ):
-        db.session.delete(message)
-    for change in list(
-        db.session.scalars(db.select(WorkspaceChange).where(WorkspaceChange.task_id == task.id))
-    ):
-        db.session.delete(change)
-
-
-def start_task(user_id: UUID, task_id: UUID) -> MultiAgentTask:
-    task = get_task(user_id, task_id)
-    if not task:
-        raise ServiceError("not_found", 404)
-    if task.status == "running":
-        raise ServiceError("workflow_not_startable", 409)
-    if task.status in TASK_TERMINAL:
-        _reset_task_run(task)
-    elif task.status != "draft":
-        raise ServiceError("workflow_not_startable", 409)
-    transition_task(task, "running")
-    _refresh_ready_nodes(task)
-    db.session.commit()
-    return task
-
-
-def _node_execution_prompt(node: MultiAgentNode) -> str:
-    task = node.task
-    upstream_ids = {
-        edge.source_node_id for edge in _execution_edges(task) if edge.target_node_id == node.id
-    }
-    upstream = [item for item in _execution_nodes(task) if item.id in upstream_ids]
-    outputs = (
-        "\n\n".join(f"[{item.name}]\n{item.final_output}" for item in upstream if item.final_output)
-        or "No upstream nodes."
-    )
-    peers = ", ".join(
-        f"{item.name} ({item.id}, {item.status})"
-        for item in _execution_nodes(task)
-        if item.id != node.id
-    )
-    return f"""You are the {node.name} node in a multi-agent workflow.
-
-Original request:
-{task.request}
-
-Your role:
-{node.role}
-
-Your instructions:
-{node.instructions}
-
-Completed upstream outputs:
-{outputs}
-
-Other workflow agents (use the UUID in parentheses as toNodeId):
-{peers}
-
-Work only on this node's responsibility. Use the existing terminal capability normally. For
-terminal start actions, set intent to read only when the command cannot modify the workspace;
-otherwise set intent to write.
-
-Agent communication is available only when it materially helps the workflow; it is not a required
-progress-reporting step. Prefer silence over routine coordination. Use agent_message with the exact
-toNodeId shown above only when a discovery changes the recipient's next action, when you need
-clarification from an already-started upstream agent, when review requires revision, or when a
-requested revision is ready. Never send greetings, acknowledgements, status/position summaries,
-restatements of your own output, or replies that merely mirror a peer's message.
-Use intent=revision_request and expectsReply=true to return completed work for changes; this pauses
-you until the target answers. The target will resume its existing conversation, not restart. Reply
-with intent=revision_result when the requested revision is complete. You may message running,
-paused, or completed agents. You must not message a pending/ready agent that has not started yet,
-especially a downstream node; the tool will return target_agent_not_started and you must continue
-without retrying that invalid route. Keep messages concise, actionable, and non-duplicative.
-
-Ordinary inform messages are recorded for visibility but never wake a completed agent. Only send a
-revision_request when the target must do more work, and send exactly one revision_result when that
-work is finished. Do not repeat a request while it is awaiting a result, and do not acknowledge an
-acknowledgement. The service rejects duplicate messages and overlapping revision requests.
-
-Finish with a concise result that states work completed, files changed, tests run, decisions, and
-remaining risks."""
-
-
-def start_node(user_id: UUID, node_id: UUID) -> tuple[MultiAgentNode, str]:
+def finish_collaboration(user_id: UUID, node_id: UUID, payload: dict) -> MultiAgentTask:
     node = owned_node(user_id, node_id)
-    if not node:
-        raise ServiceError("not_found", 404)
-    if node.task.status != "running" or node.status != "ready":
-        raise ServiceError("node_not_ready", 409)
-    transition_node(node, "running")
+    if not node or not node.is_host:
+        raise ServiceError("only_host_can_finish_collaboration", 403)
+    if node.status != "running" or node.task.status != "running":
+        raise ServiceError("agent_not_running", 409)
+    content = str(payload.get("content") or "").strip()
+    if not content:
+        raise ServiceError("final_answer_required", 422)
+    node.final_output = {"content": content}
+    node.status = "idle"
+    node.task.status = "completed"
+    db.session.add(
+        MultiAgentMessage(
+            task_id=node.task_id,
+            sequence=_next_message_sequence(node.task_id),
+            from_node_id=node.id,
+            to_node_id=node.id,
+            message_type="final",
+            sender_type="agent",
+            content=content,
+        )
+    )
     db.session.commit()
-    return node, _node_execution_prompt(node)
-
-
-def wake_node(user_id: UUID, node_id: UUID) -> MultiAgentNode:
-    node = owned_node(user_id, node_id)
-    if not node:
-        raise ServiceError("not_found", 404)
-    if node.status not in {"completed", "paused"}:
-        raise ServiceError("node_not_resumable", 409)
-    transition_node(node, "running")
-    if node.task.status == "completed":
-        transition_task(node.task, "running")
-    db.session.commit()
-    return node
+    return node.task
 
 
 def complete_node(user_id: UUID, node_id: UUID, payload: dict) -> MultiAgentTask:
     node = owned_node(user_id, node_id)
-    if not node:
-        raise ServiceError("not_found", 404)
-    if node.status != "running":
+    if not node or node.status != "running":
         raise ServiceError("invalid_node_state", 409)
     output = payload.get("output")
-    if not isinstance(output, dict) or not str(output.get("content") or "").strip():
-        raise ServiceError("node_output_required", 422)
-    node.final_output = output
-    transition_node(node, "completed")
-    task = node.task
-    _refresh_ready_nodes(task)
+    if isinstance(output, dict):
+        node.final_output = output
+    node.status = "idle"
+    if node.is_host:
+        if any(member.status == "queued" for member in node.task.members):
+            _activate_next(node.task)
+        else:
+            node.task.status = "failed"
+            node.final_output = {
+                **(node.final_output or {}),
+                "error": "host_must_delegate_or_finish",
+            }
+    else:
+        _activate_next(node.task)
     db.session.commit()
-    return task
+    return node.task
 
 
 def fail_node(user_id: UUID, node_id: UUID, error_code: str) -> MultiAgentTask:
     node = owned_node(user_id, node_id)
     if not node:
         raise ServiceError("not_found", 404)
-    transition_node(node, "failed")
+    node.status = "idle"
     node.final_output = {"error": error_code[:500]}
-    transition_task(node.task, "failed")
-    for sibling in node.task.nodes:
-        if sibling.id != node.id and sibling.status in NODE_ACTIVE:
-            transition_node(sibling, "stopped")
+    if node.is_host:
+        node.task.status = "failed"
+    else:
+        _activate_next(node.task)
     db.session.commit()
     return node.task
 
@@ -483,12 +410,38 @@ def stop_task(user_id: UUID, task_id: UUID) -> MultiAgentTask:
     if not task:
         raise ServiceError("not_found", 404)
     if task.status == "running":
-        transition_task(task, "stopped")
-        for node in task.nodes:
-            if node.status in NODE_ACTIVE:
-                transition_node(node, "stopped")
+        task.status = "stopped"
+        for node in task.members:
+            node.status = "idle"
         db.session.commit()
     return task
+
+
+def _reset_task(task: MultiAgentTask) -> None:
+    conversation_ids = [node.conversation_id for node in task.members if node.conversation_id]
+    for run in db.session.scalars(
+        db.select(AgentRun).where(AgentRun.conversation_id.in_(conversation_ids))
+    ):
+        db.session.delete(run)
+    for conversation in db.session.scalars(
+        db.select(Conversation).where(Conversation.id.in_(conversation_ids))
+    ):
+        conversation.messages.clear()
+    for node in task.members:
+        node.status, node.final_output = "idle", None
+    for message in task_messages(task):
+        if message.message_type != "brief":
+            db.session.delete(message)
+
+
+def task_messages(task: MultiAgentTask) -> list[MultiAgentMessage]:
+    return list(
+        db.session.scalars(
+            db.select(MultiAgentMessage)
+            .where(MultiAgentMessage.task_id == task.id)
+            .order_by(MultiAgentMessage.sequence)
+        )
+    )
 
 
 def record_changes(user_id: UUID, node_id: UUID, payload: dict) -> MultiAgentTask:
@@ -506,32 +459,18 @@ def record_changes(user_id: UUID, node_id: UUID, payload: dict) -> MultiAgentTas
         )
         or 0
     )
-    for offset, item in enumerate(changes[:500], start=1):
-        if not isinstance(item, dict) or not str(item.get("path") or "").strip():
-            continue
-        db.session.add(
-            WorkspaceChange(
-                task_id=node.task_id,
-                node_id=node.id,
-                sequence=current + offset,
-                path=str(item["path"])[:1024],
-                operation=str(item.get("operation") or "modified")[:32],
-                before_hash=str(item.get("beforeHash") or "")[:128] or None,
-                after_hash=str(item.get("afterHash") or "")[:128] or None,
+    for offset, item in enumerate(changes[:500], 1):
+        if isinstance(item, dict) and str(item.get("path") or "").strip():
+            db.session.add(
+                WorkspaceChange(
+                    task_id=node.task_id,
+                    node_id=node.id,
+                    sequence=current + offset,
+                    path=str(item["path"])[:1024],
+                    operation=str(item.get("operation") or "modified")[:32],
+                    before_hash=str(item.get("beforeHash") or "")[:128] or None,
+                    after_hash=str(item.get("afterHash") or "")[:128] or None,
+                )
             )
-        )
     db.session.commit()
     return node.task
-
-
-def _execution_nodes(task: MultiAgentTask) -> list[MultiAgentNode]:
-    return [node for node in task.nodes if node.key not in {START_KEY, END_KEY}]
-
-
-def _execution_edges(task: MultiAgentTask) -> list[MultiAgentEdge]:
-    node_ids = {node.id for node in _execution_nodes(task)}
-    return [
-        edge
-        for edge in task.edges
-        if edge.source_node_id in node_ids and edge.target_node_id in node_ids
-    ]
