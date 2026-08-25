@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Check, Copy, Pencil } from "lucide-react";
 import { TaskComposer } from "../task-composer";
@@ -6,6 +6,7 @@ import { useFeedback } from "../feedback";
 import { FullScreenLoading } from "../../shared/ui/full-screen-loading";
 import { Tooltip } from "../../shared/ui/tooltip";
 import { MarkdownContent } from "../../shared/ui/markdown-content";
+import { classifyRequestError } from "../../shared/lib/request-error";
 import { ActivityTimeline } from "./activity-timeline/ActivityTimeline";
 import { withoutFinalResponse } from "./activity-timeline/updateActivity";
 import { updateActivity } from "./activity-timeline/updateActivity";
@@ -29,6 +30,12 @@ export function ConversationChat({ conversationId, active, onUpdated }: Conversa
   const activeTurnIdRef = useRef<string | null>(null);
   const conversationRef = useRef<LocalConversation | null>(null);
   const onUpdatedRef = useRef(onUpdated);
+  const requestErrorMessage = useCallback((error: unknown) => {
+    const kind = classifyRequestError(error);
+    if (kind === "model_not_configured") return t("agent.modelRequired");
+    if (kind === "network_error") return t("common.networkError");
+    return t("agent.sendFailed");
+  }, [t]);
 
   useEffect(() => { conversationRef.current = conversation; }, [conversation]);
   useEffect(() => { onUpdatedRef.current = onUpdated; }, [onUpdated]);
@@ -60,7 +67,7 @@ export function ConversationChat({ conversationId, active, onUpdated }: Conversa
         }
         return { ...current, messages };
       });
-      if (event.type === "turn.failed") toast({ type: "error", message: t("agent.sendFailed") });
+      if (event.type === "turn.failed") toast({ type: "error", message: requestErrorMessage(event.errorCode) });
       if (event.type === "turn.completed" || event.type === "turn.failed" || event.type === "turn.interrupted") {
         if (activeTurnIdRef.current === event.turnId) activeTurnIdRef.current = null;
         setSending(false);
@@ -93,7 +100,7 @@ export function ConversationChat({ conversationId, active, onUpdated }: Conversa
       setSelectedModelId(settings.models[0]?.id ?? "");
     });
     return () => { disposed = true; unsubscribe(); };
-  }, [conversationId, t, toast]);
+  }, [conversationId, requestErrorMessage, t, toast]);
 
   const lastUserId = useMemo(() => [...(conversation?.messages ?? [])].reverse().find((message) => message.role === "user")?.id, [conversation]);
   const conversationLoaded = conversation !== null;
@@ -154,8 +161,8 @@ export function ConversationChat({ conversationId, active, onUpdated }: Conversa
       });
       if (editMessageId) setEditing(null);
       setSending(true);
-    } catch {
-      toast({ type: "error", message: t("agent.sendFailed") });
+    } catch (error) {
+      toast({ type: "error", message: requestErrorMessage(error) });
       setConversation(await window.ohmycode.conversations.get(conversationId));
       setSending(false);
     }

@@ -9,6 +9,7 @@ import { ConfirmDialog } from "../../shared/ui/confirm-dialog";
 import { MarkdownContent } from "../../shared/ui/markdown-content";
 import { Tooltip } from "../../shared/ui/tooltip";
 import { AppShell } from "../../shared/layout/app-shell";
+import { classifyRequestError } from "../../shared/lib/request-error";
 import { NavigationRail } from "../../widgets/navigation-rail";
 import styles from "./MultiAgentPage.module.css";
 
@@ -38,6 +39,18 @@ export function MultiAgentPage() {
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ type: "agent" | "task"; id: string } | null>(null);
+
+  function requestErrorMessage(error: unknown, fallbackKey: string) {
+    const kind = classifyRequestError(error);
+    if (kind === "model_not_configured") return t("multiAgent.modelRequired");
+    if (kind === "network_error") return t("common.networkError");
+    return t(fallbackKey);
+  }
+
+  function hasValidMemberModels(target: MultiAgentTask) {
+    const configuredIds = new Set(models.map((model) => model.id));
+    return target.members.every((member) => !member.modelId || configuredIds.has(member.modelId));
+  }
 
   const reloadAgents = useCallback(async () => {
     const value = await window.ohmycode.multiAgents.list();
@@ -83,6 +96,10 @@ export function MultiAgentPage() {
 
   async function createCollaboration() {
     if (!draft.name.trim() || !draft.description.trim() || !draft.division.trim()) return;
+    if (!models.length) {
+      toast({ type: "error", message: t("multiAgent.modelRequired") });
+      return;
+    }
     setCreating(true);
     try {
       const created = await window.ohmycode.multiAgents.create(draft);
@@ -90,7 +107,7 @@ export function MultiAgentPage() {
       const source = [...agents.filter((item) => item.id !== created.id), created];
       setAgents(source); selectAgent(created.id, source); setDialogOpen(false); setDraft(emptyDraft);
       void reloadAgents();
-    } catch { toast({ type: "error", message: t("multiAgent.planFailed") }); }
+    } catch (error) { toast({ type: "error", message: requestErrorMessage(error, "multiAgent.planFailed") }); }
     finally { setCreating(false); }
   }
 
@@ -125,6 +142,14 @@ export function MultiAgentPage() {
   }
 
   async function executeTask(target: MultiAgentTask) {
+    if (!models.length) {
+      toast({ type: "error", message: t("multiAgent.modelRequired") });
+      return;
+    }
+    if (!hasValidMemberModels(target)) {
+      toast({ type: "error", message: t("multiAgent.memberModelMissing") });
+      return;
+    }
     const requestId = crypto.randomUUID();
     setRunRequestId(requestId);
     const unsubscribe = window.ohmycode.multiAgents.onEvent(requestId, (event) => {
@@ -132,12 +157,16 @@ export function MultiAgentPage() {
       if (event.type === "node.event") setActivities((current) => ({ ...current, [event.nodeId]: updateActivity(current[event.nodeId] ?? [], event.event) }));
     });
     try { setTask(await window.ohmycode.multiAgents.runTask(target.id, requestId)); await reloadAgents(); }
-    catch { toast({ type: "error", message: t("multiAgent.runFailed") }); setTask(await window.ohmycode.multiAgents.getTask(target.id)); }
+    catch (error) { toast({ type: "error", message: requestErrorMessage(error, "multiAgent.runFailed") }); setTask(await window.ohmycode.multiAgents.getTask(target.id)); }
     finally { unsubscribe(); setRunRequestId(null); await reloadAgents(); }
   }
 
   async function runCollaboration() {
     if (!selectedAgentId || !runDescription.trim() || !runWorkspacePath) return;
+    if (!models.length) {
+      toast({ type: "error", message: t("multiAgent.modelRequired") });
+      return;
+    }
     const created = await window.ohmycode.multiAgents.createTask(selectedAgentId, runDescription, runWorkspacePath);
     setRunDialogOpen(false); setRunDescription(""); setRunWorkspacePath(""); setActivities({});
     setSelectedTaskId(created.id); setTask(created); setMentionTargetId(null); setMentionQuery(null);

@@ -1,4 +1,4 @@
-import { ApiError, apiFetch, apiRequest } from "../api/api-client.js";
+import { ApiError, apiErrorFromResponse, apiFetch, apiRequest } from "../api/api-client.js";
 import type { LocalConversation } from "../projects/types.js";
 import type { LocalMessage } from "../projects/types.js";
 import { executeTerminalAction } from "../terminal/terminal-manager.js";
@@ -114,7 +114,7 @@ export async function streamMessage(
       body: JSON.stringify({ content, modelId, editMessageId, workspaceInstructions, turnId }),
       signal: active.controller.signal,
     });
-    if (!response.ok) throw new Error(`server_stream_${response.status}`);
+    if (!response.ok) throw await apiErrorFromResponse(response);
     while (true) {
       const requests = await forwardServerStream(response, (event) => {
         if (event.type === "run.started") active.runId = event.runId;
@@ -212,7 +212,7 @@ export async function streamMessage(
         body: JSON.stringify({ results, workspaceInstructions }),
         signal: active.controller.signal,
       });
-      if (!response.ok) throw new Error(`server_resume_${response.status}`);
+      if (!response.ok) throw await apiErrorFromResponse(response);
     }
   } catch (error) {
     if (!active.controller.signal.aborted) throw error;

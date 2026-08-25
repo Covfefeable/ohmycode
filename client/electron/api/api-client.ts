@@ -6,6 +6,17 @@ export class ApiError extends Error {
   constructor(public status: number, public code: string) { super(code); }
 }
 
+export async function apiErrorFromResponse(response: Response): Promise<ApiError> {
+  const contentType = response.headers.get("content-type") ?? "";
+  const payload = contentType.includes("application/json")
+    ? await response.json().catch(() => ({})) as { error?: { code?: string } }
+    : {};
+  const code = response.status === 404 && !contentType.includes("application/json")
+    ? "incompatible_api"
+    : payload.error?.code ?? "request_failed";
+  return new ApiError(response.status, code);
+}
+
 async function refreshAccessToken(refreshToken: string): Promise<AuthTokens | null> {
   const response = await fetch(`${API_URL}/api/auth/refresh`, { method: "POST", headers: { Authorization: `Bearer ${refreshToken}` } });
   if (!response.ok) return null;
@@ -32,16 +43,7 @@ export async function apiFetch(pathname: string, init: RequestInit = {}): Promis
 
 export async function apiRequest<T>(pathname: string, init: RequestInit = {}): Promise<T> {
   const response = await apiFetch(pathname, init);
-  if (!response.ok) {
-    const contentType = response.headers.get("content-type") ?? "";
-    const payload = contentType.includes("application/json")
-      ? await response.json().catch(() => ({})) as { error?: { code?: string } }
-      : {};
-    const code = response.status === 404 && !contentType.includes("application/json")
-      ? "incompatible_api"
-      : payload.error?.code ?? "request_failed";
-    throw new ApiError(response.status, code);
-  }
+  if (!response.ok) throw await apiErrorFromResponse(response);
   if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
 }
