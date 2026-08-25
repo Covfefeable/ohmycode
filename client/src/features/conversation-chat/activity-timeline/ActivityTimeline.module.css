@@ -12,16 +12,14 @@
 .stepHead { width: 100%; min-width: 0; display: flex; align-items: center; gap: var(--space-2); overflow: hidden; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--color-text-muted); padding: 6px 8px; font: inherit; font-size: var(--font-sm); text-align: left; cursor: pointer; }
 .stepHead:hover { background: var(--color-surface-icon-hover); color: var(--color-text); }
 .stepHead svg { width: 15px; height: 15px; flex: none; }
-.stepHead > span { flex: none; }
-.stepHead code { min-width: 0; flex: 1; overflow: hidden; color: var(--color-text-dim); font-size: var(--font-xs); text-overflow: ellipsis; white-space: nowrap; }
+.stepHead > span { height: 20px; flex: none; display: inline-flex; align-items: center; line-height: 20px; }
+.stepHead code { height: 20px; min-width: 0; flex: 1; display: inline-flex; align-items: center; overflow: hidden; color: var(--color-text-dim); font-size: var(--font-xs); line-height: 20px; text-overflow: ellipsis; transform: translateY(1px); white-space: nowrap; }
 .fileStepHead { width: 100%; min-width: 0; display: flex; align-items: center; gap: var(--space-2); overflow: hidden; border-radius: var(--radius-sm); color: var(--color-text-muted); padding: 6px 8px; font-size: var(--font-sm); cursor: pointer; }
 .fileStepHead:hover { background: var(--color-surface-icon-hover); color: var(--color-text); }
 .fileStepHead > svg { width: 15px; height: 15px; flex: none; }
 .fileStepHead > span { height: 20px; display: inline-flex; align-items: center; line-height: 20px; }
-.pathLink { position: relative; width: max-content; height: 20px; min-width: 0; max-width: 100%; flex: 0 1 auto; display: inline-block; overflow: hidden; border: 0; background: transparent; color: var(--color-text-dim); padding: 0; font: inherit; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: var(--font-xs); line-height: 20px; text-align: left; text-overflow: ellipsis; vertical-align: middle; white-space: nowrap; cursor: pointer; }
-.pathLink::after { position: absolute; right: 0; bottom: 1px; left: 0; height: 1px; background: transparent; content: ""; pointer-events: none; }
-.pathLink:hover { color: var(--color-accent); }
-.pathLink:hover::after { background: currentColor; }
+.pathLink { position: relative; width: max-content; height: 20px; min-width: 0; max-width: 100%; flex: 0 1 auto; display: inline-flex; align-items: center; overflow: hidden; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--color-text-dim); padding: 0 5px; font: inherit; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: var(--font-xs); line-height: 20px; text-align: left; text-overflow: ellipsis; transform: translateY(1px); transition: background-color var(--transition-fast), color var(--transition-fast); white-space: nowrap; cursor: pointer; }
+.pathLink:hover { background: var(--color-surface-hover); color: var(--color-accent); }
 .expandButton { width: 18px; height: 18px; flex: none; display: grid; place-items: center; margin-left: auto; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--color-text-dim); padding: 0; cursor: pointer; }
 .expandButton svg { width: 15px; height: 15px; }
 .spinner { color: var(--color-accent); animation: spin 800ms linear infinite; }
