@@ -30,15 +30,16 @@ function apiLaunch(apiRoot: string): { executable: string; args: string[] } {
   };
 }
 
-async function inspectRunningApi(): Promise<"compatible" | "incompatible" | "offline"> {
+async function inspectRunningApi(): Promise<"compatible" | "incompatible" | "unresponsive" | "offline"> {
   try {
-    const response = await fetch(`${API_URL}/api/health`);
+    const response = await fetch(`${API_URL}/api/health`, { signal: AbortSignal.timeout(3_000) });
     if (!response.ok) return "offline";
     const payload = (await response.json()) as { capabilities?: string[] };
     return REQUIRED_CAPABILITIES.every((capability) => payload.capabilities?.includes(capability))
       ? "compatible"
       : "incompatible";
-  } catch {
+  } catch (error) {
+    if (error instanceof Error && error.name === "TimeoutError") return "unresponsive";
     return "offline";
   }
 }
@@ -52,6 +53,10 @@ export async function startApiSidecar(): Promise<void> {
   }
   if (apiStatus === "incompatible") {
     console.error(`[api] service at ${API_URL} is incompatible with this client`);
+    return;
+  }
+  if (apiStatus === "unresponsive") {
+    console.error(`[api] service at ${API_URL} accepted a connection but did not respond`);
     return;
   }
   if (app.isPackaged) {

@@ -25,8 +25,7 @@ if (!hasSingleInstanceLock) {
     window.focus();
   });
 
-  app.whenReady().then(async () => {
-    await startApiSidecar();
+  app.whenReady().then(() => {
     registerAuthIpc();
     registerSystemIpc();
     registerSettingsIpc();
@@ -34,6 +33,9 @@ if (!hasSingleInstanceLock) {
     registerMultiAgentIpc();
     registerTerminalIpc();
     void createMainWindow();
+    void startApiSidecar().catch((error) => {
+      console.error("[api] failed to initialize sidecar", error);
+    });
     app.on("activate", () => {
       if (BrowserWindow.getAllWindows().length === 0) void createMainWindow();
     });
