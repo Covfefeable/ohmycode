@@ -4,6 +4,7 @@ import { Check, Copy, Pencil } from "lucide-react";
 import { TaskComposer } from "../task-composer";
 import { useFeedback } from "../feedback";
 import { FullScreenLoading } from "../../shared/ui/full-screen-loading";
+import { LoadError } from "../../shared/ui/load-error";
 import { Tooltip } from "../../shared/ui/tooltip";
 import { MarkdownContent } from "../../shared/ui/markdown-content";
 import { classifyRequestError } from "../../shared/lib/request-error";
@@ -18,6 +19,8 @@ export function ConversationChat({ conversationId, active, onUpdated }: Conversa
   const { t, i18n } = useTranslation();
   const { toast } = useFeedback();
   const [conversation, setConversation] = useState<LocalConversation | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [reloadToken, setReloadToken] = useState(0);
   const [sending, setSending] = useState(false);
   const [models, setModels] = useState<ModelConfiguration[]>([]);
   const [selectedModelId, setSelectedModelId] = useState("");
@@ -94,13 +97,18 @@ export function ConversationChat({ conversationId, active, onUpdated }: Conversa
       const replay = snapshot?.status === "in_progress" ? snapshot.events : [];
       for (const event of [...replay, ...pending].sort((left, right) => left.sequence - right.sequence)) applyRuntimeEvent(event);
       snapshotLoaded = true;
-    }).catch(() => toast({ type: "error", message: t("agent.loadFailed") }));
+    }).catch(() => {
+      if (disposed) return;
+      unsubscribe();
+      setLoadFailed(true);
+      toast({ type: "error", message: t("agent.loadFailed") });
+    });
     void window.ohmycode.settings.get().then((settings) => {
       setModels(settings.models);
       setSelectedModelId(settings.models[0]?.id ?? "");
     });
     return () => { disposed = true; unsubscribe(); };
-  }, [conversationId, requestErrorMessage, t, toast]);
+  }, [conversationId, reloadToken, requestErrorMessage, t, toast]);
 
   const lastUserId = useMemo(() => [...(conversation?.messages ?? [])].reverse().find((message) => message.role === "user")?.id, [conversation]);
   const conversationLoaded = conversation !== null;
@@ -185,6 +193,7 @@ export function ConversationChat({ conversationId, active, onUpdated }: Conversa
     await window.ohmycode.conversations.interruptTurn(turnId, stoppedMessage);
   }
 
+  if (loadFailed && !conversation) return <LoadError message={t("agent.loadFailed")} onRetry={() => { setLoadFailed(false); setReloadToken((value) => value + 1); }} />;
   if (!conversation) return <FullScreenLoading />;
   return <section className={styles.chat}>
     <div ref={scrollRef} className={styles.scrollLayer}><div className={styles.chatInner}>

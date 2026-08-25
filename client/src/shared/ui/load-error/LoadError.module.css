@@ -1,0 +1,6 @@
+.screen { min-width: 0; min-height: 0; height: 100%; display: grid; place-items: center; padding: var(--space-6); }
+.card { display: grid; justify-items: center; gap: var(--space-4); max-width: 360px; text-align: center; }
+.card strong { color: var(--color-text-soft); font-size: var(--font-md); font-weight: 600; line-height: 1.5; }
+.retry { display: inline-flex; align-items: center; gap: var(--space-2); height: var(--control-height); padding: 0 var(--space-4); border: 1px solid var(--color-border-strong); border-radius: var(--radius-md); background: var(--color-surface-2); color: var(--color-text); font-size: var(--font-control); cursor: pointer; transition: var(--transition-fast); }
+.retry:hover { background: var(--color-surface-hover); border-color: var(--color-border-strong); }
+.retry svg { width: 15px; height: 15px; }

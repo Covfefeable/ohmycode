@@ -1,5 +1,5 @@
 export const zhCN = {
-  common: { cancel: "取消", delete: "删除", confirmDelete: "确认删除", deleteWarning: "此操作无法撤销。", copy: "复制", copied: "已复制", code: "代码", networkError: "网络错误，请检查网络后重试。" },
+  common: { cancel: "取消", delete: "删除", confirmDelete: "确认删除", deleteWarning: "此操作无法撤销。", copy: "复制", copied: "已复制", code: "代码", networkError: "网络错误，请检查网络后重试。", retry: "重试" },
   window: {
     minimize: "最小化",
     maximize: "最大化或还原",
@@ -219,7 +219,7 @@ export const zhCN = {
     },
   },
   settings: {
-    eyebrow: "偏好设置", title: "设置", profileTab: "个人信息", modelsTab: "模型配置",
+    eyebrow: "偏好设置", title: "设置", profileTab: "个人信息", modelsTab: "模型配置", loadFailed: "设置加载失败。",
     profileEyebrow: "个人身份", profileTitle: "个人信息", profileDescription: "管理你的 OhMyCode 个人身份。", save: "保存个人信息", saved: "已保存", profileSaved: "个人信息已保存。", saveFailed: "设置保存失败。",
     modelsEyebrow: "模型服务", modelsTitle: "模型配置", modelsDescription: "管理你的 OpenAI-compatible 模型服务。", addModel: "添加配置", defaultModel: "默认模型", configName: "配置名称", modelName: "模型 ID", contextLength: "上下文长度", baseUrl: "API Base URL", apiKey: "API Key", keyStored: "已安全保存，输入新值可替换", test: "测试连接", testing: "测试中…", testSuccess: "连接成功，耗时 {{latency}} ms", noModels: "尚未添加模型配置。", saveModels: "保存模型配置",
     modelsSaved: "模型配置已保存。", modelValidation: "请完整填写每条模型配置。", removeModel: "删除模型", unnamedModel: "未命名配置", noModelsDescription: "添加一个 OpenAI-compatible 模型服务后即可开始对话。",

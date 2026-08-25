@@ -1,5 +1,5 @@
 export const en = {
-  common: { cancel: "Cancel", delete: "Delete", confirmDelete: "Confirm deletion", deleteWarning: "This action cannot be undone.", copy: "Copy", copied: "Copied", code: "Code", networkError: "Network error. Check your connection and try again." },
+  common: { cancel: "Cancel", delete: "Delete", confirmDelete: "Confirm deletion", deleteWarning: "This action cannot be undone.", copy: "Copy", copied: "Copied", code: "Code", networkError: "Network error. Check your connection and try again.", retry: "Retry" },
   window: {
     minimize: "Minimize",
     maximize: "Maximize or restore",
@@ -220,7 +220,7 @@ export const en = {
     },
   },
   settings: {
-    eyebrow: "PREFERENCES", title: "Settings", profileTab: "Personal profile", modelsTab: "Model configurations",
+    eyebrow: "PREFERENCES", title: "Settings", profileTab: "Personal profile", modelsTab: "Model configurations", loadFailed: "The settings could not be loaded.",
     profileEyebrow: "IDENTITY", profileTitle: "Personal profile", profileDescription: "Manage your OhMyCode identity.", save: "Save profile", saved: "Saved", profileSaved: "Profile saved.", saveFailed: "Settings could not be saved.",
     modelsEyebrow: "PROVIDERS", modelsTitle: "Model configurations", modelsDescription: "Manage your OpenAI-compatible model providers.", addModel: "Add configuration", defaultModel: "Default model", configName: "Configuration name", modelName: "Model ID", contextLength: "Context length", baseUrl: "API base URL", apiKey: "API key", keyStored: "Stored securely — enter to replace", test: "Test connection", testing: "Testing…", testSuccess: "Connected in {{latency}} ms", noModels: "No model configurations yet.", saveModels: "Save configurations",
     modelsSaved: "Model configurations saved.", modelValidation: "Complete every model field before saving.", removeModel: "Remove model", unnamedModel: "Unnamed configuration", noModelsDescription: "Add an OpenAI-compatible model provider to start a conversation.",
