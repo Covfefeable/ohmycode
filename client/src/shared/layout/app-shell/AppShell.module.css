@@ -1,8 +1,15 @@
 .shell {
   display: grid;
-  grid-template-columns: 64px 300px 1fr;
+  grid-template-columns: 64px var(--app-sidebar-width, 300px) minmax(0, 1fr);
   height: 100dvh;
   min-width: 0;
   overflow: hidden;
 }
 .shell > * { min-width: 0; min-height: 0; }
+.sidebarFrame { position: relative; min-width: 0; min-height: 0; }
+.sidebarFrame > :first-child { width: 100%; height: 100%; }
+.resizeHandle { position: absolute; z-index: var(--z-sticky); top: 0; right: -4px; bottom: 0; width: 8px; cursor: col-resize; touch-action: none; outline: none; }
+.resizeHandle::after { content: ""; position: absolute; top: 0; right: 3px; bottom: 0; width: 1px; background: transparent; transition: background var(--transition-fast), box-shadow var(--transition-fast); }
+.resizeHandle:hover::after, .resizeHandle:focus-visible::after { background: var(--color-accent); box-shadow: var(--shadow-accent-glow); }
+.resizing, .resizing * { cursor: col-resize !important; user-select: none !important; }
+@media (prefers-reduced-motion: reduce) { .resizeHandle::after { transition: none; } }
