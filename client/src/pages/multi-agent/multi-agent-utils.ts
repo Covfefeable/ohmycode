@@ -26,6 +26,8 @@ export function templateTask(agent: MultiAgentSummary): MultiAgentTask {
 }
 
 export function multiAgentErrorKey(error: unknown, fallbackKey: string): string {
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  if (message.includes("workspace_not_found")) return "multiAgent.workspaceNotFound";
   const kind = classifyRequestError(error);
   if (kind === "model_not_configured") return "multiAgent.modelRequired";
   if (kind === "network_error") return "common.networkError";

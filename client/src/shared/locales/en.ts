@@ -167,6 +167,7 @@ export const en = {
     directoryAfterConfirm: "Choose the workspace directory after confirming",
     chooseDirectoryAndRun: "Choose folder and run",
     workspaceDirectory: "Workspace directory",
+    workspaceNotFound: "The selected workspace no longer exists. Choose it again.",
     chooseDirectory: "Choose folder",
     waitingForActivity: "This agent has not started yet",
     undo: "Undo",

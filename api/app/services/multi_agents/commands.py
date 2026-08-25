@@ -1,4 +1,4 @@
-from pathlib import Path
+from pathlib import PurePosixPath, PureWindowsPath
 from uuid import UUID
 
 from ...extensions import db
@@ -104,24 +104,33 @@ def create_task(user_id: UUID, agent_id: UUID, payload: dict) -> MultiAgentTask:
     if not agent:
         raise ServiceError("not_found", 404)
     workspace_path = str(payload.get("workspacePath") or "").strip()[:1024]
+    workspace_name = str(payload.get("workspaceName") or "").strip()[:255]
     request = str(payload.get("request") or "").strip()
-    if not workspace_path or not Path(workspace_path).is_dir():
-        raise ServiceError("workspace_not_found", 422)
+    if not workspace_path:
+        raise ServiceError("validation_error", 422)
     if not request:
         raise ServiceError("validation_error", 422)
+    if not workspace_name:
+        posix_name = PurePosixPath(workspace_path).name
+        windows_name = PureWindowsPath(workspace_path).name
+        workspace_name = min(
+            (name for name in (posix_name, windows_name) if name),
+            key=len,
+            default="workspace",
+        )[:255]
     project = db.session.scalar(
         db.select(Project).where(Project.user_id == user_id, Project.path == workspace_path)
     )
     if not project:
         project = Project(
-            user_id=user_id, name=Path(workspace_path).name, path=workspace_path, kind="multi_agent"
+            user_id=user_id, name=workspace_name, path=workspace_path, kind="multi_agent"
         )
         db.session.add(project)
         db.session.flush()
     task = MultiAgentTask(
         agent=agent,
         project=project,
-        title=str(payload.get("title") or Path(workspace_path).name)[:240],
+        title=str(payload.get("title") or workspace_name)[:240],
         request=request,
         status="draft",
     )

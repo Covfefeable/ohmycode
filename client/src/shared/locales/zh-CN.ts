@@ -166,6 +166,7 @@ export const zhCN = {
     directoryAfterConfirm: "确认后选择本次任务的工作目录",
     chooseDirectoryAndRun: "选择目录并运行",
     workspaceDirectory: "工作目录",
+    workspaceNotFound: "所选工作目录已不存在，请重新选择。",
     chooseDirectory: "选择目录",
     waitingForActivity: "该 Agent 尚未开始活动",
     undo: "撤销",

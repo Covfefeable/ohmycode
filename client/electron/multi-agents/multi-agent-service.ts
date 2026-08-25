@@ -1,6 +1,7 @@
 import path from "node:path";
+import { stat } from "node:fs/promises";
 import { dialog } from "electron";
-import { apiRequest } from "../api/api-client.js";
+import { ApiError, apiRequest } from "../api/api-client.js";
 import { interruptTurn, startTurn, subscribeTurn, waitForTurn } from "../runtime/agent-runtime.js";
 import type { RuntimeEvent } from "../runtime/types.js";
 import type { MultiAgentSummary, MultiAgentTask } from "./types.js";
@@ -18,7 +19,19 @@ export const createMultiAgent = (payload: { name: string; description: string; d
 export const updateMultiAgent = (agentId: string, payload: Partial<MultiAgentSummary>): Promise<MultiAgentSummary> => apiRequest(`/api/multi-agents/${agentId}`, { method: "PATCH", body: JSON.stringify(payload) });
 export const deleteMultiAgent = (agentId: string): Promise<void> => apiRequest(`/api/multi-agents/${agentId}`, { method: "DELETE" });
 export async function selectMultiAgentWorkspace(): Promise<string | null> { const result = await dialog.showOpenDialog({ properties: ["openDirectory"] }); return result.canceled || !result.filePaths[0] ? null : path.resolve(result.filePaths[0]); }
-export const createMultiAgentTask = (agentId: string, request: string, workspacePath: string): Promise<MultiAgentTask> => apiRequest(`/api/multi-agents/${agentId}/tasks`, { method: "POST", body: JSON.stringify({ request: request.trim(), workspacePath: path.resolve(workspacePath) }) });
+export async function createMultiAgentTask(agentId: string, request: string, workspacePath: string): Promise<MultiAgentTask> {
+  const resolvedPath = path.resolve(workspacePath);
+  const workspace = await stat(resolvedPath).catch(() => null);
+  if (!workspace?.isDirectory()) throw new ApiError(422, "workspace_not_found");
+  return apiRequest(`/api/multi-agents/${agentId}/tasks`, {
+    method: "POST",
+    body: JSON.stringify({
+      request: request.trim(),
+      workspacePath: resolvedPath,
+      workspaceName: path.basename(resolvedPath),
+    }),
+  });
+}
 export const getMultiAgentTask = (taskId: string): Promise<MultiAgentTask> => apiRequest(`/api/multi-agents/tasks/${taskId}`);
 export const deleteMultiAgentTask = (taskId: string): Promise<void> => apiRequest(`/api/multi-agents/tasks/${taskId}`, { method: "DELETE" });
 

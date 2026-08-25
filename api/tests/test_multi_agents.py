@@ -178,3 +178,27 @@ def test_user_message_queues_target_and_host_recovers(tmp_path):
         resumed = client.get(f"/api/multi-agents/tasks/{task['id']}", headers=headers).get_json()
         assert resumed["status"] == "running"
         assert resumed["currentSpeakerId"] == reviewer["id"]
+
+
+def test_remote_service_treats_client_workspace_path_as_opaque():
+    app = create_app("testing")
+    with app.app_context():
+        db.create_all()
+    with app.test_client() as client:
+        headers = _setup(client)
+        agent = _create_team(client, headers)
+        workspace_path = r"C:\Users\admin\Documents\repos\client-only-project"
+        response = client.post(
+            f"/api/multi-agents/{agent['id']}/tasks",
+            headers=headers,
+            json={
+                "workspacePath": workspace_path,
+                "workspaceName": "client-only-project",
+                "request": "Inspect the client workspace",
+            },
+        )
+
+        assert response.status_code == 201
+        task = response.get_json()
+        assert task["workspacePath"] == workspace_path
+        assert task["title"] == "client-only-project"
