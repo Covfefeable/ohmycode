@@ -1,8 +1,73 @@
+from types import SimpleNamespace
 from uuid import UUID
 
 from app import create_app
 from app.extensions import db
 from app.models import AgentEvent, AgentRun, Message
+from app.services.multi_agents import planner
+
+
+def test_planner_repairs_an_invalid_generated_team(monkeypatch):
+    model = SimpleNamespace(
+        base_url="https://models.example/v1",
+        model="example-model",
+        api_key_encrypted="encrypted",
+    )
+    monkeypatch.setattr(planner, "get_model_configuration", lambda *_args: model)
+    monkeypatch.setattr(planner, "decrypt_api_key", lambda _value: "secret")
+    responses = iter(
+        [
+            {
+                "choices": [
+                    {
+                        "message": {
+                            "content": '{"title":"Bad","members":[{"key":"host"}]}'
+                        }
+                    }
+                ]
+            },
+            {
+                "choices": [
+                    {
+                        "message": {
+                            "content": (
+                                '{"title":"Writing room","members":['
+                                '{"key":"host","name":"Host","role":"Coordinator",'
+                                '"instructions":"Coordinate","isHost":true},'
+                                '{"key":"writer","name":"Writer","role":"Writer",'
+                                '"instructions":"Draft","isHost":false}]}'
+                            )
+                        }
+                    }
+                ]
+            },
+        ]
+    )
+    requests = []
+
+    class Response:
+        status_code = 200
+
+        def __init__(self, payload):
+            self.payload = payload
+
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return self.payload
+
+    def post(*_args, **kwargs):
+        requests.append(kwargs["json"])
+        return Response(next(responses))
+
+    monkeypatch.setattr(planner.httpx, "post", post)
+
+    result = planner.generate_plan(UUID(int=1), "Create and review an article")
+
+    assert [member["key"] for member in result["members"]] == ["host", "writer"]
+    assert len(requests) == 2
+    assert "did not match" in requests[1]["messages"][-1]["content"]
 
 
 def _setup(client):

@@ -16,6 +16,7 @@ checkpoint, or project-management filler roles.
 Schema: {"title": string, "members": [{"key": string, "name": string, "role": string,
 "instructions": string, "isHost": boolean}]}.
 Keys must be unique lowercase snake_case. Exactly one member must have isHost=true."""
+PLANNER_ATTEMPTS = 3
 
 
 def _json_content(value: str) -> dict:
@@ -36,22 +37,56 @@ def generate_plan(user_id: UUID, request: str, model_id: str | None = None) -> d
     model = get_model_configuration(user_id, model_id)
     if not model:
         raise ServiceError("model_not_configured", 422)
-    response = httpx.post(
-        f"{model.base_url.rstrip('/')}/chat/completions",
-        headers={"Authorization": f"Bearer {decrypt_api_key(model.api_key_encrypted)}"},
-        json={
+    endpoint = f"{model.base_url.rstrip('/')}/chat/completions"
+    headers = {"Authorization": f"Bearer {decrypt_api_key(model.api_key_encrypted)}"}
+    messages = [
+        {"role": "system", "content": PLANNER_PROMPT},
+        {"role": "user", "content": f"Collaboration brief:\n{request}"},
+    ]
+    use_json_mode = True
+    for attempt in range(PLANNER_ATTEMPTS):
+        payload = {
             "model": model.model,
             "stream": False,
-            "response_format": {"type": "json_object"},
-            "messages": [
-                {"role": "system", "content": PLANNER_PROMPT},
-                {"role": "user", "content": f"Collaboration brief:\n{request}"},
-            ],
-        },
-        timeout=120,
-    )
-    response.raise_for_status()
-    return validate_plan(_json_content(response.json()["choices"][0]["message"]["content"]))
+            "messages": messages,
+            **({"response_format": {"type": "json_object"}} if use_json_mode else {}),
+        }
+        content = ""
+        try:
+            response = httpx.post(endpoint, headers=headers, json=payload, timeout=120)
+            response.raise_for_status()
+        except httpx.HTTPStatusError as error:
+            if use_json_mode and error.response.status_code in {400, 404, 422}:
+                use_json_mode = False
+                continue
+            raise ServiceError("collaboration_planning_failed", 502) from error
+        except httpx.HTTPError as error:
+            raise ServiceError("collaboration_planning_failed", 502) from error
+
+        try:
+            content = response.json()["choices"][0]["message"]["content"]
+            if not isinstance(content, str) or not content.strip():
+                raise ServiceError("invalid_collaboration_team", 422)
+            return validate_plan(_json_content(content))
+        except (KeyError, IndexError, TypeError, ValueError, ServiceError) as error:
+            if attempt == PLANNER_ATTEMPTS - 1:
+                if isinstance(error, ServiceError):
+                    raise ServiceError("invalid_collaboration_team", 422) from error
+                raise ServiceError("invalid_collaboration_team", 422) from error
+            raw_content = content if isinstance(content, str) else "{}"
+            messages = [
+                *messages,
+                {"role": "assistant", "content": raw_content[:12_000]},
+                {
+                    "role": "user",
+                    "content": (
+                        "The JSON did not match the required schema. Correct it now. Include "
+                        "exactly one host, at least one participant, unique keys, and non-empty "
+                        "name, role, and instructions for every member. Return JSON only."
+                    ),
+                },
+            ]
+    raise ServiceError("invalid_collaboration_team", 422)
 
 
 def validate_plan(plan: dict) -> dict:
