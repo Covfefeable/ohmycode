@@ -11,14 +11,14 @@ import { FeedbackProvider } from "../features/feedback";
 
 function ProtectedRoute() {
   const { status } = useAuth();
-  if (status === "booting" || status === "unavailable") return <FullScreenLoading />;
+  if (status === "booting") return <FullScreenLoading />;
   return status === "authenticated" ? <Outlet /> : <Navigate to="/login" replace />;
 }
 
 function PublicOnlyRoute() {
   const { status } = useAuth();
-  if (status === "booting" || status === "unavailable") return <FullScreenLoading kind="auth" />;
-  return status === "guest" ? <Outlet /> : <Navigate to="/" replace />;
+  if (status === "booting") return <FullScreenLoading kind="auth" />;
+  return status === "guest" || status === "unavailable" ? <Outlet /> : <Navigate to="/" replace />;
 }
 
 function ProtectedPages() {

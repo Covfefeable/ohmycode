@@ -29,7 +29,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       } catch {
         if (!active) return;
         setStatus("unavailable");
-        retryTimer = window.setTimeout(bootstrap, 1000);
+        retryTimer = window.setTimeout(bootstrap, 5000);
       }
     };
 
