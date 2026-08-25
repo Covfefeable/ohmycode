@@ -82,6 +82,10 @@ def edit_message_route(conversation_id: UUID, message_id: UUID):
 @jwt_required()
 def stream_completion_route(conversation_id: UUID):
     payload = request.get_json(silent=True) or {}
+    try:
+        turn_id = UUID(str(payload["turnId"])) if payload.get("turnId") else None
+    except ValueError:
+        return jsonify({"error": {"code": "invalid_turn_id"}}), 422
     prepared = prepare_completion(
         user_id(),
         conversation_id,
@@ -89,6 +93,7 @@ def stream_completion_route(conversation_id: UUID):
         payload.get("modelId"),
         payload.get("editMessageId"),
         str(payload.get("workspaceInstructions") or ""),
+        turn_id,
     )
 
     @stream_with_context

@@ -26,18 +26,73 @@ export function ConversationChat({ conversationId, active, onUpdated }: Conversa
   const autoScrollLockedRef = useRef(true);
   const lastScrollTopRef = useRef(0);
   const scrollFrameRef = useRef<number | null>(null);
-  const activeRequestIdRef = useRef<string | null>(null);
-  const stoppedRequestIdsRef = useRef(new Set<string>());
+  const activeTurnIdRef = useRef<string | null>(null);
   const conversationRef = useRef<LocalConversation | null>(null);
+  const onUpdatedRef = useRef(onUpdated);
 
   useEffect(() => { conversationRef.current = conversation; }, [conversation]);
+  useEffect(() => { onUpdatedRef.current = onUpdated; }, [onUpdated]);
 
   useEffect(() => {
-    void window.ohmycode.conversations.get(conversationId).then(setConversation).catch(() => toast({ type: "error", message: t("agent.loadFailed") }));
+    let disposed = false;
+    let snapshotLoaded = false;
+    const pending: RuntimeEvent[] = [];
+    const handledSequences = new Set<number>();
+    const applyRuntimeEvent = (event: RuntimeEvent) => {
+      if (disposed || handledSequences.has(event.sequence)) return;
+      handledSequences.add(event.sequence);
+      if (event.type === "turn.started") {
+        activeTurnIdRef.current = event.turnId;
+        setSending(true);
+      }
+      setConversation((current) => {
+        if (!current) return current;
+        const streamId = `stream-${event.turnId}`;
+        const messages = [...(current.messages ?? [])];
+        let index = messages.findIndex((message) => message.id === streamId);
+        if (index < 0 && (event.type === "turn.started" || event.type.startsWith("item."))) {
+          messages.push({ id: streamId, role: "assistant", content: "", createdAt: new Date().toISOString(), agentStartedAt: new Date().toISOString(), activity: [] });
+          index = messages.length - 1;
+        }
+        if (index >= 0) {
+          const message = messages[index];
+          messages[index] = { ...message, activity: updateActivity(message.activity ?? [], event) };
+        }
+        return { ...current, messages };
+      });
+      if (event.type === "turn.failed") toast({ type: "error", message: t("agent.sendFailed") });
+      if (event.type === "turn.completed" || event.type === "turn.failed" || event.type === "turn.interrupted") {
+        if (activeTurnIdRef.current === event.turnId) activeTurnIdRef.current = null;
+        setSending(false);
+        void window.ohmycode.conversations.get(conversationId).then((value) => {
+          if (!disposed) setConversation(value);
+        });
+        onUpdatedRef.current();
+      }
+    };
+    const unsubscribe = window.ohmycode.conversations.onThreadEvent(conversationId, (event) => {
+      if (!snapshotLoaded) pending.push(event);
+      else applyRuntimeEvent(event);
+    });
+    void Promise.all([
+      window.ohmycode.conversations.get(conversationId),
+      window.ohmycode.conversations.threadSnapshot(conversationId),
+    ]).then(([loadedConversation, snapshot]) => {
+      if (disposed) return;
+      setConversation(loadedConversation);
+      if (snapshot?.status === "in_progress") {
+        activeTurnIdRef.current = snapshot.turnId;
+        setSending(true);
+      }
+      const replay = snapshot?.status === "in_progress" ? snapshot.events : [];
+      for (const event of [...replay, ...pending].sort((left, right) => left.sequence - right.sequence)) applyRuntimeEvent(event);
+      snapshotLoaded = true;
+    }).catch(() => toast({ type: "error", message: t("agent.loadFailed") }));
     void window.ohmycode.settings.get().then((settings) => {
       setModels(settings.models);
       setSelectedModelId(settings.models[0]?.id ?? "");
     });
+    return () => { disposed = true; unsubscribe(); };
   }, [conversationId, t, toast]);
 
   const lastUserId = useMemo(() => [...(conversation?.messages ?? [])].reverse().find((message) => message.role === "user")?.id, [conversation]);
@@ -83,67 +138,33 @@ export function ConversationChat({ conversationId, active, onUpdated }: Conversa
 
   async function send(content: string, editMessageId?: string) {
     if (!conversation) return;
-    const requestId = crypto.randomUUID();
-    activeRequestIdRef.current = requestId;
-    const now = new Date().toISOString();
-    const assistantId = `stream-${requestId}`;
-    const currentMessages = conversation.messages ?? [];
-    const optimisticMessages = editMessageId
-      ? currentMessages.slice(0, currentMessages.findIndex((message) => message.id === editMessageId) + 1).map((message) => message.id === editMessageId ? { ...message, content } : message)
-      : [...currentMessages, { id: `user-${requestId}`, role: "user" as const, content, createdAt: now }];
-    setConversation({ ...conversation, messages: [...optimisticMessages, { id: assistantId, role: "assistant", content: "", createdAt: now, agentStartedAt: now }] });
-    if (editMessageId) setEditing(null);
-    setSending(true);
-    const queue: ConversationStreamEvent[] = [];
-    let draining = false;
-    let networkDone = false;
-    let resolveDrain: () => void = () => {};
-    const drained = new Promise<void>((resolve) => { resolveDrain = resolve; });
-    const pump = () => {
-      const part = queue.shift();
-      if (part) {
-        setConversation((current) => current ? { ...current, messages: (current.messages ?? []).map((message) => message.id === assistantId ? {
-          ...message,
-          activity: updateActivity(message.activity ?? [], part),
-        } : message) } : current);
-        window.requestAnimationFrame(pump);
-        return;
-      }
-      draining = false;
-      if (networkDone) resolveDrain();
-    };
-    const unsubscribe = window.ohmycode.conversations.onEvent(requestId, (event) => {
-      if (event.type === "reasoning.delta" || event.type === "message.delta") {
-        const characters = Array.from(event.content);
-        for (let index = 0; index < characters.length; index += 4) queue.push({ ...event, content: characters.slice(index, index + 4).join("") });
-      } else queue.push(event);
-      if (!draining) { draining = true; window.requestAnimationFrame(pump); }
-    });
     try {
-      const updated = await window.ohmycode.conversations.send(conversationId, content, selectedModelId, requestId, editMessageId);
-      networkDone = true;
-      if (!draining && queue.length === 0) resolveDrain();
-      await drained;
-      if (!stoppedRequestIdsRef.current.has(requestId)) setConversation(updated);
-      onUpdated();
+      const { turnId } = await window.ohmycode.conversations.startTurn(conversationId, content, selectedModelId, editMessageId);
+      activeTurnIdRef.current = turnId;
+      const now = new Date().toISOString();
+      setConversation((current) => {
+        if (!current) return current;
+        const streamId = `stream-${turnId}`;
+        const existingStream = (current.messages ?? []).find((message) => message.id === streamId);
+        const currentMessages = (current.messages ?? []).filter((message) => message.id !== streamId);
+        const optimisticMessages = editMessageId
+          ? currentMessages.slice(0, currentMessages.findIndex((message) => message.id === editMessageId) + 1).map((message) => message.id === editMessageId ? { ...message, content } : message)
+          : [...currentMessages, { id: `user-${turnId}`, role: "user" as const, content, createdAt: now }];
+        return { ...current, messages: [...optimisticMessages, existingStream ?? { id: streamId, role: "assistant", content: "", createdAt: now, agentStartedAt: now, activity: [] }] };
+      });
+      if (editMessageId) setEditing(null);
+      setSending(true);
     } catch {
-      if (!stoppedRequestIdsRef.current.has(requestId)) {
-        toast({ type: "error", message: t("agent.sendFailed") });
-        setConversation(await window.ohmycode.conversations.get(conversationId));
-      }
-    } finally {
-      unsubscribe();
-      stoppedRequestIdsRef.current.delete(requestId);
-      if (activeRequestIdRef.current === requestId) activeRequestIdRef.current = null;
+      toast({ type: "error", message: t("agent.sendFailed") });
+      setConversation(await window.ohmycode.conversations.get(conversationId));
       setSending(false);
     }
   }
 
   async function stop() {
-    const requestId = activeRequestIdRef.current;
-    if (!requestId) return;
-    stoppedRequestIdsRef.current.add(requestId);
-    const partialMessage = conversationRef.current?.messages?.find((message) => message.id === `stream-${requestId}`);
+    const turnId = activeTurnIdRef.current;
+    if (!turnId) return;
+    const partialMessage = conversationRef.current?.messages?.find((message) => message.id === `stream-${turnId}`);
     const stoppedMessage = partialMessage ? {
       ...partialMessage,
       content: [partialMessage.content, t("agent.stoppedByUser")].filter(Boolean).join("\n\n"),
@@ -152,9 +173,9 @@ export function ConversationChat({ conversationId, active, onUpdated }: Conversa
     setSending(false);
     setConversation((current) => current ? {
       ...current,
-      messages: (current.messages ?? []).map((message) => message.id === `stream-${requestId}` && stoppedMessage ? stoppedMessage : message),
+      messages: (current.messages ?? []).map((message) => message.id === `stream-${turnId}` && stoppedMessage ? stoppedMessage : message),
     } : current);
-    await window.ohmycode.conversations.stop(requestId, stoppedMessage);
+    await window.ohmycode.conversations.interruptTurn(turnId, stoppedMessage);
   }
 
   if (!conversation) return <FullScreenLoading />;

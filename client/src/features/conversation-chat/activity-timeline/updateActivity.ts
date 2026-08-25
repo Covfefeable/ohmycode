@@ -1,6 +1,26 @@
-export function updateActivity(steps: AgentActivityStep[], event: ConversationStreamEvent): AgentActivityStep[] {
+export function updateActivity(steps: AgentActivityStep[], event: ConversationStreamEvent | RuntimeEvent): AgentActivityStep[] {
   const next = steps.map((step) => ({ ...step }));
-  if (event.type === "run.started") {
+  if (event.type === "turn.started") {
+    for (const step of next) if (step.status === "running") step.status = "completed";
+    next.push({ id: `run-${event.turnId}`, type: "run", status: "running" });
+  } else if (event.type === "item.started") {
+    const item = event.item;
+    if (item.kind === "reasoning") next.push({ id: item.id, type: "reasoning", content: item.content ?? "", status: "running" });
+    if (item.kind === "agent_message") next.push({ id: item.id, type: "message", content: item.content ?? "", status: "running" });
+    if (item.kind === "tool") next.push({ id: item.id, type: "tool", tool: item.tool ?? "tool", input: item.input as TerminalAction, status: "running" });
+  } else if (event.type === "item.delta") {
+    const step = next.find((item) => item.id === event.itemId);
+    if (step && (step.type === "reasoning" || step.type === "message")) step.content += event.delta;
+  } else if (event.type === "item.completed") {
+    const step = next.find((item) => item.id === event.item.id);
+    if (step) {
+      step.status = "completed";
+      if (step.type === "tool") step.result = event.item.output;
+      if ((step.type === "reasoning" || step.type === "message") && event.item.content !== undefined) step.content = event.item.content;
+    }
+  } else if (event.type === "turn.completed" || event.type === "turn.failed" || event.type === "turn.interrupted") {
+    for (const step of next) if (step.status === "running") step.status = "completed";
+  } else if (event.type === "run.started") {
     for (const step of next) if (step.status === "running") step.status = "completed";
     let lastRunIndex = -1;
     for (let index = next.length - 1; index >= 0; index -= 1) {

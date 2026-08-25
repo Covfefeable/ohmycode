@@ -26,9 +26,11 @@ interface Window {
     };
     conversations: {
       get(conversationId: string): Promise<LocalConversation>;
-      send(conversationId: string, content: string, modelId: string | undefined, requestId: string, editMessageId?: string): Promise<LocalConversation>;
-      stop(requestId: string, partialMessage?: LocalMessage): Promise<void>;
-      onEvent(requestId: string, callback: (event: ConversationStreamEvent) => void): () => void;
+      startTurn(conversationId: string, content: string, modelId?: string, editMessageId?: string): Promise<{ turnId: string }>;
+      threadSnapshot(conversationId: string, afterSequence?: number): Promise<TurnSnapshot | null>;
+      waitTurn(turnId: string): Promise<LocalConversation | null>;
+      interruptTurn(turnId: string, partialMessage?: LocalMessage): Promise<void>;
+      onThreadEvent(conversationId: string, callback: (event: RuntimeEvent) => void): () => void;
     };
     apiStatus(): Promise<{ online: boolean; url: string }>;
     openPath(targetPath: string, projectId?: string): Promise<void>;
@@ -51,9 +53,6 @@ interface Window {
       saveProfile(displayName: string): Promise<void>;
       saveModels(models: ModelConfiguration[]): Promise<void>;
       testModel(model: ModelConfiguration): Promise<{ ok: boolean; latencyMs?: number; message?: string }>;
-    };
-    terminal: {
-      execute(action: TerminalAction): Promise<TerminalResult | TerminalResult[]>;
     };
   };
 }
@@ -104,9 +103,19 @@ type ConversationStreamEvent =
   | { type: "message.delta"; content: string }
   | { type: "tool.requested"; runId: string; callId: string; tool: "terminal" | "agent_message" | "finish_collaboration" | "read_file" | "search_files" | "list_directory" | "apply_patch"; arguments: TerminalAction | Record<string, unknown> }
   | { type: "tool.completed"; callId: string; result: unknown };
+type RuntimeItem = { id: string; threadId: string; turnId: string; kind: "reasoning" | "agent_message" | "tool"; status: "in_progress" | "completed" | "failed" | "interrupted"; content?: string; tool?: string; input?: unknown; output?: unknown; errorCode?: string };
+type RuntimeEvent =
+  | { sequence: number; type: "turn.started"; threadId: string; turnId: string }
+  | { sequence: number; type: "item.started"; threadId: string; turnId: string; item: RuntimeItem }
+  | { sequence: number; type: "item.delta"; threadId: string; turnId: string; itemId: string; delta: string }
+  | { sequence: number; type: "item.completed"; threadId: string; turnId: string; item: RuntimeItem }
+  | { sequence: number; type: "turn.completed"; threadId: string; turnId: string }
+  | { sequence: number; type: "turn.failed"; threadId: string; turnId: string; errorCode: string }
+  | { sequence: number; type: "turn.interrupted"; threadId: string; turnId: string };
+type TurnSnapshot = { threadId: string; turnId: string; status: "in_progress" | "completed" | "failed" | "interrupted"; lastSequence: number; events: RuntimeEvent[] };
 type MultiAgentRunEvent =
   | { type: "task.updated"; task: MultiAgentTask }
-  | { type: "node.event"; nodeId: string; event: ConversationStreamEvent }
+  | { type: "node.event"; nodeId: string; event: RuntimeEvent }
   | { type: "task.failed"; error: string };
 type AgentActivityStep =
   | { id: string; type: "run"; status: "running" | "completed" }

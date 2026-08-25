@@ -178,12 +178,14 @@ def test_project_conversation_and_message_lifecycle(monkeypatch):
             "app.services.agent.chat.httpx.stream",
             lambda *_args, **_kwargs: next(provider_responses),
         )
+        requested_turn_id = str(uuid.uuid4())
         streamed = client.post(
             f"/api/projects/conversations/{conversation_id}/stream",
             headers=headers,
-            json={"content": "Continue", "modelId": model_id},
+            json={"content": "Continue", "modelId": model_id, "turnId": requested_turn_id},
         )
         assert streamed.status_code == 200
+        assert f'"runId": "{requested_turn_id}"'.encode() in streamed.data
         assert b'"type": "reasoning.delta"' in streamed.data
         assert b'"content": "Hello "' in streamed.data
         assert b'"content": "stream"' in streamed.data

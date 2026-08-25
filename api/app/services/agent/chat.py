@@ -154,12 +154,13 @@ def prepare_completion(
     model_id: str | None,
     edit_message_id: str | None,
     workspace_instructions: str = "",
+    turn_id: UUID | None = None,
 ) -> PreparedCompletion:
     conversation = prepare_user_prompt(user_id, conversation_id, content, edit_message_id)
     configuration = get_model_configuration(user_id, model_id)
     if not configuration:
         raise ServiceError("model_not_configured", 422)
-    run = start_run(conversation_id, configuration)
+    run = start_run(conversation_id, configuration, turn_id)
     try:
         context = prepare_context(
             run, configuration, list(conversation.messages), AGENT_SYSTEM_INSTRUCTIONS

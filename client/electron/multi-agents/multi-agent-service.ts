@@ -1,15 +1,16 @@
 import path from "node:path";
 import { dialog } from "electron";
 import { apiRequest } from "../api/api-client.js";
-import { stopMessage, streamMessage, type ConversationStreamEvent } from "../conversations/conversation-service.js";
+import { interruptTurn, startTurn, subscribeTurn, waitForTurn } from "../runtime/agent-runtime.js";
+import type { RuntimeEvent } from "../runtime/types.js";
 import type { MultiAgentSummary, MultiAgentTask } from "./types.js";
 
 export type MultiAgentRunEvent =
   | { type: "task.updated"; task: MultiAgentTask }
-  | { type: "node.event"; nodeId: string; event: ConversationStreamEvent }
+  | { type: "node.event"; nodeId: string; event: RuntimeEvent }
   | { type: "task.failed"; error: string };
 
-type ActiveRun = { taskId: string; nodeRequestId?: string; cancelled: boolean };
+type ActiveRun = { taskId: string; nodeTurnId?: string; cancelled: boolean };
 const activeRuns = new Map<string, ActiveRun>();
 
 export const listMultiAgents = (): Promise<MultiAgentSummary[]> => apiRequest("/api/multi-agents");
@@ -25,30 +26,39 @@ async function runTurn(task: MultiAgentTask, memberId: string, requestId: string
   const member = task.members.find((item) => item.id === memberId);
   if (!member) throw new Error("speaker_not_found");
   const started = await apiRequest<{ conversationId: string; prompt: string; modelId?: string | null }>(`/api/multi-agents/nodes/${member.id}/start`, { method: "POST" });
-  const nodeRequestId = `${requestId}:${member.id}:${crypto.randomUUID()}`;
+  const { turnId } = startTurn({
+    threadId: started.conversationId,
+    content: started.prompt,
+    modelId: started.modelId ?? undefined,
+    executionContext: { ownerId: member.id, workspacePath: task.workspacePath },
+  });
   const active = activeRuns.get(requestId);
-  if (active) active.nodeRequestId = nodeRequestId;
+  if (active) active.nodeTurnId = turnId;
   let handedOff = false;
   let streamError: string | undefined;
   let transportError: unknown;
   let conversation;
-  try {
-    conversation = await streamMessage(started.conversationId, started.prompt, started.modelId ?? undefined, undefined, nodeRequestId, (event) => {
+  const unsubscribe = subscribeTurn(turnId, (event) => {
       onEvent({ type: "node.event", nodeId: member.id, event });
-      if (event.type === "run.failed") streamError = event.errorCode;
-      if (event.type === "tool.completed") {
-        const result = event.result as { sourceStatus?: string; status?: string };
+      if (event.type === "turn.failed") streamError = event.errorCode;
+      if (event.type === "item.completed" && event.item.kind === "tool") {
+        const result = event.item.output as { sourceStatus?: string; status?: string };
         if (result?.sourceStatus === "idle" || result?.status === "completed") {
           handedOff = true;
-          void stopMessage(nodeRequestId);
+          void interruptTurn(turnId);
         }
         void getMultiAgentTask(task.id).then((latest) => onEvent({ type: "task.updated", task: latest }));
       }
-    }, { ownerId: member.id, workspacePath: task.workspacePath });
+    });
+  try {
+    const pending = waitForTurn(turnId);
+    if (!pending) throw new Error("turn_not_running");
+    conversation = await pending;
   } catch (error) {
     transportError = error;
   } finally {
-    if (active) active.nodeRequestId = undefined;
+    unsubscribe();
+    if (active) active.nodeTurnId = undefined;
   }
   let latest = await getMultiAgentTask(task.id);
   if (transportError) {
@@ -113,7 +123,7 @@ export async function stopMultiAgentTask(requestId: string | null, taskId?: stri
   if (!targetTaskId) return;
   if (active) active.cancelled = true;
   await apiRequest(`/api/multi-agents/tasks/${targetTaskId}/stop`, { method: "POST" });
-  if (active?.nodeRequestId) await stopMessage(active.nodeRequestId);
+  if (active?.nodeTurnId) await interruptTurn(active.nodeTurnId);
 }
 
 export async function sendCollaborationMessage(taskId: string, memberId: string, content: string): Promise<MultiAgentTask> {

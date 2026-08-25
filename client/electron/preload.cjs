@@ -30,11 +30,13 @@ contextBridge.exposeInMainWorld("ohmycode", {
   },
   conversations: {
     get: (conversationId) => ipcRenderer.invoke("conversations:get", conversationId),
-    send: (conversationId, content, modelId, requestId, editMessageId) => ipcRenderer.invoke("conversations:send", conversationId, content, modelId, requestId, editMessageId),
-    stop: (requestId, partialMessage) => ipcRenderer.invoke("conversations:stop", requestId, partialMessage),
-    onEvent: (requestId, callback) => {
-      const channel = `conversation:event:${requestId}`;
-      const listener = (_event, streamEvent) => callback(streamEvent);
+    startTurn: (conversationId, content, modelId, editMessageId) => ipcRenderer.invoke("conversations:start-turn", conversationId, content, modelId, editMessageId),
+    threadSnapshot: (conversationId, afterSequence) => ipcRenderer.invoke("conversations:thread-snapshot", conversationId, afterSequence),
+    waitTurn: (turnId) => ipcRenderer.invoke("conversations:wait-turn", turnId),
+    interruptTurn: (turnId, partialMessage) => ipcRenderer.invoke("conversations:interrupt-turn", turnId, partialMessage),
+    onThreadEvent: (conversationId, callback) => {
+      const channel = `thread:event:${conversationId}`;
+      const listener = (_event, runtimeEvent) => callback(runtimeEvent);
       ipcRenderer.on(channel, listener);
       return () => ipcRenderer.removeListener(channel, listener);
     },
@@ -57,8 +59,5 @@ contextBridge.exposeInMainWorld("ohmycode", {
     saveProfile: (displayName) => ipcRenderer.invoke("settings:save-profile", displayName),
     saveModels: (models) => ipcRenderer.invoke("settings:save-models", models),
     testModel: (model) => ipcRenderer.invoke("settings:test-model", model),
-  },
-  terminal: {
-    execute: (action) => ipcRenderer.invoke("terminal:execute", action),
   },
 });

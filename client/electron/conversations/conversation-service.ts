@@ -95,6 +95,7 @@ export async function streamMessage(
   requestId: string,
   onEvent: (event: ConversationStreamEvent) => void,
   executionContext?: AgentExecutionContext,
+  turnId?: string,
 ): Promise<LocalConversation> {
   const active: ActiveRequest = {
     controller: new AbortController(),
@@ -110,7 +111,7 @@ export async function streamMessage(
       : "";
     let response = await apiFetch(`/api/projects/conversations/${conversationId}/stream`, {
       method: "POST",
-      body: JSON.stringify({ content, modelId, editMessageId, workspaceInstructions }),
+      body: JSON.stringify({ content, modelId, editMessageId, workspaceInstructions, turnId }),
       signal: active.controller.signal,
     });
     if (!response.ok) throw new Error(`server_stream_${response.status}`);

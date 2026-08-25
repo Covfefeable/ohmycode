@@ -5,7 +5,6 @@ import { registerSystemIpc } from "./ipc/register-system-ipc.js";
 import { registerSettingsIpc } from "./ipc/register-settings-ipc.js";
 import { registerProjectsIpc } from "./ipc/register-projects-ipc.js";
 import { registerMultiAgentIpc } from "./ipc/register-multi-agent-ipc.js";
-import { registerTerminalIpc } from "./ipc/register-terminal-ipc.js";
 import { stopAllTerminals } from "./terminal/terminal-manager.js";
 import { createMainWindow } from "./window/create-main-window.js";
 
@@ -33,7 +32,6 @@ if (!hasSingleInstanceLock) {
     registerSettingsIpc();
     registerProjectsIpc();
     registerMultiAgentIpc();
-    registerTerminalIpc();
     void createMainWindow();
     void startApiSidecar().catch((error) => {
       console.error("[api] failed to initialize sidecar", error);

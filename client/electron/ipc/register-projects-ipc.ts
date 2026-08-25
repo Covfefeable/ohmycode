@@ -8,7 +8,7 @@ import {
   openProject,
   getConversation,
 } from "../projects/projects-service.js";
-import { stopMessage, streamMessage } from "../conversations/conversation-service.js";
+import { getThreadSnapshot, interruptTurn, startTurn, waitForTurn } from "../runtime/agent-runtime.js";
 
 export function registerProjectsIpc(): void {
   ipcMain.handle("projects:list", listProjects);
@@ -18,7 +18,14 @@ export function registerProjectsIpc(): void {
   ipcMain.handle("projects:create-conversation", (_event, projectId: string, title: string) => createConversation(projectId, title));
   ipcMain.handle("projects:delete-conversation", (_event, projectId: string, conversationId: string) => deleteConversation(projectId, conversationId));
   ipcMain.handle("conversations:get", (_event, conversationId: string) => getConversation(conversationId));
-  ipcMain.handle("conversations:send", (event, conversationId: string, content: string, modelId: string | undefined, requestId: string, editMessageId?: string) =>
-    streamMessage(conversationId, content, modelId, editMessageId, requestId, (streamEvent) => event.sender.send(`conversation:event:${requestId}`, streamEvent)));
-  ipcMain.handle("conversations:stop", (_event, requestId: string, partialMessage) => stopMessage(requestId, partialMessage));
+  ipcMain.handle("conversations:start-turn", (_event, conversationId: string, content: string, modelId?: string, editMessageId?: string) =>
+    startTurn({ threadId: conversationId, content, modelId, editMessageId }));
+  ipcMain.handle("conversations:thread-snapshot", (_event, conversationId: string, afterSequence?: number) =>
+    getThreadSnapshot(conversationId, afterSequence));
+  ipcMain.handle("conversations:wait-turn", async (_event, turnId: string) => {
+    const pending = waitForTurn(turnId);
+    return pending ? pending : null;
+  });
+  ipcMain.handle("conversations:interrupt-turn", (_event, turnId: string, partialMessage) =>
+    interruptTurn(turnId, partialMessage));
 }

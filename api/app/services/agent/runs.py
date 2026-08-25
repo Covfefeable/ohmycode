@@ -9,8 +9,13 @@ from ..errors import ServiceError
 from .prompts import STOPPED_RUN_CONTEXT
 
 
-def start_run(conversation_id: UUID, model: ModelConfiguration) -> AgentRun:
-    run = AgentRun(conversation_id=conversation_id, model_configuration_id=model.id)
+def start_run(
+    conversation_id: UUID, model: ModelConfiguration, turn_id: UUID | None = None
+) -> AgentRun:
+    values = {"conversation_id": conversation_id, "model_configuration_id": model.id}
+    if turn_id is not None:
+        values["id"] = turn_id
+    run = AgentRun(**values)
     db.session.add(run)
     db.session.flush()
     append_event(run, "run.started", {"modelId": str(model.id)})
