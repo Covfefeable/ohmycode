@@ -7,7 +7,7 @@ import { SettingsSectionHeader } from "../../shared/ui/settings-section-header";
 import { ConfirmDialog } from "../../shared/ui/confirm-dialog";
 import styles from "./ModelSettings.module.css";
 
-const newModel = (): ModelConfiguration => ({ id: crypto.randomUUID(), name: "", baseUrl: "https://api.openai.com/v1", model: "", contextLength: 262144, apiKey: "" });
+const newModel = (): ModelConfiguration => ({ id: crypto.randomUUID(), name: "", baseUrl: "https://api.openai.com/v1", model: "", contextLength: 262144, supportsVision: false, apiKey: "" });
 
 export function ModelSettings({ initial }: { initial: ModelConfiguration[] }) {
   const { t } = useTranslation();
@@ -88,6 +88,7 @@ export function ModelSettings({ initial }: { initial: ModelConfiguration[] }) {
         <label className={styles.contextLength}><span>{t("settings.contextLength")}</span><div className={styles.numberField}><input type="number" min="1" max="10000" step="1" value={Math.round(model.contextLength / 1024)} onChange={(e) => update(model.id, { contextLength: Math.max(1024, Number(e.target.value || 1) * 1024) })} /><span>K</span></div></label>
         <label className={styles.wide}><span>{t("settings.baseUrl")}</span><input value={model.baseUrl} onChange={(e) => update(model.id, { baseUrl: e.target.value })} /></label>
         <label className={styles.wide}><span>{t("settings.apiKey")}</span><input type="password" value={model.apiKey ?? ""} placeholder={model.hasApiKey ? t("settings.keyStored") : "sk-…"} onChange={(e) => update(model.id, { apiKey: e.target.value })} /></label>
+        <label className={`${styles.wide} ${styles.visionToggle}`}><input type="checkbox" checked={Boolean(model.supportsVision)} onChange={(e) => update(model.id, { supportsVision: e.target.checked })} /><span>{t("settings.supportsVision")}</span></label>
       </div>
       <footer><button disabled={testingId === model.id} onClick={() => void test(model)}>{testingId === model.id ? <LoaderCircle className={styles.spinner} /> : <PlugZap />}{t("settings.test")}</button></footer>
       </div>}

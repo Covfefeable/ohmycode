@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Check, ChevronDown, CircleX, FilePenLine, FileSearch, FileText, FolderOpen, LoaderCircle, TerminalSquare } from "lucide-react";
+import { Check, ChevronDown, CircleX, FilePenLine, FileSearch, FileText, FolderOpen, Image, LoaderCircle, TerminalSquare } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { MarkdownContent } from "../../../shared/ui/markdown-content";
 import styles from "./ActivityTimeline.module.css";
@@ -7,6 +7,10 @@ import styles from "./ActivityTimeline.module.css";
 function formatToolResult(value: unknown): string {
   if (value && typeof value === "object" && !Array.isArray(value)) {
     const result = value as Record<string, unknown>;
+    if (typeof result.dataUrl === "string") {
+      const metadata = Object.fromEntries(Object.entries(result).filter(([key]) => key !== "dataUrl"));
+      return JSON.stringify(metadata, null, 2);
+    }
     if (typeof result.operation === "string" && typeof result.output === "string") return result.output;
     if (typeof result.output === "string") {
       const suffix = result.status === "running"
@@ -61,26 +65,30 @@ function ToolStep({ step }: { step: Extract<AgentActivityStep, { type: "tool" }>
   const resolvedFilePath = typeof metadata.path === "string" ? metadata.path : "";
   const requestedFilePath = typeof input.path === "string" ? input.path : patchTarget(input.patch);
   const clickableFilePath = resolvedFilePath || requestedFilePath;
+  const imageReference = typeof input.imageUrl === "string" ? input.imageUrl : "";
   const projectId = typeof input.projectId === "string" ? input.projectId : undefined;
-  const displayedFilePath = pathName(clickableFilePath);
-  const fileTool = ["read_file", "apply_patch", "search_files", "list_directory"].includes(step.tool);
+  const displayedFilePath = pathName(clickableFilePath || imageReference);
+  const fileTool = ["read_file", "apply_patch", "search_files", "list_directory", "view_image"].includes(step.tool);
   const fileLabel = step.status === "running" ? t(({
     read_file: "agent.readingFile",
     apply_patch: "agent.editingFile",
     search_files: "agent.searchingFiles",
     list_directory: "agent.listingDirectory",
+    view_image: "agent.viewingImage",
   })[step.tool] ?? "agent.usingFileTool") : t((failed ? {
     read_file: "agent.readFileFailed",
     apply_patch: "agent.editFileFailed",
     search_files: "agent.searchFilesFailed",
     list_directory: "agent.listDirectoryFailed",
+    view_image: "agent.viewImageFailed",
   } : {
     read_file: "agent.readFile",
     apply_patch: "agent.editedFile",
     search_files: "agent.searchedFiles",
     list_directory: "agent.listedDirectory",
+    view_image: "agent.viewedImage",
   })[step.tool] ?? "agent.usingFileTool");
-  const FileIcon = step.tool === "read_file" ? FileText : step.tool === "apply_patch" ? FilePenLine : step.tool === "search_files" ? FileSearch : FolderOpen;
+  const FileIcon = step.tool === "read_file" ? FileText : step.tool === "apply_patch" ? FilePenLine : step.tool === "search_files" ? FileSearch : step.tool === "view_image" ? Image : FolderOpen;
   if (fileTool) return <div className={styles.step}>
     <div
       className={styles.fileStepHead}
@@ -108,7 +116,7 @@ function ToolStep({ step }: { step: Extract<AgentActivityStep, { type: "tool" }>
               void window.ohmycode.openPath(clickableFilePath, projectId);
             }}
           >{displayedFilePath}</button>
-        : null}
+        : displayedFilePath ? <span>{displayedFilePath}</span> : null}
       <button className={styles.expandButton} type="button" aria-expanded={open} onClick={(event) => { event.stopPropagation(); setOpen((value) => !value); }}><ChevronDown className={`${styles.chevron} ${open ? styles.chevronOpen : ""}`} /></button>
     </div>
     {open && result && <pre className={styles.output}>{result}</pre>}

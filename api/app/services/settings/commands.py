@@ -19,6 +19,7 @@ def serialize_model(item: ModelConfiguration) -> dict:
         "baseUrl": item.base_url,
         "model": item.model,
         "contextLength": item.context_length,
+        "supportsVision": bool(item.supports_vision),
         "hasApiKey": bool(item.api_key_encrypted),
     }
 
@@ -74,6 +75,12 @@ def save_models(user_id: UUID, inputs: list[dict]) -> None:
         item.name = str(payload.get("name") or "").strip()[:100]
         item.base_url = str(payload.get("baseUrl") or "").strip().rstrip("/")[:1024]
         item.model = str(payload.get("model") or "").strip()[:200]
+        item.supports_vision = str(payload.get("supportsVision", False)).lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
         try:
             item.context_length = int(payload.get("contextLength") or 262_144)
         except (TypeError, ValueError) as error:

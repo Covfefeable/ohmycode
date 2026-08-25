@@ -42,16 +42,23 @@ from .tools import (
     AGENT_TOOLS,
     FILE_TOOL_NAMES,
     FINISH_COLLABORATION_TOOL,
+    VIEW_IMAGE_TOOL,
+    VIEW_IMAGE_TOOL_NAME,
     normalize_terminal_arguments,
 )
 
 
-def _multi_agent_context(conversation_id: UUID) -> tuple[list[dict], list[dict]]:
+def _multi_agent_context(
+    conversation_id: UUID, configuration: ModelConfiguration
+) -> tuple[list[dict], list[dict]]:
     node = db.session.scalar(
         db.select(MultiAgentNode).where(MultiAgentNode.conversation_id == conversation_id)
     )
     if not node:
-        return AGENT_TOOLS, []
+        tools = [*AGENT_TOOLS]
+        if configuration.supports_vision:
+            tools.append(VIEW_IMAGE_TOOL)
+        return tools, []
     messages = list(
         db.session.scalars(
             db.select(MultiAgentMessage)
@@ -72,6 +79,8 @@ def _multi_agent_context(conversation_id: UUID) -> tuple[list[dict], list[dict]]
     tools = [*AGENT_TOOLS, AGENT_MESSAGE_TOOL]
     if node.is_host:
         tools.append(FINISH_COLLABORATION_TOOL)
+    if configuration.supports_vision:
+        tools.append(VIEW_IMAGE_TOOL)
     return tools, context
 
 
@@ -174,7 +183,7 @@ def prepare_completion(
         {"estimatedTokens": context.estimated_tokens, "compacted": context.compacted},
     )
     db.session.commit()
-    tools, mailbox = _multi_agent_context(conversation_id)
+    tools, mailbox = _multi_agent_context(conversation_id, configuration)
     return PreparedCompletion(
         run_id=run.id,
         conversation_id=conversation_id,
@@ -209,10 +218,15 @@ def prepare_completion(
 
 def _tool_history(run: AgentRun, after_sequence: int = 0) -> list[dict]:
     history = []
+    tool_names: dict[str, str] = {}
     for event in run.events:
         if event.sequence <= after_sequence:
             continue
         if event.event_type == "tool.requested":
+            tool_names = {
+                call["id"]: str(call.get("function", {}).get("name") or "")
+                for call in event.payload["toolCalls"]
+            }
             history.append(
                 {
                     "role": "assistant",
@@ -221,15 +235,49 @@ def _tool_history(run: AgentRun, after_sequence: int = 0) -> list[dict]:
                 }
             )
         elif event.event_type == "tool.output":
+            image_messages = []
             for result in event.payload["results"]:
+                content = json.dumps(result["result"], ensure_ascii=False)
+                if tool_names.get(result["callId"]) == VIEW_IMAGE_TOOL_NAME:
+                    image_parts = _image_tool_content(result["result"])
+                    if image_parts is not None:
+                        content = json.dumps(
+                            {
+                                key: value
+                                for key, value in result["result"].items()
+                                if key != "dataUrl"
+                            },
+                            ensure_ascii=False,
+                        )
+                        image_messages.append({"role": "user", "content": image_parts})
                 history.append(
                     {
                         "role": "tool",
                         "tool_call_id": result["callId"],
-                        "content": json.dumps(result["result"], ensure_ascii=False),
+                        "content": content,
                     }
                 )
+            history.extend(image_messages)
     return history
+
+
+def _image_tool_content(result: object) -> list[dict] | None:
+    if not isinstance(result, dict):
+        return None
+    data_url = result.get("dataUrl")
+    if not isinstance(data_url, str) or not data_url.startswith("data:image/"):
+        return None
+    text_payload = {key: value for key, value in result.items() if key != "dataUrl"}
+    image_url = {"url": data_url}
+    if result.get("detail") in {"low", "high"}:
+        image_url["detail"] = result["detail"]
+    return [
+        {
+            "type": "text",
+            "text": f"Image returned by view_image: {json.dumps(text_payload, ensure_ascii=False)}",
+        },
+        {"type": "image_url", "image_url": image_url},
+    ]
 
 
 def resume_completion(
@@ -274,7 +322,7 @@ def resume_completion(
             {"runId": str(run.id), "toolEventSequence": run.last_event_sequence},
         )
         model_messages = [{"role": "system", "content": f"Conversation checkpoint:\n{summary}"}]
-    tools, mailbox = _multi_agent_context(run.conversation_id)
+    tools, mailbox = _multi_agent_context(run.conversation_id, configuration)
     return PreparedCompletion(
         run_id=run.id,
         conversation_id=run.conversation_id,
@@ -372,14 +420,12 @@ def stream_completion(prepared: PreparedCompletion):
         if tool_calls:
             calls = [tool_calls[index] for index in sorted(tool_calls)]
             conversation = db.session.get(Conversation, prepared.conversation_id)
+            allowed_tool_names = {
+                str(tool.get("function", {}).get("name") or "")
+                for tool in prepared.payload.get("tools", [])
+            }
             if not conversation or any(
-                call["function"]["name"]
-                not in {
-                    "terminal",
-                    "agent_message",
-                    "finish_collaboration",
-                    *FILE_TOOL_NAMES,
-                }
+                call["function"]["name"] not in allowed_tool_names
                 for call in calls
             ):
                 fail_run(run, "unsupported_tool")
@@ -397,7 +443,7 @@ def stream_completion(prepared: PreparedCompletion):
                         **normalize_terminal_arguments(arguments),
                         "projectId": str(conversation.project_id),
                     }
-                elif tool_name in FILE_TOOL_NAMES:
+                elif tool_name in FILE_TOOL_NAMES or tool_name == VIEW_IMAGE_TOOL_NAME:
                     arguments = {**arguments, "projectId": str(conversation.project_id)}
                 requests.append({"callId": call["id"], "tool": tool_name, "arguments": arguments})
             if reasoning:

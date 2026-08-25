@@ -6,6 +6,7 @@ import type { TerminalAction } from "../terminal/types.js";
 import { acquireWorkspaceWriteLock } from "../multi-agents/workspace-write-lock.js";
 import { recordWorkspaceChanges, snapshotWorkspace } from "../multi-agents/workspace-changes.js";
 import { executeFileTool } from "../files/file-tools.js";
+import { executeViewImage, type ViewImageArguments } from "../files/image-tool.js";
 import { loadAgentInstructions, renderAgentInstructions } from "../files/agents-instructions.js";
 import type { FileToolName, FileToolRequest } from "../files/types.js";
 import { listProjects } from "../projects/projects-service.js";
@@ -23,8 +24,8 @@ type ToolRequestEvent = {
   type: "tool.requested";
   runId: string;
   callId: string;
-  tool: "terminal" | "agent_message" | "finish_collaboration" | FileToolName;
-  arguments: TerminalAction | FileToolRequest | { toNodeId: string; content: string } | { content: string };
+  tool: "terminal" | "agent_message" | "finish_collaboration" | "view_image" | FileToolName;
+  arguments: TerminalAction | FileToolRequest | ViewImageArguments | { toNodeId: string; content: string } | { content: string };
 };
 type ActiveRequest = {
   controller: AbortController;
@@ -143,6 +144,12 @@ export async function streamMessage(
               method: "POST",
               body: JSON.stringify(request.arguments),
             });
+            onEvent({ type: "tool.completed", callId: request.callId, result });
+            active.failedToolCalls.delete(signature);
+            return { callId: request.callId, result };
+          }
+          if (request.tool === "view_image") {
+            const result = await executeViewImage(request.arguments as ViewImageArguments & { projectId: string }, workspaceRoot);
             onEvent({ type: "tool.completed", callId: request.callId, result });
             active.failedToolCalls.delete(signature);
             return { callId: request.callId, result };

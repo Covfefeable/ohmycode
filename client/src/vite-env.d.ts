@@ -83,6 +83,7 @@ type ModelConfiguration = {
   baseUrl: string;
   model: string;
   contextLength: number;
+  supportsVision: boolean;
   apiKey?: string;
   hasApiKey?: boolean;
 };
@@ -106,7 +107,7 @@ type ConversationStreamEvent =
   | { type: "reasoning.delta"; content: string }
   | { type: "message.started" }
   | { type: "message.delta"; content: string }
-  | { type: "tool.requested"; runId: string; callId: string; tool: "terminal" | "agent_message" | "finish_collaboration" | "read_file" | "search_files" | "list_directory" | "apply_patch"; arguments: TerminalAction | Record<string, unknown> }
+  | { type: "tool.requested"; runId: string; callId: string; tool: "terminal" | "agent_message" | "finish_collaboration" | "view_image" | "read_file" | "search_files" | "list_directory" | "apply_patch"; arguments: TerminalAction | { imageUrl: string; detail?: "low" | "high" } | Record<string, unknown> }
   | { type: "tool.completed"; callId: string; result: unknown };
 type RuntimeItem = { id: string; threadId: string; turnId: string; kind: "reasoning" | "agent_message" | "tool"; status: "in_progress" | "completed" | "failed" | "interrupted"; content?: string; tool?: string; input?: unknown; output?: unknown; errorCode?: string };
 type RuntimeEvent =

@@ -16,4 +16,5 @@ export type ModelInput = Omit<StoredModel, "apiKey" | "contextLength"> & {
   apiKey?: string;
   hasApiKey?: boolean;
   contextLength: number;
+  supportsVision?: boolean;
 };

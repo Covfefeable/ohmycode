@@ -116,6 +116,36 @@ AGENT_TOOLS = [
     TERMINAL_TOOL,
 ]
 
+VIEW_IMAGE_TOOL_NAME = "view_image"
+
+VIEW_IMAGE_TOOL = {
+    "type": "function",
+    "function": {
+        "name": VIEW_IMAGE_TOOL_NAME,
+        "description": (
+            "View an image so the model can see it. Only available when the active model "
+            "supports vision (multimodal). Accepts a local absolute path, a workspace "
+            "relative path, or an http(s) URL pointing to a PNG/JPEG/GIF/WEBP/BMP image. "
+            "After the call the image is attached to the conversation as image_url content, "
+            "so the model can perceive it."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "imageUrl": {
+                    "type": "string",
+                    "description": (
+                        "Local absolute path, workspace-relative path, or http(s) URL of "
+                        "the image to view."
+                    ),
+                },
+                "detail": {"type": "string", "enum": ["low", "high"]},
+            },
+            "required": ["imageUrl"],
+        },
+    },
+}
+
 AGENT_MESSAGE_TOOL = {
     "type": "function",
     "function": {
