@@ -4,7 +4,7 @@ from uuid import UUID
 from flask import Blueprint, Response, jsonify, request, stream_with_context
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
-from ..services.agent import prepare_completion, stream_completion
+from ..services.agent import stream_completion, stream_prepare_completion
 from ..services.conversations import (
     add_message,
     create_conversation,
@@ -12,6 +12,7 @@ from ..services.conversations import (
     edit_last_user_message,
     get_conversation,
 )
+from ..services.errors import ServiceError
 from ..services.projects import create_project, delete_project, list_projects, serialize_project
 from ..services.projects.serializers import serialize_conversation, serialize_message
 
@@ -86,22 +87,31 @@ def stream_completion_route(conversation_id: UUID):
         turn_id = UUID(str(payload["turnId"])) if payload.get("turnId") else None
     except ValueError:
         return jsonify({"error": {"code": "invalid_turn_id"}}), 422
-    prepared = prepare_completion(
-        user_id(),
-        conversation_id,
-        str(payload.get("content") or ""),
-        payload.get("modelId"),
-        payload.get("editMessageId"),
-        str(payload.get("workspaceInstructions") or ""),
-        turn_id,
-        payload.get("attachments"),
-    )
-
     @stream_with_context
     def events():
-        yield f"data: {json.dumps({'type': 'run.started', 'runId': str(prepared.run_id)})}\n\n"
-        for event in stream_completion(prepared):
-            yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+        try:
+            preparation = stream_prepare_completion(
+                user_id(),
+                conversation_id,
+                str(payload.get("content") or ""),
+                payload.get("modelId"),
+                payload.get("editMessageId"),
+                str(payload.get("workspaceInstructions") or ""),
+                turn_id,
+                payload.get("attachments"),
+            )
+            while True:
+                try:
+                    event = next(preparation)
+                except StopIteration as completed:
+                    prepared = completed.value
+                    break
+                yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+            for event in stream_completion(prepared):
+                yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+        except ServiceError as error:
+            event = {"type": "run.failed", "errorCode": error.code}
+            yield f"data: {json.dumps(event)}\n\n"
         yield "data: [DONE]\n\n"
 
     return Response(

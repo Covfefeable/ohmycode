@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import type React from "react";
 import { useTranslation } from "react-i18next";
 import { ArrowUp, ChevronDown, Square } from "lucide-react";
 import { useFeedback } from "../feedback";
@@ -11,6 +12,7 @@ type TaskComposerProps = {
   busy?: boolean;
   models: ModelConfiguration[];
   selectedModelId: string;
+  contextUsage?: number;
   onModelChange(modelId: string): void;
   attachments?: MessageAttachment[];
   onRemoveAttachment?(id: string): void;
@@ -18,7 +20,7 @@ type TaskComposerProps = {
   onStop(): Promise<void>;
 };
 
-export function TaskComposer({ disabled = false, busy = false, models, selectedModelId, attachments = [], onRemoveAttachment, onModelChange, onSubmit, onStop }: TaskComposerProps) {
+export function TaskComposer({ disabled = false, busy = false, models, selectedModelId, contextUsage = 0, attachments = [], onRemoveAttachment, onModelChange, onSubmit, onStop }: TaskComposerProps) {
   const { t } = useTranslation();
   const { toast } = useFeedback();
   const [content, setContent] = useState("");
@@ -53,7 +55,9 @@ export function TaskComposer({ disabled = false, busy = false, models, selectedM
             </select>
             <ChevronDown />
           </span></Tooltip>
-          <button className={busy ? styles.stop : ""} aria-label={t(busy ? "agent.stop" : "agent.run")} disabled={!busy && ((!content.trim() && attachments.length === 0) || disabled)} onClick={() => void (busy ? onStop() : submit())}>{busy ? <Square /> : <ArrowUp />}</button>
+          <span className={styles.sendProgress} style={{ "--context-usage": `${Math.max(0, Math.min(1, contextUsage)) * 100}%` } as React.CSSProperties}>
+            <button className={busy ? styles.stop : ""} aria-label={t(busy ? "agent.stop" : "agent.run")} disabled={!busy && ((!content.trim() && attachments.length === 0) || disabled)} onClick={() => void (busy ? onStop() : submit())}>{busy ? <Square /> : <ArrowUp />}</button>
+          </span>
         </div>
       </div>
     </div>

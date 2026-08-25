@@ -18,6 +18,8 @@ export type ConversationStreamEvent = {
   | { type: "run.started"; runId: string }
   | { type: "run.failed"; errorCode: string }
   | { type: "message.started" }
+  | { type: "context.usage"; usedTokens: number; contextLength: number; source: "estimated" | "provider" }
+  | { type: "context.compaction.started" | "context.compaction.completed"; estimatedTokens: number; contextLength: number }
   | ToolRequestEvent
   | { type: "tool.completed"; callId: string; result: unknown };
 type ToolRequestEvent = {

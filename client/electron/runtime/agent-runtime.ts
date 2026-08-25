@@ -40,6 +40,24 @@ function append(turnId: string, event: RuntimeEventPayload): RuntimeEvent {
 
 function translate(threadId: string, turnId: string, event: ConversationStreamEvent): void {
   if (event.type === "run.started") return;
+  if (event.type === "context.usage") {
+    append(turnId, { type: "context.updated", threadId, turnId, usedTokens: event.usedTokens, contextLength: event.contextLength, source: event.source });
+    return;
+  }
+  if (event.type === "context.compaction.started") {
+    const item: RuntimeItem = { id: `context-${turnId}`, threadId, turnId, kind: "context", status: "in_progress" };
+    itemState.set(stateKey(turnId, item.id), item);
+    append(turnId, { type: "item.started", threadId, turnId, item });
+    return;
+  }
+  if (event.type === "context.compaction.completed") {
+    const item = itemState.get(stateKey(turnId, `context-${turnId}`));
+    if (item) {
+      item.status = "completed";
+      append(turnId, { type: "item.completed", threadId, turnId, item: { ...item } });
+    }
+    return;
+  }
   if (event.type === "reasoning.started") {
     const item: RuntimeItem = { id: event.stepId, threadId, turnId, kind: "reasoning", status: "in_progress", content: "" };
     itemState.set(stateKey(turnId, item.id), item);

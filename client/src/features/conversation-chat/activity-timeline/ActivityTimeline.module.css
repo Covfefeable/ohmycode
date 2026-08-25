@@ -9,6 +9,8 @@
 .progressMessage > :first-child { margin-top: 0; }
 .progressMessage > :last-child { margin-bottom: 0; }
 .step { min-width: 0; }
+.contextStep { display: flex; align-items: center; gap: var(--space-2); padding: 6px 8px; color: var(--color-text-muted); font-size: var(--font-sm); }
+.contextStep svg { width: 15px; height: 15px; flex: none; }
 .stepHead { width: 100%; min-width: 0; display: flex; align-items: center; gap: var(--space-2); overflow: hidden; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--color-text-muted); padding: 6px 8px; font: inherit; font-size: var(--font-sm); text-align: left; cursor: pointer; }
 .stepHead:hover { background: var(--color-surface-icon-hover); color: var(--color-text); }
 .stepHead svg { width: 15px; height: 15px; flex: none; }

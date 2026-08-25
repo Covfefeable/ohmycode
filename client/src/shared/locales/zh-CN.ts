@@ -97,6 +97,8 @@ export const zhCN = {
     cancel: "取消",
     resend: "发送",
     working: "正在处理",
+    compactingContext: "正在压缩上下文",
+    compactedContext: "已压缩上下文",
     durationSeconds: "耗时 {{seconds}}秒",
     durationMinutes: "耗时 {{minutes}}分{{seconds}}秒",
     durationHours: "耗时 {{hours}}小时{{minutes}}分{{seconds}}秒",

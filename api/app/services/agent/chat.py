@@ -24,6 +24,7 @@ from .context import (
     COMPACTION_RATIO,
     compact_payload,
     estimate_tokens,
+    iter_prepare_context,
     latest_checkpoint,
     prepare_context,
 )
@@ -90,6 +91,7 @@ class PreparedCompletion:
     conversation_id: UUID
     endpoint: str
     api_key: str
+    context_length: int
     payload: dict
 
 
@@ -129,6 +131,7 @@ def _sse_json_payloads(lines):
 
 
 def _provider_payloads(prepared: PreparedCompletion):
+    request_payload = prepared.payload
     for attempt in range(MODEL_STREAM_ATTEMPTS):
         meaningful_output = False
         try:
@@ -139,7 +142,7 @@ def _provider_payloads(prepared: PreparedCompletion):
                     "Authorization": f"Bearer {prepared.api_key}",
                     "Content-Type": "application/json",
                 },
-                json=prepared.payload,
+                json=request_payload,
                 timeout=MODEL_REQUEST_TIMEOUT_SECONDS,
             ) as provider_response:
                 provider_response.raise_for_status()
@@ -161,6 +164,13 @@ def _provider_payloads(prepared: PreparedCompletion):
             if meaningful_output:
                 return
         except httpx.HTTPStatusError as error:
+            if error.response.status_code == 400 and "stream_options" in request_payload:
+                request_payload = {
+                    key: value
+                    for key, value in request_payload.items()
+                    if key != "stream_options"
+                }
+                continue
             retryable = error.response.status_code == 429 or error.response.status_code >= 500
             if meaningful_output or not retryable or attempt == MODEL_STREAM_ATTEMPTS - 1:
                 raise
@@ -226,7 +236,11 @@ def prepare_completion(
     append_event(
         run,
         "context.prepared",
-        {"estimatedTokens": context.estimated_tokens, "compacted": context.compacted},
+        {
+            "estimatedTokens": context.estimated_tokens,
+            "contextLength": configuration.context_length,
+            "compacted": context.compacted,
+        },
     )
     db.session.commit()
     tools, mailbox = _multi_agent_context(conversation_id, configuration)
@@ -235,15 +249,90 @@ def prepare_completion(
         conversation_id=conversation_id,
         endpoint=f"{configuration.base_url.rstrip('/')}/chat/completions",
         api_key=decrypt_api_key(configuration.api_key_encrypted),
+        context_length=configuration.context_length,
         payload={
             "model": configuration.model,
             "stream": True,
+            "stream_options": {"include_usage": True},
             "tools": tools,
             "messages": [
                 {
                     "role": "system",
                     "content": AGENT_SYSTEM_INSTRUCTIONS,
                 },
+                *(
+                    [
+                        {
+                            "role": "system",
+                            "content": f"Workspace instructions:\n{workspace_instructions}",
+                        }
+                    ]
+                    if workspace_instructions.strip()
+                    else []
+                ),
+                *cancelled_run_context(conversation_id, run.id),
+                *mailbox,
+                *context.messages,
+            ],
+        },
+    )
+
+
+def stream_prepare_completion(
+    user_id: UUID,
+    conversation_id: UUID,
+    content: str,
+    model_id: str | None,
+    edit_message_id: str | None,
+    workspace_instructions: str = "",
+    turn_id: UUID | None = None,
+    attachments: object = None,
+):
+    conversation = prepare_user_prompt(
+        user_id, conversation_id, content, edit_message_id, attachments
+    )
+    configuration = get_model_configuration(user_id, model_id)
+    if not configuration:
+        raise ServiceError("model_not_configured", 422)
+    run = start_run(conversation_id, configuration, turn_id)
+    yield {"type": "run.started", "runId": str(run.id)}
+    try:
+        context = yield from iter_prepare_context(
+            run, configuration, list(conversation.messages), AGENT_SYSTEM_INSTRUCTIONS
+        )
+    except (httpx.HTTPError, KeyError, IndexError, TypeError, ValueError) as error:
+        fail_run(run, "context_compaction_failed")
+        raise ServiceError("context_compaction_failed", 502) from error
+    append_event(
+        run,
+        "context.prepared",
+        {
+            "estimatedTokens": context.estimated_tokens,
+            "contextLength": configuration.context_length,
+            "compacted": context.compacted,
+        },
+    )
+    db.session.commit()
+    yield {
+        "type": "context.usage",
+        "usedTokens": context.estimated_tokens,
+        "contextLength": configuration.context_length,
+        "source": "estimated",
+    }
+    tools, mailbox = _multi_agent_context(conversation_id, configuration)
+    return PreparedCompletion(
+        run_id=run.id,
+        conversation_id=conversation_id,
+        endpoint=f"{configuration.base_url.rstrip('/')}/chat/completions",
+        api_key=decrypt_api_key(configuration.api_key_encrypted),
+        context_length=configuration.context_length,
+        payload={
+            "model": configuration.model,
+            "stream": True,
+            "stream_options": {"include_usage": True},
+            "tools": tools,
+            "messages": [
+                {"role": "system", "content": AGENT_SYSTEM_INSTRUCTIONS},
                 *(
                     [
                         {
@@ -374,9 +463,11 @@ def resume_completion(
         conversation_id=run.conversation_id,
         endpoint=f"{configuration.base_url.rstrip('/')}/chat/completions",
         api_key=decrypt_api_key(configuration.api_key_encrypted),
+        context_length=configuration.context_length,
         payload={
             "model": configuration.model,
             "stream": True,
+            "stream_options": {"include_usage": True},
             "tools": tools,
             "messages": [
                 {"role": "system", "content": AGENT_SYSTEM_INSTRUCTIONS},
@@ -415,10 +506,10 @@ def stream_completion(prepared: PreparedCompletion):
             input_tokens = usage.get("prompt_tokens", usage.get("input_tokens"))
             output_tokens = usage.get("completion_tokens", usage.get("output_tokens"))
             if input_tokens is not None:
-                input_tokens_total += int(input_tokens)
+                input_tokens_total = int(input_tokens)
                 has_input_usage = True
             if output_tokens is not None:
-                output_tokens_total += int(output_tokens)
+                output_tokens_total = int(output_tokens)
                 has_output_usage = True
             choice = (payload.get("choices") or [{}])[0]
             delta = choice.get("delta") or {}
@@ -463,6 +554,13 @@ def stream_completion(prepared: PreparedCompletion):
             run.input_tokens = (run.input_tokens or 0) + input_tokens_total
         if has_output_usage:
             run.output_tokens = (run.output_tokens or 0) + output_tokens_total
+        if has_input_usage:
+            yield {
+                "type": "context.usage",
+                "usedTokens": input_tokens_total,
+                "contextLength": prepared.context_length,
+                "source": "provider",
+            }
         if tool_calls:
             calls = [tool_calls[index] for index in sorted(tool_calls)]
             conversation = db.session.get(Conversation, prepared.conversation_id)

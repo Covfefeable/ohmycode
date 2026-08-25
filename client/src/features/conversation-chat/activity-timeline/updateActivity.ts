@@ -8,6 +8,7 @@ export function updateActivity(steps: AgentActivityStep[], event: ConversationSt
     if (item.kind === "reasoning") next.push({ id: item.id, type: "reasoning", content: item.content ?? "", status: "running" });
     if (item.kind === "agent_message") next.push({ id: item.id, type: "message", content: item.content ?? "", status: "running" });
     if (item.kind === "tool") next.push({ id: item.id, type: "tool", tool: item.tool ?? "tool", input: item.input as TerminalAction, status: "running" });
+    if (item.kind === "context") next.push({ id: item.id, type: "context", status: "running" });
   } else if (event.type === "item.delta") {
     const step = next.find((item) => item.id === event.itemId);
     if (step && (step.type === "reasoning" || step.type === "message")) step.content += event.delta;

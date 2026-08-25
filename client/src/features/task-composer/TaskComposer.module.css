@@ -37,6 +37,7 @@
 .missingModel { opacity: .72; }
 .modelSelect select:hover, .modelSelect select:focus-visible { background: var(--color-surface-control); color: var(--color-text); }
 .toolbar button {
+  position: relative;
   border: 0;
   width: 32px;
   height: 32px;
@@ -48,6 +49,16 @@
   place-items: center;
   cursor: pointer;
 }
+.sendProgress {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: conic-gradient(from -90deg, color-mix(in srgb, var(--color-accent) 82%, white) 0 var(--context-usage), transparent var(--context-usage) 100%);
+  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--color-accent) 55%, transparent));
+}
+.sendProgress button { flex: none; }
 .toolbar button:not(:disabled) { background: var(--color-accent); color: var(--color-accent-ink); }
 .toolbar button svg { width: 16px; height: 16px; }
 .toolbar .stop { background: var(--color-surface-control); color: var(--color-text); }

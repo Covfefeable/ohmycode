@@ -1,4 +1,4 @@
-export type ItemKind = "reasoning" | "agent_message" | "tool";
+export type ItemKind = "reasoning" | "agent_message" | "tool" | "context";
 export type ItemStatus = "in_progress" | "completed" | "failed" | "interrupted";
 export type TurnStatus = "in_progress" | "completed" | "failed" | "interrupted";
 
@@ -20,6 +20,7 @@ export type RuntimeEvent =
   | { sequence: number; type: "item.started"; threadId: string; turnId: string; item: RuntimeItem }
   | { sequence: number; type: "item.delta"; threadId: string; turnId: string; itemId: string; delta: string }
   | { sequence: number; type: "item.completed"; threadId: string; turnId: string; item: RuntimeItem }
+  | { sequence: number; type: "context.updated"; threadId: string; turnId: string; usedTokens: number; contextLength: number; source: "estimated" | "provider" }
   | { sequence: number; type: "turn.completed"; threadId: string; turnId: string }
   | { sequence: number; type: "turn.failed"; threadId: string; turnId: string; errorCode: string }
   | { sequence: number; type: "turn.interrupted"; threadId: string; turnId: string };

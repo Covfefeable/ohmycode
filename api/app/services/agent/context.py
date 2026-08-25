@@ -1,4 +1,5 @@
 import math
+from collections.abc import Generator
 from dataclasses import dataclass
 from uuid import UUID
 
@@ -83,12 +84,12 @@ def _render_for_summary(summary: str | None, messages: list[Message]) -> str:
     return "\n\n".join(parts)
 
 
-def prepare_context(
+def iter_prepare_context(
     run: AgentRun,
     model: ModelConfiguration,
     messages: list[Message],
     system_instructions: str = "",
-) -> PreparedContext:
+) -> Generator[dict, None, PreparedContext]:
     checkpoint = latest_checkpoint(run.conversation_id)
     if checkpoint and checkpoint.source_message_count > len(messages):
         checkpoint = None
@@ -113,6 +114,17 @@ def prepare_context(
             recent_tokens += candidate_tokens
             split -= 1
         if split > 0:
+            append_event(
+                run,
+                "context.compaction.started",
+                {"estimatedTokens": estimated, "contextLength": model.context_length},
+            )
+            db.session.commit()
+            yield {
+                "type": "context.compaction.started",
+                "estimatedTokens": estimated,
+                "contextLength": model.context_length,
+            }
             summary = _summary_request(
                 model,
                 _render_for_summary(checkpoint_summary, active_messages[:split]),
@@ -145,6 +157,11 @@ def prepare_context(
                 + sum(_message_tokens(message) for message in active_messages)
             )
             compacted = True
+            yield {
+                "type": "context.compaction.completed",
+                "estimatedTokens": estimated,
+                "contextLength": model.context_length,
+            }
 
     result: list[dict[str, str]] = []
     if checkpoint_summary:
@@ -156,6 +173,20 @@ def prepare_context(
         for item in active_messages
     )
     return PreparedContext(result, estimated, compacted)
+
+
+def prepare_context(
+    run: AgentRun,
+    model: ModelConfiguration,
+    messages: list[Message],
+    system_instructions: str = "",
+) -> PreparedContext:
+    iterator = iter_prepare_context(run, model, messages, system_instructions)
+    while True:
+        try:
+            next(iterator)
+        except StopIteration as completed:
+            return completed.value
 
 
 def compact_payload(

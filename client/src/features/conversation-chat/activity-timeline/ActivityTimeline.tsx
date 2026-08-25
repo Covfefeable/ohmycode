@@ -151,10 +151,21 @@ function MessageStep({ step }: { step: Extract<AgentActivityStep, { type: "messa
   return <div className={styles.progressMessage}><MarkdownContent>{step.content}</MarkdownContent></div>;
 }
 
+function ContextStep({ step }: { step: Extract<AgentActivityStep, { type: "context" }> }) {
+  const { t } = useTranslation();
+  return <div className={styles.step}>
+    <div className={styles.contextStep}>
+      {step.status === "running" ? <LoaderCircle className={styles.spinner} /> : <Check />}
+      <span>{t(step.status === "running" ? "agent.compactingContext" : "agent.compactedContext")}</span>
+    </div>
+  </div>;
+}
+
 function ActivityStep({ step }: { step: AgentActivityStep }) {
   if (step.type === "run") return null;
   if (step.type === "reasoning") return <ReasoningStep step={step} />;
   if (step.type === "message") return <MessageStep step={step} />;
+  if (step.type === "context") return <ContextStep step={step} />;
   return <ToolStep step={step} />;
 }
 

@@ -29,6 +29,7 @@ export function ConversationChat({ conversationId, active, onUpdated }: Conversa
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [attachments, setAttachments] = useState<MessageAttachment[]>([]);
   const [dragActive, setDragActive] = useState(false);
+  const [contextUsage, setContextUsage] = useState(0);
   const dragDepthRef = useRef(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const autoScrollLockedRef = useRef(true);
@@ -59,6 +60,9 @@ export function ConversationChat({ conversationId, active, onUpdated }: Conversa
       if (event.type === "turn.started") {
         activeTurnIdRef.current = event.turnId;
         setSending(true);
+      }
+      if (event.type === "context.updated") {
+        setContextUsage(event.contextLength > 0 ? event.usedTokens / event.contextLength : 0);
       }
       setConversation((current) => {
         if (!current) return current;
@@ -260,6 +264,6 @@ export function ConversationChat({ conversationId, active, onUpdated }: Conversa
       {!conversation.messages?.length && <p className={styles.empty}>{t("agent.emptyConversation")}</p>}
       </div>
     </div></div>
-    <div className={styles.composerDock}><TaskComposer busy={sending} disabled={Boolean(editing)} models={models} selectedModelId={selectedModelId} attachments={attachments} onRemoveAttachment={(id) => setAttachments((items) => items.filter((item) => item.id !== id))} onModelChange={setSelectedModelId} onSubmit={(content, items) => send(content, items)} onStop={stop} /></div>
+    <div className={styles.composerDock}><TaskComposer busy={sending} disabled={Boolean(editing)} models={models} selectedModelId={selectedModelId} contextUsage={contextUsage} attachments={attachments} onRemoveAttachment={(id) => setAttachments((items) => items.filter((item) => item.id !== id))} onModelChange={setSelectedModelId} onSubmit={(content, items) => send(content, items)} onStop={stop} /></div>
   </section>;
 }

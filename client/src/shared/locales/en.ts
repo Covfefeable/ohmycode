@@ -98,6 +98,8 @@ export const en = {
     cancel: "Cancel",
     resend: "Send",
     working: "Working",
+    compactingContext: "Compacting context",
+    compactedContext: "Context compacted",
     durationSeconds: "Took {{seconds}}s",
     durationMinutes: "Took {{minutes}}m {{seconds}}s",
     durationHours: "Took {{hours}}h {{minutes}}m {{seconds}}s",
