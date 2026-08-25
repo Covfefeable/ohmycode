@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useFeedback } from "../../features/feedback";
 import { emptyDraft, multiAgentErrorKey, templateTask, type CollaborationDraft, type DeleteTarget } from "./multi-agent-utils";
@@ -6,6 +7,7 @@ import { emptyDraft, multiAgentErrorKey, templateTask, type CollaborationDraft, 
 export function useCollaborationWorkspace() {
   const { t } = useTranslation();
   const { toast } = useFeedback();
+  const location = useLocation();
   const [agents, setAgents] = useState<MultiAgentSummary[]>([]);
   const [models, setModels] = useState<ModelConfiguration[]>([]);
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
@@ -23,11 +25,23 @@ export function useCollaborationWorkspace() {
     return value;
   }, []);
 
+  const reloadModels = useCallback(async () => {
+    const settings = await window.ohmycode.settings.get();
+    setModels(settings.models);
+    return settings.models;
+  }, []);
+
   useEffect(() => {
-    void Promise.all([window.ohmycode.multiAgents.list(), window.ohmycode.settings.get()])
-      .then(([items, settings]) => { setAgents(items); setModels(settings.models); })
+    if (!location.pathname.startsWith("/agents")) return;
+    let active = true;
+    void window.ohmycode.multiAgents.list()
+      .then((items) => { if (active) setAgents(items); })
       .catch(() => toast({ type: "error", message: t("multiAgent.loadFailed") }));
-  }, [t, toast]);
+    void window.ohmycode.settings.get()
+      .then((settings) => { if (active) setModels(settings.models); })
+      .catch(() => toast({ type: "error", message: t("common.networkError") }));
+    return () => { active = false; };
+  }, [location.pathname, t, toast]);
 
   useEffect(() => {
     if (!selectedTaskId) return;
@@ -54,12 +68,13 @@ export function useCollaborationWorkspace() {
 
   async function createCollaboration() {
     if (!draft.name.trim() || !draft.description.trim() || !draft.division.trim()) return;
-    if (!models.length) {
-      toast({ type: "error", message: t("multiAgent.modelRequired") });
-      return;
-    }
     setCreating(true);
     try {
+      const availableModels = models.length ? models : await reloadModels();
+      if (!availableModels.length) {
+        toast({ type: "error", message: t("multiAgent.modelRequired") });
+        return;
+      }
       const created = await window.ohmycode.multiAgents.create(draft);
       if (!created.templateTeam.members.length) throw new Error("empty_team");
       const source = [...agents.filter((item) => item.id !== created.id), created];
@@ -160,7 +175,7 @@ export function useCollaborationWorkspace() {
 
   return {
     agents, models, selectedAgentId, selectedTaskId, task, selectedMember, selectedMemberId,
-    createDialogOpen, draft, creating, deleteTarget, reloadAgents, setSelectedAgentId,
+    createDialogOpen, draft, creating, deleteTarget, reloadAgents, reloadModels, setSelectedAgentId,
     setSelectedTaskId, setTask, setSelectedMemberId, setCreateDialogOpen, setDraft,
     setDeleteTarget, selectAgent, selectTask, createCollaboration, saveTeam, updateMember,
     addMember, removeMember, confirmDelete,

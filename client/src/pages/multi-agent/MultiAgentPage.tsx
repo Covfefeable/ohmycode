@@ -22,6 +22,7 @@ export function MultiAgentPage() {
     setTask: workspace.setTask,
     setSelectedTaskId: workspace.setSelectedTaskId,
     reloadAgents: workspace.reloadAgents,
+    reloadModels: workspace.reloadModels,
   });
 
   const task = workspace.task;

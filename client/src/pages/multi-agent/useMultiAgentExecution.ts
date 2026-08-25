@@ -11,6 +11,7 @@ type Options = {
   setTask(task: MultiAgentTask | null): void;
   setSelectedTaskId(taskId: string | null): void;
   reloadAgents(): Promise<MultiAgentSummary[]>;
+  reloadModels(): Promise<ModelConfiguration[]>;
 };
 
 export function useMultiAgentExecution(options: Options) {
@@ -32,17 +33,24 @@ export function useMultiAgentExecution(options: Options) {
     return options.task.members.filter((member) => !query || member.name.toLocaleLowerCase().includes(query));
   }, [mentionQuery, options.task]);
 
-  function hasValidMemberModels(target: MultiAgentTask) {
-    const configuredIds = new Set(options.models.map((model) => model.id));
+  function hasValidMemberModels(target: MultiAgentTask, models: ModelConfiguration[]) {
+    const configuredIds = new Set(models.map((model) => model.id));
     return target.members.every((member) => !member.modelId || configuredIds.has(member.modelId));
   }
 
   async function executeTask(target: MultiAgentTask) {
-    if (!options.models.length) {
+    let models = options.models;
+    try {
+      if (!models.length) models = await options.reloadModels();
+    } catch (error) {
+      toast({ type: "error", message: t(multiAgentErrorKey(error, "multiAgent.loadFailed")) });
+      return;
+    }
+    if (!models.length) {
       toast({ type: "error", message: t("multiAgent.modelRequired") });
       return;
     }
-    if (!hasValidMemberModels(target)) {
+    if (!hasValidMemberModels(target, models)) {
       toast({ type: "error", message: t("multiAgent.memberModelMissing") });
       return;
     }
@@ -75,11 +83,12 @@ export function useMultiAgentExecution(options: Options) {
 
   async function runCollaboration() {
     if (!options.selectedAgentId || !runDescription.trim() || !runWorkspacePath) return;
-    if (!options.models.length) {
-      toast({ type: "error", message: t("multiAgent.modelRequired") });
-      return;
-    }
     try {
+      const models = options.models.length ? options.models : await options.reloadModels();
+      if (!models.length) {
+        toast({ type: "error", message: t("multiAgent.modelRequired") });
+        return;
+      }
       const created = await window.ohmycode.multiAgents.createTask(options.selectedAgentId, runDescription, runWorkspacePath);
       setRunDialogOpen(false);
       setRunDescription("");
