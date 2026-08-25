@@ -182,7 +182,20 @@ def test_project_conversation_and_message_lifecycle(monkeypatch):
         streamed = client.post(
             f"/api/projects/conversations/{conversation_id}/stream",
             headers=headers,
-            json={"content": "Continue", "modelId": model_id, "turnId": requested_turn_id},
+            json={
+                "content": "Continue",
+                "modelId": model_id,
+                "turnId": requested_turn_id,
+                "attachments": [
+                    {
+                        "id": "attachment-1",
+                        "name": "architecture.md",
+                        "path": "C:/repos/ohmycode/docs/architecture.md",
+                        "size": 2048,
+                        "mimeType": "text/markdown",
+                    }
+                ],
+            },
         )
         assert streamed.status_code == 200
         assert f'"runId": "{requested_turn_id}"'.encode() in streamed.data
@@ -195,6 +208,8 @@ def test_project_conversation_and_message_lifecycle(monkeypatch):
         assert final_detail["messages"][-1]["content"] == "Hello stream"
         assert final_detail["messages"][-1]["reasoning"] == "Checking context"
         assert final_detail["messages"][-1]["agentDurationMs"] is not None
+        sent_message = final_detail["messages"][-2]
+        assert sent_message["attachments"][0]["name"] == "architecture.md"
         usage = client.get("/api/settings", headers=headers).get_json()["tokenUsage"]
         assert sum(day["tokens"] for day in usage) == 150
 

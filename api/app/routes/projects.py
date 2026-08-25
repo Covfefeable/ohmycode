@@ -94,6 +94,7 @@ def stream_completion_route(conversation_id: UUID):
         payload.get("editMessageId"),
         str(payload.get("workspaceInstructions") or ""),
         turn_id,
+        payload.get("attachments"),
     )
 
     @stream_with_context

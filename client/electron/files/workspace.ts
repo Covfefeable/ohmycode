@@ -21,6 +21,16 @@ export async function safeExistingPath(root: string, requested = "."): Promise<s
   return target;
 }
 
+export async function safeExplicitFile(requested: string, allowedPaths: Set<string>): Promise<string> {
+  const normalized = (value: string) => path.resolve(value).toLocaleLowerCase();
+  if (!path.isAbsolute(requested) || ![...allowedPaths].some((item) => normalized(item) === normalized(requested))) {
+    throw new Error("path_outside_workspace");
+  }
+  const target = await realpath(requested);
+  if (!(await stat(target)).isFile()) throw new Error("not_a_file");
+  return target;
+}
+
 export async function safeNewPath(root: string, requested: string): Promise<string> {
   const resolvedRoot = await realpath(root);
   const target = path.resolve(root, requested);

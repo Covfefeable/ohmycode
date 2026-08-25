@@ -195,8 +195,11 @@ def prepare_completion(
     edit_message_id: str | None,
     workspace_instructions: str = "",
     turn_id: UUID | None = None,
+    attachments: object = None,
 ) -> PreparedCompletion:
-    conversation = prepare_user_prompt(user_id, conversation_id, content, edit_message_id)
+    conversation = prepare_user_prompt(
+        user_id, conversation_id, content, edit_message_id, attachments
+    )
     configuration = get_model_configuration(user_id, model_id)
     if not configuration:
         raise ServiceError("model_not_configured", 422)

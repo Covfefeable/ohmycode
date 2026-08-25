@@ -1,0 +1,10 @@
+.list { display: flex; flex-wrap: wrap; gap: var(--space-2); min-width: 0; }
+.attachment { min-width: 0; max-width: 240px; height: 44px; display: flex; align-items: center; gap: var(--space-2); border-radius: var(--radius-md); background: var(--color-surface-control); padding: 6px 8px; color: var(--color-text); }
+.icon { width: 28px; height: 28px; flex: 0 0 auto; display: grid; place-items: center; border-radius: var(--radius-sm); background: var(--color-surface-3); color: var(--color-text-muted); }
+.icon svg { width: 15px; height: 15px; }
+.details { min-width: 0; display: grid; line-height: 1.2; }
+.name { overflow: hidden; color: var(--color-text-soft); font-size: var(--font-sm); text-overflow: ellipsis; white-space: nowrap; }
+.size { margin-top: 2px; color: var(--color-text-dim); font-size: var(--font-xs); }
+.attachment button { width: 24px; height: 24px; flex: 0 0 auto; display: grid; place-items: center; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--color-text-dim); padding: 0; cursor: pointer; }
+.attachment button:hover { background: var(--color-surface-hover); color: var(--color-text); }
+.attachment button svg { width: 13px; height: 13px; }

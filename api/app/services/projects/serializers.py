@@ -13,6 +13,7 @@ def serialize_message(message: Message) -> dict:
         "content": message.content,
         "reasoning": message.reasoning,
         "activity": message.activity,
+        "attachments": message.attachments or [],
         "agentDurationMs": duration_ms,
         "createdAt": message.created_at.isoformat() if message.created_at else None,
     }

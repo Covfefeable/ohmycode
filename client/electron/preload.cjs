@@ -1,4 +1,4 @@
-const { contextBridge, ipcRenderer } = require("electron");
+const { contextBridge, ipcRenderer, webUtils } = require("electron");
 
 contextBridge.exposeInMainWorld("ohmycode", {
   projects: {
@@ -30,7 +30,14 @@ contextBridge.exposeInMainWorld("ohmycode", {
   },
   conversations: {
     get: (conversationId) => ipcRenderer.invoke("conversations:get", conversationId),
-    startTurn: (conversationId, content, modelId, editMessageId) => ipcRenderer.invoke("conversations:start-turn", conversationId, content, modelId, editMessageId),
+    startTurn: (conversationId, content, modelId, editMessageId, attachments) => ipcRenderer.invoke("conversations:start-turn", conversationId, content, modelId, editMessageId, attachments),
+    resolveDroppedFiles: (files) => files.map((file) => ({
+      id: globalThis.crypto.randomUUID(),
+      name: file.name,
+      path: webUtils.getPathForFile(file),
+      size: file.size,
+      mimeType: file.type || "application/octet-stream",
+    })),
     threadSnapshot: (conversationId, afterSequence) => ipcRenderer.invoke("conversations:thread-snapshot", conversationId, afterSequence),
     waitTurn: (turnId) => ipcRenderer.invoke("conversations:wait-turn", turnId),
     interruptTurn: (turnId, partialMessage) => ipcRenderer.invoke("conversations:interrupt-turn", turnId, partialMessage),

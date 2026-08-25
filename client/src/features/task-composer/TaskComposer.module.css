@@ -8,6 +8,7 @@
   overflow: hidden;
 }
 .composer:focus-within { border-color: var(--color-border-strong); background: color-mix(in srgb, var(--color-surface-composer-frosted) 88%, var(--color-surface-2)); }
+.attachments { padding: 12px 12px 0; }
 .composer textarea {
   width: 100%;
   min-height: 24px;

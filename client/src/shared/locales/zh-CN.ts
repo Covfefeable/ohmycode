@@ -17,6 +17,7 @@ export const zhCN = {
     useDarkTheme: "切换到深色主题",
   },
   workspace: {
+    resizeSidebar: "调整工作空间侧栏宽度",
     productName: "OHMYCODE",
     title: "工作空间",
     open: "打开工作区",
@@ -54,6 +55,9 @@ export const zhCN = {
     description: "选择一个工作区，然后描述任务。Agent 执行和流式事件是下一阶段的实现内容。",
     chooseWorkspace: "选择工作区后开始…",
     describeTask: "描述一个任务…",
+    dropFiles: "添加到对话",
+    dropFilesHint: "松开鼠标即可附加文件",
+    removeAttachment: "移除附件",
     mode: "Agent 模式",
     run: "运行 ↵",
     model: "模型",
@@ -230,7 +234,7 @@ export const zhCN = {
   settings: {
     eyebrow: "偏好设置", title: "设置", profileTab: "个人信息", modelsTab: "模型配置", loadFailed: "设置加载失败。",
     profileEyebrow: "个人身份", profileTitle: "个人信息", profileDescription: "管理你的 OhMyCode 个人身份。", save: "保存个人信息", saved: "已保存", profileSaved: "个人信息已保存。", saveFailed: "设置保存失败。",
-    modelsEyebrow: "模型服务", modelsTitle: "模型配置", modelsDescription: "管理你的 OpenAI-compatible 模型服务。", addModel: "添加配置", defaultModel: "默认模型", configName: "配置名称", modelName: "模型 ID", contextLength: "上下文长度", supportsVision: "支持视觉（多模态）", baseUrl: "API Base URL", apiKey: "API Key", keyStored: "已安全保存，输入新值可替换", test: "测试连接", testing: "测试中…", testSuccess: "连接成功，耗时 {{latency}} ms", noModels: "尚未添加模型配置。", saveModels: "保存模型配置",
+    modelsEyebrow: "模型服务", modelsTitle: "模型配置", modelsDescription: "管理你的 OpenAI-compatible 模型服务。", addModel: "添加配置", defaultModel: "默认模型", configName: "配置名称", modelName: "模型 ID", contextLength: "上下文长度", supportsVision: "多模态", baseUrl: "API Base URL", apiKey: "API Key", keyStored: "已安全保存，输入新值可替换", test: "测试连接", testing: "测试中…", testSuccess: "连接成功，耗时 {{latency}} ms", noModels: "尚未添加模型配置。", saveModels: "保存模型配置",
     modelsSaved: "模型配置已保存。", modelValidation: "请完整填写每条模型配置。", removeModel: "删除模型", unnamedModel: "未命名配置", noModelsDescription: "添加一个 OpenAI-compatible 模型服务后即可开始对话。",
     tokenUsageTitle: "Token 使用量", noTokenUsage: "最近一年暂无使用记录", tokenUsageTotal: "最近一年共使用 {{count}} Token", tokenUsageDay: "{{date}} · {{count}} Token", tokenUsageLess: "少", tokenUsageMore: "多",
     testErrors: { missing_api_key: "请先填写 API Key。", connection_failed: "连接失败。", http_401: "身份验证失败。", http_403: "没有访问权限。", http_404: "未找到 Models 接口。", http_429: "请求频率超限。" },

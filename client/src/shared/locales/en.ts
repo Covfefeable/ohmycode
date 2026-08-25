@@ -17,6 +17,7 @@ export const en = {
     useDarkTheme: "Switch to dark theme",
   },
   workspace: {
+    resizeSidebar: "Resize workspace sidebar",
     productName: "OHMYCODE",
     title: "Workspace",
     open: "Open workspace",
@@ -55,6 +56,9 @@ export const en = {
       "Select a workspace, then describe a task. Agent execution and streaming are the next implementation layer.",
     chooseWorkspace: "Choose a workspace to start…",
     describeTask: "Describe a task…",
+    dropFiles: "Add to conversation",
+    dropFilesHint: "Release to attach files",
+    removeAttachment: "Remove attachment",
     mode: "Agent mode",
     run: "Run ↵",
     model: "Model",
@@ -231,7 +235,7 @@ export const en = {
   settings: {
     eyebrow: "PREFERENCES", title: "Settings", profileTab: "Personal profile", modelsTab: "Model configurations", loadFailed: "The settings could not be loaded.",
     profileEyebrow: "IDENTITY", profileTitle: "Personal profile", profileDescription: "Manage your OhMyCode identity.", save: "Save profile", saved: "Saved", profileSaved: "Profile saved.", saveFailed: "Settings could not be saved.",
-    modelsEyebrow: "PROVIDERS", modelsTitle: "Model configurations", modelsDescription: "Manage your OpenAI-compatible model providers.", addModel: "Add configuration", defaultModel: "Default model", configName: "Configuration name", modelName: "Model ID", contextLength: "Context length", supportsVision: "Vision support (multimodal)", baseUrl: "API base URL", apiKey: "API key", keyStored: "Stored securely — enter to replace", test: "Test connection", testing: "Testing…", testSuccess: "Connected in {{latency}} ms", noModels: "No model configurations yet.", saveModels: "Save configurations",
+    modelsEyebrow: "PROVIDERS", modelsTitle: "Model configurations", modelsDescription: "Manage your OpenAI-compatible model providers.", addModel: "Add configuration", defaultModel: "Default model", configName: "Configuration name", modelName: "Model ID", contextLength: "Context length", supportsVision: "Multimodal", baseUrl: "API base URL", apiKey: "API key", keyStored: "Stored securely — enter to replace", test: "Test connection", testing: "Testing…", testSuccess: "Connected in {{latency}} ms", noModels: "No model configurations yet.", saveModels: "Save configurations",
     modelsSaved: "Model configurations saved.", modelValidation: "Complete every model field before saving.", removeModel: "Remove model", unnamedModel: "Unnamed configuration", noModelsDescription: "Add an OpenAI-compatible model provider to start a conversation.",
     tokenUsageTitle: "Token usage", noTokenUsage: "No usage recorded in the last year", tokenUsageTotal: "{{count}} tokens used in the last year", tokenUsageDay: "{{date}} · {{count}} tokens", tokenUsageLess: "Less", tokenUsageMore: "More",
     testErrors: { missing_api_key: "Enter an API key first.", connection_failed: "Connection failed.", http_401: "Authentication failed.", http_403: "Access denied.", http_404: "Models endpoint not found.", http_429: "Rate limit exceeded." },

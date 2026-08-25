@@ -1,6 +1,6 @@
 import { ApiError, apiErrorFromResponse, apiFetch, apiRequest } from "../api/api-client.js";
 import type { LocalConversation } from "../projects/types.js";
-import type { LocalMessage } from "../projects/types.js";
+import type { LocalMessage, MessageAttachment } from "../projects/types.js";
 import { executeTerminalAction } from "../terminal/terminal-manager.js";
 import type { TerminalAction } from "../terminal/types.js";
 import { acquireWorkspaceWriteLock } from "../multi-agents/workspace-write-lock.js";
@@ -33,6 +33,7 @@ type ActiveRequest = {
   terminalIds: Set<string>;
   inspectedPaths: Set<string>;
   failedToolCalls: Map<string, number>;
+  attachmentPaths: Set<string>;
 };
 export type AgentExecutionContext = { ownerId: string; workspacePath: string };
 const terminalWriteLeases = new Map<string, () => void>();
@@ -93,6 +94,7 @@ export async function streamMessage(
   content: string,
   modelId: string | undefined,
   editMessageId: string | undefined,
+  attachments: MessageAttachment[] | undefined,
   requestId: string,
   onEvent: (event: ConversationStreamEvent) => void,
   executionContext?: AgentExecutionContext,
@@ -103,6 +105,7 @@ export async function streamMessage(
     terminalIds: new Set(),
     inspectedPaths: new Set(),
     failedToolCalls: new Map(),
+    attachmentPaths: new Set((attachments ?? []).map((item) => item.path)),
   };
   activeRequests.set(requestId, active);
   try {
@@ -112,7 +115,7 @@ export async function streamMessage(
       : "";
     let response = await apiFetch(`/api/projects/conversations/${conversationId}/stream`, {
       method: "POST",
-      body: JSON.stringify({ content, modelId, editMessageId, workspaceInstructions, turnId }),
+      body: JSON.stringify({ content, modelId, editMessageId, attachments, workspaceInstructions, turnId }),
       signal: active.controller.signal,
     });
     if (!response.ok) throw await apiErrorFromResponse(response);
@@ -149,7 +152,7 @@ export async function streamMessage(
             return { callId: request.callId, result };
           }
           if (request.tool === "view_image") {
-            const result = await executeViewImage(request.arguments as ViewImageArguments & { projectId: string }, workspaceRoot);
+            const result = await executeViewImage(request.arguments as ViewImageArguments & { projectId: string }, workspaceRoot, active.attachmentPaths);
             onEvent({ type: "tool.completed", callId: request.callId, result });
             active.failedToolCalls.delete(signature);
             return { callId: request.callId, result };
@@ -162,7 +165,7 @@ export async function streamMessage(
               release = () => { void recordWorkspaceChanges(executionContext.ownerId, executionContext.workspacePath, before).finally(unlock); };
             }
             try {
-              const result = await executeFileTool(request.tool as FileToolName, request.arguments as FileToolRequest, workspaceRoot, active.inspectedPaths);
+              const result = await executeFileTool(request.tool as FileToolName, request.arguments as FileToolRequest, workspaceRoot, active.inspectedPaths, active.attachmentPaths);
               if (request.tool === "read_file") active.inspectedPaths.add(result.path);
               release?.();
               onEvent({ type: "tool.completed", callId: request.callId, result });

@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { ArrowUp, ChevronDown, Square } from "lucide-react";
 import { useFeedback } from "../feedback";
 import { Tooltip } from "../../shared/ui/tooltip";
+import { AttachmentList } from "../../shared/ui/attachment-list";
 import styles from "./TaskComposer.module.css";
 
 type TaskComposerProps = {
@@ -11,11 +12,13 @@ type TaskComposerProps = {
   models: ModelConfiguration[];
   selectedModelId: string;
   onModelChange(modelId: string): void;
-  onSubmit(content: string): Promise<void>;
+  attachments?: MessageAttachment[];
+  onRemoveAttachment?(id: string): void;
+  onSubmit(content: string, attachments: MessageAttachment[]): Promise<void>;
   onStop(): Promise<void>;
 };
 
-export function TaskComposer({ disabled = false, busy = false, models, selectedModelId, onModelChange, onSubmit, onStop }: TaskComposerProps) {
+export function TaskComposer({ disabled = false, busy = false, models, selectedModelId, attachments = [], onRemoveAttachment, onModelChange, onSubmit, onStop }: TaskComposerProps) {
   const { t } = useTranslation();
   const { toast } = useFeedback();
   const [content, setContent] = useState("");
@@ -27,7 +30,7 @@ export function TaskComposer({ disabled = false, busy = false, models, selectedM
     textarea.style.height = `${Math.min(textarea.scrollHeight, 72)}px`;
   }
   async function submit() {
-    if (!content.trim() || disabled || busy) return;
+    if ((!content.trim() && attachments.length === 0) || disabled || busy) return;
     if (!selectedModelId) {
       toast({ type: "error", message: t("agent.modelRequired") });
       return;
@@ -35,10 +38,11 @@ export function TaskComposer({ disabled = false, busy = false, models, selectedM
     const next = content;
     setContent("");
     if (textareaRef.current) textareaRef.current.style.height = "auto";
-    await onSubmit(next);
+    await onSubmit(next, attachments);
   }
   return (
     <div className={styles.composer}>
+      {attachments.length > 0 && <div className={styles.attachments}><AttachmentList attachments={attachments} removeLabel={t("agent.removeAttachment")} onRemove={onRemoveAttachment} /></div>}
       <textarea ref={textareaRef} rows={1} value={content} disabled={disabled || busy} placeholder={t("agent.describeTask")} onChange={(event) => { setContent(event.target.value); resize(); }} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void submit(); } }} />
       <div className={styles.toolbar}>
         <div className={styles.actions}>
@@ -49,7 +53,7 @@ export function TaskComposer({ disabled = false, busy = false, models, selectedM
             </select>
             <ChevronDown />
           </span></Tooltip>
-          <button className={busy ? styles.stop : ""} aria-label={t(busy ? "agent.stop" : "agent.run")} disabled={!busy && (!content.trim() || disabled)} onClick={() => void (busy ? onStop() : submit())}>{busy ? <Square /> : <ArrowUp />}</button>
+          <button className={busy ? styles.stop : ""} aria-label={t(busy ? "agent.stop" : "agent.run")} disabled={!busy && ((!content.trim() && attachments.length === 0) || disabled)} onClick={() => void (busy ? onStop() : submit())}>{busy ? <Square /> : <ArrowUp />}</button>
         </div>
       </div>
     </div>

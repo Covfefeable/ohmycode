@@ -1,4 +1,11 @@
 .chat { position: relative; width: 100%; height: 100%; min-height: 0; overflow: hidden; }
+.chat::after { content: ""; position: absolute; z-index: calc(var(--z-composer) + 1); inset: 10px; border: 1px solid transparent; border-radius: var(--radius-lg); pointer-events: none; transition: border-color var(--transition-fast), background var(--transition-fast); }
+.dragActive::after { border-color: var(--color-accent); background: color-mix(in srgb, var(--color-accent) 7%, transparent); }
+.dropOverlay { position: absolute; z-index: calc(var(--z-composer) + 2); inset: 0; display: grid; place-items: center; pointer-events: none; }
+.dropOverlay > div { min-width: 240px; display: grid; place-items: center; gap: 4px; border: 1px solid var(--color-border-strong); border-radius: var(--radius-lg); background: var(--color-panel-raised); box-shadow: var(--shadow-panel); padding: 22px 28px; }
+.dropOverlay span { color: var(--color-accent); font-size: 26px; line-height: 1; }
+.dropOverlay strong { color: var(--color-text); font-size: var(--font-md); }
+.dropOverlay small { color: var(--color-text-muted); font-size: var(--font-sm); }
 .scrollLayer { width: 100%; height: 100%; overflow: auto; padding: 18px 0 150px; }
 .chatInner { width: min(960px, calc(100% - 48px)); min-height: 100%; margin: 0 auto; }
 .chat header { position: sticky; top: -18px; z-index: var(--z-sticky); border-bottom: 1px solid var(--color-border); background: var(--color-canvas); padding-top: 18px; }
@@ -10,6 +17,8 @@
 .response { width: 100%; padding: 0 8px; }
 .user { justify-self: end; }
 .user .bubble { background: var(--color-surface-2); }
+.messageAttachments { margin-bottom: var(--space-2); }
+.user .messageAttachments { justify-self: end; }
 .assistant { width: 100%; max-width: 100% !important; justify-self: stretch; }
 .messageActions { position: absolute; top: 100%; display: flex; align-items: center; gap: var(--space-1); padding: 3px 4px 0; color: var(--color-text-faint); opacity: 0; transition: opacity var(--transition-fast); }
 .user .messageActions { right: 0; justify-content: flex-end; }
@@ -27,3 +36,4 @@
 .editActions button:disabled { opacity: .45; cursor: not-allowed; }
 .empty { width: 100%; align-self: center; justify-self: center; margin: clamp(96px, 24vh, 220px) 0 0; color: var(--color-text-empty); text-align: center; }
 .composerDock { position: absolute; right: max(24px, calc((100% - 864px) / 2)); bottom: 22px; left: max(24px, calc((100% - 864px) / 2)); z-index: var(--z-composer); }
+@media (prefers-reduced-motion: reduce) { .chat::after { transition: none; } }

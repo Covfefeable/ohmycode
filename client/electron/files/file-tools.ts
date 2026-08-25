@@ -3,7 +3,7 @@ import { readdir, readFile, stat, writeFile, mkdir, unlink, realpath } from "nod
 import type { Dirent } from "node:fs";
 import { loadAgentInstructions } from "./agents-instructions.js";
 import type { FileToolName, FileToolRequest, FileToolResult } from "./types.js";
-import { assertInside, safeExistingPath, safeNewPath, workspaceDirectory } from "./workspace.js";
+import { assertInside, safeExistingPath, safeExplicitFile, safeNewPath, workspaceDirectory } from "./workspace.js";
 
 const IGNORED_DIRECTORIES = new Set([".git", "node_modules", "dist", "dist-electron", "release", ".venv", "__pycache__", ".pytest_cache"]);
 
@@ -33,8 +33,15 @@ async function walk(root: string, includeHidden: boolean, maximum: number): Prom
   return results;
 }
 
-async function readFileTool(root: string, request: FileToolRequest): Promise<FileToolResult> {
-  const target = await safeExistingPath(root, request.path);
+async function readFileTool(root: string, request: FileToolRequest, allowedPaths: Set<string>): Promise<FileToolResult> {
+  let target: string;
+  const requestedPath = request.path ?? ".";
+  try {
+    target = await safeExistingPath(root, requestedPath);
+  } catch (error) {
+    if (!path.isAbsolute(requestedPath)) throw error;
+    target = await safeExplicitFile(requestedPath, allowedPaths);
+  }
   if (!(await stat(target)).isFile()) throw new Error("not_a_file");
   const maximum = bounded(request.maxBytes, 64 * 1024, 256 * 1024);
   const buffer = await readFile(target);
@@ -176,9 +183,9 @@ async function applyPatch(root: string, request: FileToolRequest, inspectedPaths
   return { operation: "apply_patch", path: affectedPaths[0] ?? root, pathKind: "file", affectedPaths, output: `Updated ${affectedPaths.length} file(s).`, agentInstructions: await loadAgentInstructions(root, affectedPaths[0] ?? root) };
 }
 
-export async function executeFileTool(name: FileToolName, request: FileToolRequest, workspaceRoot?: string, inspectedPaths = new Set<string>()): Promise<FileToolResult> {
+export async function executeFileTool(name: FileToolName, request: FileToolRequest, workspaceRoot?: string, inspectedPaths = new Set<string>(), allowedPaths = new Set<string>()): Promise<FileToolResult> {
   const root = await workspaceDirectory(request.projectId, workspaceRoot);
-  if (name === "read_file") return readFileTool(root, request);
+  if (name === "read_file") return readFileTool(root, request, allowedPaths);
   if (name === "search_files") return searchFiles(root, request);
   if (name === "list_directory") return listDirectory(root, request);
   return applyPatch(root, request, inspectedPaths);

@@ -27,5 +27,6 @@ class Message(db.Model):
     content: Mapped[str] = mapped_column(Text)
     reasoning: Mapped[str | None] = mapped_column(Text, nullable=True)
     activity: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    attachments: Mapped[list | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     conversation: Mapped[Conversation] = relationship(back_populates="messages")

@@ -1,5 +1,5 @@
 import { BrowserWindow } from "electron";
-import type { LocalConversation, LocalMessage } from "../projects/types.js";
+import type { LocalConversation, LocalMessage, MessageAttachment } from "../projects/types.js";
 import {
   stopMessage,
   streamMessage,
@@ -14,6 +14,7 @@ type StartTurnInput = {
   content: string;
   modelId?: string;
   editMessageId?: string;
+  attachments?: MessageAttachment[];
   executionContext?: AgentExecutionContext;
 };
 
@@ -94,6 +95,7 @@ export function startTurn(input: StartTurnInput): { turnId: string } {
     input.content,
     input.modelId,
     input.editMessageId,
+    input.attachments,
     turnId,
     (event) => translate(input.threadId, turnId, event),
     input.executionContext,

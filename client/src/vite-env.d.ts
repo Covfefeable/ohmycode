@@ -26,7 +26,8 @@ interface Window {
     };
     conversations: {
       get(conversationId: string): Promise<LocalConversation>;
-      startTurn(conversationId: string, content: string, modelId?: string, editMessageId?: string): Promise<{ turnId: string }>;
+      startTurn(conversationId: string, content: string, modelId?: string, editMessageId?: string, attachments?: MessageAttachment[]): Promise<{ turnId: string }>;
+      resolveDroppedFiles(files: File[]): MessageAttachment[];
       threadSnapshot(conversationId: string, afterSequence?: number): Promise<TurnSnapshot | null>;
       waitTurn(turnId: string): Promise<LocalConversation | null>;
       interruptTurn(turnId: string, partialMessage?: LocalMessage): Promise<void>;
@@ -128,7 +129,8 @@ type AgentActivityStep =
   | { id: string; type: "reasoning"; content: string; status: "running" | "completed" }
   | { id: string; type: "message"; content: string; status: "running" | "completed" }
   | { id: string; type: "tool"; tool: string; input: string | TerminalAction; result?: unknown; status: "running" | "completed" };
-type LocalMessage = { id: string; role: "user" | "assistant"; content: string; reasoning?: string | null; activity?: AgentActivityStep[] | null; agentDurationMs?: number | null; agentStartedAt?: string; createdAt: string };
+type MessageAttachment = { id: string; name: string; path: string; size: number; mimeType: string };
+type LocalMessage = { id: string; role: "user" | "assistant"; content: string; attachments?: MessageAttachment[]; reasoning?: string | null; activity?: AgentActivityStep[] | null; agentDurationMs?: number | null; agentStartedAt?: string; createdAt: string };
 type LocalConversation = { id: string; title: string; createdAt: string; messages?: LocalMessage[] };
 type LocalProject = { id: string; name: string; path: string; conversations: LocalConversation[] };
 type TerminalStatus = "running" | "exited" | "stopped";

@@ -1,7 +1,7 @@
 import net from "node:net";
 import { lookup } from "node:dns/promises";
 import { readFile, stat } from "node:fs/promises";
-import { safeExistingPath, workspaceDirectory } from "./workspace.js";
+import { safeExistingPath, safeExplicitFile, workspaceDirectory } from "./workspace.js";
 
 const MAX_IMAGE_BYTES = 15 * 1024 * 1024;
 const FETCH_TIMEOUT_MS = 30_000;
@@ -192,6 +192,7 @@ async function loadLocal(
   imageUrl: string,
   detail: "low" | "high" | undefined,
   workspaceRoot?: string,
+  allowedPaths = new Set<string>(),
 ): Promise<ViewImageResult> {
   const root = await workspaceDirectory(projectId, workspaceRoot);
   let target: string;
@@ -199,7 +200,8 @@ async function loadLocal(
     target = await safeExistingPath(root, imageUrl);
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") throw new Error("view_image_not_found", { cause: error });
-    throw error;
+    if (!imageUrl || !allowedPaths.size) throw error;
+    target = await safeExplicitFile(imageUrl, allowedPaths);
   }
   const info = await stat(target);
   if (!info.isFile()) throw new Error("view_image_not_a_file");
@@ -222,10 +224,11 @@ async function loadLocal(
 export async function executeViewImage(
   request: ViewImageArguments & { projectId: string },
   workspaceRoot?: string,
+  allowedPaths = new Set<string>(),
 ): Promise<ViewImageResult> {
   const imageUrl = String(request.imageUrl ?? "").trim();
   if (!imageUrl) throw new Error("view_image_requires_imageUrl");
   const detail = request.detail === "low" ? "low" : request.detail === "high" ? "high" : undefined;
   if (/^https?:\/\//i.test(imageUrl)) return fetchRemote(imageUrl, detail);
-  return loadLocal(request.projectId, imageUrl, detail, workspaceRoot);
+  return loadLocal(request.projectId, imageUrl, detail, workspaceRoot, allowedPaths);
 }

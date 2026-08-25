@@ -5,7 +5,8 @@ export type LocalConversation = {
   messages?: LocalMessage[];
 };
 
-export type LocalMessage = { id: string; role: "user" | "assistant"; content: string; reasoning?: string | null; activity?: unknown[] | null; agentDurationMs?: number | null; createdAt: string };
+export type MessageAttachment = { id: string; name: string; path: string; size: number; mimeType: string };
+export type LocalMessage = { id: string; role: "user" | "assistant"; content: string; attachments?: MessageAttachment[]; reasoning?: string | null; activity?: unknown[] | null; agentDurationMs?: number | null; createdAt: string };
 
 export type LocalProject = {
   id: string;

@@ -28,7 +28,18 @@ def estimate_tokens(text: str) -> int:
 
 
 def _message_tokens(message: Message) -> int:
-    return estimate_tokens(message.content) + 4
+    return estimate_tokens(_message_content(message)) + 4
+
+
+def _message_content(message: Message) -> str:
+    attachments = message.attachments or []
+    if not attachments:
+        return message.content
+    lines = [
+        "Attached files (use the exact local paths when inspecting them):",
+        *(f"- {item['name']}: {item['path']}" for item in attachments),
+    ]
+    return f"{message.content}\n\n" + "\n".join(lines)
 
 
 def latest_checkpoint(conversation_id: UUID) -> ContextCheckpoint | None:
@@ -68,7 +79,7 @@ def _render_for_summary(summary: str | None, messages: list[Message]) -> str:
     parts = []
     if summary:
         parts.append(f"PREVIOUS CHECKPOINT:\n{summary}")
-    parts.extend(f"{message.role.upper()}:\n{message.content}" for message in messages)
+    parts.extend(f"{message.role.upper()}:\n{_message_content(message)}" for message in messages)
     return "\n\n".join(parts)
 
 
@@ -140,7 +151,10 @@ def prepare_context(
         result.append(
             {"role": "system", "content": f"Conversation checkpoint:\n{checkpoint_summary}"}
         )
-    result.extend({"role": item.role, "content": item.content} for item in active_messages)
+    result.extend(
+        {"role": item.role, "content": _message_content(item)}
+        for item in active_messages
+    )
     return PreparedContext(result, estimated, compacted)
 
 

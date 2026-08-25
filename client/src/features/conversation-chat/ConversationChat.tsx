@@ -7,6 +7,7 @@ import { FullScreenLoading } from "../../shared/ui/full-screen-loading";
 import { LoadError } from "../../shared/ui/load-error";
 import { Tooltip } from "../../shared/ui/tooltip";
 import { MarkdownContent } from "../../shared/ui/markdown-content";
+import { AttachmentList } from "../../shared/ui/attachment-list";
 import { classifyRequestError } from "../../shared/lib/request-error";
 import { ActivityTimeline } from "./activity-timeline/ActivityTimeline";
 import { withoutFinalResponse } from "./activity-timeline/updateActivity";
@@ -26,6 +27,9 @@ export function ConversationChat({ conversationId, active, onUpdated }: Conversa
   const [selectedModelId, setSelectedModelId] = useState("");
   const [editing, setEditing] = useState<{ message: LocalMessage; content: string } | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [attachments, setAttachments] = useState<MessageAttachment[]>([]);
+  const [dragActive, setDragActive] = useState(false);
+  const dragDepthRef = useRef(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const autoScrollLockedRef = useRef(true);
   const lastScrollTopRef = useRef(0);
@@ -152,10 +156,10 @@ export function ConversationChat({ conversationId, active, onUpdated }: Conversa
     window.setTimeout(() => setCopiedId((id) => id === message.id ? null : id), 1500);
   }
 
-  async function send(content: string, editMessageId?: string) {
+  async function send(content: string, nextAttachments: MessageAttachment[] = [], editMessageId?: string) {
     if (!conversation) return;
     try {
-      const { turnId } = await window.ohmycode.conversations.startTurn(conversationId, content, selectedModelId, editMessageId);
+      const { turnId } = await window.ohmycode.conversations.startTurn(conversationId, content, selectedModelId, editMessageId, nextAttachments);
       activeTurnIdRef.current = turnId;
       const now = new Date().toISOString();
       setConversation((current) => {
@@ -165,10 +169,11 @@ export function ConversationChat({ conversationId, active, onUpdated }: Conversa
         const currentMessages = (current.messages ?? []).filter((message) => message.id !== streamId);
         const optimisticMessages = editMessageId
           ? currentMessages.slice(0, currentMessages.findIndex((message) => message.id === editMessageId) + 1).map((message) => message.id === editMessageId ? { ...message, content } : message)
-          : [...currentMessages, { id: `user-${turnId}`, role: "user" as const, content, createdAt: now }];
+          : [...currentMessages, { id: `user-${turnId}`, role: "user" as const, content, attachments: nextAttachments, createdAt: now }];
         return { ...current, messages: [...optimisticMessages, existingStream ?? { id: streamId, role: "assistant", content: "", createdAt: now, agentStartedAt: now, activity: [] }] };
       });
       if (editMessageId) setEditing(null);
+      else setAttachments([]);
       setSending(true);
     } catch (error) {
       toast({ type: "error", message: requestErrorMessage(error) });
@@ -194,9 +199,43 @@ export function ConversationChat({ conversationId, active, onUpdated }: Conversa
     await window.ohmycode.conversations.interruptTurn(turnId, stoppedMessage);
   }
 
+  function addFiles(files: File[]) {
+    if (!files.length) return;
+    const resolved = window.ohmycode.conversations.resolveDroppedFiles(files).filter((item) => item.path);
+    setAttachments((current) => {
+      const known = new Set(current.map((item) => item.path));
+      return [...current, ...resolved.filter((item) => !known.has(item.path))].slice(0, 20);
+    });
+  }
+
   if (loadFailed && !conversation) return <LoadError message={t("agent.loadFailed")} onRetry={() => { setLoadFailed(false); setReloadToken((value) => value + 1); }} />;
   if (!conversation) return <FullScreenLoading />;
-  return <section className={styles.chat}>
+  return <section
+    className={`${styles.chat} ${dragActive ? styles.dragActive : ""}`}
+    onDragEnter={(event) => {
+      if (!event.dataTransfer.types.includes("Files")) return;
+      event.preventDefault();
+      dragDepthRef.current += 1;
+      setDragActive(true);
+    }}
+    onDragOver={(event) => {
+      if (!event.dataTransfer.types.includes("Files")) return;
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "copy";
+    }}
+    onDragLeave={(event) => {
+      event.preventDefault();
+      dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+      if (dragDepthRef.current === 0) setDragActive(false);
+    }}
+    onDrop={(event) => {
+      event.preventDefault();
+      dragDepthRef.current = 0;
+      setDragActive(false);
+      addFiles(Array.from(event.dataTransfer.files));
+    }}
+  >
+    {dragActive && <div className={styles.dropOverlay}><div><span>＋</span><strong>{t("agent.dropFiles")}</strong><small>{t("agent.dropFilesHint")}</small></div></div>}
     <div ref={scrollRef} className={styles.scrollLayer}><div className={styles.chatInner}>
       <header><h1>{conversation.title}</h1></header>
       <div className={styles.messages}>
@@ -205,11 +244,12 @@ export function ConversationChat({ conversationId, active, onUpdated }: Conversa
           <textarea autoFocus value={editing.content} onChange={(event) => setEditing({ ...editing, content: event.target.value })} />
           <div className={styles.editActions}>
             <button onClick={() => setEditing(null)}>{t("agent.cancel")}</button>
-            <button disabled={!editing.content.trim()} onClick={() => void send(editing.content, message.id)}>{t("agent.resend")}</button>
+            <button disabled={!editing.content.trim()} onClick={() => void send(editing.content, [], message.id)}>{t("agent.resend")}</button>
           </div>
         </div> : <>
           {message.role === "assistant" && <ActivityTimeline active={sending && message.id.startsWith("stream-")} durationMs={message.agentDurationMs} startedAt={message.agentStartedAt} steps={message.activity?.length ? withoutFinalResponse(message.activity, message.content) : message.reasoning ? [{ id: `reasoning-${message.id}`, type: "reasoning", content: message.reasoning, status: "completed" }] : []} />}
-          {(message.content || !message.activity?.some((step) => step.type === "message")) && <div className={message.role === "assistant" ? styles.response : styles.bubble}><MarkdownContent>{message.content || "▍"}</MarkdownContent></div>}
+          {message.attachments?.length ? <div className={styles.messageAttachments}><AttachmentList attachments={message.attachments} /></div> : null}
+          {(message.content || (message.role === "assistant" && !message.activity?.some((step) => step.type === "message"))) && <div className={message.role === "assistant" ? styles.response : styles.bubble}><MarkdownContent>{message.content || "▍"}</MarkdownContent></div>}
         </>}
         {!editing || editing.message.id !== message.id ? <div className={styles.messageActions}>
           <time>{new Intl.DateTimeFormat(i18n.language, { hour: "2-digit", minute: "2-digit" }).format(new Date(message.createdAt))}</time>
@@ -220,6 +260,6 @@ export function ConversationChat({ conversationId, active, onUpdated }: Conversa
       {!conversation.messages?.length && <p className={styles.empty}>{t("agent.emptyConversation")}</p>}
       </div>
     </div></div>
-    <div className={styles.composerDock}><TaskComposer busy={sending} disabled={Boolean(editing)} models={models} selectedModelId={selectedModelId} onModelChange={setSelectedModelId} onSubmit={send} onStop={stop} /></div>
+    <div className={styles.composerDock}><TaskComposer busy={sending} disabled={Boolean(editing)} models={models} selectedModelId={selectedModelId} attachments={attachments} onRemoveAttachment={(id) => setAttachments((items) => items.filter((item) => item.id !== id))} onModelChange={setSelectedModelId} onSubmit={(content, items) => send(content, items)} onStop={stop} /></div>
   </section>;
 }
