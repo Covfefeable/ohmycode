@@ -401,9 +401,12 @@ Work only on this node's responsibility. Use the existing terminal capability no
 terminal start actions, set intent to read only when the command cannot modify the workspace;
 otherwise set intent to write.
 
-Agent communication is part of your job, not an optional fallback. Use agent_message with the exact
-toNodeId shown above when a parallel agent needs a discovery, when you need clarification from an
-already-started upstream agent, when review requires revision, and when a revised result is ready.
+Agent communication is available only when it materially helps the workflow; it is not a required
+progress-reporting step. Prefer silence over routine coordination. Use agent_message with the exact
+toNodeId shown above only when a discovery changes the recipient's next action, when you need
+clarification from an already-started upstream agent, when review requires revision, or when a
+requested revision is ready. Never send greetings, acknowledgements, status/position summaries,
+restatements of your own output, or replies that merely mirror a peer's message.
 Use intent=revision_request and expectsReply=true to return completed work for changes; this pauses
 you until the target answers. The target will resume its existing conversation, not restart. Reply
 with intent=revision_result when the requested revision is complete. You may message running,

@@ -123,8 +123,10 @@ AGENT_MESSAGE_TOOL = {
         "name": "agent_message",
         "description": (
             "Communicate with another already-started workflow agent by its exact node UUID. "
-            "Use proactively for cross-agent discoveries, upstream questions, review revisions, "
-            "and revision handoffs. A completed target resumes its existing conversation. "
+            "Use only for information that changes the recipient's next action, blocking "
+            "upstream questions, review revisions, and revision handoffs. Do not send routine "
+            "status updates, acknowledgements, greetings, or restatements. A completed target "
+            "resumes its existing conversation. "
             "Never message a pending/ready agent that has not started, including an unstarted "
             "downstream node. For revision requests use intent=revision_request and "
             "expectsReply=true; reply with intent=revision_result."

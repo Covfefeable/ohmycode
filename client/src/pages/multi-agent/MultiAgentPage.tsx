@@ -82,7 +82,7 @@ export function MultiAgentPage() {
   const [adjustment, setAdjustment] = useState("");
   const [adjusting, setAdjusting] = useState(false);
   const [activityView, setActivityView] = useState<"agent" | "group">("agent");
-  const [deleteTarget, setDeleteTarget] = useState<{ type: "agent"; id: string } | { type: "task"; id: string } | { type: "nodes"; ids: string[] } | { type: "edges"; ids: string[] } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ type: "agent"; id: string } | { type: "task"; id: string } | null>(null);
 
   const reloadAgents = useCallback(async () => {
     const value = await window.ohmycode.multiAgents.list();
@@ -255,10 +255,6 @@ export function MultiAgentPage() {
         await window.ohmycode.multiAgents.deleteTask(target.id);
         if (target.id === selectedTaskId) { setSelectedTaskId(null); setTask(null); }
         await reloadAgents();
-      } else if (task && target.type === "nodes") {
-        commitCanvas({ ...task, nodes: task.nodes.filter((node) => !target.ids.includes(node.id)), edges: task.edges.filter((edge) => !target.ids.includes(edge.source) && !target.ids.includes(edge.target)) });
-      } else if (task && target.type === "edges") {
-        commitCanvas({ ...task, edges: task.edges.filter((edge) => !target.ids.includes(edge.id)) });
       }
     } catch (error) {
       const code = error instanceof Error ? error.message : "";
@@ -402,8 +398,13 @@ export function MultiAgentPage() {
               if (!connection.source || !connection.target) return;
               connectNodes(connection.source, connection.target);
             }}
-            onDeleteNodes={(nodeIds) => { const ids = nodeIds.filter((id) => id !== START_KEY && id !== END_KEY); if (ids.length) setDeleteTarget({ type: "nodes", ids }); }}
-            onDeleteEdges={(ids) => { if (ids.length) setDeleteTarget({ type: "edges", ids }); }}
+            onDeleteNodes={(nodeIds) => {
+              const ids = nodeIds.filter((id) => id !== START_KEY && id !== END_KEY);
+              if (ids.length) commitCanvas({ ...task, nodes: task.nodes.filter((node) => !ids.includes(node.id)), edges: task.edges.filter((edge) => !ids.includes(edge.source) && !ids.includes(edge.target)) });
+            }}
+            onDeleteEdges={(ids) => {
+              if (ids.length) commitCanvas({ ...task, edges: task.edges.filter((edge) => !ids.includes(edge.id)) });
+            }}
           />
           </div>
           {selectedNode && <aside className={styles.detail}>

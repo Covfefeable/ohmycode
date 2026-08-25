@@ -46,17 +46,13 @@ def _multi_agent_context(conversation_id: UUID) -> tuple[list[dict], list[dict]]
         return AGENT_TOOLS, []
     messages = list(
         db.session.scalars(
-            db.select(MultiAgentMessage)
-            .where(
-                (MultiAgentMessage.from_node_id == node.id)
-                | (MultiAgentMessage.to_node_id == node.id)
-            )
+        db.select(MultiAgentMessage)
+            .where(MultiAgentMessage.to_node_id == node.id)
             .order_by(MultiAgentMessage.created_at)
         )
     )
     mailbox = "\n".join(
-        f"- {item.from_node.name if item.from_node else 'User'} -> "
-        f"{item.to_node.name}: {item.content}"
+        f"- From {item.from_node.name if item.from_node else 'User'}: {item.content}"
         for item in messages
     )
     context = (

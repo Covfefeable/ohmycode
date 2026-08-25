@@ -59,9 +59,8 @@ export function WorkflowCanvas({ task, selectedNodeId, onNodeSelect, onPositions
   const onEdgesChange = useCallback((changes: EdgeChange[]) => {
     for (const change of changes) {
       if (change.type === "select") setSelectedEdgeId(change.selected ? change.id : null);
-      if (change.type === "remove") onDeleteEdges?.([change.id]);
     }
-  }, [onDeleteEdges]);
+  }, []);
   const fitCanvas = useCallback(() => {
     const canvas = canvasRef.current;
     if (!flowRef.current || !canvas || canvas.clientWidth === 0 || canvas.clientHeight === 0 || nodes.length === 0) return;
