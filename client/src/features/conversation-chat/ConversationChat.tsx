@@ -11,9 +11,9 @@ import { withoutFinalResponse } from "./activity-timeline/updateActivity";
 import { updateActivity } from "./activity-timeline/updateActivity";
 import styles from "./ConversationChat.module.css";
 
-type ConversationChatProps = { conversationId: string; onUpdated(): void };
+type ConversationChatProps = { conversationId: string; active: boolean; onUpdated(): void };
 
-export function ConversationChat({ conversationId, onUpdated }: ConversationChatProps) {
+export function ConversationChat({ conversationId, active, onUpdated }: ConversationChatProps) {
   const { t, i18n } = useTranslation();
   const { toast } = useFeedback();
   const [conversation, setConversation] = useState<LocalConversation | null>(null);
@@ -65,7 +65,7 @@ export function ConversationChat({ conversationId, onUpdated }: ConversationChat
 
   useEffect(() => {
     const scroller = scrollRef.current;
-    if (!scroller || !autoScrollLockedRef.current) return;
+    if (!active || !scroller || !autoScrollLockedRef.current) return;
     if (scrollFrameRef.current !== null) window.cancelAnimationFrame(scrollFrameRef.current);
     scrollFrameRef.current = window.requestAnimationFrame(() => {
       scroller.scrollTop = scroller.scrollHeight;
@@ -73,7 +73,7 @@ export function ConversationChat({ conversationId, onUpdated }: ConversationChat
       scrollFrameRef.current = null;
     });
     return () => { if (scrollFrameRef.current !== null) window.cancelAnimationFrame(scrollFrameRef.current); };
-  }, [conversation?.messages]);
+  }, [active, conversation?.messages]);
 
   async function copy(message: LocalMessage) {
     await navigator.clipboard.writeText(message.content);
