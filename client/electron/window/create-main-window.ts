@@ -13,6 +13,7 @@ export async function createMainWindow(): Promise<BrowserWindow> {
     height: 880,
     minWidth: 760,
     minHeight: 640,
+    icon: path.join(app.getAppPath(), "build/icon.png"),
     backgroundColor: "#0b0d10",
     frame: false,
     webPreferences: {

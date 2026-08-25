@@ -11,6 +11,8 @@ import { createMainWindow } from "./window/create-main-window.js";
 
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
 
+if (process.platform === "win32") app.setAppUserModelId("com.ohmycode.desktop");
+
 if (!hasSingleInstanceLock) {
   app.quit();
 } else {

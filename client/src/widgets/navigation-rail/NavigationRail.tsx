@@ -1,9 +1,10 @@
 import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Braces, CircleUserRound, GitFork, LogOut, Settings, SquareTerminal, UserRound } from "lucide-react";
+import { CircleUserRound, GitFork, LogOut, Settings, SquareTerminal, UserRound } from "lucide-react";
 import { useAuth } from "../../features/auth-session";
 import { ThemeToggle } from "../../features/theme-toggle";
 import { IconButton } from "../../shared/ui/icon-button";
+import { BrandLogo } from "../../shared/ui/brand-logo";
 import styles from "./NavigationRail.module.css";
 
 export function NavigationRail() {
@@ -13,7 +14,7 @@ export function NavigationRail() {
   const { logout } = useAuth();
   return (
     <nav className={styles.rail} aria-label={t("navigation.label")}>
-      <button className={styles.brand} aria-label="OhMyCode" onClick={() => navigate("/")}><Braces /></button>
+      <button className={styles.brand} aria-label="OhMyCode" onClick={() => navigate("/")}><BrandLogo /></button>
       <IconButton active={location.pathname === "/"} aria-label={t("navigation.tasks")} onClick={() => navigate("/")}><SquareTerminal /></IconButton>
       <IconButton active={location.pathname.startsWith("/agents")} aria-label={t("navigation.multiAgent")} onClick={() => navigate("/agents")}><GitFork /></IconButton>
       <IconButton active={location.pathname.startsWith("/settings")} aria-label={t("navigation.settings")} onClick={() => navigate("/settings?tab=profile")}><Settings /></IconButton>

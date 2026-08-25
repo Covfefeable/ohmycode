@@ -60,18 +60,21 @@
     "npmRebuild": false,
     "artifactName": "OhMyCode-Setup-${version}-${arch}.${ext}",
     "directories": {
-      "output": "release"
+      "output": "release",
+      "buildResources": "build"
     },
     "files": [
       "dist/**/*",
       "dist-electron/**/*",
       "electron/preload.cjs",
+      "build/icon.png",
       "package.json"
     ],
     "asarUnpack": [
       "**/node_modules/node-pty/**/*"
     ],
     "win": {
+      "icon": "build/icon.png",
       "target": [
         {
           "target": "nsis",
