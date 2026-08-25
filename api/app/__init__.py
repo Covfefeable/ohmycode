@@ -9,7 +9,10 @@ from .services.errors import ServiceError
 def create_app(config_name: str | None = None) -> Flask:
     app = Flask(__name__)
     selected = config_name or app.config.get("APP_ENV") or "development"
-    app.config.from_object(config_by_name.get(selected, config_by_name["development"]))
+    config = config_by_name.get(selected, config_by_name["development"])
+    if selected == "production":
+        config.validate()
+    app.config.from_object(config)
 
     db.init_app(app)
     migrate.init_app(app, db)

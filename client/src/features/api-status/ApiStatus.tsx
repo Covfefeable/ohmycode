@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import styles from "./ApiStatus.module.css";
 
 type ApiStatusState = { online: boolean; url: string };
-const initialStatus: ApiStatusState = { online: false, url: "http://127.0.0.1:8765" };
+const initialStatus: ApiStatusState = { online: false, url: "" };
 
 export function ApiStatus() {
   const { t } = useTranslation();

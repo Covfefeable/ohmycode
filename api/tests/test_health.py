@@ -1,4 +1,7 @@
+import pytest
+
 from app import create_app
+from app.config import ProductionConfig
 from app.extensions import db
 
 
@@ -52,3 +55,20 @@ def test_registration_rejects_duplicate_email():
         assert client.post("/api/auth/register", json=payload).status_code == 201
         duplicate = client.post("/api/auth/register", json=payload)
     assert duplicate.status_code == 409
+
+
+def test_production_rejects_placeholder_secrets(monkeypatch):
+    monkeypatch.setattr(ProductionConfig, "SECRET_KEY", "replace-with-a-long-random-secret")
+    monkeypatch.setattr(ProductionConfig, "JWT_SECRET_KEY", "x" * 32)
+
+    with pytest.raises(RuntimeError, match="SECRET_KEY"):
+        ProductionConfig.validate()
+
+
+def test_production_requires_independent_secrets(monkeypatch):
+    shared_secret = "x" * 32
+    monkeypatch.setattr(ProductionConfig, "SECRET_KEY", shared_secret)
+    monkeypatch.setattr(ProductionConfig, "JWT_SECRET_KEY", shared_secret)
+
+    with pytest.raises(RuntimeError, match="must be different"):
+        ProductionConfig.validate()

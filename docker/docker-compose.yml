@@ -17,7 +17,7 @@ services:
       SERVER_WORKER_CONNECTIONS: ${SERVER_WORKER_CONNECTIONS:-10}
       GUNICORN_TIMEOUT: ${GUNICORN_TIMEOUT:-360}
     ports:
-      - "127.0.0.1:${API_PORT:-8765}:${API_PORT:-8765}"
+      - "${API_BIND_HOST:-0.0.0.0}:${API_PORT:-8765}:${API_PORT:-8765}"
     depends_on:
       postgres:
         condition: service_healthy

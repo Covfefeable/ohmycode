@@ -35,6 +35,22 @@ class TestingConfig(BaseConfig):
 class ProductionConfig(BaseConfig):
     DEBUG = False
 
+    @classmethod
+    def validate(cls) -> None:
+        invalid_values = {
+            "development-only-secret",
+            "replace-with-a-long-random-secret",
+            "replace-with-an-independent-long-random-secret",
+        }
+        for name in ("SECRET_KEY", "JWT_SECRET_KEY"):
+            value = str(getattr(cls, name, ""))
+            if len(value) < 32 or value in invalid_values:
+                raise RuntimeError(
+                    f"{name} must be an independent random value of at least 32 characters"
+                )
+        if cls.SECRET_KEY == cls.JWT_SECRET_KEY:
+            raise RuntimeError("SECRET_KEY and JWT_SECRET_KEY must be different")
+
 
 config_by_name = {
     "development": DevelopmentConfig,

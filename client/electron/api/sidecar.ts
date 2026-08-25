@@ -2,7 +2,7 @@ import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { app } from "electron";
-import { API_URL } from "../config.js";
+import { API_URL, isLocalApiUrl } from "../config.js";
 
 let apiProcess: ChildProcess | undefined;
 const REQUIRED_CAPABILITIES = ["auth", "projects", "settings", "agent-runs", "token-usage", "multi-agent"];
@@ -45,7 +45,7 @@ async function inspectRunningApi(): Promise<"compatible" | "incompatible" | "unr
 }
 
 export async function startApiSidecar(): Promise<void> {
-  if (process.env.OHMYCODE_MANAGE_API === "false") return;
+  if (process.env.OHMYCODE_MANAGE_API === "false" || !isLocalApiUrl()) return;
   const apiStatus = await inspectRunningApi();
   if (apiStatus === "compatible") {
     console.info(`[api] using existing service at ${API_URL}`);
