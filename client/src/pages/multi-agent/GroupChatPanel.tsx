@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { ArrowUp, Bot, LoaderCircle } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { MarkdownContent } from "../../shared/ui/markdown-content";
+import { PromptEditor, usePromptCapabilities } from "../../shared/ui/prompt-editor";
 import styles from "./MultiAgentPage.module.css";
 
 type Props = {
@@ -18,6 +19,7 @@ type Props = {
 
 export function GroupChatPanel(props: Props) {
   const { t } = useTranslation();
+  const capabilityOptions = usePromptCapabilities();
   const endRef = useRef<HTMLDivElement>(null);
   const names = useMemo(() => new Map(props.task.members.map((member) => [member.id, member.name])), [props.task.members]);
   useEffect(() => { endRef.current?.scrollIntoView({ block: "end" }); }, [props.task.messages.length]);
@@ -46,13 +48,7 @@ export function GroupChatPanel(props: Props) {
         </button>)
         : <span className={styles.noMention}>{t("multiAgent.unknownAgent")}</span>}
       </div>}
-      <textarea rows={1} value={props.message} placeholder={t("multiAgent.groupMessagePlaceholder")} onChange={(event) => props.onMessageChange(event.target.value)} onKeyDown={(event) => {
-        if (event.key === "Escape") props.onCloseMention();
-        if (event.key === "Enter" && !event.shiftKey && props.mentionQuery === null) {
-          event.preventDefault();
-          props.onSend();
-        }
-      }} />
+      <PromptEditor compact submitOnEnter className={styles.groupPromptEditor} value={props.message} options={capabilityOptions} placeholder={t("multiAgent.groupMessagePlaceholder")} ariaLabel={t("multiAgent.groupMessagePlaceholder")} onChange={props.onMessageChange} onEscape={props.onCloseMention} onSubmit={() => { if (props.mentionQuery === null) props.onSend(); }} />
       <div className={styles.composerToolbar}><button aria-label={t("multiAgent.send")} disabled={props.sending || !props.message.trim()} onClick={props.onSend}>
         {props.sending ? <LoaderCircle className={styles.spinner} /> : <ArrowUp />}
       </button></div>

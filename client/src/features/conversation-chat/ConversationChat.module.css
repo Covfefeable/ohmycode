@@ -29,7 +29,7 @@
 .messageActions button:hover { background: var(--color-surface-hover); color: var(--color-text); }
 .messageActions svg { width: 14px; height: 14px; }
 .editBubble { width: min(620px, 70vw); background: var(--color-surface-2); }
-.editBubble textarea { width: 100%; min-height: 84px; resize: vertical; border: 0; outline: 0; background: transparent; color: var(--color-text); font: inherit; line-height: 1.55; }
+.editPromptEditor { min-height: 84px; }
 .editActions { display: flex; justify-content: flex-end; gap: var(--space-2); margin-top: var(--space-2); }
 .editActions button { border: 1px solid var(--color-border-strong); border-radius: var(--radius-md); background: transparent; color: var(--color-text); padding: 7px 13px; cursor: pointer; }
 .editActions button:last-child { border-color: var(--color-accent); background: var(--color-accent); color: var(--color-accent-ink); font-weight: 750; }

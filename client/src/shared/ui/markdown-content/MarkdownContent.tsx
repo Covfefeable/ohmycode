@@ -37,15 +37,26 @@ function CodeBlock({ children, ...props }: ComponentPropsWithoutRef<"pre">) {
   </div>;
 }
 
+const CAPABILITY_LINK_PREFIX = "#ohmycode-capability-";
+
+function renderCapabilityTokens(markdown: string) {
+  return markdown.replace(/\[\[(mcp|skill):([^\]]+)\]\]/g, (_match, kind: string, value: string) => {
+    const label = value.replaceAll("[", "\\[").replaceAll("]", "\\]");
+    return `[${label}](${CAPABILITY_LINK_PREFIX}${kind}-${encodeURIComponent(value)})`;
+  });
+}
+
 export function MarkdownContent({ children, className = "" }: { children: string; className?: string }) {
   return <div className={`${styles.root} ${className}`.trim()}>
     <ReactMarkdown
       remarkPlugins={[remarkGfm]}
       components={{
         pre: CodeBlock,
-        a: ({ children: label, ...props }) => <a {...props} target="_blank" rel="noreferrer">{label}</a>,
+        a: ({ children: label, href, ...props }) => href?.startsWith(CAPABILITY_LINK_PREFIX)
+          ? <span className={styles.capabilityToken}><span>{href.startsWith(`${CAPABILITY_LINK_PREFIX}mcp-`) ? "MCP" : "S"}</span>{label}</span>
+          : <a {...props} href={href} target="_blank" rel="noreferrer">{label}</a>,
         table: ({ children: rows, ...props }) => <div className={styles.tableScroll}><table {...props}>{rows}</table></div>,
       }}
-    >{children}</ReactMarkdown>
+    >{renderCapabilityTokens(children)}</ReactMarkdown>
   </div>;
 }

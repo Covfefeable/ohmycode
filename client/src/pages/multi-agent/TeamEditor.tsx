@@ -2,6 +2,7 @@ import { Bot, Play, Plus, Save, Trash2, Users } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Tooltip } from "../../shared/ui/tooltip";
 import { Select } from "../../shared/ui/select";
+import { PromptEditor, usePromptCapabilities } from "../../shared/ui/prompt-editor";
 import styles from "./MultiAgentPage.module.css";
 
 type Props = {
@@ -19,6 +20,7 @@ type Props = {
 
 export function TeamEditor(props: Props) {
   const { t } = useTranslation();
+  const capabilityOptions = usePromptCapabilities();
   const member = props.selectedMember;
   return <div className={styles.teamEditor}>
     <section className={styles.memberList}>
@@ -47,7 +49,7 @@ export function TeamEditor(props: Props) {
         { value: "", label: t("multiAgent.defaultModel") },
         ...props.models.map((model) => ({ value: model.id, label: `${model.name} - ${model.model}` })),
       ]} onChange={(value) => props.onUpdateMember("modelId", value)} /></label>
-      <label>{t("multiAgent.nodeInstructions")}<textarea value={member.instructions} onChange={(event) => props.onUpdateMember("instructions", event.target.value)} /></label>
+      <label>{t("multiAgent.nodeInstructions")}<PromptEditor key={member.id} className={styles.fieldPromptEditor} value={member.instructions} options={capabilityOptions} placeholder={t("multiAgent.nodeInstructionsPlaceholder")} ariaLabel={t("multiAgent.nodeInstructions")} onChange={(value) => props.onUpdateMember("instructions", value)} /></label>
     </> : <div className={styles.editorEmpty}>{t("multiAgent.selectMember")}</div>}</section>
   </div>;
 }

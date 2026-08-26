@@ -5,24 +5,15 @@
   backdrop-filter: blur(28px) saturate(150%);
   -webkit-backdrop-filter: blur(28px) saturate(150%);
   box-shadow: none;
-  overflow: hidden;
+  overflow: visible;
 }
 .composer:focus-within { border-color: var(--color-border-strong); background: color-mix(in srgb, var(--color-surface-composer-frosted) 88%, var(--color-surface-2)); }
 .attachments { padding: 12px 12px 0; }
-.composer textarea {
-  width: 100%;
-  min-height: 24px;
-  max-height: 72px;
-  line-height: 24px;
-  resize: none;
-  border: 0;
-  outline: 0;
-  background: transparent;
-  color: var(--color-text-input);
-  padding: 14px 16px 8px;
-  overflow-y: auto;
+.promptEditor {
+  --prompt-padding-top: 14px;
+  --prompt-padding-x: 16px;
+  --prompt-padding-bottom: 8px;
 }
-.composer textarea:focus, .composer textarea:focus-visible { outline: none; box-shadow: none; }
 .toolbar {
   padding: 6px 10px 10px 16px;
   display: flex;

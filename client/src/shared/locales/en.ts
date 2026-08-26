@@ -155,6 +155,7 @@ export const en = {
     loadFailed: "Could not load the collaboration task.",
     selectTask: "Select a task or create one under an agent",
     nodeInstructions: "Instructions",
+    nodeInstructionsPlaceholder: "Describe this agent's responsibilities and completion criteria. Type / to reference an MCP tool or Skill…",
     nodeMessages: "Messages",
     nodeFiles: "File changes",
     nodeOutput: "Node output",
@@ -248,5 +249,9 @@ export const en = {
     label: "Language",
     zhCN: "中文",
     en: "English",
+  },
+  promptEditor: {
+    mcpTools: "MCP tools",
+    skills: "Skills",
   },
 } as const;

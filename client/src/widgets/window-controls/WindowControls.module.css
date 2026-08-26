@@ -1,11 +1,13 @@
-.titleArea { position: fixed; inset: 0 0 auto; height: var(--window-titlebar-height); z-index: var(--z-window-controls); pointer-events: none; }
+.titleArea { position: fixed; inset: 0 0 auto; height: var(--window-titlebar-height); z-index: var(--z-window-controls); pointer-events: auto; -webkit-app-region: no-drag; }
 .dragRegion {
   position: absolute;
   inset: 0 var(--window-controls-width) 0 0;
+  pointer-events: auto;
   -webkit-app-region: drag;
 }
 .controls {
   position: absolute;
+  z-index: 1;
   inset: 0 0 auto auto;
   height: var(--window-titlebar-height);
   display: flex;
@@ -20,6 +22,9 @@
   color: var(--color-text-window);
   font-size: var(--font-md);
   line-height: 1;
+  pointer-events: auto;
+  -webkit-app-region: no-drag;
+  cursor: default;
 }
 .controls button:hover { background: var(--color-surface-hover); color: var(--color-text); }
 .controls .close:hover { background: var(--color-danger-window); color: white; }

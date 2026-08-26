@@ -33,6 +33,9 @@
 .memberEditor input, .memberEditor textarea, .dialog input, .dialog textarea { width: 100%; box-sizing: border-box; border: 1px solid var(--color-border-subtle); border-radius: var(--radius-md); outline: 0; background: var(--color-surface-input); color: var(--color-text); padding: 10px 12px; font: inherit; }
 .memberEditor input:focus, .memberEditor textarea:focus, .dialog input:focus, .dialog textarea:focus { border-color: var(--color-border-strong); background: var(--color-surface-active); }
 .memberEditor textarea { min-height: 190px; resize: vertical; line-height: 1.6; }
+.fieldPromptEditor, .dialogPromptEditor { border: 1px solid var(--color-border-subtle); border-radius: var(--radius-md); background: var(--color-surface-input); font-weight: 400; }
+.fieldPromptEditor:focus-within, .dialogPromptEditor:focus-within { border-color: var(--color-border-strong); background: var(--color-surface-active); }
+.fieldPromptEditor { min-height: 190px; }
 .editorEmpty { height: 100%; display: grid; place-items: center; color: var(--color-text-dim); }
 .chatLayout { position: relative; min-height: 0; display: grid; grid-template-columns: minmax(0,1fr) 220px; overflow: hidden; }
 .chatPanel { min-width: 0; min-height: 0; display: grid; grid-template-rows: minmax(0,1fr) auto; overflow: hidden; }
@@ -53,6 +56,11 @@
 .bubble p { margin: 0; line-height: 1.58; }
 .composer { position: relative; display: grid; grid-template-rows: auto 32px; margin: 0 clamp(20px,5vw,64px) 20px; border: 1px solid var(--color-border-strong); border-radius: var(--radius-lg); background: color-mix(in srgb,var(--color-surface-1) 82%,transparent); padding: 9px 10px 8px; box-shadow: var(--shadow-panel); backdrop-filter: blur(18px) saturate(125%); }
 .composer textarea { width: 100%; max-height: 76px; min-height: 30px; box-sizing: border-box; resize: none; border: 0; outline: 0; background: transparent; color: var(--color-text); padding: 5px 3px; font: inherit; line-height: 20px; }
+.groupPromptEditor {
+  --prompt-padding-top: 5px;
+  --prompt-padding-x: 3px;
+  --prompt-padding-bottom: 5px;
+}
 .composerToolbar { display: flex; align-items: center; justify-content: flex-end; }
 .composerToolbar button { width: 32px; height: 32px; display: grid; place-items: center; border: 0; border-radius: 50%; background: var(--color-accent); color: var(--color-accent-ink); cursor: pointer; }
 .composerToolbar button:disabled { background: var(--color-surface-control); color: var(--color-text-disabled); cursor: not-allowed; }
@@ -101,6 +109,7 @@
 .dialog header button { width: 32px; height: 32px; display: grid; place-items: center; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--color-text-muted); cursor: pointer; }
 .dialog header svg { width: 17px; }
 .dialog textarea { min-height: 88px; resize: vertical; line-height: 1.5; }
+.dialogPromptEditor { min-height: 88px; }
 .dialog footer { display: flex; justify-content: flex-end; gap: 10px; padding-top: 4px; }
 .dialog footer button { min-width: 96px; }
 .dialog footer button:disabled { opacity: .55; cursor: not-allowed; }

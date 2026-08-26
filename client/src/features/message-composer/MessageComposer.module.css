@@ -4,13 +4,13 @@
   background: var(--color-surface-composer-frosted);
   backdrop-filter: blur(28px) saturate(150%);
   -webkit-backdrop-filter: blur(28px) saturate(150%);
-  overflow: hidden;
+  overflow: visible;
 }
 .composer:focus-within { border-color: var(--color-border-strong); }
-.composer textarea {
-  width: 100%; min-height: 24px; max-height: 72px; resize: none; overflow-y: auto;
-  border: 0; outline: 0; background: transparent; color: var(--color-text-input);
-  padding: 12px 14px 5px; font: inherit; line-height: 24px;
+.promptEditor {
+  --prompt-padding-top: 12px;
+  --prompt-padding-x: 14px;
+  --prompt-padding-bottom: 5px;
 }
 .toolbar { display: flex; justify-content: flex-end; padding: 4px 8px 8px; }
 .toolbar button {

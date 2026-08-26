@@ -8,6 +8,7 @@ import { LoadError } from "../../shared/ui/load-error";
 import { Tooltip } from "../../shared/ui/tooltip";
 import { MarkdownContent } from "../../shared/ui/markdown-content";
 import { AttachmentList } from "../../shared/ui/attachment-list";
+import { PromptEditor, usePromptCapabilities } from "../../shared/ui/prompt-editor";
 import { classifyRequestError } from "../../shared/lib/request-error";
 import { ActivityTimeline } from "./activity-timeline/ActivityTimeline";
 import { withoutFinalResponse } from "./activity-timeline/updateActivity";
@@ -19,6 +20,7 @@ type ConversationChatProps = { conversationId: string; active: boolean; onUpdate
 export function ConversationChat({ conversationId, active, onUpdated }: ConversationChatProps) {
   const { t, i18n } = useTranslation();
   const { toast } = useFeedback();
+  const capabilityOptions = usePromptCapabilities();
   const [conversation, setConversation] = useState<LocalConversation | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
@@ -32,6 +34,7 @@ export function ConversationChat({ conversationId, active, onUpdated }: Conversa
   const [contextUsage, setContextUsage] = useState(0);
   const dragDepthRef = useRef(0);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const composerDockRef = useRef<HTMLDivElement>(null);
   const autoScrollLockedRef = useRef(true);
   const lastScrollTopRef = useRef(0);
   const scrollFrameRef = useRef<number | null>(null);
@@ -47,6 +50,22 @@ export function ConversationChat({ conversationId, active, onUpdated }: Conversa
 
   useEffect(() => { conversationRef.current = conversation; }, [conversation]);
   useEffect(() => { onUpdatedRef.current = onUpdated; }, [onUpdated]);
+  useEffect(() => {
+    const dock = composerDockRef.current;
+    const scroller = scrollRef.current;
+    if (!dock || !scroller) return;
+    let previousClearance = 0;
+    const updateClearance = () => {
+      const clearance = Math.ceil(dock.getBoundingClientRect().height) + 54;
+      scroller.style.paddingBottom = `${clearance}px`;
+      if (autoScrollLockedRef.current && clearance !== previousClearance) scroller.scrollTop = scroller.scrollHeight;
+      previousClearance = clearance;
+    };
+    updateClearance();
+    const observer = new ResizeObserver(updateClearance);
+    observer.observe(dock);
+    return () => observer.disconnect();
+  }, [conversation?.id]);
 
   useEffect(() => {
     let disposed = false;
@@ -82,10 +101,17 @@ export function ConversationChat({ conversationId, active, onUpdated }: Conversa
       if (event.type === "turn.failed") toast({ type: "error", message: requestErrorMessage(event.errorCode) });
       if (event.type === "turn.completed" || event.type === "turn.failed" || event.type === "turn.interrupted") {
         if (activeTurnIdRef.current === event.turnId) activeTurnIdRef.current = null;
-        setSending(false);
-        void window.ohmycode.conversations.get(conversationId).then((value) => {
-          if (!disposed) setConversation(value);
-        });
+        void window.ohmycode.conversations.waitTurn(event.turnId)
+          .then((value) => value ?? window.ohmycode.conversations.get(conversationId))
+          .catch(() => window.ohmycode.conversations.get(conversationId))
+          .then((value) => {
+            if (disposed) return;
+            setConversation(value);
+            setSending(false);
+          })
+          .catch(() => {
+            if (!disposed) setSending(false);
+          });
         onUpdatedRef.current();
       }
     };
@@ -245,7 +271,7 @@ export function ConversationChat({ conversationId, active, onUpdated }: Conversa
       <div className={styles.messages}>
       {(conversation.messages ?? []).map((message) => <article key={message.id} className={message.role === "user" ? styles.user : styles.assistant}>
         {editing?.message.id === message.id ? <div className={`${styles.bubble} ${styles.editBubble}`}>
-          <textarea autoFocus value={editing.content} onChange={(event) => setEditing({ ...editing, content: event.target.value })} />
+          <PromptEditor autoFocus className={styles.editPromptEditor} value={editing.content} options={capabilityOptions} ariaLabel={t("agent.edit")} onChange={(content) => setEditing({ ...editing, content })} />
           <div className={styles.editActions}>
             <button onClick={() => setEditing(null)}>{t("agent.cancel")}</button>
             <button disabled={!editing.content.trim()} onClick={() => void send(editing.content, [], message.id)}>{t("agent.resend")}</button>
@@ -264,6 +290,6 @@ export function ConversationChat({ conversationId, active, onUpdated }: Conversa
       {!conversation.messages?.length && <p className={styles.empty}>{t("agent.emptyConversation")}</p>}
       </div>
     </div></div>
-    <div className={styles.composerDock}><TaskComposer busy={sending} disabled={Boolean(editing)} models={models} selectedModelId={selectedModelId} contextUsage={contextUsage} attachments={attachments} onRemoveAttachment={(id) => setAttachments((items) => items.filter((item) => item.id !== id))} onModelChange={setSelectedModelId} onSubmit={(content, items) => send(content, items)} onStop={stop} /></div>
+    <div ref={composerDockRef} className={styles.composerDock}><TaskComposer busy={sending} disabled={Boolean(editing)} models={models} selectedModelId={selectedModelId} contextUsage={contextUsage} attachments={attachments} onRemoveAttachment={(id) => setAttachments((items) => items.filter((item) => item.id !== id))} onModelChange={setSelectedModelId} onSubmit={(content, items) => send(content, items)} onStop={stop} /></div>
   </section>;
 }
