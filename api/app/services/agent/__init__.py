@@ -1,17 +1,12 @@
-from .chat import (
-    PreparedCompletion,
-    prepare_completion,
-    resume_completion,
-    stream_completion,
-    stream_prepare_completion,
-)
+from .chat import resume_completion, stream_completion
 from .context import COMPACTION_RATIO, estimate_tokens
+from .preparation import stream_prepare_completion
+from .provider_stream import PreparedCompletion
 
 __all__ = [
     "COMPACTION_RATIO",
     "PreparedCompletion",
     "estimate_tokens",
-    "prepare_completion",
     "resume_completion",
     "stream_completion",
     "stream_prepare_completion",

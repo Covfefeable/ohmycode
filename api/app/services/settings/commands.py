@@ -6,7 +6,7 @@ from uuid import UUID
 
 import httpx
 from flask import current_app
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 
 from ...extensions import db
 from ...models import AgentRun, Conversation, ModelConfiguration, Project, User
@@ -33,32 +33,36 @@ def get_settings(user_id: UUID) -> dict:
     if not user:
         raise ServiceError("not_found", 404)
     since = datetime.now(UTC) - timedelta(days=364)
-    runs = (
-        db.session.query(AgentRun)
+    usage_date = func.date(AgentRun.completed_at).label("usage_date")
+    token_total = func.sum(
+        func.coalesce(AgentRun.input_tokens, 0) + func.coalesce(AgentRun.output_tokens, 0)
+    ).label("token_total")
+    usage_rows = db.session.execute(
+        db.select(usage_date, token_total)
         .join(Conversation, AgentRun.conversation_id == Conversation.id)
         .join(Project, Conversation.project_id == Project.id)
-        .filter(
+        .where(
             Project.user_id == user_id,
             AgentRun.completed_at >= since,
             or_(AgentRun.input_tokens.is_not(None), AgentRun.output_tokens.is_not(None)),
         )
-        .all()
-    )
-    usage_by_day: dict[str, int] = {}
-    for run in runs:
-        day = run.completed_at.date().isoformat()
-        usage_by_day[day] = (
-            usage_by_day.get(day, 0) + (run.input_tokens or 0) + (run.output_tokens or 0)
-        )
+        .group_by(usage_date)
+        .order_by(usage_date)
+    ).all()
+    token_usage = [
+        {
+            "date": day.isoformat() if hasattr(day, "isoformat") else str(day),
+            "tokens": int(tokens or 0),
+        }
+        for day, tokens in usage_rows
+    ]
     return {
         "profile": {
             "displayName": user.display_name,
             "avatarAvailable": bool(user.avatar_object_key),
         },
         "models": [serialize_model(item) for item in models_for_user(user_id)],
-        "tokenUsage": [
-            {"date": day, "tokens": tokens} for day, tokens in sorted(usage_by_day.items())
-        ],
+        "tokenUsage": token_usage,
     }
 
 

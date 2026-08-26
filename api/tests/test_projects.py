@@ -181,7 +181,7 @@ def test_project_conversation_and_message_lifecycle(monkeypatch):
             return next(provider_responses)
 
         monkeypatch.setattr(
-            "app.services.agent.chat.httpx.stream",
+            "app.services.agent.provider_stream.httpx.stream",
             provider_stream,
         )
         requested_turn_id = str(uuid.uuid4())
@@ -231,7 +231,7 @@ def test_project_conversation_and_message_lifecycle(monkeypatch):
         def missing_provider(*_args, **_kwargs):
             raise FileNotFoundError("provider dependency disappeared")
 
-        monkeypatch.setattr("app.services.agent.chat.httpx.stream", missing_provider)
+        monkeypatch.setattr("app.services.agent.provider_stream.httpx.stream", missing_provider)
         failed_stream = client.post(
             f"/api/projects/conversations/{failed_conversation['id']}/stream",
             headers=headers,
@@ -264,7 +264,9 @@ def test_project_conversation_and_message_lifecycle(monkeypatch):
                 "Payment Required", request=request, response=response
             )
 
-        monkeypatch.setattr("app.services.agent.chat.httpx.stream", insufficient_balance)
+        monkeypatch.setattr(
+            "app.services.agent.provider_stream.httpx.stream", insufficient_balance
+        )
         balance_stream = client.post(
             f"/api/projects/conversations/{balance_conversation['id']}/stream",
             headers=headers,
@@ -323,7 +325,8 @@ def test_project_conversation_and_message_lifecycle(monkeypatch):
 
         responses = iter([ToolProviderResponse(), FinalProviderResponse()])
         monkeypatch.setattr(
-            "app.services.agent.chat.httpx.stream", lambda *_args, **_kwargs: next(responses)
+            "app.services.agent.provider_stream.httpx.stream",
+            lambda *_args, **_kwargs: next(responses),
         )
         tool_stream = client.post(
             f"/api/projects/conversations/{agent_conversation['id']}/stream",
@@ -372,7 +375,9 @@ def test_project_conversation_and_message_lifecycle(monkeypatch):
             captured_requests.append(kwargs["json"])
             return next(cancellation_responses)
 
-        monkeypatch.setattr("app.services.agent.chat.httpx.stream", cancellation_stream)
+        monkeypatch.setattr(
+            "app.services.agent.provider_stream.httpx.stream", cancellation_stream
+        )
         waiting = client.post(
             f"/api/projects/conversations/{cancelled_conversation['id']}/stream",
             headers=headers,

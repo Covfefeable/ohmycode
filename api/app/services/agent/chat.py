@@ -1,358 +1,36 @@
 import json
-import time
-from dataclasses import dataclass
 from uuid import UUID
 
-import httpx
 from flask import current_app
 
 from ...extensions import db
-from ...models import (
-    AgentRun,
-    Conversation,
-    Message,
-    ModelConfiguration,
-    MultiAgentMessage,
-    MultiAgentNode,
-)
-from ..conversations import prepare_user_prompt
+from ...models import AgentRun, Conversation, Message, ModelConfiguration
 from ..errors import ServiceError
-from ..model_credentials import decrypt_api_key
-from ..settings import get_model_configuration
-from .config import MODEL_REQUEST_TIMEOUT_SECONDS, MODEL_STREAM_ATTEMPTS, TOOL_RESULT_TOKEN_BUDGET
+from .config import TOOL_RESULT_TOKEN_BUDGET
 from .context import (
     COMPACTION_RATIO,
     compact_payload,
     estimate_tokens,
-    iter_prepare_context,
     latest_checkpoint,
     prepare_context,
 )
+from .preparation import completion_tools_and_mailbox, prepared_completion
 from .prompts import AGENT_SYSTEM_INSTRUCTIONS
+from .provider_errors import provider_error_code
+from .provider_stream import PreparedCompletion, provider_payloads
 from .runs import (
     append_event,
     build_run_activity,
-    cancelled_run_context,
     complete_run,
     fail_run,
     get_owned_run,
-    start_run,
 )
-from .task_plan import active_task_id, latest_task_plan, normalize_task_plan, task_plan_context
+from .task_plan import active_task_id, latest_task_plan, normalize_task_plan
 from .tools import (
-    AGENT_MESSAGE_TOOL,
-    AGENT_TOOLS,
     FILE_TOOL_NAMES,
-    FINISH_COLLABORATION_TOOL,
-    UPDATE_TASKS_TOOL,
-    VIEW_IMAGE_TOOL,
     VIEW_IMAGE_TOOL_NAME,
     normalize_terminal_arguments,
 )
-
-
-def _multi_agent_context(
-    conversation_id: UUID, configuration: ModelConfiguration
-) -> tuple[list[dict], list[dict]]:
-    node = db.session.scalar(
-        db.select(MultiAgentNode).where(MultiAgentNode.conversation_id == conversation_id)
-    )
-    if not node:
-        tools = [*AGENT_TOOLS, UPDATE_TASKS_TOOL]
-        if configuration.supports_vision:
-            tools.append(VIEW_IMAGE_TOOL)
-        return tools, []
-    messages = list(
-        db.session.scalars(
-            db.select(MultiAgentMessage)
-            .where(MultiAgentMessage.task_id == node.task_id)
-            .order_by(MultiAgentMessage.sequence)
-        )
-    )
-    mailbox = "\n\n".join(
-        f"[{item.from_node.name if item.from_node else 'User'} "
-        f"@ {item.to_node.name}]\n{item.content}"
-        for item in messages
-    )
-    context = (
-        [{"role": "system", "content": f"Latest collaboration group chat:\n{mailbox}"}]
-        if mailbox
-        else []
-    )
-    tools = [*AGENT_TOOLS, AGENT_MESSAGE_TOOL]
-    if node.is_host:
-        tools.append(FINISH_COLLABORATION_TOOL)
-    if configuration.supports_vision:
-        tools.append(VIEW_IMAGE_TOOL)
-    return tools, context
-
-
-@dataclass(frozen=True)
-class PreparedCompletion:
-    run_id: UUID
-    conversation_id: UUID
-    endpoint: str
-    api_key: str
-    context_length: int
-    payload: dict
-
-
-def _sse_json_payloads(lines):
-    data_lines: list[str] = []
-
-    def decode_event():
-        if not data_lines:
-            return None
-        data = "\n".join(data_lines).strip()
-        if not data or data == "[DONE]":
-            data_lines.clear()
-            return None
-        payload = json.loads(data)
-        data_lines.clear()
-        return payload
-
-    for line in lines:
-        if line == "":
-            payload = decode_event()
-            if payload is not None:
-                yield payload
-            continue
-        if line.startswith("data:"):
-            if data_lines:
-                try:
-                    payload = decode_event()
-                except json.JSONDecodeError:
-                    payload = None
-                else:
-                    if payload is not None:
-                        yield payload
-            data_lines.append(line[5:].lstrip())
-    payload = decode_event()
-    if payload is not None:
-        yield payload
-
-
-def _provider_payloads(prepared: PreparedCompletion):
-    request_payload = prepared.payload
-    for attempt in range(MODEL_STREAM_ATTEMPTS):
-        meaningful_output = False
-        try:
-            with httpx.stream(
-                "POST",
-                prepared.endpoint,
-                headers={
-                    "Authorization": f"Bearer {prepared.api_key}",
-                    "Content-Type": "application/json",
-                },
-                json=request_payload,
-                timeout=MODEL_REQUEST_TIMEOUT_SECONDS,
-            ) as provider_response:
-                provider_response.raise_for_status()
-                for parsed in _sse_json_payloads(provider_response.iter_lines()):
-                    choice = (parsed.get("choices") or [{}])[0]
-                    delta = choice.get("delta") or {}
-                    message = choice.get("message") or {}
-                    if (
-                        delta.get("content")
-                        or delta.get("reasoning_content")
-                        or delta.get("reasoning")
-                        or delta.get("tool_calls")
-                        or choice.get("text")
-                        or message.get("content")
-                        or message.get("tool_calls")
-                    ):
-                        meaningful_output = True
-                    yield parsed
-            if meaningful_output:
-                return
-        except httpx.HTTPStatusError as error:
-            if error.response.status_code == 400 and "stream_options" in request_payload:
-                request_payload = {
-                    key: value
-                    for key, value in request_payload.items()
-                    if key != "stream_options"
-                }
-                continue
-            retryable = error.response.status_code == 429 or error.response.status_code >= 500
-            if meaningful_output or not retryable or attempt == MODEL_STREAM_ATTEMPTS - 1:
-                raise
-            time.sleep(min(2**attempt, 4))
-        except (
-            httpx.ConnectError,
-            httpx.ConnectTimeout,
-            httpx.ReadError,
-            httpx.ReadTimeout,
-            httpx.RemoteProtocolError,
-        ):
-            if meaningful_output or attempt == MODEL_STREAM_ATTEMPTS - 1:
-                raise
-
-
-def _provider_error_code(error: Exception) -> str:
-    if not isinstance(error, httpx.HTTPStatusError):
-        return type(error).__name__
-    response = error.response
-    detail = ""
-    try:
-        payload = response.json()
-        provider_error = payload.get("error") if isinstance(payload, dict) else None
-        if isinstance(provider_error, dict):
-            detail = str(
-                provider_error.get("code")
-                or provider_error.get("type")
-                or provider_error.get("message")
-                or ""
-            )
-        elif provider_error:
-            detail = str(provider_error)
-    except (ValueError, TypeError):
-        detail = ""
-    normalized = "_".join(detail.strip().split())[:300]
-    return f"provider_http_{response.status_code}{f':{normalized}' if normalized else ''}"
-
-
-def prepare_completion(
-    user_id: UUID,
-    conversation_id: UUID,
-    content: str,
-    model_id: str | None,
-    edit_message_id: str | None,
-    workspace_instructions: str = "",
-    turn_id: UUID | None = None,
-    attachments: object = None,
-) -> PreparedCompletion:
-    conversation = prepare_user_prompt(
-        user_id, conversation_id, content, edit_message_id, attachments
-    )
-    configuration = get_model_configuration(user_id, model_id)
-    if not configuration:
-        raise ServiceError("model_not_configured", 422)
-    run = start_run(conversation_id, configuration, turn_id)
-    try:
-        context = prepare_context(
-            run, configuration, list(conversation.messages), AGENT_SYSTEM_INSTRUCTIONS
-        )
-    except (httpx.HTTPError, KeyError, IndexError, TypeError, ValueError) as error:
-        fail_run(run, "context_compaction_failed")
-        raise ServiceError("context_compaction_failed", 502) from error
-    append_event(
-        run,
-        "context.prepared",
-        {
-            "estimatedTokens": context.estimated_tokens,
-            "contextLength": configuration.context_length,
-            "compacted": context.compacted,
-        },
-    )
-    db.session.commit()
-    tools, mailbox = _multi_agent_context(conversation_id, configuration)
-    return PreparedCompletion(
-        run_id=run.id,
-        conversation_id=conversation_id,
-        endpoint=f"{configuration.base_url.rstrip('/')}/chat/completions",
-        api_key=decrypt_api_key(configuration.api_key_encrypted),
-        context_length=configuration.context_length,
-        payload={
-            "model": configuration.model,
-            "stream": True,
-            "stream_options": {"include_usage": True},
-            "tools": tools,
-            "messages": [
-                {
-                    "role": "system",
-                    "content": AGENT_SYSTEM_INSTRUCTIONS,
-                },
-                *(
-                    [
-                        {
-                            "role": "system",
-                            "content": f"Workspace instructions:\n{workspace_instructions}",
-                        }
-                    ]
-                    if workspace_instructions.strip()
-                    else []
-                ),
-                *cancelled_run_context(conversation_id, run.id),
-                *task_plan_context(run),
-                *mailbox,
-                *context.messages,
-            ],
-        },
-    )
-
-
-def stream_prepare_completion(
-    user_id: UUID,
-    conversation_id: UUID,
-    content: str,
-    model_id: str | None,
-    edit_message_id: str | None,
-    workspace_instructions: str = "",
-    turn_id: UUID | None = None,
-    attachments: object = None,
-):
-    conversation = prepare_user_prompt(
-        user_id, conversation_id, content, edit_message_id, attachments
-    )
-    configuration = get_model_configuration(user_id, model_id)
-    if not configuration:
-        raise ServiceError("model_not_configured", 422)
-    run = start_run(conversation_id, configuration, turn_id)
-    yield {"type": "run.started", "runId": str(run.id)}
-    try:
-        context = yield from iter_prepare_context(
-            run, configuration, list(conversation.messages), AGENT_SYSTEM_INSTRUCTIONS
-        )
-    except (httpx.HTTPError, KeyError, IndexError, TypeError, ValueError) as error:
-        fail_run(run, "context_compaction_failed")
-        raise ServiceError("context_compaction_failed", 502) from error
-    append_event(
-        run,
-        "context.prepared",
-        {
-            "estimatedTokens": context.estimated_tokens,
-            "contextLength": configuration.context_length,
-            "compacted": context.compacted,
-        },
-    )
-    db.session.commit()
-    yield {
-        "type": "context.usage",
-        "usedTokens": context.estimated_tokens,
-        "contextLength": configuration.context_length,
-        "source": "estimated",
-    }
-    tools, mailbox = _multi_agent_context(conversation_id, configuration)
-    return PreparedCompletion(
-        run_id=run.id,
-        conversation_id=conversation_id,
-        endpoint=f"{configuration.base_url.rstrip('/')}/chat/completions",
-        api_key=decrypt_api_key(configuration.api_key_encrypted),
-        context_length=configuration.context_length,
-        payload={
-            "model": configuration.model,
-            "stream": True,
-            "stream_options": {"include_usage": True},
-            "tools": tools,
-            "messages": [
-                {"role": "system", "content": AGENT_SYSTEM_INSTRUCTIONS},
-                *(
-                    [
-                        {
-                            "role": "system",
-                            "content": f"Workspace instructions:\n{workspace_instructions}",
-                        }
-                    ]
-                    if workspace_instructions.strip()
-                    else []
-                ),
-                *cancelled_run_context(conversation_id, run.id),
-                *task_plan_context(run),
-                *mailbox,
-                *context.messages,
-            ],
-        },
-    )
 
 
 def _truncate_tool_content(content: str, token_budget: int) -> str:
@@ -506,37 +184,10 @@ def resume_completion(
             {"runId": str(run.id), "toolEventSequence": run.last_event_sequence},
         )
         model_messages = [{"role": "system", "content": f"Conversation checkpoint:\n{summary}"}]
-    tools, mailbox = _multi_agent_context(run.conversation_id, configuration)
+    tools, mailbox = completion_tools_and_mailbox(run.conversation_id, configuration)
     tools.extend(_loaded_capability_tools(run))
-    return PreparedCompletion(
-        run_id=run.id,
-        conversation_id=run.conversation_id,
-        endpoint=f"{configuration.base_url.rstrip('/')}/chat/completions",
-        api_key=decrypt_api_key(configuration.api_key_encrypted),
-        context_length=configuration.context_length,
-        payload={
-            "model": configuration.model,
-            "stream": True,
-            "stream_options": {"include_usage": True},
-            "tools": tools,
-            "messages": [
-                {"role": "system", "content": AGENT_SYSTEM_INSTRUCTIONS},
-                *(
-                    [
-                        {
-                            "role": "system",
-                            "content": f"Workspace instructions:\n{workspace_instructions}",
-                        }
-                    ]
-                    if workspace_instructions.strip()
-                    else []
-                ),
-                *cancelled_run_context(run.conversation_id, run.id),
-                *task_plan_context(run),
-                *mailbox,
-                *model_messages,
-            ],
-        },
+    return prepared_completion(
+        run, configuration, model_messages, workspace_instructions, tools, mailbox
     )
 
 
@@ -552,7 +203,7 @@ def stream_completion(prepared: PreparedCompletion):
     message_started = False
     run = db.session.get(AgentRun, prepared.run_id)
     try:
-        for payload in _provider_payloads(prepared):
+        for payload in provider_payloads(prepared):
             usage = payload.get("usage") or {}
             input_tokens = usage.get("prompt_tokens", usage.get("input_tokens"))
             output_tokens = usage.get("completion_tokens", usage.get("output_tokens"))
@@ -705,7 +356,7 @@ def stream_completion(prepared: PreparedCompletion):
         run = db.session.get(AgentRun, prepared.run_id)
         if run:
             db.session.expire(run)
-        error_code = _provider_error_code(error)
+        error_code = provider_error_code(error)
         if run and run.status == "running":
             fail_run(run, error_code)
         current_app.logger.exception("Agent stream failed for run %s", prepared.run_id)

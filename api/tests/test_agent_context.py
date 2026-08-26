@@ -1,6 +1,7 @@
-from app.services.agent.chat import _sse_json_payloads, _truncate_tool_content
+from app.services.agent.chat import _truncate_tool_content
 from app.services.agent.context import COMPACTION_RATIO, estimate_tokens
 from app.services.agent.prompts import AGENT_SYSTEM_INSTRUCTIONS
+from app.services.agent.provider_stream import sse_json_payloads
 from app.services.agent.task_plan import active_task_id, normalize_task_plan
 
 
@@ -24,7 +25,7 @@ def test_sse_parser_ignores_control_fields_and_supports_multiline_data():
         "",
     ]
 
-    assert list(_sse_json_payloads(lines)) == [{"choices": []}]
+    assert list(sse_json_payloads(lines)) == [{"choices": []}]
 
 
 def test_tool_results_are_truncated_to_budget_with_actionable_hint():
