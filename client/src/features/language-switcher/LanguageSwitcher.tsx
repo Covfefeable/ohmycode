@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import type { SupportedLanguage } from "../../app/i18n";
+import { Select } from "../../shared/ui/select";
 import styles from "./LanguageSwitcher.module.css";
 
 export function LanguageSwitcher() {
@@ -13,11 +14,10 @@ export function LanguageSwitcher() {
   return (
     <label className={styles.field}>
       <span>{t("language.label")}</span>
-      <select value={language} onChange={(event) => changeLanguage(event.target.value as SupportedLanguage)}>
-        <option value="zh-CN">{t("language.zhCN")}</option>
-        <option value="en">{t("language.en")}</option>
-      </select>
+      <Select ariaLabel={t("language.label")} value={language} options={[
+        { value: "zh-CN", label: t("language.zhCN") },
+        { value: "en", label: t("language.en") },
+      ]} onChange={(value) => changeLanguage(value as SupportedLanguage)} />
     </label>
   );
 }
-

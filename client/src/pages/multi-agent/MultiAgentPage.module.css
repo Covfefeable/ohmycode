@@ -30,8 +30,8 @@
 .deleteMember:hover { background: var(--color-danger-soft); color: var(--color-danger); }
 .deleteMember svg { width: 16px; }
 .memberEditor label, .dialog label { display: grid; gap: 7px; margin-top: 17px; color: var(--color-text-muted); font-size: var(--font-sm); font-weight: 650; }
-.memberEditor input, .memberEditor select, .memberEditor textarea, .dialog input, .dialog textarea { width: 100%; box-sizing: border-box; border: 1px solid var(--color-border-subtle); border-radius: var(--radius-md); outline: 0; background: var(--color-surface-input); color: var(--color-text); padding: 10px 12px; font: inherit; }
-.memberEditor input:focus, .memberEditor select:focus, .memberEditor textarea:focus, .dialog input:focus, .dialog textarea:focus { border-color: var(--color-border-strong); background: var(--color-surface-active); }
+.memberEditor input, .memberEditor textarea, .dialog input, .dialog textarea { width: 100%; box-sizing: border-box; border: 1px solid var(--color-border-subtle); border-radius: var(--radius-md); outline: 0; background: var(--color-surface-input); color: var(--color-text); padding: 10px 12px; font: inherit; }
+.memberEditor input:focus, .memberEditor textarea:focus, .dialog input:focus, .dialog textarea:focus { border-color: var(--color-border-strong); background: var(--color-surface-active); }
 .memberEditor textarea { min-height: 190px; resize: vertical; line-height: 1.6; }
 .editorEmpty { height: 100%; display: grid; place-items: center; color: var(--color-text-dim); }
 .chatLayout { position: relative; min-height: 0; display: grid; grid-template-columns: minmax(0,1fr) 220px; overflow: hidden; }

@@ -31,12 +31,7 @@
   font-size: var(--font-sm);
 }
 .actions { display: flex; align-items: center; gap: var(--space-2); }
-.modelSelect { position: relative; min-width: 0; display: inline-flex; }
-.modelSelect select { max-width: 220px; height: 32px; appearance: none; overflow: hidden; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--color-text-muted); padding: 0 34px 0 10px; text-overflow: ellipsis; cursor: pointer; }
-.modelSelect > svg { position: absolute; top: 50%; right: 11px; width: 14px; height: 14px; transform: translateY(-50%); color: var(--color-text-dim); pointer-events: none; }
-.missingModel { opacity: .72; }
-.modelSelect select:hover, .modelSelect select:focus-visible { background: var(--color-surface-control); color: var(--color-text); }
-.toolbar button {
+.sendProgress > button {
   position: relative;
   border: 0;
   width: 32px;
@@ -50,16 +45,16 @@
   cursor: pointer;
 }
 .sendProgress {
-  width: 38px;
-  height: 38px;
+  width: 36px;
+  height: 36px;
   display: grid;
   place-items: center;
   border-radius: 50%;
   background: conic-gradient(from -90deg, color-mix(in srgb, var(--color-accent) 82%, white) 0 var(--context-usage), transparent var(--context-usage) 100%);
   filter: drop-shadow(0 0 4px color-mix(in srgb, var(--color-accent) 55%, transparent));
 }
-.sendProgress button { flex: none; }
-.toolbar button:not(:disabled) { background: var(--color-accent); color: var(--color-accent-ink); }
-.toolbar button svg { width: 16px; height: 16px; }
-.toolbar .stop { background: var(--color-surface-control); color: var(--color-text); }
-.toolbar .stop svg { width: 11px; height: 11px; fill: currentColor; }
+.sendProgress > button { flex: none; }
+.sendProgress > button:not(:disabled) { background: var(--color-accent); color: var(--color-accent-ink); }
+.sendProgress > button svg { width: 16px; height: 16px; }
+.sendProgress > .stop { background: var(--color-surface-control); color: var(--color-text); }
+.sendProgress > .stop svg { width: 11px; height: 11px; fill: currentColor; }

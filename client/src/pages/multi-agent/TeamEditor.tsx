@@ -1,6 +1,7 @@
 import { Bot, Play, Plus, Save, Trash2, Users } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Tooltip } from "../../shared/ui/tooltip";
+import { Select } from "../../shared/ui/select";
 import styles from "./MultiAgentPage.module.css";
 
 type Props = {
@@ -42,10 +43,10 @@ export function TeamEditor(props: Props) {
       </div>
       <label>{t("multiAgent.nodeName")}<input value={member.name} onChange={(event) => props.onUpdateMember("name", event.target.value)} /></label>
       <label>{t("multiAgent.nodeRole")}<input value={member.role} onChange={(event) => props.onUpdateMember("role", event.target.value)} /></label>
-      <label>{t("multiAgent.nodeModel")}<select value={member.modelId ?? ""} onChange={(event) => props.onUpdateMember("modelId", event.target.value)}>
-        <option value="">{t("multiAgent.defaultModel")}</option>
-        {props.models.map((model) => <option key={model.id} value={model.id}>{model.name} - {model.model}</option>)}
-      </select></label>
+      <label>{t("multiAgent.nodeModel")}<Select ariaLabel={t("multiAgent.nodeModel")} value={member.modelId ?? ""} options={[
+        { value: "", label: t("multiAgent.defaultModel") },
+        ...props.models.map((model) => ({ value: model.id, label: `${model.name} - ${model.model}` })),
+      ]} onChange={(value) => props.onUpdateMember("modelId", value)} /></label>
       <label>{t("multiAgent.nodeInstructions")}<textarea value={member.instructions} onChange={(event) => props.onUpdateMember("instructions", event.target.value)} /></label>
     </> : <div className={styles.editorEmpty}>{t("multiAgent.selectMember")}</div>}</section>
   </div>;
