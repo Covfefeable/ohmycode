@@ -38,11 +38,13 @@ from .runs import (
     get_owned_run,
     start_run,
 )
+from .task_plan import active_task_id, latest_task_plan, normalize_task_plan, task_plan_context
 from .tools import (
     AGENT_MESSAGE_TOOL,
     AGENT_TOOLS,
     FILE_TOOL_NAMES,
     FINISH_COLLABORATION_TOOL,
+    UPDATE_TASKS_TOOL,
     VIEW_IMAGE_TOOL,
     VIEW_IMAGE_TOOL_NAME,
     normalize_terminal_arguments,
@@ -56,7 +58,7 @@ def _multi_agent_context(
         db.select(MultiAgentNode).where(MultiAgentNode.conversation_id == conversation_id)
     )
     if not node:
-        tools = [*AGENT_TOOLS]
+        tools = [*AGENT_TOOLS, UPDATE_TASKS_TOOL]
         if configuration.supports_vision:
             tools.append(VIEW_IMAGE_TOOL)
         return tools, []
@@ -271,6 +273,7 @@ def prepare_completion(
                     else []
                 ),
                 *cancelled_run_context(conversation_id, run.id),
+                *task_plan_context(run),
                 *mailbox,
                 *context.messages,
             ],
@@ -344,6 +347,7 @@ def stream_prepare_completion(
                     else []
                 ),
                 *cancelled_run_context(conversation_id, run.id),
+                *task_plan_context(run),
                 *mailbox,
                 *context.messages,
             ],
@@ -528,6 +532,7 @@ def resume_completion(
                     else []
                 ),
                 *cancelled_run_context(run.conversation_id, run.id),
+                *task_plan_context(run),
                 *mailbox,
                 *model_messages,
             ],
@@ -621,6 +626,20 @@ def stream_completion(prepared: PreparedCompletion):
                 fail_run(run, "unsupported_tool")
                 return
             requests = []
+            current_tasks = latest_task_plan(run)
+            for call in calls:
+                if call["function"]["name"] != "update_tasks":
+                    continue
+                try:
+                    raw_plan = json.loads(call["function"]["arguments"] or "{}")
+                except json.JSONDecodeError:
+                    raw_plan = None
+                normalized, validation_error = normalize_task_plan(raw_plan)
+                if validation_error is None and normalized is not None:
+                    current_tasks = normalized
+                    append_event(run, "task.plan.updated", {"tasks": current_tasks})
+                    yield {"type": "task.plan.updated", "tasks": current_tasks}
+            current_task_id = active_task_id(current_tasks)
             for call in calls:
                 try:
                     arguments = json.loads(call["function"]["arguments"] or "{}")
@@ -635,12 +654,27 @@ def stream_completion(prepared: PreparedCompletion):
                     }
                 elif tool_name in FILE_TOOL_NAMES or tool_name == VIEW_IMAGE_TOOL_NAME:
                     arguments = {**arguments, "projectId": str(conversation.project_id)}
-                requests.append({"callId": call["id"], "tool": tool_name, "arguments": arguments})
+                request = {"callId": call["id"], "tool": tool_name, "arguments": arguments}
+                if tool_name != "update_tasks" and current_task_id:
+                    request["taskId"] = current_task_id
+                requests.append(request)
             if reasoning:
                 append_event(run, "reasoning.completed", {"content": reasoning})
             if answer:
                 append_event(run, "message.progress", {"content": answer})
-            append_event(run, "tool.requested", {"toolCalls": calls, "content": answer or None})
+            append_event(
+                run,
+                "tool.requested",
+                {
+                    "toolCalls": calls,
+                    "content": answer or None,
+                    "taskAssignments": {
+                        item["callId"]: item["taskId"]
+                        for item in requests
+                        if item.get("taskId")
+                    },
+                },
+            )
             run.status = "waiting_tool"
             db.session.commit()
             for request in requests:

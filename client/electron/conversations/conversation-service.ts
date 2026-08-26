@@ -21,6 +21,7 @@ export type ConversationStreamEvent = {
   | { type: "message.started" }
   | { type: "context.usage"; usedTokens: number; contextLength: number; source: "estimated" | "provider" }
   | { type: "context.compaction.started" | "context.compaction.completed"; estimatedTokens: number; contextLength: number }
+  | { type: "task.plan.updated"; tasks: AgentTask[] }
   | ToolRequestEvent
   | { type: "tool.completed"; callId: string; result: unknown };
 type ToolRequestEvent = {
@@ -29,7 +30,9 @@ type ToolRequestEvent = {
   callId: string;
   tool: "terminal" | "agent_message" | "finish_collaboration" | "view_image" | "search_capabilities" | "load_capability" | FileToolName | string;
   arguments: TerminalAction | FileToolRequest | ViewImageArguments | { toNodeId: string; content: string } | { content: string };
+  taskId?: string;
 };
+export type AgentTask = { id: string; content: string; status: "pending" | "in_progress" | "completed" };
 type ActiveRequest = {
   controller: AbortController;
   runId?: string;
@@ -133,6 +136,19 @@ export async function streamMessage(
         try {
           if ((active.failedToolCalls.get(signature) ?? 0) >= 2) {
             throw new Error("repeated_failed_tool_call: this exact operation has already failed twice; diagnose the cause and choose a different approach");
+          }
+          if (request.tool === "update_tasks") {
+            const tasks = (request.arguments as { tasks?: AgentTask[] }).tasks;
+            const valid = Array.isArray(tasks)
+              && tasks.length <= 20
+              && new Set(tasks.map((task) => task.id)).size === tasks.length
+              && tasks.filter((task) => task.status === "in_progress").length <= 1
+              && tasks.every((task) => task.id?.trim() && task.id.length <= 80
+                && task.content?.trim() && task.content.length <= 300
+                && ["pending", "in_progress", "completed"].includes(task.status));
+            const result = valid ? { updated: true, taskCount: tasks.length } : { error: "invalid_task_plan" };
+            onEvent({ type: "tool.completed", callId: request.callId, result });
+            return { callId: request.callId, result };
           }
           if (request.tool === "agent_message") {
             if (!executionContext) throw new Error("agent_message_unavailable");

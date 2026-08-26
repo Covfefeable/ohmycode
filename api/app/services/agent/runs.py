@@ -36,6 +36,8 @@ def build_run_activity(
 ) -> list[dict]:
     activity: list[dict] = []
     tools: dict[str, dict] = {}
+    latest_plan: list[dict] = []
+    current_task_id: str | None = None
     for event in run.events:
         if event.event_type == "run.started" and include_run_boundary:
             activity.append(
@@ -45,26 +47,41 @@ def build_run_activity(
                     "status": "running" if run.status == "running" else "completed",
                 }
             )
+        elif event.event_type == "task.plan.updated":
+            latest_plan = list(event.payload.get("tasks", []))
+            current_task_id = next(
+                (
+                    str(item["id"])
+                    for item in latest_plan
+                    if item.get("status") == "in_progress"
+                ),
+                None,
+            )
         elif event.event_type == "reasoning.completed" and event.payload.get("content"):
-            activity.append(
-                {
+            step = {
                     "id": f"reasoning-{run.id}-{event.sequence}",
                     "type": "reasoning",
                     "content": event.payload["content"],
                     "status": "completed",
                 }
-            )
+            if current_task_id:
+                step["taskId"] = current_task_id
+            activity.append(step)
         elif event.event_type == "message.progress" and event.payload.get("content"):
-            activity.append(
-                {
+            step = {
                     "id": f"message-{run.id}-{event.sequence}",
                     "type": "message",
                     "content": event.payload["content"],
                     "status": "completed",
                 }
-            )
+            if current_task_id:
+                step["taskId"] = current_task_id
+            activity.append(step)
         elif event.event_type == "tool.requested":
+            assignments = event.payload.get("taskAssignments", {})
             for call in event.payload.get("toolCalls", []):
+                if call["function"]["name"] == "update_tasks":
+                    continue
                 step = {
                     "id": call["id"],
                     "type": "tool",
@@ -72,6 +89,8 @@ def build_run_activity(
                     "input": call["function"].get("arguments", "{}"),
                     "status": "running",
                 }
+                if task_id := assignments.get(call["id"]):
+                    step["taskId"] = task_id
                 tools[call["id"]] = step
                 activity.append(step)
         elif event.event_type == "tool.output":
@@ -79,6 +98,11 @@ def build_run_activity(
                 if step := tools.get(item.get("callId")):
                     step["result"] = item.get("result")
                     step["status"] = "completed"
+    if latest_plan:
+        activity.insert(
+            0,
+            {"id": f"task-plan-{run.id}", "type": "task_plan", "tasks": latest_plan},
+        )
     if final_reasoning:
         activity.append(
             {

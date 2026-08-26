@@ -104,6 +104,7 @@ export const en = {
     durationMinutes: "Took {{minutes}}m {{seconds}}s",
     durationHours: "Took {{hours}}h {{minutes}}m {{seconds}}s",
     steps: "Activity",
+    taskList: "Task list",
   },
   multiAgent: {
     title: "Agent collaboration",

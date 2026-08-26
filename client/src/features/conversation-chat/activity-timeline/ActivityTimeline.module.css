@@ -5,6 +5,14 @@
 .summary:hover { background: var(--color-surface-icon-hover); color: var(--color-text); }
 .summary svg { width: 15px; height: 15px; }
 .steps { display: grid; gap: var(--space-1); }
+.taskList { display: grid; gap: 2px; margin: 2px 8px var(--space-2); border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface-soft); padding: var(--space-2); }
+.taskListLabel { display: flex; align-items: center; gap: var(--space-2); padding: 3px 6px 6px; color: var(--color-text-dim); font-size: var(--font-xs); }
+.taskListLabel svg, .taskHead svg { width: 14px; height: 14px; flex: none; }
+.taskGroup { min-width: 0; }
+.taskHead { width: 100%; min-width: 0; display: flex; align-items: center; gap: var(--space-2); border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--color-text-soft); padding: 6px; font: inherit; font-size: var(--font-sm); text-align: left; cursor: pointer; }
+.taskHead:hover { background: var(--color-surface-icon-hover); color: var(--color-text); }
+.taskHead span { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.taskSteps { display: grid; gap: 1px; margin-left: 13px; border-left: 1px solid var(--color-border); padding-left: 7px; }
 .progressMessage { padding: 5px 8px; color: var(--color-text-soft); font-size: var(--font-chat); line-height: 1.65; }
 .progressMessage > :first-child { margin-top: 0; }
 .progressMessage > :last-child { margin-bottom: 0; }

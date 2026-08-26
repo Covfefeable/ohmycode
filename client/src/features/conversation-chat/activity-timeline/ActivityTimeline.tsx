@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Check, ChevronDown, CircleX, FilePenLine, FileSearch, FileText, FolderOpen, Image, LoaderCircle, TerminalSquare } from "lucide-react";
+import { Check, ChevronDown, Circle, CircleX, FilePenLine, FileSearch, FileText, FolderOpen, Image, ListChecks, LoaderCircle, TerminalSquare } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { MarkdownContent } from "../../../shared/ui/markdown-content";
 import styles from "./ActivityTimeline.module.css";
@@ -162,24 +162,46 @@ function ContextStep({ step }: { step: Extract<AgentActivityStep, { type: "conte
 }
 
 function ActivityStep({ step }: { step: AgentActivityStep }) {
-  if (step.type === "run") return null;
+  if (step.type === "run" || step.type === "task_plan") return null;
   if (step.type === "reasoning") return <ReasoningStep step={step} />;
   if (step.type === "message") return <MessageStep step={step} />;
   if (step.type === "context") return <ContextStep step={step} />;
   return <ToolStep step={step} />;
 }
 
+function TaskGroup({ task, steps }: { task: AgentTask; steps: AgentActivityStep[] }) {
+  const [manuallyOpen, setManuallyOpen] = useState(false);
+  const open = task.status === "in_progress" || manuallyOpen;
+  const StatusIcon = task.status === "completed" ? Check : task.status === "in_progress" ? LoaderCircle : Circle;
+  return <div className={styles.taskGroup}>
+    <button className={styles.taskHead} type="button" onClick={() => setManuallyOpen((value) => !value)}>
+      <StatusIcon className={task.status === "in_progress" ? styles.spinner : undefined} />
+      <span>{task.content}</span>
+      {steps.length > 0 && <ChevronDown className={`${styles.chevron} ${open ? styles.chevronOpen : ""}`} />}
+    </button>
+    {open && steps.length > 0 && <div className={styles.taskSteps}>{steps.map((step) => <ActivityStep key={`${step.id}-${"status" in step ? step.status : "plan"}`} step={step} />)}</div>}
+  </div>;
+}
+
 function RunSection({ steps, active, duration }: { steps: AgentActivityStep[]; active: boolean; duration?: string }) {
   const { t } = useTranslation();
   const [manuallyOpen, setManuallyOpen] = useState(false);
   const open = active || manuallyOpen;
+  const plan = [...steps].reverse().find((step): step is Extract<AgentActivityStep, { type: "task_plan" }> => step.type === "task_plan");
+  const ordinarySteps = steps.filter((step) => step.type !== "task_plan" && !step.taskId && step.type !== "run");
   return <div className={styles.runSection}>
     <button className={styles.summary} type="button" onClick={() => setManuallyOpen((value) => !value)}>
       {active ? <LoaderCircle className={styles.spinner} /> : <Check />}
       <span>{active ? t("agent.working") : duration ?? t("agent.steps")}</span>
       <ChevronDown className={`${styles.chevron} ${open ? styles.chevronOpen : ""}`} />
     </button>
-    {open && <div className={styles.steps}>{steps.map((step) => <ActivityStep key={`${step.id}-${step.status}`} step={step} />)}</div>}
+    {open && <div className={styles.steps}>
+      {plan && <div className={styles.taskList}>
+        <div className={styles.taskListLabel}><ListChecks /><span>{t("agent.taskList")}</span></div>
+        {plan.tasks.map((task) => <TaskGroup key={task.id} task={task} steps={steps.filter((step) => step.type !== "task_plan" && step.type !== "run" && step.taskId === task.id)} />)}
+      </div>}
+      {ordinarySteps.map((step) => <ActivityStep key={`${step.id}-${"status" in step ? step.status : "plan"}`} step={step} />)}
+    </div>}
   </div>;
 }
 

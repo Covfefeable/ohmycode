@@ -103,6 +103,7 @@ export const zhCN = {
     durationMinutes: "耗时 {{minutes}}分{{seconds}}秒",
     durationHours: "耗时 {{hours}}小时{{minutes}}分{{seconds}}秒",
     steps: "执行步骤",
+    taskList: "任务清单",
   },
   multiAgent: {
     title: "Agent 协作",

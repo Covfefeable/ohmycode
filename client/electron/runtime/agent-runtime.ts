@@ -23,6 +23,7 @@ const completion = new Map<string, Promise<LocalConversation>>();
 const itemState = new Map<string, RuntimeItem>();
 const listeners = new Map<string, Set<(event: RuntimeEvent) => void>>();
 const interrupting = new Set<string>();
+const activeTaskByTurn = new Map<string, string>();
 const stateKey = (turnId: string, itemId: string): string => `${turnId}:${itemId}`;
 
 function publish(event: RuntimeEvent): void {
@@ -44,6 +45,13 @@ function translate(threadId: string, turnId: string, event: ConversationStreamEv
     append(turnId, { type: "context.updated", threadId, turnId, usedTokens: event.usedTokens, contextLength: event.contextLength, source: event.source });
     return;
   }
+  if (event.type === "task.plan.updated") {
+    const activeTask = event.tasks.find((task) => task.status === "in_progress");
+    if (activeTask) activeTaskByTurn.set(turnId, activeTask.id);
+    else activeTaskByTurn.delete(turnId);
+    append(turnId, { type: "task.updated", threadId, turnId, tasks: event.tasks });
+    return;
+  }
   if (event.type === "context.compaction.started") {
     const item: RuntimeItem = { id: `context-${turnId}`, threadId, turnId, kind: "context", status: "in_progress" };
     itemState.set(stateKey(turnId, item.id), item);
@@ -59,7 +67,7 @@ function translate(threadId: string, turnId: string, event: ConversationStreamEv
     return;
   }
   if (event.type === "reasoning.started") {
-    const item: RuntimeItem = { id: event.stepId, threadId, turnId, kind: "reasoning", status: "in_progress", content: "" };
+    const item: RuntimeItem = { id: event.stepId, threadId, turnId, kind: "reasoning", status: "in_progress", content: "", taskId: activeTaskByTurn.get(turnId) };
     itemState.set(stateKey(turnId, item.id), item);
     append(turnId, { type: "item.started", threadId, turnId, item });
     return;
@@ -70,7 +78,7 @@ function translate(threadId: string, turnId: string, event: ConversationStreamEv
     return;
   }
   if (event.type === "message.started") {
-    const item: RuntimeItem = { id: `message-${turnId}-${crypto.randomUUID()}`, threadId, turnId, kind: "agent_message", status: "in_progress", content: "" };
+    const item: RuntimeItem = { id: `message-${turnId}-${crypto.randomUUID()}`, threadId, turnId, kind: "agent_message", status: "in_progress", content: "", taskId: activeTaskByTurn.get(turnId) };
     itemState.set(stateKey(turnId, item.id), item);
     append(turnId, { type: "item.started", threadId, turnId, item });
     return;
@@ -87,7 +95,8 @@ function translate(threadId: string, turnId: string, event: ConversationStreamEv
         append(turnId, { type: "item.completed", threadId, turnId, item: { ...item } });
       }
     }
-    const item: RuntimeItem = { id: event.callId, threadId, turnId, kind: "tool", status: "in_progress", tool: event.tool, input: event.arguments };
+    if (event.tool === "update_tasks") return;
+    const item: RuntimeItem = { id: event.callId, threadId, turnId, kind: "tool", status: "in_progress", tool: event.tool, input: event.arguments, taskId: event.taskId ?? activeTaskByTurn.get(turnId) };
     itemState.set(stateKey(turnId, item.id), item);
     append(turnId, { type: "item.started", threadId, turnId, item });
     return;
@@ -137,6 +146,7 @@ export function startTurn(input: StartTurnInput): { turnId: string } {
   }).finally(() => {
     completion.delete(turnId);
     for (const key of itemState.keys()) if (key.startsWith(`${turnId}:`)) itemState.delete(key);
+    activeTaskByTurn.delete(turnId);
   });
   completion.set(turnId, running);
   void running.catch(() => undefined);

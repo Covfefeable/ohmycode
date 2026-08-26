@@ -140,6 +140,39 @@ LOAD_CAPABILITY_TOOL = {
     },
 }
 
+UPDATE_TASKS_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "update_tasks",
+        "description": (
+            "Create or update the task checklist for substantial work. Send the complete current "
+            "snapshot. When the next action is known, call this in the same turn as that real tool."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "tasks": {
+                    "type": "array",
+                    "maxItems": 20,
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "id": {"type": "string"},
+                            "content": {"type": "string"},
+                            "status": {
+                                "type": "string",
+                                "enum": ["pending", "in_progress", "completed"],
+                            },
+                        },
+                        "required": ["id", "content", "status"],
+                    },
+                }
+            },
+            "required": ["tasks"],
+        },
+    },
+}
+
 FILE_TOOL_NAMES = {"read_file", "search_files", "list_directory", "apply_patch"}
 AGENT_TOOLS = [
     READ_FILE_TOOL,

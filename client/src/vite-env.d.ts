@@ -126,15 +126,18 @@ type ConversationStreamEvent =
   | { type: "message.delta"; content: string }
   | { type: "context.usage"; usedTokens: number; contextLength: number; source: "estimated" | "provider" }
   | { type: "context.compaction.started" | "context.compaction.completed"; estimatedTokens: number; contextLength: number }
-  | { type: "tool.requested"; runId: string; callId: string; tool: "terminal" | "agent_message" | "finish_collaboration" | "view_image" | "read_file" | "search_files" | "list_directory" | "apply_patch"; arguments: TerminalAction | { imageUrl: string; detail?: "low" | "high" } | Record<string, unknown> }
+  | { type: "task.plan.updated"; tasks: AgentTask[] }
+  | { type: "tool.requested"; runId: string; callId: string; tool: "terminal" | "agent_message" | "finish_collaboration" | "view_image" | "read_file" | "search_files" | "list_directory" | "apply_patch" | "update_tasks"; arguments: TerminalAction | { imageUrl: string; detail?: "low" | "high" } | Record<string, unknown>; taskId?: string }
   | { type: "tool.completed"; callId: string; result: unknown };
-type RuntimeItem = { id: string; threadId: string; turnId: string; kind: "reasoning" | "agent_message" | "tool" | "context"; status: "in_progress" | "completed" | "failed" | "interrupted"; content?: string; tool?: string; input?: unknown; output?: unknown; errorCode?: string };
+type AgentTask = { id: string; content: string; status: "pending" | "in_progress" | "completed" };
+type RuntimeItem = { id: string; threadId: string; turnId: string; kind: "reasoning" | "agent_message" | "tool" | "context"; status: "in_progress" | "completed" | "failed" | "interrupted"; content?: string; tool?: string; input?: unknown; output?: unknown; errorCode?: string; taskId?: string };
 type RuntimeEvent =
   | { sequence: number; type: "turn.started"; threadId: string; turnId: string }
   | { sequence: number; type: "item.started"; threadId: string; turnId: string; item: RuntimeItem }
   | { sequence: number; type: "item.delta"; threadId: string; turnId: string; itemId: string; delta: string }
   | { sequence: number; type: "item.completed"; threadId: string; turnId: string; item: RuntimeItem }
   | { sequence: number; type: "context.updated"; threadId: string; turnId: string; usedTokens: number; contextLength: number; source: "estimated" | "provider" }
+  | { sequence: number; type: "task.updated"; threadId: string; turnId: string; tasks: AgentTask[] }
   | { sequence: number; type: "turn.completed"; threadId: string; turnId: string }
   | { sequence: number; type: "turn.failed"; threadId: string; turnId: string; errorCode: string }
   | { sequence: number; type: "turn.interrupted"; threadId: string; turnId: string };
@@ -144,11 +147,12 @@ type MultiAgentRunEvent =
   | { type: "node.event"; nodeId: string; event: RuntimeEvent }
   | { type: "task.failed"; error: string };
 type AgentActivityStep =
-  | { id: string; type: "run"; status: "running" | "completed" }
-  | { id: string; type: "reasoning"; content: string; status: "running" | "completed" }
-  | { id: string; type: "message"; content: string; status: "running" | "completed" }
-  | { id: string; type: "context"; status: "running" | "completed" }
-  | { id: string; type: "tool"; tool: string; input: string | TerminalAction; result?: unknown; status: "running" | "completed" };
+  | { id: string; type: "run"; status: "running" | "completed"; taskId?: string }
+  | { id: string; type: "task_plan"; tasks: AgentTask[] }
+  | { id: string; type: "reasoning"; content: string; status: "running" | "completed"; taskId?: string }
+  | { id: string; type: "message"; content: string; status: "running" | "completed"; taskId?: string }
+  | { id: string; type: "context"; status: "running" | "completed"; taskId?: string }
+  | { id: string; type: "tool"; tool: string; input: string | TerminalAction; result?: unknown; status: "running" | "completed"; taskId?: string };
 type MessageAttachment = { id: string; name: string; path: string; size: number; mimeType: string };
 type LocalMessage = { id: string; role: "user" | "assistant"; content: string; attachments?: MessageAttachment[]; reasoning?: string | null; activity?: AgentActivityStep[] | null; agentDurationMs?: number | null; agentStartedAt?: string; createdAt: string };
 type LocalConversation = { id: string; title: string; createdAt: string; messages?: LocalMessage[] };
