@@ -38,7 +38,6 @@ export function MultiAgentSidebar(props: Props) {
   });
   return <aside className={styles.sidebar}>
     <div className={styles.sticky}>
-      <p className={styles.eyebrow}>{t("workspace.productName")}</p>
       <h2>{t("multiAgent.title")}</h2>
       <button className={styles.create} disabled={props.busy} onClick={props.onCreateAgent}><Plus />{t("multiAgent.createCollaboration")}</button>
       <p className={styles.label}>{t("multiAgent.collaborations")}</p>

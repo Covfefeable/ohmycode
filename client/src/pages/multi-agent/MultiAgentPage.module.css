@@ -97,10 +97,10 @@
 .close svg { width: 16px; }
 .noActivity { color: var(--color-text-dim); font-size: var(--font-sm); }
 .finalOutput { margin-top: 20px; color: var(--color-text-soft); font-size: var(--font-chat); line-height: 1.65; }
-.welcome { grid-row: 1/-1; width: min(760px,100%); align-self: center; justify-self: center; padding: 60px; }
-.promptMark { margin-bottom: 25px; color: var(--color-accent); font: 700 30px ui-monospace,SFMono-Regular,Menlo,monospace; }
+.welcome { grid-row: 1/-1; width: min(840px,100%); align-self: center; justify-self: center; padding: 60px; }
+.promptMark { margin-bottom: 28px; color: var(--color-accent); font: 700 30px ui-monospace,SFMono-Regular,Menlo,monospace; }
 .welcome > p { margin: 0 0 8px; color: var(--color-accent); font-size: var(--font-xs); font-weight: 800; }
-.welcome h1 { margin: 0 0 14px; font-size: clamp(32px,4vw,50px); letter-spacing: -.04em; }
+.welcome h1 { margin: 0 0 16px; font-size: clamp(34px,4vw,54px); letter-spacing: 0; }
 .welcome > span { color: var(--color-text-muted); font-size: var(--font-md); line-height: 1.65; }
 .backdrop { position: fixed; inset: 0; z-index: var(--z-toast); display: grid; place-items: center; background: color-mix(in srgb,var(--color-surface-deep) 62%,transparent); backdrop-filter: blur(8px); }
 .dialog { width: min(560px,calc(100vw - 48px)); display: grid; gap: 18px; border: 1px solid var(--color-border-strong); border-radius: var(--radius-lg); background: var(--color-surface-1); padding: 24px; box-shadow: var(--shadow-panel); }

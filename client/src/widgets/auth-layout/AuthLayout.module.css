@@ -10,13 +10,29 @@
 }
 .header {
   position: fixed;
-  inset: 0 0 auto;
+  inset: 0 auto auto 0;
+  width: min(520px, 100%);
+  box-sizing: border-box;
   height: 78px;
   display: flex;
   align-items: center;
   padding: 36px 28px 12px;
   z-index: var(--z-header);
 }
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+  border: 1px solid var(--color-border-frosted);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-panel) 56%, transparent);
+  padding: 3px;
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(16px) saturate(125%);
+  -webkit-backdrop-filter: blur(16px) saturate(125%);
+}
+.themeToggle { width: 32px; height: 32px; border-radius: var(--radius-sm); }
 .brand {
   width: 40px;
   height: 40px;
@@ -46,11 +62,12 @@
 }
 .contextCopy { position: absolute; right: clamp(40px, 7vw, 100px); bottom: clamp(44px, 8vh, 88px); display: grid; gap: var(--space-2); color: var(--color-text); text-align: right; text-shadow: 0 2px 24px color-mix(in srgb, var(--color-canvas) 72%, transparent); }
 .contextCopy strong { font-size: clamp(28px, 3vw, 44px); letter-spacing: -.04em; }
-.contextCopy span { color: var(--color-text-soft); font-size: var(--font-md); }
+.contextCopy > span { color: var(--color-text-soft); font-size: var(--font-md); }
 @supports not (backdrop-filter: blur(1px)) { .panel { background: var(--color-panel); } }
 @media (prefers-reduced-transparency: reduce) { .panel { background: var(--color-panel); backdrop-filter: none; -webkit-backdrop-filter: none; } }
 @media (max-width: 900px) {
   .page { grid-template-columns: 1fr; }
+  .header { padding-right: calc(var(--window-controls-width) + 20px); }
   .context { display: none; }
   .panel { border-right: 0; }
 }

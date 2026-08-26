@@ -15,7 +15,6 @@ export function TaskSidebar({ selectedConversationId, onConversationSelect, onCo
   return (
     <aside className={styles.sidebar}>
       <ProjectList selectedConversationId={selectedConversationId} onConversationSelect={onConversationSelect} onConversationDelete={onConversationDelete} refreshToken={refreshToken} heading={<header>
-        <p className={styles.eyebrow}>{t("workspace.productName")}</p>
         <h2>{t("workspace.title")}</h2>
       </header>} />
       <footer>

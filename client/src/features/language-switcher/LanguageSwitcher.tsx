@@ -3,7 +3,9 @@ import type { SupportedLanguage } from "../../app/i18n";
 import { Select } from "../../shared/ui/select";
 import styles from "./LanguageSwitcher.module.css";
 
-export function LanguageSwitcher() {
+type Props = { compact?: boolean };
+
+export function LanguageSwitcher({ compact = false }: Props) {
   const { t, i18n } = useTranslation();
   const language: SupportedLanguage = i18n.resolvedLanguage?.startsWith("zh") ? "zh-CN" : "en";
 
@@ -12,12 +14,12 @@ export function LanguageSwitcher() {
   }
 
   return (
-    <label className={styles.field}>
+    <div className={`${styles.field} ${compact ? styles.compact : ""}`}>
       <span>{t("language.label")}</span>
-      <Select ariaLabel={t("language.label")} value={language} options={[
+      <Select compact={compact} ariaLabel={t("language.label")} value={language} options={[
         { value: "zh-CN", label: t("language.zhCN") },
         { value: "en", label: t("language.en") },
       ]} onChange={(value) => changeLanguage(value as SupportedLanguage)} />
-    </label>
+    </div>
   );
 }

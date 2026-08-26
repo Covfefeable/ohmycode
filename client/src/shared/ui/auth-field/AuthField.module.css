@@ -9,5 +9,6 @@
   padding: 12px 13px;
 }
 .field input:focus { border-color: var(--color-border-strong); background: var(--color-surface-active); box-shadow: none; }
+.field input::placeholder { color: var(--color-text-dim); opacity: 1; }
 .field input[aria-invalid="true"] { background: var(--color-danger-surface); }
 .field small { color: var(--color-danger-text); font-size: var(--font-xs); }

@@ -6,7 +6,9 @@ import { Tooltip } from "../../shared/ui/tooltip";
 
 type Theme = "dark" | "light";
 
-export function ThemeToggle() {
+type Props = { className?: string };
+
+export function ThemeToggle({ className }: Props) {
   const { t } = useTranslation();
   const [theme, setTheme] = useState<Theme>(() => document.documentElement.dataset.theme === "light" ? "light" : "dark");
   function toggle() {
@@ -16,5 +18,5 @@ export function ThemeToggle() {
     setTheme(next);
   }
   const label = t(theme === "dark" ? "navigation.useLightTheme" : "navigation.useDarkTheme");
-  return <Tooltip content={label}><IconButton aria-label={label} onClick={toggle}>{theme === "dark" ? <Sun /> : <Moon />}</IconButton></Tooltip>;
+  return <Tooltip content={label}><IconButton className={className} aria-label={label} onClick={toggle}>{theme === "dark" ? <Sun /> : <Moon />}</IconButton></Tooltip>;
 }

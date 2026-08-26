@@ -7,12 +7,5 @@
   min-height: 0;
   overflow: auto;
 }
-.eyebrow {
-  font-size: var(--font-xs);
-  font-weight: 800;
-  letter-spacing: .16em;
-  margin: 0 0 8px;
-}
-.eyebrow { color: var(--color-accent); }
 .sidebar h2 { font-size: var(--font-title-panel); margin: 0 0 28px; }
 .sidebar footer { margin-top: auto; display: grid; gap: 14px; }

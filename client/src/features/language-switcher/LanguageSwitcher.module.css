@@ -1,2 +1,4 @@
 .field { display: grid; gap: 6px; }
 .field > span:first-child { color: var(--color-text-faint); font-size: var(--font-xs); font-weight: 700; letter-spacing: .08em; }
+.compact { display: block; }
+.compact > span:first-child { display: none; }
