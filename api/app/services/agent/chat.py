@@ -19,7 +19,7 @@ from ..conversations import prepare_user_prompt
 from ..errors import ServiceError
 from ..model_credentials import decrypt_api_key
 from ..settings import get_model_configuration
-from .config import MODEL_REQUEST_TIMEOUT_SECONDS, MODEL_STREAM_ATTEMPTS
+from .config import MODEL_REQUEST_TIMEOUT_SECONDS, MODEL_STREAM_ATTEMPTS, TOOL_RESULT_TOKEN_BUDGET
 from .context import (
     COMPACTION_RATIO,
     compact_payload,
@@ -351,7 +351,31 @@ def stream_prepare_completion(
     )
 
 
-def _tool_history(run: AgentRun, after_sequence: int = 0) -> list[dict]:
+def _truncate_tool_content(content: str, token_budget: int) -> str:
+    if estimate_tokens(content) <= token_budget:
+        return content
+    notice = (
+        "\n\n… tool result truncated to the context budget. "
+        "Use a narrower query/path or read_file range to inspect the omitted content. …\n\n"
+    )
+    low, high = 0, len(content)
+    best = notice.strip()
+    while low <= high:
+        kept = (low + high) // 2
+        head = (kept + 1) // 2
+        tail = kept // 2
+        candidate = f"{content[:head]}{notice}{content[-tail:] if tail else ''}"
+        if estimate_tokens(candidate) <= token_budget:
+            best = candidate
+            low = kept + 1
+        else:
+            high = kept - 1
+    return best
+
+
+def _tool_history(
+    run: AgentRun, after_sequence: int = 0, token_budget: int = TOOL_RESULT_TOKEN_BUDGET
+) -> list[dict]:
     history = []
     tool_names: dict[str, str] = {}
     for event in run.events:
@@ -385,6 +409,7 @@ def _tool_history(run: AgentRun, after_sequence: int = 0) -> list[dict]:
                             ensure_ascii=False,
                         )
                         image_messages.append({"role": "user", "content": image_parts})
+                content = _truncate_tool_content(content, token_budget)
                 history.append(
                     {
                         "role": "tool",
@@ -460,7 +485,10 @@ def resume_completion(
     checkpoint_sequence = 0
     if checkpoint and checkpoint.state.get("runId") == str(run.id):
         checkpoint_sequence = int(checkpoint.state.get("toolEventSequence") or 0)
-    tool_history = _tool_history(run, checkpoint_sequence)
+    tool_result_budget = min(
+        TOOL_RESULT_TOKEN_BUDGET, max(512, configuration.context_length // 8)
+    )
+    tool_history = _tool_history(run, checkpoint_sequence, tool_result_budget)
     model_messages = [*context.messages, *tool_history]
     total_estimated = context.estimated_tokens + estimate_tokens(
         json.dumps(tool_history, ensure_ascii=False)

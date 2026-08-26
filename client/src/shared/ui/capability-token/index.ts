@@ -1,0 +1,1 @@
+export { CapabilityToken } from "./CapabilityToken";

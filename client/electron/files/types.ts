@@ -11,6 +11,7 @@ export type FileToolRequest = {
   maxBytes?: number;
   maxResults?: number;
   maxEntries?: number;
+  maxChars?: number;
   depth?: number;
   includeHidden?: boolean;
   patch?: string;
@@ -22,6 +23,9 @@ export type FileToolResult = {
   pathKind: "file" | "directory";
   output: string;
   truncated?: boolean;
+  totalMatches?: number;
+  returnedMatches?: number;
+  truncationHint?: string;
   affectedPaths?: string[];
   agentInstructions?: Array<{ path: string; content: string }>;
 };

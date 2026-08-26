@@ -7,6 +7,7 @@ import { executeFileTool } from "../../dist-electron/files/file-tools.js";
 const root = await mkdtemp(join(tmpdir(), "ohmycode-files-"));
 await writeFile(join(root, "AGENTS.md"), "root rules", "utf8");
 await writeFile(join(root, "demo.txt"), "alpha\nbeta\n", "utf8");
+await writeFile(join(root, "many.txt"), `${Array.from({ length: 80 }, (_, index) => `match ${index}`).join("\n")}\n`, "utf8");
 
 const inspectedPaths = new Set();
 const read = await executeFileTool("read_file", { projectId: "test", path: "demo.txt" }, root, inspectedPaths);
@@ -20,6 +21,12 @@ const search = await executeFileTool(
 const listing = await executeFileTool(
   "list_directory",
   { projectId: "test", path: "." },
+  root,
+  inspectedPaths,
+);
+const boundedSearch = await executeFileTool(
+  "search_files",
+  { projectId: "test", path: ".", query: "match", mode: "content", maxChars: 120 },
   root,
   inspectedPaths,
 );
@@ -51,6 +58,8 @@ const value = await readFile(join(root, "demo.txt"), "utf8");
 if (!read.agentInstructions?.length) throw new Error("AGENTS.md hierarchy was not loaded");
 if (!search.output.includes("demo.txt:2")) throw new Error("Content search did not return the expected match");
 if (!listing.output.includes("file\tdemo.txt")) throw new Error("Directory listing omitted the test file");
+if (!boundedSearch.truncated || boundedSearch.output.length > 120) throw new Error("Search output character limit was not enforced");
+if (boundedSearch.totalMatches !== 80 || boundedSearch.returnedMatches >= 80) throw new Error("Search truncation metadata is inaccurate");
 if (!rejectedUninspectedEdit) throw new Error("Patch accepted an existing file that was not read first");
 if (value !== "gamma\nbeta\n") throw new Error("Patch did not produce the expected file content");
 if (!patch.affectedPaths?.includes(join(root, "demo.txt"))) throw new Error("Patch did not report the affected path");

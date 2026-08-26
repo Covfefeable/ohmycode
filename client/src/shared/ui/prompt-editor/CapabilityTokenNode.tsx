@@ -1,6 +1,7 @@
 import type { NodeKey, SerializedLexicalNode } from "lexical";
 import { $applyNodeReplacement, DecoratorNode } from "lexical";
 import type { JSX } from "react";
+import { CapabilityToken } from "../capability-token";
 import styles from "./PromptEditor.module.css";
 
 type SerializedCapabilityTokenNode = SerializedLexicalNode & {
@@ -35,10 +36,7 @@ export class CapabilityTokenNode extends DecoratorNode<JSX.Element> {
   updateDOM() { return false; }
   getTextContent() { return this.getLatest().__serializedValue; }
   decorate() {
-    return <span className={styles.token} data-kind={this.__kind} contentEditable={false}>
-      <span className={styles.tokenKind}>{this.__kind === "mcp" ? "MCP" : "S"}</span>
-      <span>{this.__label}</span>
-    </span>;
+    return <span contentEditable={false}><CapabilityToken kind={this.__kind} label={this.__label} /></span>;
   }
   exportJSON(): SerializedCapabilityTokenNode {
     return { type: "capability-token", version: 1, kind: this.__kind, label: this.__label, serializedValue: this.__serializedValue };

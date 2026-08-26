@@ -421,3 +421,11 @@ def test_project_conversation_and_message_lifecycle(monkeypatch):
             "explicitly stopped" in message.get("content", "")
             for message in captured_requests[-1]["messages"]
         )
+        stopped_context = next(
+            message["content"]
+            for message in captured_requests[-1]["messages"]
+            if "explicitly stopped" in message.get("content", "")
+        )
+        assert "I will check first." in stopped_context
+        assert "Tool terminal" in stopped_context
+        assert "avoid repeating completed work" in stopped_context

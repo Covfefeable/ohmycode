@@ -3,6 +3,7 @@ import { Check, Copy } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { useTranslation } from "react-i18next";
 import remarkGfm from "remark-gfm";
+import { CapabilityToken } from "../capability-token";
 import styles from "./MarkdownContent.module.css";
 
 function codeText(children: ReactNode): string {
@@ -53,7 +54,7 @@ export function MarkdownContent({ children, className = "" }: { children: string
       components={{
         pre: CodeBlock,
         a: ({ children: label, href, ...props }) => href?.startsWith(CAPABILITY_LINK_PREFIX)
-          ? <span className={styles.capabilityToken}><span>{href.startsWith(`${CAPABILITY_LINK_PREFIX}mcp-`) ? "MCP" : "S"}</span>{label}</span>
+          ? <CapabilityToken kind={href.startsWith(`${CAPABILITY_LINK_PREFIX}mcp-`) ? "mcp" : "skill"} label={label} />
           : <a {...props} href={href} target="_blank" rel="noreferrer">{label}</a>,
         table: ({ children: rows, ...props }) => <div className={styles.tableScroll}><table {...props}>{rows}</table></div>,
       }}

@@ -1,11 +1,10 @@
 from datetime import UTC, datetime
 from uuid import UUID
 
-from sqlalchemy import func
-
 from ...extensions import db
 from ...models import AgentEvent, AgentRun, Conversation, Message, ModelConfiguration, Project
 from ..errors import ServiceError
+from .config import CANCEL_SUMMARY_TOKEN_BUDGET
 from .prompts import STOPPED_RUN_CONTEXT
 
 
@@ -144,19 +143,69 @@ def cancel_run(user_id: UUID, run_id: UUID, partial_message: object = None) -> N
     db.session.commit()
 
 
+def _compact_value(value: object, maximum: int = 360) -> str:
+    rendered = str(value or "").strip().replace("\x00", "")
+    if len(rendered) <= maximum:
+        return rendered
+    head = maximum * 2 // 3
+    tail = maximum - head
+    return f"{rendered[:head]} … {rendered[-tail:]}"
+
+
+def _cancelled_run_summary(run: AgentRun, message: Message | None) -> str:
+    steps = build_run_activity(run)
+    known_ids = {str(step.get("id")) for step in steps}
+    if message and isinstance(message.activity, list):
+        steps.extend(
+            step
+            for step in message.activity
+            if isinstance(step, dict) and str(step.get("id")) not in known_ids
+        )
+    lines = [
+        STOPPED_RUN_CONTEXT,
+        "Use the summary below to avoid repeating completed work unless the user asks.",
+        "Most recent interrupted run reached:",
+    ]
+    for step in steps:
+        if step.get("type") == "message" and step.get("content"):
+            lines.append(f"- Visible progress: {_compact_value(step['content'])}")
+        elif step.get("type") == "tool":
+            detail = f"- Tool {step.get('tool') or 'unknown'}"
+            if step.get("input"):
+                detail += f" input={_compact_value(step['input'], 240)}"
+            detail += f" status={step.get('status') or 'unknown'}"
+            if step.get("result") is not None:
+                detail += f" result={_compact_value(step['result'], 360)}"
+            lines.append(detail)
+    if message and message.content.strip():
+        lines.append(f"- Partial response: {_compact_value(message.content, 500)}")
+    summary = "\n".join(lines)
+    maximum_chars = CANCEL_SUMMARY_TOKEN_BUDGET * 2
+    return _compact_value(summary, maximum_chars)
+
+
 def cancelled_run_context(conversation_id: UUID, current_run_id: UUID) -> list[dict[str, str]]:
-    cancelled_count = db.session.scalar(
-        db.select(func.count(AgentRun.id)).where(
+    cancelled_run = db.session.scalar(
+        db.select(AgentRun)
+        .where(
             AgentRun.conversation_id == conversation_id,
             AgentRun.id != current_run_id,
             AgentRun.status == "cancelled",
         )
+        .order_by(AgentRun.completed_at.desc(), AgentRun.started_at.desc())
+        .limit(1)
     )
-    if not cancelled_count:
+    if not cancelled_run:
         return []
+    message = db.session.scalar(
+        db.select(Message)
+        .where(Message.agent_run_id == cancelled_run.id)
+        .order_by(Message.created_at.desc())
+        .limit(1)
+    )
     return [
         {
             "role": "system",
-            "content": f"{STOPPED_RUN_CONTEXT} Interrupted runs recorded: {cancelled_count}.",
+            "content": _cancelled_run_summary(cancelled_run, message),
         }
     ]
