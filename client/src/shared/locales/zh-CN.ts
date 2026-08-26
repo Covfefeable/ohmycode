@@ -55,6 +55,7 @@ export const zhCN = {
     description: "选择一个工作区，然后描述任务。Agent 执行和流式事件是下一阶段的实现内容。",
     chooseWorkspace: "选择工作区后开始…",
     describeTask: "描述一个任务…",
+    applySuggestion: "Tab 应用",
     dropFiles: "添加到对话",
     dropFilesHint: "松开鼠标即可附加文件",
     removeAttachment: "移除附件",

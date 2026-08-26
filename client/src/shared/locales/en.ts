@@ -56,6 +56,7 @@ export const en = {
       "Select a workspace, then describe a task. Agent execution and streaming are the next implementation layer.",
     chooseWorkspace: "Choose a workspace to start…",
     describeTask: "Describe a task…",
+    applySuggestion: "Tab to apply",
     dropFiles: "Add to conversation",
     dropFilesHint: "Release to attach files",
     removeAttachment: "Remove attachment",

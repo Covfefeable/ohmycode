@@ -34,6 +34,32 @@
   inset: var(--prompt-padding-top, 0) var(--prompt-padding-x, 0) auto;
   line-height: 24px;
 }
+.suggestionActive { display: flex; align-items: baseline; gap: 8px; }
+.suggestionText {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.suggestionHint {
+  flex: none;
+  color: var(--color-text-dim);
+  font-size: var(--font-xs);
+  opacity: 0.8;
+}
+.suggestionCaret {
+  display: inline-block;
+  width: 7px;
+  height: 1em;
+  margin-left: 1px;
+  background: var(--color-text-dim);
+  animation: suggestionCaretBlink 1s step-end infinite;
+  vertical-align: text-bottom;
+}
+@keyframes suggestionCaretBlink {
+  0%, 50% { opacity: 1; }
+  50.01%, 100% { opacity: 0; }
+}
 .tokenHost { display: inline-flex; align-items: center; vertical-align: middle; margin: 0 2px; }
 .menu {
   width: min(360px, calc(100vw - 32px));

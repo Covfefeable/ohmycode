@@ -32,6 +32,7 @@ interface Window {
       waitTurn(turnId: string): Promise<LocalConversation | null>;
       interruptTurn(turnId: string, partialMessage?: LocalMessage): Promise<void>;
       onThreadEvent(conversationId: string, callback: (event: RuntimeEvent) => void): () => void;
+      suggest(conversationId: string): Promise<string[]>;
     };
     apiStatus(): Promise<{ online: boolean; url: string }>;
     debug: {

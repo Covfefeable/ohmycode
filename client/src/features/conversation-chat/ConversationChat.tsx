@@ -32,6 +32,7 @@ export function ConversationChat({ conversationId, active, onUpdated }: Conversa
   const [attachments, setAttachments] = useState<MessageAttachment[]>([]);
   const [dragActive, setDragActive] = useState(false);
   const [contextUsage, setContextUsage] = useState(0);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
   const dragDepthRef = useRef(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const composerDockRef = useRef<HTMLDivElement>(null);
@@ -39,6 +40,7 @@ export function ConversationChat({ conversationId, active, onUpdated }: Conversa
   const lastScrollTopRef = useRef(0);
   const scrollFrameRef = useRef<number | null>(null);
   const activeTurnIdRef = useRef<string | null>(null);
+  const suggestionRequestRef = useRef(0);
   const conversationRef = useRef<LocalConversation | null>(null);
   const onUpdatedRef = useRef(onUpdated);
   const requestErrorMessage = useCallback((error: unknown) => {
@@ -79,6 +81,8 @@ export function ConversationChat({ conversationId, active, onUpdated }: Conversa
       if (event.type === "turn.started") {
         activeTurnIdRef.current = event.turnId;
         setSending(true);
+        setSuggestions([]);
+        suggestionRequestRef.current += 1;
       }
       if (event.type === "context.updated") {
         setContextUsage(event.contextLength > 0 ? event.usedTokens / event.contextLength : 0);
@@ -113,6 +117,18 @@ export function ConversationChat({ conversationId, active, onUpdated }: Conversa
             if (!disposed) setSending(false);
           });
         onUpdatedRef.current();
+        if (event.type === "turn.completed") {
+          const requestVersion = ++suggestionRequestRef.current;
+          void window.ohmycode.conversations.suggest(conversationId)
+            .then((value) => {
+              if (!disposed && suggestionRequestRef.current === requestVersion
+                && activeTurnIdRef.current === null) {
+                setSuggestions(value);
+                onUpdatedRef.current();
+              }
+            })
+            .catch(() => undefined);
+        }
       }
     };
     const unsubscribe = window.ohmycode.conversations.onThreadEvent(conversationId, (event) => {
@@ -125,6 +141,7 @@ export function ConversationChat({ conversationId, active, onUpdated }: Conversa
     ]).then(([loadedConversation, snapshot]) => {
       if (disposed) return;
       setConversation(loadedConversation);
+      setSuggestions([]);
       if (snapshot?.status === "in_progress") {
         activeTurnIdRef.current = snapshot.turnId;
         setSending(true);
@@ -290,6 +307,6 @@ export function ConversationChat({ conversationId, active, onUpdated }: Conversa
       {!conversation.messages?.length && <p className={styles.empty}>{t("agent.emptyConversation")}</p>}
       </div>
     </div></div>
-    <div ref={composerDockRef} className={styles.composerDock}><TaskComposer busy={sending} disabled={Boolean(editing)} models={models} selectedModelId={selectedModelId} contextUsage={contextUsage} attachments={attachments} onRemoveAttachment={(id) => setAttachments((items) => items.filter((item) => item.id !== id))} onModelChange={setSelectedModelId} onSubmit={(content, items) => send(content, items)} onStop={stop} /></div>
+    <div ref={composerDockRef} className={styles.composerDock}><TaskComposer busy={sending} disabled={Boolean(editing)} models={models} selectedModelId={selectedModelId} contextUsage={contextUsage} attachments={attachments} suggestions={suggestions} onRemoveAttachment={(id) => setAttachments((items) => items.filter((item) => item.id !== id))} onModelChange={setSelectedModelId} onSubmit={(content, items) => send(content, items)} onStop={stop} /></div>
   </section>;
 }

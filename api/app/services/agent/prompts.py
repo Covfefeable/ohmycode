@@ -60,3 +60,18 @@ STOPPED_RUN_CONTEXT = (
     "completed. Treat that interruption as part of the task history and do not assume the "
     "interrupted work finished successfully."
 )
+
+TITLE_INSTRUCTIONS = (
+    "Generate a concise conversation title (at most 6 words) that summarizes what the user "
+    "asked the coding agent to do. Use the same language as the user. Return only the title "
+    "text: no quotes, no trailing punctuation, no prefix such as 'Title:'."
+)
+
+SUGGESTION_INSTRUCTIONS = (
+    "You are suggesting short follow-up messages the user might send next to this coding "
+    "agent, based on the latest user request and the agent's reply. Produce 2 to 3 concrete, "
+    "actionable suggestions in the user's language. Each suggestion must be a single short "
+    "sentence the user could send verbatim, referencing concrete next steps such as running "
+    "tests, reviewing a specific file, or asking for an explanation. Do not add numbering, "
+    "quotes, or prefixes. Return one suggestion per line."
+)

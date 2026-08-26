@@ -29,3 +29,7 @@ export function deleteProject(projectId: string): Promise<void> { return apiRequ
 export function createConversation(projectId: string, title: string): Promise<LocalConversation> { return apiRequest(`/api/projects/${projectId}/conversations`, { method: "POST", body: JSON.stringify({ title }) }); }
 export function deleteConversation(_projectId: string, conversationId: string): Promise<void> { return apiRequest(`/api/projects/conversations/${conversationId}`, { method: "DELETE" }); }
 export function getConversation(conversationId: string): Promise<LocalConversation> { return apiRequest(`/api/projects/conversations/${conversationId}`); }
+export async function suggestFollowups(conversationId: string): Promise<string[]> {
+  const result = await apiRequest<{ suggestions: string[] }>(`/api/projects/conversations/${conversationId}/suggestions`, { method: "POST" });
+  return result.suggestions ?? [];
+}

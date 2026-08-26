@@ -17,11 +17,12 @@ type TaskComposerProps = {
   onModelChange(modelId: string): void;
   attachments?: MessageAttachment[];
   onRemoveAttachment?(id: string): void;
+  suggestions?: string[];
   onSubmit(content: string, attachments: MessageAttachment[]): Promise<void>;
   onStop(): Promise<void>;
 };
 
-export function TaskComposer({ disabled = false, busy = false, models, selectedModelId, contextUsage = 0, attachments = [], onRemoveAttachment, onModelChange, onSubmit, onStop }: TaskComposerProps) {
+export function TaskComposer({ disabled = false, busy = false, models, selectedModelId, contextUsage = 0, attachments = [], onRemoveAttachment, suggestions = [], onModelChange, onSubmit, onStop }: TaskComposerProps) {
   const { t } = useTranslation();
   const { toast } = useFeedback();
   const [content, setContent] = useState("");
@@ -39,7 +40,7 @@ export function TaskComposer({ disabled = false, busy = false, models, selectedM
   return (
     <div className={styles.composer}>
       {attachments.length > 0 && <div className={styles.attachments}><AttachmentList attachments={attachments} removeLabel={t("agent.removeAttachment")} onRemove={onRemoveAttachment} /></div>}
-      <PromptEditor className={styles.promptEditor} compact submitOnEnter value={content} options={capabilityOptions} disabled={disabled || busy} placeholder={t("agent.describeTask")} ariaLabel={t("agent.describeTask")} onChange={setContent} onSubmit={() => void submit()} />
+      <PromptEditor className={styles.promptEditor} compact submitOnEnter value={content} options={capabilityOptions} disabled={disabled || busy} placeholder={t("agent.describeTask")} ariaLabel={t("agent.describeTask")} suggestions={suggestions} onChange={setContent} onSubmit={() => void submit()} />
       <div className={styles.toolbar}>
         <div className={styles.actions}>
           <Select compact disabled={busy} ariaLabel={t("agent.model")} value={selectedModelId} emptyLabel={t("agent.noModel")} options={models.map((model) => ({ value: model.id, label: model.name || model.model }))} onChange={onModelChange} />

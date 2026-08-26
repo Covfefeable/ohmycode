@@ -4,7 +4,11 @@ from uuid import UUID
 from flask import Blueprint, Response, jsonify, request, stream_with_context
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
-from ..services.agent import stream_completion, stream_prepare_completion
+from ..services.agent import (
+    generate_followup_suggestions,
+    stream_completion,
+    stream_prepare_completion,
+)
 from ..services.conversations import (
     add_message,
     create_conversation,
@@ -77,6 +81,12 @@ def edit_message_route(conversation_id: UUID, message_id: UUID):
     content = str((request.get_json(silent=True) or {}).get("content") or "")
     conversation = edit_last_user_message(user_id(), conversation_id, message_id, content)
     return jsonify(serialize_conversation(conversation, True))
+
+
+@projects_bp.post("/conversations/<uuid:conversation_id>/suggestions")
+@jwt_required()
+def suggest_followups_route(conversation_id: UUID):
+    return jsonify({"suggestions": generate_followup_suggestions(user_id(), conversation_id)})
 
 
 @projects_bp.post("/conversations/<uuid:conversation_id>/stream")

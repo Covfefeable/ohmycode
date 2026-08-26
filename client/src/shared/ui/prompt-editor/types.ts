@@ -16,6 +16,7 @@ export type PromptEditorProps = {
   autoFocus?: boolean;
   compact?: boolean;
   submitOnEnter?: boolean;
+  suggestions?: string[];
   onSubmit?(): void;
   onEscape?(): void;
   className?: string;

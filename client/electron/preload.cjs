@@ -47,6 +47,7 @@ contextBridge.exposeInMainWorld("ohmycode", {
       ipcRenderer.on(channel, listener);
       return () => ipcRenderer.removeListener(channel, listener);
     },
+    suggest: (conversationId) => ipcRenderer.invoke("conversations:suggest", conversationId),
   },
   apiStatus: () => ipcRenderer.invoke("api:status"),
   debug: {
