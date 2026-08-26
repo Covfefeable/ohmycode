@@ -167,12 +167,38 @@ uv sync
 uv run flask --app manage:app db upgrade
 ```
 
-单独启动 API：
+分别在独立终端中启动 API、Celery Worker 和 Celery Beat。
+
+API：
 
 ```bash
 cd api
 uv run flask --app manage:app run --host 127.0.0.1 --port 8765 --debug
 ```
+
+Celery Worker（macOS / Linux）：
+
+```bash
+cd api
+uv run celery -A celery_app:celery worker --loglevel=info
+```
+
+Celery Worker（Windows PowerShell）：
+
+```powershell
+cd api
+uv run celery -A celery_app:celery worker --loglevel=info --pool=solo
+```
+
+Celery Beat：
+
+```bash
+cd api
+uv run celery -A celery_app:celery beat --loglevel=info
+```
+
+Worker 负责执行异步任务，Beat 负责定时投递存量 Capability Embedding
+补偿任务；两者都依赖前面启动的 Redis。
 
 启动桌面客户端：
 

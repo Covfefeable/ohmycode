@@ -28,6 +28,7 @@
   --color-text-toolbar: #989fa8;
   --color-text-empty: #8a929c;
   --color-accent: #7dff98;
+  --color-accent-soft: #24422c;
   --color-accent-ink: #071009;
   --color-danger: #e36a6a;
   --color-danger-surface: #2a1618;
@@ -68,8 +69,8 @@
   --z-sticky: 20;
   --z-header: 10;
   --z-composer: 30;
-  --z-popover: 100;
-  --z-toast: 300;
+  --z-modal: 300;
+  --z-popover: 400;
   --z-notification: 250;
   --z-window-controls: 700;
   --z-tooltip: 500;
@@ -114,6 +115,7 @@
   --color-text-toolbar: #68706a;
   --color-text-empty: #858c87;
   --color-accent: #18843a;
+  --color-accent-soft: #e4f3e8;
   --color-accent-ink: #ffffff;
   --color-danger: #c63f49;
   --color-danger-surface: #fff0f1;
