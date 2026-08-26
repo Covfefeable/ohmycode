@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Local Flask service for the OhMyCode desktop agent"
 requires-python = ">=3.12"
 dependencies = [
+  "celery[redis]>=5.6.3",
   "cryptography>=50.0.0",
   "flask>=3.1.2",
   "flask-cors>=6.0.1",
@@ -13,6 +14,7 @@ dependencies = [
   "gunicorn[gevent]>=23.0.0",
   "httpx>=0.28.1",
   "minio>=7.2.20",
+  "pgvector>=0.5.0",
   "psycopg[binary]>=3.2.10",
   "python-dotenv>=1.1.1",
   "redis>=6.4.0",
@@ -34,3 +36,7 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP"]
+
+[[tool.uv.index]]
+url = "https://mirrors.aliyun.com/pypi/simple"
+default = true

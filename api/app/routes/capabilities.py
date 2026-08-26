@@ -12,6 +12,7 @@ from ..services.capabilities import (
     runtime_mcp_servers,
     save_mcp_server,
     save_skill,
+    search_capabilities,
     update_mcp_tools,
 )
 
@@ -20,6 +21,13 @@ capabilities_bp = Blueprint("capabilities", __name__)
 
 def user_id() -> UUID:
     return UUID(get_jwt_identity())
+
+
+@capabilities_bp.post("/search")
+@jwt_required()
+def search_capabilities_route():
+    payload = request.get_json(silent=True) or {}
+    return jsonify({"results": search_capabilities(user_id(), str(payload.get("query") or ""))})
 
 
 @capabilities_bp.get("/mcp")

@@ -21,6 +21,7 @@ def health():
                 "multi-agent",
                 "mcp",
                 "skills",
+                "capability-retrieval",
             ],
         }
     )

@@ -14,6 +14,7 @@ from .multi_agent import (
     WorkspaceChange,
 )
 from .project import Project
+from .retrieval_document import RetrievalDocument
 from .user import User
 
 __all__ = [
@@ -30,6 +31,7 @@ __all__ = [
     "MultiAgentNode",
     "MultiAgentTask",
     "Project",
+    "RetrievalDocument",
     "SkillPackage",
     "User",
     "WorkspaceChange",

@@ -1,39 +1,14 @@
 import { callMcpToolByIdentifier, listMcpServers } from "./mcp-manager.js";
 import { downloadSkill, listSkills, loadSkillInstructions } from "./skill-manager.js";
+import { apiRequest } from "../api/api-client.js";
 
 const safeName = (value: string): string => value.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 48);
 
 export async function searchCapabilities(query: string): Promise<unknown> {
-  const needle = query.trim().toLocaleLowerCase();
-  const [servers, skills] = await Promise.all([listMcpServers(), listSkills()]);
-  const matches = (value: string): boolean => !needle || value.toLocaleLowerCase().includes(needle);
-  const candidates = [
-    ...servers.filter((server) => server.enabled)
-      .map((server) => ({
-        id: `mcp:${server.id}`,
-        type: "mcp",
-        name: server.name,
-        description: `${server.tools.length} tools`,
-        matched: matches(`${server.name} ${server.tools.map((tool) => `${tool.name} ${tool.description ?? ""}`).join(" ")}`),
-      })),
-    ...skills.filter((skill) => skill.enabled)
-      .map((skill) => ({
-        id: `skill:${skill.name}`,
-        type: "skill",
-        name: skill.name,
-        description: skill.description,
-        installed: skill.installed,
-        matched: matches(`${skill.name} ${skill.description}`),
-      })),
-  ];
-  return {
-    results: candidates.sort((left, right) => Number(right.matched) - Number(left.matched))
-      .slice(0, 20)
-      .map(({ matched, ...item }) => {
-        void matched;
-        return item;
-      }),
-  };
+  return apiRequest("/api/capabilities/search", {
+    method: "POST",
+    body: JSON.stringify({ query }),
+  });
 }
 
 export async function loadCapability(id: string): Promise<unknown> {

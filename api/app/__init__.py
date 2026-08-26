@@ -1,7 +1,7 @@
 from flask import Flask
 
 from .config import config_by_name
-from .extensions import cors, db, jwt, migrate
+from .extensions import cors, db, init_celery, jwt, migrate
 from .routes import register_routes
 from .services.errors import ServiceError
 
@@ -18,6 +18,7 @@ def create_app(config_name: str | None = None) -> Flask:
     migrate.init_app(app, db)
     jwt.init_app(app)
     cors.init_app(app, resources={r"/api/*": {"origins": app.config["CORS_ORIGINS"]}})
+    init_celery(app)
 
     from . import models  # noqa: F401
 

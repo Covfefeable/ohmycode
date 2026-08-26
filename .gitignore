@@ -8,6 +8,7 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 api/instance/
+api/celerybeat-schedule*
 client/.env
 client/node_modules/
 client/dist/

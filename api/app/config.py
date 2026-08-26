@@ -2,6 +2,13 @@ import os
 from datetime import timedelta
 
 
+def _float_env(name: str, default: float) -> float:
+    try:
+        return float(os.getenv(name, str(default)))
+    except ValueError:
+        return default
+
+
 class BaseConfig:
     SECRET_KEY = os.getenv("SECRET_KEY", "development-only-secret")
     JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", SECRET_KEY)
@@ -12,11 +19,22 @@ class BaseConfig:
     )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+    CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", REDIS_URL)
+    CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", REDIS_URL)
     MINIO_ENDPOINT = os.getenv("MINIO_ENDPOINT", "localhost:9000")
     MINIO_ACCESS_KEY = os.getenv("MINIO_ACCESS_KEY", "ohmycode")
     MINIO_SECRET_KEY = os.getenv("MINIO_SECRET_KEY", "ohmycode-development-secret")
     MINIO_BUCKET = os.getenv("MINIO_BUCKET", "ohmycode")
     MINIO_SECURE = os.getenv("MINIO_SECURE", "false").lower() in {"1", "true", "yes"}
+    EMBEDDING_BASE_URL = os.getenv("EMBEDDING_BASE_URL", "")
+    EMBEDDING_API_KEY = os.getenv("EMBEDDING_API_KEY", "")
+    EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "")
+    EMBEDDING_MODEL_VERSION = os.getenv("EMBEDDING_MODEL_VERSION", "")
+    EMBEDDING_DIMENSIONS = os.getenv("EMBEDDING_DIMENSIONS", "")
+    RERANK_URL = os.getenv("RERANK_URL", "")
+    RERANK_API_KEY = os.getenv("RERANK_API_KEY", "")
+    RERANK_MODEL = os.getenv("RERANK_MODEL", "")
+    RETRIEVAL_HTTP_TIMEOUT = _float_env("RETRIEVAL_HTTP_TIMEOUT", 30)
     CORS_ORIGINS = [
         origin.strip()
         for origin in os.getenv(

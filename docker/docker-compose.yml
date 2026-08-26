@@ -22,6 +22,17 @@ services:
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
       MINIO_SECURE: ${MINIO_SECURE:-false}
       MINIO_BUCKET: ${MINIO_BUCKET:-ohmycode}
+      EMBEDDING_BASE_URL: ${EMBEDDING_BASE_URL:-}
+      EMBEDDING_API_KEY: ${EMBEDDING_API_KEY:-}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-}
+      EMBEDDING_MODEL_VERSION: ${EMBEDDING_MODEL_VERSION:-}
+      EMBEDDING_DIMENSIONS: ${EMBEDDING_DIMENSIONS:-}
+      RERANK_URL: ${RERANK_URL:-}
+      RERANK_API_KEY: ${RERANK_API_KEY:-}
+      RERANK_MODEL: ${RERANK_MODEL:-}
+      RETRIEVAL_HTTP_TIMEOUT: ${RETRIEVAL_HTTP_TIMEOUT:-30}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/1}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/1}
     ports:
       - "${API_BIND_HOST:-0.0.0.0}:${API_PORT:-8765}:${API_PORT:-8765}"
     depends_on:
@@ -37,8 +48,60 @@ services:
       timeout: 5s
       retries: 10
 
+  worker:
+    build:
+      context: ../api
+      dockerfile: Dockerfile
+    restart: always
+    command: .venv/bin/celery -A celery_app:celery worker --loglevel=info
+    environment:
+      APP_ENV: production
+      SECRET_KEY: ${SECRET_KEY}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      DATABASE_URL: postgresql+psycopg://${DB_USERNAME}:${DB_PASSWORD}@postgres:5432/${DB_DATABASE}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/1}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/1}
+      EMBEDDING_BASE_URL: ${EMBEDDING_BASE_URL:-}
+      EMBEDDING_API_KEY: ${EMBEDDING_API_KEY:-}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-}
+      EMBEDDING_MODEL_VERSION: ${EMBEDDING_MODEL_VERSION:-}
+      EMBEDDING_DIMENSIONS: ${EMBEDDING_DIMENSIONS:-}
+      RETRIEVAL_HTTP_TIMEOUT: ${RETRIEVAL_HTTP_TIMEOUT:-30}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker-beat:
+    build:
+      context: ../api
+      dockerfile: Dockerfile
+    restart: always
+    command: .venv/bin/celery -A celery_app:celery beat --loglevel=info
+    environment:
+      APP_ENV: production
+      SECRET_KEY: ${SECRET_KEY}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      DATABASE_URL: postgresql+psycopg://${DB_USERNAME}:${DB_PASSWORD}@postgres:5432/${DB_DATABASE}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/1}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/1}
+      EMBEDDING_BASE_URL: ${EMBEDDING_BASE_URL:-}
+      EMBEDDING_API_KEY: ${EMBEDDING_API_KEY:-}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-}
+      EMBEDDING_MODEL_VERSION: ${EMBEDDING_MODEL_VERSION:-}
+      EMBEDDING_DIMENSIONS: ${EMBEDDING_DIMENSIONS:-}
+      RETRIEVAL_HTTP_TIMEOUT: ${RETRIEVAL_HTTP_TIMEOUT:-30}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
   postgres:
-    image: postgres:17-alpine
+    image: pgvector/pgvector:pg17
     restart: always
     environment:
       POSTGRES_USER: ${DB_USERNAME}
