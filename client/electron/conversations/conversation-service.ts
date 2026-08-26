@@ -10,6 +10,7 @@ import { executeViewImage, type ViewImageArguments } from "../files/image-tool.j
 import { loadAgentInstructions, renderAgentInstructions } from "../files/agents-instructions.js";
 import type { FileToolName, FileToolRequest } from "../files/types.js";
 import { listProjects } from "../projects/projects-service.js";
+import { executeMcpCapability, loadCapability, searchCapabilities } from "../capabilities/capability-manager.js";
 
 export type ConversationStreamEvent = {
   type: "reasoning.delta" | "message.delta";
@@ -26,7 +27,7 @@ type ToolRequestEvent = {
   type: "tool.requested";
   runId: string;
   callId: string;
-  tool: "terminal" | "agent_message" | "finish_collaboration" | "view_image" | FileToolName;
+  tool: "terminal" | "agent_message" | "finish_collaboration" | "view_image" | "search_capabilities" | "load_capability" | FileToolName | string;
   arguments: TerminalAction | FileToolRequest | ViewImageArguments | { toNodeId: string; content: string } | { content: string };
 };
 type ActiveRequest = {
@@ -157,6 +158,21 @@ export async function streamMessage(
             const result = await executeViewImage(request.arguments as ViewImageArguments & { projectId: string }, workspaceRoot, active.attachmentPaths);
             onEvent({ type: "tool.completed", callId: request.callId, result });
             active.failedToolCalls.delete(signature);
+            return { callId: request.callId, result };
+          }
+          if (request.tool === "search_capabilities") {
+            const result = await searchCapabilities(String((request.arguments as { query?: string }).query ?? ""));
+            onEvent({ type: "tool.completed", callId: request.callId, result });
+            return { callId: request.callId, result };
+          }
+          if (request.tool === "load_capability") {
+            const result = await loadCapability(String((request.arguments as { id?: string }).id ?? ""));
+            onEvent({ type: "tool.completed", callId: request.callId, result });
+            return { callId: request.callId, result };
+          }
+          if (request.tool.startsWith("mcp__")) {
+            const result = await executeMcpCapability(request.tool, request.arguments as Record<string, unknown>);
+            onEvent({ type: "tool.completed", callId: request.callId, result });
             return { callId: request.callId, result };
           }
           if (["read_file", "search_files", "list_directory", "apply_patch"].includes(request.tool)) {

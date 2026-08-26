@@ -19,6 +19,7 @@
 .rail svg { width: 22px; height: 22px; }
 .theme { margin-top: auto; }
 .account { position: relative; }
+.avatar { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; }
 .accountMenu {
   position: absolute;
   left: calc(100% + 10px);

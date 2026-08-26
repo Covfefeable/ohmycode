@@ -107,6 +107,39 @@ APPLY_PATCH_TOOL = {
     },
 }
 
+SEARCH_CAPABILITIES_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "search_capabilities",
+        "description": (
+            "Search enabled MCP servers and locally installed Skills by name and description. "
+            "Use this only when the task may benefit from an external integration or specialized "
+            "workflow; do not search on every turn."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {"query": {"type": "string"}},
+            "required": ["query"],
+        },
+    },
+}
+
+LOAD_CAPABILITY_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "load_capability",
+        "description": (
+            "Load one capability returned by search_capabilities. A Skill returns its "
+            "instructions; an MCP server makes its tools available for subsequent calls."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {"id": {"type": "string"}},
+            "required": ["id"],
+        },
+    },
+}
+
 FILE_TOOL_NAMES = {"read_file", "search_files", "list_directory", "apply_patch"}
 AGENT_TOOLS = [
     READ_FILE_TOOL,
@@ -114,6 +147,8 @@ AGENT_TOOLS = [
     LIST_DIRECTORY_TOOL,
     APPLY_PATCH_TOOL,
     TERMINAL_TOOL,
+    SEARCH_CAPABILITIES_TOOL,
+    LOAD_CAPABILITY_TOOL,
 ]
 
 VIEW_IMAGE_TOOL_NAME = "view_image"

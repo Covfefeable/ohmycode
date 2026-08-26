@@ -1,11 +1,13 @@
 import { app, BrowserWindow } from "electron";
 import { startApiSidecar, stopApiSidecar } from "./api/sidecar.js";
 import { registerAuthIpc } from "./ipc/register-auth-ipc.js";
+import { registerCapabilitiesIpc } from "./ipc/register-capabilities-ipc.js";
 import { registerSystemIpc } from "./ipc/register-system-ipc.js";
 import { registerSettingsIpc } from "./ipc/register-settings-ipc.js";
 import { registerProjectsIpc } from "./ipc/register-projects-ipc.js";
 import { registerMultiAgentIpc } from "./ipc/register-multi-agent-ipc.js";
 import { stopAllTerminals } from "./terminal/terminal-manager.js";
+import { closeMcpSessions } from "./capabilities/mcp-manager.js";
 import { createMainWindow } from "./window/create-main-window.js";
 
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
@@ -28,6 +30,7 @@ if (!hasSingleInstanceLock) {
 
   app.whenReady().then(() => {
     registerAuthIpc();
+    registerCapabilitiesIpc();
     registerSystemIpc();
     registerSettingsIpc();
     registerProjectsIpc();
@@ -48,5 +51,6 @@ app.on("window-all-closed", () => {
 
 app.on("before-quit", () => {
   stopAllTerminals();
+  void closeMcpSessions();
   stopApiSidecar();
 });

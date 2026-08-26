@@ -3,6 +3,7 @@ import pytest
 from app import create_app
 from app.config import ProductionConfig
 from app.extensions import db
+from app.services.settings import commands as settings_commands
 
 
 def create_test_app():
@@ -55,6 +56,46 @@ def test_registration_rejects_duplicate_email():
         assert client.post("/api/auth/register", json=payload).status_code == 201
         duplicate = client.post("/api/auth/register", json=payload)
     assert duplicate.status_code == 409
+
+
+def test_avatar_is_stored_outside_the_database(monkeypatch):
+    app = create_test_app()
+    stored: dict[str, object] = {}
+
+    def put_object(key: str, content: bytes, content_type: str) -> None:
+        stored.update(key=key, content=content, content_type=content_type)
+
+    monkeypatch.setattr(settings_commands, "put_object", put_object)
+    monkeypatch.setattr(
+        settings_commands,
+        "get_object",
+        lambda key: (stored["content"], stored["content_type"]),
+    )
+    with app.test_client() as client:
+        registration = client.post(
+            "/api/auth/register",
+            json={
+                "email": "avatar@example.com",
+                "displayName": "Avatar User",
+                "password": "secret123",
+            },
+        )
+        headers = {
+            "Authorization": f"Bearer {registration.get_json()['tokens']['accessToken']}"
+        }
+        response = client.put(
+            "/api/settings/avatar",
+            headers=headers,
+            json={"data": "iVBORw0KGgo=", "contentType": "image/png"},
+        )
+        avatar = client.get("/api/settings/avatar", headers=headers)
+        settings = client.get("/api/settings", headers=headers).get_json()
+
+    assert response.status_code == 204
+    assert stored["key"].startswith("avatars/")
+    assert avatar.data == b"\x89PNG\r\n\x1a\n"
+    assert avatar.content_type == "image/png"
+    assert settings["profile"]["avatarAvailable"] is True
 
 
 def test_production_rejects_placeholder_secrets(monkeypatch):

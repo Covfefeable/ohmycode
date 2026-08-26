@@ -1,0 +1,26 @@
+.section { width: min(900px, 100%); display: grid; gap: var(--space-5); }
+.section button { border: 1px solid var(--color-border-strong); border-radius: var(--radius-md); background: var(--color-surface-2); color: var(--color-text); padding: 9px var(--space-3); cursor: pointer; display: inline-flex; align-items: center; gap: var(--space-2); }
+.section button svg { width: 16px; height: 16px; }
+.list { display: grid; gap: var(--space-2); }
+.list article { min-width: 0; display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3); border-radius: var(--radius-md); background: var(--color-surface-1); }
+.serverIcon { width: 38px; height: 38px; flex: none; display: grid; place-items: center; border-radius: var(--radius-sm); background: var(--color-surface-control); color: var(--color-accent); font-size: var(--font-sm); font-weight: 800; letter-spacing: .04em; }
+.serverInfo { min-width: 0; flex: 1; display: grid; gap: 3px; }
+.serverInfo strong, .serverInfo span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.serverInfo span { color: var(--color-text-dim); font-size: var(--font-xs); }
+.status { width: 18px; height: 18px; flex: none; display: grid; place-items: center; }.status svg { width: 17px; height: 17px; }
+.connected { color: var(--color-accent); }.failed { color: var(--color-danger); }
+.iconButton { width: 32px; height: 32px; flex: none; display: grid !important; place-items: center; border: 0 !important; border-radius: var(--radius-sm) !important; background: transparent !important; color: var(--color-text-muted); padding: 0 !important; cursor: pointer; }.iconButton svg { width: 16px; height: 16px; }
+.iconButton:hover { background: var(--color-surface-hover) !important; color: var(--color-text); }.iconButton.danger:hover { color: var(--color-danger); }.iconButton:disabled { opacity: .45; cursor: wait; }
+.empty { min-height: 260px; display: grid; place-content: center; justify-items: center; color: var(--color-text-dim); text-align: center; }.empty svg { width: 34px; }.empty p { margin: 4px 0 0; }
+.overlay { position: fixed; inset: 0; z-index: var(--z-toast); display: grid; place-items: center; padding: var(--space-5); background: color-mix(in srgb, var(--color-surface-deep) 62%, transparent); backdrop-filter: blur(8px); }
+.dialog { width: min(520px, calc(100vw - 32px)); max-height: calc(100vh - 48px); display: grid; gap: var(--space-4); overflow-y: auto; padding: var(--space-5); border: 1px solid var(--color-border-strong); border-radius: var(--radius-lg); background: var(--color-surface-2); box-shadow: var(--shadow-panel); }
+.dialog h2 { margin: 0; }.dialog label { display: grid; gap: var(--space-2); color: var(--color-text-muted); font-size: var(--font-sm); }.dialog input, .dialog textarea { width: 100%; box-sizing: border-box; border: 1px solid var(--color-border-subtle); border-radius: var(--radius-md); background: var(--color-surface-input); color: var(--color-text); padding: 10px 12px; font: inherit; }.dialog textarea { min-height: 86px; resize: vertical; }
+.dialog footer { display: flex; justify-content: flex-end; gap: var(--space-2); }.dialog footer button { width: auto; min-width: 82px; height: var(--control-height); justify-content: center; border: 1px solid var(--color-border-strong); border-radius: var(--radius-md); background: var(--color-surface-2); color: var(--color-text); padding: 0 15px; line-height: 1; cursor: pointer; white-space: nowrap; }.dialog footer .primary { border-color: transparent; background: var(--color-accent); color: var(--color-accent-ink); font-weight: 700; }
+.toolsDialog { grid-template-rows: auto minmax(0, 1fr) auto; }
+.toolsDialog header { display: grid; gap: 5px; }.toolsDialog header p { margin: 0; color: var(--color-text-muted); font-size: var(--font-sm); }
+.toolList { min-height: 0; display: grid; align-content: start; gap: var(--space-2); overflow-y: auto; }
+.toolList details { border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface-1); }
+.toolList summary { display: grid; gap: 4px; padding: var(--space-3); cursor: pointer; }.toolList summary span { overflow: hidden; color: var(--color-text-muted); font-size: var(--font-sm); text-overflow: ellipsis; white-space: nowrap; }
+.toolList pre { max-height: 240px; margin: 0; overflow: auto; border-top: 1px solid var(--color-border); padding: var(--space-3); color: var(--color-text-soft); font-size: var(--font-xs); white-space: pre-wrap; }
+.toolsEmpty { min-height: 150px; display: grid; place-items: center; color: var(--color-text-dim); }
+.spin { animation: spin 900ms linear infinite; } @keyframes spin { to { transform: rotate(360deg); } }

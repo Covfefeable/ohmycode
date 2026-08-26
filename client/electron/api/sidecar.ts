@@ -5,7 +5,7 @@ import { app } from "electron";
 import { getApiUrl, isLocalApiUrl } from "../config.js";
 
 let apiProcess: ChildProcess | undefined;
-const REQUIRED_CAPABILITIES = ["auth", "projects", "settings", "agent-runs", "token-usage", "multi-agent"];
+const REQUIRED_CAPABILITIES = ["auth", "projects", "settings", "agent-runs", "token-usage", "multi-agent", "mcp", "skills"];
 
 function apiDirectory(): string {
   return app.isPackaged

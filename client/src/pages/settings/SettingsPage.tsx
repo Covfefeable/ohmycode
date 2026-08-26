@@ -8,13 +8,16 @@ import { NavigationRail } from "../../widgets/navigation-rail";
 import { SettingsSidebar, type SettingsTab } from "../../widgets/settings-sidebar";
 import { ProfileSettings } from "../../features/profile-settings";
 import { ModelSettings } from "../../features/model-settings";
+import { McpSettings } from "../../features/mcp-settings";
+import { SkillSettings } from "../../features/skill-settings";
 import styles from "./SettingsPage.module.css";
 
 export function SettingsPage() {
   const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
-  const tab: SettingsTab = searchParams.get("tab") === "models" ? "models" : "profile";
+  const requestedTab = searchParams.get("tab");
+  const tab: SettingsTab = requestedTab === "models" || requestedTab === "mcp" || requestedTab === "skills" ? requestedTab : "profile";
   const [settings, setSettings] = useState<PublicSettings | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
@@ -31,5 +34,8 @@ export function SettingsPage() {
   }, [location.pathname, reloadToken]);
   if (loadFailed) return <LoadError message={t("settings.loadFailed")} onRetry={() => { setLoadFailed(false); setReloadToken((value) => value + 1); }} />;
   if (!settings) return <FullScreenLoading />;
-  return <AppShell navigation={<NavigationRail />} sidebar={<SettingsSidebar tab={tab} onChange={(next) => setSearchParams({ tab: next })} />}><main className={styles.content}>{tab === "profile" ? <ProfileSettings initial={settings.profile} tokenUsage={settings.tokenUsage} /> : <ModelSettings initial={settings.models} />}</main></AppShell>;
+  const content = tab === "profile" ? <ProfileSettings initial={settings.profile} tokenUsage={settings.tokenUsage} />
+    : tab === "models" ? <ModelSettings initial={settings.models} />
+      : tab === "mcp" ? <McpSettings /> : <SkillSettings />;
+  return <AppShell navigation={<NavigationRail />} sidebar={<SettingsSidebar tab={tab} onChange={(next) => setSearchParams({ tab: next })} />}><main className={styles.content}>{content}</main></AppShell>;
 }

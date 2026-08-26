@@ -12,6 +12,11 @@ class BaseConfig:
     )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+    MINIO_ENDPOINT = os.getenv("MINIO_ENDPOINT", "localhost:9000")
+    MINIO_ACCESS_KEY = os.getenv("MINIO_ACCESS_KEY", "ohmycode")
+    MINIO_SECRET_KEY = os.getenv("MINIO_SECRET_KEY", "ohmycode-development-secret")
+    MINIO_BUCKET = os.getenv("MINIO_BUCKET", "ohmycode")
+    MINIO_SECURE = os.getenv("MINIO_SECURE", "false").lower() in {"1", "true", "yes"}
     CORS_ORIGINS = [
         origin.strip()
         for origin in os.getenv(

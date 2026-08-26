@@ -69,7 +69,19 @@ contextBridge.exposeInMainWorld("ohmycode", {
   settings: {
     get: () => ipcRenderer.invoke("settings:get"),
     saveProfile: (displayName) => ipcRenderer.invoke("settings:save-profile", displayName),
+    saveAvatar: (data, contentType) => ipcRenderer.invoke("settings:save-avatar", data, contentType),
     saveModels: (models) => ipcRenderer.invoke("settings:save-models", models),
     testModel: (model) => ipcRenderer.invoke("settings:test-model", model),
+  },
+  capabilities: {
+    listMcp: () => ipcRenderer.invoke("capabilities:mcp-list"),
+    saveMcp: (input) => ipcRenderer.invoke("capabilities:mcp-save", input),
+    testMcp: (id) => ipcRenderer.invoke("capabilities:mcp-test", id),
+    deleteMcp: (id) => ipcRenderer.invoke("capabilities:mcp-delete", id),
+    listSkills: () => ipcRenderer.invoke("capabilities:skills-list"),
+    installSkill: () => ipcRenderer.invoke("capabilities:skills-install"),
+    downloadSkill: (id) => ipcRenderer.invoke("capabilities:skills-download", id),
+    removeLocalSkill: (name) => ipcRenderer.invoke("capabilities:skills-remove-local", name),
+    deleteSkill: (id, name) => ipcRenderer.invoke("capabilities:skills-delete", id, name),
   },
 });

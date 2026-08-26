@@ -57,8 +57,20 @@ interface Window {
     settings: {
       get(): Promise<PublicSettings>;
       saveProfile(displayName: string): Promise<void>;
+      saveAvatar(data: string, contentType: string): Promise<void>;
       saveModels(models: ModelConfiguration[]): Promise<void>;
       testModel(model: ModelConfiguration): Promise<{ ok: boolean; latencyMs?: number; message?: string }>;
+    };
+    capabilities: {
+      listMcp(): Promise<McpServerRecord[]>;
+      saveMcp(input: McpServerInput): Promise<McpServerRecord>;
+      testMcp(id: string): Promise<McpServerRecord>;
+      deleteMcp(id: string): Promise<void>;
+      listSkills(): Promise<SkillRecord[]>;
+      installSkill(): Promise<SkillRecord | null>;
+      downloadSkill(id: string): Promise<SkillRecord>;
+      removeLocalSkill(name: string): Promise<void>;
+      deleteSkill(id: string, name: string): Promise<void>;
     };
   };
 }
@@ -88,8 +100,12 @@ type ModelConfiguration = {
   apiKey?: string;
   hasApiKey?: boolean;
 };
+type McpTool = { name: string; description?: string; inputSchema?: Record<string, unknown> };
+type McpServerInput = { id?: string; name: string; identifier: string; transport: "http" | "stdio"; configuration: { url?: string; headers?: Record<string, string>; command?: string; args?: string[]; cwd?: string; env?: Record<string, string> }; enabled: boolean };
+type McpServerRecord = McpServerInput & { id: string; tools: McpTool[]; status: string; lastError?: string | null };
+type SkillRecord = { id: string; name: string; description: string; version: string; sha256: string; size: number; enabled: boolean; installed: boolean };
 type PublicSettings = {
-  profile: { displayName: string; avatarDataUrl: string | null };
+  profile: { displayName: string; avatarAvailable: boolean; avatarDataUrl?: string | null };
   models: ModelConfiguration[];
   tokenUsage: TokenUsageEntry[];
 };

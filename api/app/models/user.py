@@ -16,6 +16,7 @@ class User(db.Model):
     display_name: Mapped[str] = mapped_column(String(100))
     password_hash: Mapped[str] = mapped_column(String(512))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    avatar_object_key: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()

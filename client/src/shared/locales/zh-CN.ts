@@ -1,5 +1,5 @@
 export const zhCN = {
-  common: { cancel: "取消", delete: "删除", confirmDelete: "确认删除", deleteWarning: "此操作无法撤销。", copy: "复制", copied: "已复制", code: "代码", networkError: "网络错误，请检查网络后重试。", retry: "重试" },
+  common: { cancel: "取消", close: "关闭", save: "保存", edit: "编辑", delete: "删除", confirmDelete: "确认删除", deleteWarning: "此操作无法撤销。", copy: "复制", copied: "已复制", code: "代码", networkError: "网络错误，请检查网络后重试。", retry: "重试" },
   window: {
     minimize: "最小化",
     maximize: "最大化或还原",
@@ -234,11 +234,13 @@ export const zhCN = {
     },
   },
   settings: {
-    eyebrow: "偏好设置", title: "设置", profileTab: "个人信息", modelsTab: "模型配置", loadFailed: "设置加载失败。",
-    profileEyebrow: "个人身份", profileTitle: "个人信息", profileDescription: "管理你的 OhMyCode 个人身份。", save: "保存个人信息", saved: "已保存", profileSaved: "个人信息已保存。", saveFailed: "设置保存失败。",
+    eyebrow: "偏好设置", title: "设置", profileTab: "个人信息", modelsTab: "模型配置", mcpTab: "MCP", skillsTab: "Skills", loadFailed: "设置加载失败。",
+    profileEyebrow: "个人身份", profileTitle: "个人信息", profileDescription: "管理你的 OhMyCode 个人身份。", save: "保存个人信息", saved: "已保存", profileSaved: "个人信息已保存。", saveFailed: "设置保存失败。", changeAvatar: "更换头像", avatarInvalid: "请选择不超过 5MB 的 PNG、JPEG 或 WebP 图片。",
     modelsEyebrow: "模型服务", modelsTitle: "模型配置", modelsDescription: "管理你的 OpenAI-compatible 模型服务。", addModel: "添加配置", defaultModel: "默认模型", configName: "配置名称", modelName: "模型 ID", contextLength: "上下文长度", supportsVision: "多模态", baseUrl: "API Base URL", apiKey: "API Key", keyStored: "已安全保存，输入新值可替换", test: "测试连接", testing: "测试中…", testSuccess: "连接成功，耗时 {{latency}} ms", noModels: "尚未添加模型配置。", saveModels: "保存模型配置",
     modelsSaved: "模型配置已保存。", modelValidation: "请完整填写每条模型配置。", removeModel: "删除模型", unnamedModel: "未命名配置", noModelsDescription: "添加一个 OpenAI-compatible 模型服务后即可开始对话。",
     tokenUsageTitle: "Token 使用量", noTokenUsage: "最近一年暂无使用记录", tokenUsageTotal: "最近一年共使用 {{count}} Token", tokenUsageDay: "{{date}} · {{count}} Token", tokenUsageLess: "少", tokenUsageMore: "多",
+    mcpTitle: "MCP 服务", mcpDescription: "连接远程 HTTP 或本地 stdio MCP 服务。", addMcp: "添加服务", editMcp: "编辑 MCP", mcpName: "服务名称", mcpIdentifier: "标识符", mcpTransport: "连接方式", command: "启动命令", arguments: "命令参数", workingDirectory: "工作目录", tools: "个工具", mcpSaved: "MCP 服务已保存。", mcpSaveFailed: "MCP 服务保存失败。", mcpConnected: "连接成功，发现 {{count}} 个工具。", mcpConnectionFailed: "MCP 服务连接失败。", reconnectMcp: "重新连接", viewMcpTools: "查看工具", mcpToolsTitle: "{{name}} 的工具", mcpToolsCount: "共 {{count}} 个工具", noToolDescription: "暂无描述", noMcpTools: "尚未获取工具，请先重新连接。", noMcp: "尚未添加 MCP 服务", noMcpDescription: "添加后可在 Agent 运行时按需发现和调用工具。",
+    skillsTitle: "Skills", skillsDescription: "安装 ZIP 格式的 Skill 包，并在本机安全解压使用。", uploadSkill: "安装 Skill", skillInstalled: "Skill 已安装。", skillInstallFailed: "Skill 安装失败。", skillDownloaded: "Skill 已下载到本机。", skillDownloadFailed: "Skill 下载失败。", downloadSkill: "下载到本机", removeLocalSkill: "仅从本机删除", deleteSkillEverywhere: "彻底删除", confirmRemoveLocalSkill: "从本机删除 Skill", removeLocalSkillWarning: "云端备份会保留，之后可以重新下载。", confirmDeleteSkill: "彻底删除 Skill", deleteSkillWarning: "将同时删除本机文件和云端备份，此操作无法撤销。", skillRemovedLocally: "已从本机删除。", skillDeleted: "Skill 已彻底删除。", skillDeleteFailed: "Skill 删除失败。", noSkillDescription: "此 Skill 没有提供描述。", noSkills: "尚未安装 Skill", noSkillsDescription: "选择一个包含 SKILL.md 的 ZIP 文件开始安装。",
     testErrors: { missing_api_key: "请先填写 API Key。", connection_failed: "连接失败。", http_401: "身份验证失败。", http_403: "没有访问权限。", http_404: "未找到 Models 接口。", http_429: "请求频率超限。" },
   },
   language: {

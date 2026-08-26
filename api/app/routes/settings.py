@@ -1,9 +1,16 @@
 from uuid import UUID
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, Response, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
-from ..services.settings import get_settings, save_models, save_profile, test_model
+from ..services.settings import (
+    get_avatar,
+    get_settings,
+    save_avatar,
+    save_models,
+    save_profile,
+    test_model,
+)
 
 settings_bp = Blueprint("settings", __name__)
 
@@ -24,6 +31,23 @@ def save_profile_route():
     display_name = str((request.get_json(silent=True) or {}).get("displayName") or "")
     save_profile(user_id(), display_name)
     return "", 204
+
+
+@settings_bp.put("/avatar")
+@jwt_required()
+def save_avatar_route():
+    payload = request.get_json(silent=True) or {}
+    save_avatar(user_id(), str(payload.get("data") or ""), str(payload.get("contentType") or ""))
+    return "", 204
+
+
+@settings_bp.get("/avatar")
+@jwt_required()
+def get_avatar_route():
+    content, content_type = get_avatar(user_id())
+    return Response(
+        content, mimetype=content_type, headers={"Cache-Control": "private, max-age=300"}
+    )
 
 
 @settings_bp.put("/models")

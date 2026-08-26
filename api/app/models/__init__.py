@@ -3,6 +3,7 @@ from .agent_run import AgentRun
 from .agent_session import AgentSession
 from .context_checkpoint import ContextCheckpoint
 from .conversation import Conversation
+from .mcp_server import McpServer, SkillPackage
 from .message import Message
 from .model_configuration import ModelConfiguration
 from .multi_agent import (
@@ -22,12 +23,14 @@ __all__ = [
     "ContextCheckpoint",
     "Conversation",
     "Message",
+    "McpServer",
     "ModelConfiguration",
     "MultiAgent",
     "MultiAgentMessage",
     "MultiAgentNode",
     "MultiAgentTask",
     "Project",
+    "SkillPackage",
     "User",
     "WorkspaceChange",
 ]

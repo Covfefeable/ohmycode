@@ -415,6 +415,23 @@ def _image_tool_content(result: object) -> list[dict] | None:
     ]
 
 
+def _loaded_capability_tools(run: AgentRun) -> list[dict]:
+    tools: dict[str, dict] = {}
+    for event in run.events:
+        if event.event_type != "tool.output":
+            continue
+        for item in event.payload.get("results", []):
+            result = item.get("result")
+            if not isinstance(result, dict):
+                continue
+            for tool in result.get("tools", []):
+                function = tool.get("function") if isinstance(tool, dict) else None
+                name = function.get("name") if isinstance(function, dict) else None
+                if isinstance(name, str):
+                    tools[name] = tool
+    return list(tools.values())
+
+
 def resume_completion(
     user_id: UUID, run_id: UUID, results: list[dict], workspace_instructions: str = ""
 ) -> PreparedCompletion:
@@ -458,6 +475,7 @@ def resume_completion(
         )
         model_messages = [{"role": "system", "content": f"Conversation checkpoint:\n{summary}"}]
     tools, mailbox = _multi_agent_context(run.conversation_id, configuration)
+    tools.extend(_loaded_capability_tools(run))
     return PreparedCompletion(
         run_id=run.id,
         conversation_id=run.conversation_id,

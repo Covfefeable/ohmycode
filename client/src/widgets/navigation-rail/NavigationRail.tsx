@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate } from "react-router-dom";
 import { CircleUserRound, GitFork, LogOut, Settings, SquareTerminal, UserRound } from "lucide-react";
@@ -12,6 +13,16 @@ export function NavigationRail() {
   const navigate = useNavigate();
   const location = useLocation();
   const { logout } = useAuth();
+  const [avatar, setAvatar] = useState("");
+  useEffect(() => {
+    let active = true;
+    void window.ohmycode.settings.get().then((settings) => {
+      if (active) setAvatar(settings.profile.avatarDataUrl ?? "");
+    }).catch(() => undefined);
+    const update = (event: Event) => setAvatar(String((event as CustomEvent).detail ?? ""));
+    window.addEventListener("ohmycode:avatar-updated", update);
+    return () => { active = false; window.removeEventListener("ohmycode:avatar-updated", update); };
+  }, []);
   return (
     <nav className={styles.rail} aria-label={t("navigation.label")}>
       <button className={styles.brand} aria-label="OhMyCode" onClick={() => navigate("/")}><BrandLogo /></button>
@@ -20,7 +31,7 @@ export function NavigationRail() {
       <IconButton active={location.pathname.startsWith("/settings")} aria-label={t("navigation.settings")} onClick={() => navigate("/settings?tab=profile")}><Settings /></IconButton>
       <div className={styles.theme}><ThemeToggle /></div>
       <div className={styles.account}>
-        <IconButton aria-label={t("navigation.account")}><CircleUserRound /></IconButton>
+        <IconButton aria-label={t("navigation.account")}>{avatar ? <img className={styles.avatar} src={avatar} alt="" /> : <CircleUserRound />}</IconButton>
         <div className={styles.accountMenu}>
           <button onClick={() => navigate("/settings?tab=profile")}><UserRound />{t("navigation.myProfile")}</button>
           <button onClick={() => void logout()}><LogOut />{t("navigation.signOut")}</button>

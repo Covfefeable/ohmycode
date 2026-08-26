@@ -1,14 +1,18 @@
+import base64
+import binascii
 from datetime import UTC, datetime, timedelta
 from time import perf_counter
 from uuid import UUID
 
 import httpx
+from flask import current_app
 from sqlalchemy import or_
 
 from ...extensions import db
 from ...models import AgentRun, Conversation, ModelConfiguration, Project, User
 from ..errors import ServiceError
 from ..model_credentials import decrypt_api_key, encrypt_api_key
+from ..object_storage import delete_object, get_object, put_object
 from .queries import models_for_user
 
 
@@ -43,11 +47,14 @@ def get_settings(user_id: UUID) -> dict:
     usage_by_day: dict[str, int] = {}
     for run in runs:
         day = run.completed_at.date().isoformat()
-        usage_by_day[day] = usage_by_day.get(day, 0) + (run.input_tokens or 0) + (
-            run.output_tokens or 0
+        usage_by_day[day] = (
+            usage_by_day.get(day, 0) + (run.input_tokens or 0) + (run.output_tokens or 0)
         )
     return {
-        "profile": {"displayName": user.display_name, "avatarDataUrl": None},
+        "profile": {
+            "displayName": user.display_name,
+            "avatarAvailable": bool(user.avatar_object_key),
+        },
         "models": [serialize_model(item) for item in models_for_user(user_id)],
         "tokenUsage": [
             {"date": day, "tokens": tokens} for day, tokens in sorted(usage_by_day.items())
@@ -61,6 +68,48 @@ def save_profile(user_id: UUID, display_name: str) -> None:
         raise ServiceError("not_found", 404)
     user.display_name = display_name.strip()[:100]
     db.session.commit()
+
+
+def save_avatar(user_id: UUID, encoded: str, content_type: str) -> None:
+    user = db.session.get(User, user_id)
+    if not user:
+        raise ServiceError("not_found", 404)
+    if content_type not in {"image/jpeg", "image/png", "image/webp"}:
+        raise ServiceError("invalid_avatar_type", 422)
+    try:
+        content = base64.b64decode(encoded, validate=True)
+    except (binascii.Error, ValueError) as error:
+        raise ServiceError("invalid_avatar", 422) from error
+    if not content or len(content) > 5 * 1024 * 1024:
+        raise ServiceError("invalid_avatar_size", 422)
+    signatures = {
+        "image/jpeg": (b"\xff\xd8\xff",),
+        "image/png": (b"\x89PNG\r\n\x1a\n",),
+        "image/webp": (b"RIFF",),
+    }
+    valid_signature = any(content.startswith(signature) for signature in signatures[content_type])
+    if content_type == "image/webp":
+        valid_signature = valid_signature and len(content) >= 12 and content[8:12] == b"WEBP"
+    if not valid_signature:
+        raise ServiceError("invalid_avatar", 422)
+    extension = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}[content_type]
+    key = f"avatars/{user.id}/avatar.{extension}"
+    previous_key = user.avatar_object_key
+    put_object(key, content, content_type)
+    user.avatar_object_key = key
+    db.session.commit()
+    if previous_key and previous_key != key:
+        try:
+            delete_object(previous_key)
+        except ServiceError:
+            current_app.logger.warning("Failed to remove replaced avatar object", exc_info=True)
+
+
+def get_avatar(user_id: UUID) -> tuple[bytes, str]:
+    user = db.session.get(User, user_id)
+    if not user or not user.avatar_object_key:
+        raise ServiceError("avatar_not_found", 404)
+    return get_object(user.avatar_object_key)
 
 
 def save_models(user_id: UUID, inputs: list[dict]) -> None:

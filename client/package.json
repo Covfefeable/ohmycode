@@ -17,7 +17,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "@vitejs/plugin-react": "latest",
+    "fflate": "^0.8.3",
     "i18next": "^26.4.0",
     "lucide-react": "^1.33.0",
     "node-pty": "^1.1.0",
