@@ -6,7 +6,7 @@
 .list { display: grid; gap: var(--space-3); }
 .list article { position: relative; border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: var(--color-surface-1); padding: var(--space-2) var(--space-3); transition: transform 180ms cubic-bezier(.2, .8, .2, 1), border-color var(--transition-fast), opacity var(--transition-fast), box-shadow var(--transition-fast); }
 .list article[data-dragging] { border-color: var(--color-border-strong); opacity: .58; box-shadow: var(--shadow-panel); }
-.cardHead, .list footer, .actions { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+.cardHead, .actions { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
 .cardHead button { margin-left: auto; border: 0; background: transparent; }
 .cardHead .cardToggle { min-width: 0; flex: 1; justify-content: space-between; margin-left: 0; text-align: left; }
 .cardToggle > span { min-width: 0; display: grid; gap: 2px; }
@@ -14,6 +14,10 @@
 .cardToggle small { color: var(--color-text-dim); font-size: var(--font-xs); font-weight: 500; }
 .cardToggle > svg { transition: transform var(--transition-fast); }
 .cardToggle > .open { transform: rotate(180deg); }
+.cardHead .iconAction { width: 34px; height: 34px; flex: none; justify-content: center; margin-left: 0; border-radius: var(--radius-md); padding: 0; color: var(--color-text-muted); }
+.cardHead .iconAction:hover { background: var(--color-surface-icon-hover); color: var(--color-text); }
+.cardHead .deleteAction:hover { background: var(--color-danger-surface); color: var(--color-danger-text); }
+.cardHead .iconAction:disabled { cursor: wait; opacity: .72; }
 .handle { color: var(--color-text-dim); cursor: grab; font-size: 20px; touch-action: none; }
 .handle:active { cursor: grabbing; }
 @media (prefers-reduced-motion: reduce) { .list article { transition: none; } }
@@ -30,10 +34,6 @@
 .numberField { position: relative; }
 .numberField input { width: 100%; padding-right: 40px; }
 .numberField span { position: absolute; right: var(--space-3); top: 50%; color: var(--color-text-dim); transform: translateY(-50%); pointer-events: none; }
-.list footer { color: var(--color-text-muted); font-size: var(--font-sm); }
-.list footer { justify-content: flex-end; }
-.list footer button { display: flex; align-items: center; gap: var(--space-2); }
-.list footer button:disabled { cursor: wait; opacity: .72; }
 .spinner { animation: spin 700ms linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (max-width: 840px) { .grid { grid-template-columns: 1fr 132px; } .contextLength { grid-column: 2; } }
