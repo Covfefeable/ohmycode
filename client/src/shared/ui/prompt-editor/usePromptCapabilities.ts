@@ -3,6 +3,17 @@ import type { PromptTokenOption } from "./types";
 
 let cache: PromptTokenOption[] | null = null;
 let pending: Promise<PromptTokenOption[]> | null = null;
+const listeners = new Set<(options: PromptTokenOption[]) => void>();
+let subscribed = false;
+
+function ensureChangeSubscription() {
+  if (subscribed) return;
+  subscribed = true;
+  window.ohmycode.capabilities.onChanged(() => {
+    cache = null;
+    void loadOptions().catch(() => undefined);
+  });
+}
 
 async function loadOptions() {
   if (cache) return cache;
@@ -25,6 +36,7 @@ async function loadOptions() {
           serializedValue: `[[skill:${skill.name}]]`,
         })),
       ];
+      for (const listener of listeners) listener(cache);
       return cache;
     })
     .finally(() => { pending = null; });
@@ -35,8 +47,13 @@ export function usePromptCapabilities() {
   const [options, setOptions] = useState<PromptTokenOption[]>(cache ?? []);
   useEffect(() => {
     let active = true;
+    listeners.add(setOptions);
+    ensureChangeSubscription();
     void loadOptions().then((items) => { if (active) setOptions(items); }).catch(() => undefined);
-    return () => { active = false; };
+    return () => {
+      active = false;
+      listeners.delete(setOptions);
+    };
   }, []);
   return options;
 }

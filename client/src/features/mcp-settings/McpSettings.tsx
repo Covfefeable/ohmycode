@@ -19,7 +19,11 @@ export function McpSettings() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [viewing, setViewing] = useState<McpServerRecord | null>(null);
-  useEffect(() => { void window.ohmycode.capabilities.listMcp().then(setServers); }, []);
+  useEffect(() => {
+    const reload = () => { void window.ohmycode.capabilities.listMcp().then(setServers); };
+    reload();
+    return window.ohmycode.capabilities.onChanged(reload);
+  }, []);
   async function save() {
     if (!editing) return;
     try {

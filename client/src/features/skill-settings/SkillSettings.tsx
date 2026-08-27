@@ -17,7 +17,11 @@ export function SkillSettings() {
   const [installing, setInstalling] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [removing, setRemoving] = useState<Removal | null>(null);
-  useEffect(() => { void window.ohmycode.capabilities.listSkills().then(setSkills); }, []);
+  useEffect(() => {
+    const reload = () => { void window.ohmycode.capabilities.listSkills().then(setSkills); };
+    reload();
+    return window.ohmycode.capabilities.onChanged(reload);
+  }, []);
 
   async function install() {
     setInstalling(true);

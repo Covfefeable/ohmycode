@@ -94,5 +94,10 @@ contextBridge.exposeInMainWorld("ohmycode", {
     downloadSkill: (id) => ipcRenderer.invoke("capabilities:skills-download", id),
     removeLocalSkill: (name) => ipcRenderer.invoke("capabilities:skills-remove-local", name),
     deleteSkill: (id, name) => ipcRenderer.invoke("capabilities:skills-delete", id, name),
+    onChanged: (callback) => {
+      const listener = () => callback();
+      ipcRenderer.on("capabilities:changed", listener);
+      return () => ipcRenderer.removeListener("capabilities:changed", listener);
+    },
   },
 });

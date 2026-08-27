@@ -74,6 +74,7 @@ interface Window {
       downloadSkill(id: string): Promise<SkillRecord>;
       removeLocalSkill(name: string): Promise<void>;
       deleteSkill(id: string, name: string): Promise<void>;
+      onChanged(callback: () => void): () => void;
     };
   };
 }

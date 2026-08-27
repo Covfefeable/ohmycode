@@ -30,11 +30,15 @@ export async function listMcpServers(): Promise<McpServerRecord[]> {
   return (await apiRequest<{ servers: McpServerRecord[] }>("/api/capabilities/mcp")).servers;
 }
 
-export function saveMcpServer(input: McpServerInput): Promise<McpServerRecord> {
-  return apiRequest(`/api/capabilities/mcp${input.id ? `/${input.id}` : ""}`, {
+export async function saveMcpServer(input: McpServerInput): Promise<McpServerRecord> {
+  const saved = await apiRequest<McpServerRecord>(`/api/capabilities/mcp${input.id ? `/${input.id}` : ""}`, {
     method: input.id ? "PUT" : "POST",
     body: JSON.stringify(input),
   });
+  const existing = sessions.get(saved.id);
+  sessions.delete(saved.id);
+  await existing?.client.close().catch(() => undefined);
+  return saved;
 }
 
 export async function deleteMcpServer(id: string): Promise<void> {
