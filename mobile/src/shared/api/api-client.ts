@@ -1,15 +1,11 @@
 import * as Device from "expo-device";
 import * as SecureStore from "expo-secure-store";
 import { fetch as expoFetch } from "expo/fetch";
-import { Platform } from "react-native";
 
 import { clearTokens, readTokens, storeTokens } from "./token-store";
 import type { ApiErrorPayload, AuthResponse, AuthTokens, User } from "./types";
 
-const configuredApiUrl = process.env.EXPO_PUBLIC_API_URL?.replace(/\/+$/, "");
-const apiUrl = Platform.OS === "web" && __DEV__ && !configuredApiUrl
-  ? ""
-  : configuredApiUrl ?? "http://ai.llmol.com:8765";
+const apiUrl = (process.env.EXPO_PUBLIC_API_URL ?? "http://ai.llmol.com:8765").replace(/\/+$/, "");
 const DEVICE_ID_KEY = "ohmycode.device.id";
 
 export class ApiError extends Error {
@@ -40,8 +36,9 @@ async function request<T>(pathname: string, init: RequestInit = {}): Promise<T> 
   try {
     return await decode<T>(await expoFetch(`${apiUrl}${pathname}`, {
       ...init,
+      body: init.body ?? undefined,
       headers: { "Content-Type": "application/json", ...init.headers },
-    }));
+    } as Parameters<typeof expoFetch>[1]));
   } catch (error) {
     if (error instanceof ApiError) throw error;
     throw new ApiError("network_error");
@@ -111,13 +108,14 @@ export async function authenticatedFetch(
     try {
       return await expoFetch(`${apiUrl}${pathname}`, {
         ...init,
+        body: init.body ?? undefined,
         headers: {
           "Content-Type": "application/json",
           ...await deviceHeaders(),
           ...init.headers,
           Authorization: `Bearer ${accessToken}`,
         },
-      });
+      } as Parameters<typeof expoFetch>[1]);
     } catch {
       throw new ApiError("network_error");
     }

@@ -38,7 +38,8 @@ class BaseConfig:
     CORS_ORIGINS = [
         origin.strip()
         for origin in os.getenv(
-            "CORS_ORIGINS", "http://127.0.0.1:5173,http://localhost:5173"
+            "CORS_ORIGINS",
+            r"http://127\.0\.0\.1(:\d+)?,http://localhost(:\d+)?",
         ).split(",")
         if origin.strip()
     ]

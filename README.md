@@ -38,6 +38,7 @@ mobile/
 
 packages/
   design-tokens/       桌面与移动端共享的语义设计变量
+  web-effects/         桌面与移动 Web 共享的 Three.js 视觉效果
   protocol/            Thread / Turn / Item 事件协议
   runtime-core/        跨平台事件 Journal 与执行状态
   tool-contracts/      平台无关工具定义与执行契约
@@ -226,8 +227,39 @@ pnpm install
 pnpm dev
 ```
 
-开发模式下 Electron 会复用已经运行且能力兼容的 `127.0.0.1:8765` API；如果没有找到，
-会尝试启动本仓库中的 Flask 服务。打包后的客户端只连接外部 API，不捆绑 Python 服务端。
+开发模式下 Electron 连接已经运行且能力兼容的 `127.0.0.1:8765` API，不会自行启动 Flask。
+打包后的客户端只连接外部 API，不捆绑 Python 服务端。
+
+### 移动端
+
+移动端使用 Expo SDK 54，可直接使用应用商店版 Expo Go 调试。先在 `mobile/.env` 配置
+手机或浏览器能够访问的 API 地址：
+
+```dotenv
+EXPO_PUBLIC_API_URL=http://192.168.1.10:8765
+```
+
+手机调试时不能填写 `127.0.0.1`，应填写开发电脑的局域网 IP，并确保手机与电脑处于同一网络。
+启动移动端：
+
+```bash
+pnpm --dir mobile start
+```
+
+需要清理 Metro 缓存时：
+
+```bash
+pnpm --dir mobile exec expo start --clear
+```
+
+浏览器调试使用：
+
+```bash
+pnpm --dir mobile web
+```
+
+Web 开发请求直接访问 `EXPO_PUBLIC_API_URL`，不经过前端代理。Flask 的 `CORS_ORIGINS`
+需要包含 Expo Web 的来源，例如 `http://localhost:8081`。
 
 Windows 与 WSL 创建的 `.venv` 不能混用。如果切换运行环境，请执行：
 
