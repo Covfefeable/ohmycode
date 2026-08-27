@@ -8,6 +8,10 @@ function openExternalWebUrl(url: string): boolean {
 }
 
 export async function createMainWindow(): Promise<BrowserWindow> {
+  if (process.platform === "darwin" && app.dock) {
+    app.dock.setIcon(path.join(app.getAppPath(), "build/icon.png"));
+  }
+
   const window = new BrowserWindow({
     width: 1380,
     height: 880,

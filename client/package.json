@@ -12,6 +12,7 @@
     "test:file-tools": "tsc -p electron/tsconfig.json && node electron/files/file-tools.smoke.mjs",
     "test:runtime": "tsc -p electron/tsconfig.json && node electron/runtime/event-journal.smoke.mjs",
     "dist:win": "pnpm build && electron-builder --win nsis --x64",
+    "dist:mac": "pnpm build && electron-builder --mac dmg --arm64",
     "typecheck": "tsc -b --pretty false",
     "lint": "eslint .",
     "preview": "vite preview"
@@ -85,6 +86,15 @@
         {
           "target": "nsis",
           "arch": ["x64"]
+        }
+      ]
+    },
+    "mac": {
+      "icon": "build/icon.icns",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": ["arm64"]
         }
       ]
     },
