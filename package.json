@@ -4,7 +4,8 @@
   "packageManager": "pnpm@10.15.0",
   "scripts": {
     "build": "pnpm --filter @ohmycode/protocol build && pnpm --filter @ohmycode/tool-contracts build && pnpm --filter @ohmycode/runtime-core build && pnpm --filter @ohmycode/agent-runtime build && pnpm --filter @ohmycode/desktop build",
-    "typecheck": "pnpm --filter @ohmycode/protocol build && pnpm --filter @ohmycode/tool-contracts build && pnpm --filter @ohmycode/runtime-core build && pnpm --filter @ohmycode/agent-runtime typecheck && pnpm --filter @ohmycode/desktop typecheck"
+    "typecheck": "pnpm check:boundaries && pnpm --filter @ohmycode/protocol build && pnpm --filter @ohmycode/tool-contracts build && pnpm --filter @ohmycode/runtime-core build && pnpm --filter @ohmycode/agent-runtime typecheck && pnpm --filter @ohmycode/desktop typecheck",
+    "check:boundaries": "node scripts/check-package-boundaries.mjs"
   },
   "pnpm": {
     "onlyBuiltDependencies": ["electron", "node-pty"]

@@ -6,9 +6,9 @@ import type { LocalConversation, LocalMessage, MessageAttachment } from "../proj
 import {
   streamMessage,
   type ConversationStreamEvent,
-  type AgentExecutionContext,
 } from "../conversations/conversation-service.js";
 import { SqliteEventStore } from "./sqlite-event-store.js";
+import type { DesktopExecutionContext } from "./types.js";
 import {
   createDesktopTurnExecution,
   restoreDesktopTurnExecution,
@@ -21,7 +21,7 @@ type StartTurnInput = {
   modelId?: string;
   editMessageId?: string;
   attachments?: MessageAttachment[];
-  executionContext?: AgentExecutionContext;
+  executionContext?: DesktopExecutionContext;
 };
 
 let journal: EventJournal | null = null;

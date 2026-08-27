@@ -9,7 +9,7 @@ import {
   getConversation,
   suggestFollowups,
 } from "../projects/projects-service.js";
-import { getThreadSnapshot, interruptTurn, startTurn, waitForTurn } from "../runtime/agent-runtime.js";
+import { getThreadSnapshot, interruptTurn, startTurn, waitForTurn } from "../runtime/desktop-runtime-host.js";
 import type { MessageAttachment } from "../projects/types.js";
 
 export function registerProjectsIpc(): void {

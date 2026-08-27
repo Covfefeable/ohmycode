@@ -2,7 +2,7 @@ import path from "node:path";
 import { stat } from "node:fs/promises";
 import { dialog } from "electron";
 import { ApiError, apiRequest } from "../api/api-client.js";
-import { interruptTurn, startTurn, subscribeTurn, waitForTurn } from "../runtime/agent-runtime.js";
+import { interruptTurn, startTurn, subscribeTurn, waitForTurn } from "../runtime/desktop-runtime-host.js";
 import type { RuntimeEvent } from "@ohmycode/protocol";
 import type { MultiAgentSummary, MultiAgentTask } from "./types.js";
 

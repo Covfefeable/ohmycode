@@ -7,12 +7,12 @@ import { acquireWorkspaceWriteLock } from "../multi-agents/workspace-write-lock.
 import { recordWorkspaceChanges, snapshotWorkspace } from "../multi-agents/workspace-changes.js";
 import { executeTerminalAction } from "../terminal/terminal-manager.js";
 import type { TerminalAction } from "../terminal/types.js";
-import type { AgentExecutionContext } from "../conversations/conversation-service.js";
+import type { DesktopExecutionContext } from "./types.js";
 import type { DesktopTurnExecution } from "./desktop-execution-adapter.js";
 
 type RegistryOptions = {
   execution: DesktopTurnExecution;
-  executionContext?: AgentExecutionContext;
+  executionContext?: DesktopExecutionContext;
   workspaceRoot?: string;
   attachmentPaths: Set<string>;
   onEvent(event: AgentStreamEvent): void;
@@ -47,7 +47,7 @@ function toolSignature(request: ToolRequestEvent): string {
   return `${request.tool}:${JSON.stringify(sortValue(request.arguments))}`;
 }
 
-export class RuntimeToolRegistry implements ToolExecutor {
+export class DesktopToolRegistry implements ToolExecutor {
   private readonly inspectedPaths = new Set<string>();
   private readonly failedToolCalls = new Map<string, number>();
   private readonly leasedTerminalIds = new Set<string>();
@@ -141,7 +141,7 @@ export class RuntimeToolRegistry implements ToolExecutor {
   private async executeFile(
     request: ToolRequestEvent,
     workspaceRoot?: string,
-    executionContext?: AgentExecutionContext,
+    executionContext?: DesktopExecutionContext,
   ): Promise<unknown> {
     let release: (() => void) | undefined;
     if (executionContext && request.tool === "apply_patch") {
@@ -178,7 +178,7 @@ export class RuntimeToolRegistry implements ToolExecutor {
   private async executeTerminal(
     action: TerminalAction,
     workspaceRoot?: string,
-    executionContext?: AgentExecutionContext,
+    executionContext?: DesktopExecutionContext,
   ): Promise<unknown> {
     let release: (() => void) | undefined;
     if (executionContext && action.action === "start" && action.intent !== "read") {

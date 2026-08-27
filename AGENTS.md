@@ -20,7 +20,8 @@
 
 - Flask routes perform request parsing, authentication boundary handling, and response serialization only. Business logic belongs under `api/app/services/`.
 - SQLAlchemy persistence models belong under `api/app/models/`. Schema changes require a migration.
-- The Electron Agent Runtime is the source of truth for active Thread, Turn, Item, tool, and terminal state.
+- The platform-neutral Agent Runtime owns Thread / Turn / Item execution; the Electron desktop host is the source of truth for active desktop tools and terminal state.
+- Shared packages under `packages/` must not import Electron, React Native, Expo, Node built-ins, or application directories.
 - React Renderer code must not execute operating-system commands or access Node APIs directly. Use the narrow preload/IPC boundary.
 - Keep local tools behind the Runtime. Do not expose generic terminal or filesystem execution APIs to the Renderer.
 - Ordinary chat and Multi-Agent execution must reuse the same Runtime and event model.

@@ -9,7 +9,8 @@ entry point, and the Python Flask API runs as an independently managed service.
 - [Process boundary](#process-boundary)
 - [Data and control flow](#data-and-control-flow)
 - [Thread / Turn / Item event model](#thread--turn--item-event-model)
-- [Electron Agent Runtime](#electron-agent-runtime)
+- [Shared Agent Runtime](#shared-agent-runtime)
+- [Electron desktop host](#electron-desktop-host)
 - [Flask service boundaries](#flask-service-boundaries)
 - [Agent Loop and context compression](#agent-loop-and-context-compression)
 - [Local tools](#local-tools)
@@ -113,12 +114,27 @@ truth for active Turn state and supports:
 - snapshot replay by `sequence`,
 - consistent ordering across all Renderer windows.
 
-## Electron Agent Runtime
+## Shared Agent Runtime
 
-The Runtime adapter is implemented in `desktop/electron/runtime/agent-runtime.ts`.
-The platform-neutral event journal lives in `packages/runtime-core`, while
-`sqlite-event-store.ts` persists its state under Electron's `userData` directory.
-The Runtime is a module-level singleton inside Electron main.
+The platform-neutral harness lives in `packages/agent-runtime`. It owns provider
+stream parsing, the model/tool/resume loop, parallel tool dispatch, bounded
+failure recovery, pending-result replay, and Turn execution. Tool definitions
+and execution contracts live separately in `packages/tool-contracts`, while
+`packages/runtime-core` owns the event journal and execution state.
+
+The shared packages depend on ports for model transport, tool execution,
+persistence, lifecycle events, and resource cancellation. They must not import
+Electron, React Native, Expo, Node built-ins, or application directories;
+`pnpm check:boundaries` enforces this boundary.
+
+## Electron desktop host
+
+The Electron host is implemented in
+`desktop/electron/runtime/desktop-runtime-host.ts`. It binds the shared Runtime
+to Electron IPC, SQLite persistence, desktop tools, terminal ownership, and
+remote-run cancellation. `sqlite-event-store.ts` persists state under
+Electron's `userData` directory. The host is a module-level singleton inside
+Electron main.
 
 Responsibilities:
 
@@ -127,8 +143,8 @@ Responsibilities:
   `RuntimeEvent` with proper item lifecycles.
 - Persist execution metadata (`remoteRunId`, phase, pending tool calls, owned
   terminals) alongside the event journal.
-- Run the transport-independent Tool Loop and dispatch local capabilities via a
-  single tool registry.
+- Invoke the shared Tool Loop and dispatch local capabilities through the
+  desktop tool adapter.
 - Handle interruption with `interruptTurn()`, which cancels the model stream,
   stops terminals created by that Turn, retries remote cancellation, persists the partial message, and emits
   `turn.interrupted`.
@@ -207,11 +223,12 @@ The model payload includes:
 
 ## Local tools
 
-Local tools run inside Electron main. `runtime/tool-loop.ts` owns the
-model/tool/resume loop, while `runtime/tool-registry.ts` is the only dispatcher
-for built-in file, terminal, image, capability, task, collaboration, and dynamic
-MCP tools. `conversation-service.ts` only assembles the workspace context,
-transport, registry, and loop.
+Local tools run inside Electron main. `packages/agent-runtime` owns the
+model/tool/resume loop, while
+`desktop/electron/runtime/desktop-tool-registry.ts` is the desktop adapter for
+built-in file, terminal, image, capability, task, collaboration, and dynamic
+MCP tools. `conversation-service.ts` only assembles workspace context,
+transport, registry, and the shared loop.
 
 Unknown tool names are rejected explicitly. Identical failed operations are
 bounded to prevent ineffective retry loops, and write-capable tools keep the

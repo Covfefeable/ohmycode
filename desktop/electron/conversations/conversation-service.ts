@@ -2,17 +2,16 @@ import { loadAgentInstructions, renderAgentInstructions } from "../files/agents-
 import { runToolLoop, type AgentStreamEvent, type AgentTask } from "@ohmycode/agent-runtime";
 import { listProjects } from "../projects/projects-service.js";
 import type { LocalConversation, MessageAttachment } from "../projects/types.js";
-import { RuntimeToolRegistry } from "../runtime/tool-registry.js";
+import { DesktopToolRegistry } from "../runtime/desktop-tool-registry.js";
 import type { DesktopTurnExecution } from "../runtime/desktop-execution-adapter.js";
+import type { DesktopExecutionContext } from "../runtime/types.js";
 import { ConversationTransport } from "./conversation-transport.js";
 
 export type ConversationStreamEvent = AgentStreamEvent;
 export type { AgentTask };
-export type AgentExecutionContext = { ownerId: string; workspacePath: string };
-
 async function conversationWorkspace(
   conversationId: string,
-  executionContext?: AgentExecutionContext,
+  executionContext?: DesktopExecutionContext,
 ): Promise<string | undefined> {
   if (executionContext) return executionContext.workspacePath;
   const project = (await listProjects()).find((item) =>
@@ -29,7 +28,7 @@ export async function streamMessage(
   attachments: MessageAttachment[] | undefined,
   onEvent: (event: ConversationStreamEvent) => void,
   execution: DesktopTurnExecution,
-  executionContext?: AgentExecutionContext,
+  executionContext?: DesktopExecutionContext,
   turnId?: string,
 ): Promise<LocalConversation> {
   if (!turnId) throw new Error("turn_id_required");
@@ -38,7 +37,7 @@ export async function streamMessage(
     ? renderAgentInstructions(await loadAgentInstructions(workspaceRoot))
     : "";
   const transport = new ConversationTransport(execution.signal);
-  const registry = new RuntimeToolRegistry({
+  const registry = new DesktopToolRegistry({
     execution,
     executionContext,
     workspaceRoot,

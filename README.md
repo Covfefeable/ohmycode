@@ -22,7 +22,7 @@ api/
   migrations/          Flask-Migrate / Alembic 迁移
   tests/               服务端测试
 
-  desktop/
+desktop/
   electron/runtime/    常驻 Agent Runtime、事件 Journal
   electron/terminal/   持久 PTY 终端管理
   electron/files/      文件工具与 AGENTS.md 加载
@@ -30,6 +30,12 @@ api/
   src/pages/           页面组合
   src/features/        业务功能组件
   src/shared/          通用 UI、国际化与基础能力
+
+packages/
+  protocol/            Thread / Turn / Item 事件协议
+  runtime-core/        跨平台事件 Journal 与执行状态
+  tool-contracts/      平台无关工具定义与执行契约
+  agent-runtime/       平台无关流式解析、Tool Loop 与 Turn 执行
 
 docker/                完整与依赖服务 Compose 配置
 ```
@@ -40,7 +46,7 @@ docker/                完整与依赖服务 Compose 配置
 flowchart LR
     UI[React Renderer<br/>页面与流式时间线]
     IPC[Preload / IPC<br/>受限客户端接口]
-    RT[Electron Agent Runtime<br/>Thread / Turn / Item]
+    RT[Desktop Runtime Host<br/>共享 Thread / Turn / Item Runtime]
     JOURNAL[Event Journal<br/>顺序、订阅与重放]
     TOOLS[本地工具<br/>PTY Terminal / File Tools]
     API[Flask API<br/>Agent Loop 与业务服务]
@@ -61,7 +67,7 @@ flowchart LR
 职责边界：
 
 - React Renderer 只负责展示与用户交互，不拥有正在执行任务的真实状态。
-- Electron Agent Runtime 是活动 Turn、工具调用和终端会话的唯一事实源。
+- 共享 Agent Runtime 负责 Turn 与 Tool Loop；Desktop Runtime Host 绑定 IPC、本地工具和终端会话。
 - Event Journal 为每个 Turn 分配单调递增序号，支持重新订阅和增量重放。
 - Flask 负责认证、配置、项目数据、消息持久化、上下文构造和模型 Agent Loop。
 - PostgreSQL 保存用户、项目、会话、消息、运行记录和协作数据；Redis 当前纳入服务健康检查，并为后续缓存和临时协调预留。
