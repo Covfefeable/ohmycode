@@ -27,7 +27,15 @@ export function ProfileSettings({ initial, tokenUsage }: { initial: PublicSettin
       setPendingAvatar(null);
       toast({ type: "success", message: t("settings.profileSaved") });
     }
-    catch { toast({ type: "error", message: t("settings.saveFailed") }); }
+    catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      toast({
+        type: "error",
+        message: t(message.includes("object_storage_unavailable")
+          ? "settings.avatarStorageUnavailable"
+          : "settings.saveFailed"),
+      });
+    }
   }
   function chooseAvatar(file?: File) {
     if (!file) return;

@@ -1,9 +1,12 @@
+from types import SimpleNamespace
+
 import pytest
 
 from app import create_app
 from app.config import ProductionConfig
 from app.extensions import db
 from app.services.settings import commands as settings_commands
+from app.services.system import health as health_service
 
 
 def create_test_app():
@@ -21,6 +24,37 @@ def test_liveness_does_not_require_dependencies():
 
     assert response.status_code == 200
     assert response.get_json()["status"] == "ok"
+
+
+def test_readiness_checks_object_storage(monkeypatch):
+    app = create_test_app()
+    monkeypatch.setattr(
+        health_service, "get_redis", lambda: SimpleNamespace(ping=lambda: True)
+    )
+    monkeypatch.setattr(health_service, "check_object_storage", lambda: None)
+
+    with app.test_client() as client:
+        response = client.get("/api/health/ready")
+
+    assert response.status_code == 200
+    assert response.get_json()["dependencies"]["object_storage"] == "ok"
+
+
+def test_readiness_reports_unavailable_object_storage(monkeypatch):
+    app = create_test_app()
+    monkeypatch.setattr(
+        health_service, "get_redis", lambda: SimpleNamespace(ping=lambda: True)
+    )
+
+    def unavailable():
+        raise RuntimeError("storage unavailable")
+
+    monkeypatch.setattr(health_service, "check_object_storage", unavailable)
+    with app.test_client() as client:
+        response = client.get("/api/health/ready")
+
+    assert response.status_code == 503
+    assert response.get_json()["dependencies"]["object_storage"] == "unavailable"
 
 
 def test_register_login_and_current_user():

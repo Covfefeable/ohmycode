@@ -26,6 +26,10 @@ def _bucket(client: Minio) -> str:
     return bucket
 
 
+def check_object_storage() -> None:
+    _bucket(_client())
+
+
 def put_object(key: str, content: bytes, content_type: str) -> None:
     client = _client()
     try:

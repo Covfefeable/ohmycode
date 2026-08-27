@@ -242,7 +242,7 @@ export const zhCN = {
   },
   settings: {
     eyebrow: "偏好设置", title: "设置", profileTab: "个人信息", modelsTab: "模型配置", mcpTab: "MCP", skillsTab: "Skills", loadFailed: "设置加载失败。",
-    profileEyebrow: "个人身份", profileTitle: "个人信息", profileDescription: "管理你的 OhMyCode 个人身份。", save: "保存个人信息", saved: "已保存", profileSaved: "个人信息已保存。", saveFailed: "设置保存失败。", changeAvatar: "更换头像", avatarInvalid: "请选择不超过 5MB 的 PNG、JPEG 或 WebP 图片。",
+    profileEyebrow: "个人身份", profileTitle: "个人信息", profileDescription: "管理你的 OhMyCode 个人身份。", save: "保存个人信息", saved: "已保存", profileSaved: "个人信息已保存。", saveFailed: "设置保存失败。", avatarStorageUnavailable: "头像存储服务不可用，请检查 MinIO 配置后重试。", changeAvatar: "更换头像", avatarInvalid: "请选择不超过 5MB 的 PNG、JPEG 或 WebP 图片。",
     modelsEyebrow: "模型服务", modelsTitle: "模型配置", modelsDescription: "管理你的 OpenAI-compatible 模型服务。", addModel: "添加配置", defaultModel: "默认模型", configName: "配置名称", modelName: "模型 ID", contextLength: "上下文长度", supportsVision: "多模态", baseUrl: "API Base URL", apiKey: "API Key", keyStored: "已安全保存，输入新值可替换", test: "测试连接", testing: "测试中…", testSuccess: "连接成功，耗时 {{latency}} ms", noModels: "尚未添加模型配置。", saveModels: "保存模型配置",
     modelsSaved: "模型配置已保存。", modelValidation: "请完整填写每条模型配置。", removeModel: "删除模型", unnamedModel: "未命名配置", noModelsDescription: "添加一个 OpenAI-compatible 模型服务后即可开始对话。",
     tokenUsageTitle: "Token 使用量", noTokenUsage: "最近一年暂无使用记录", tokenUsageTotal: "最近一年共使用 {{count}} Token", tokenUsageDay: "{{date}} · {{count}} Token", tokenUsageLess: "少", tokenUsageMore: "多",
