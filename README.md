@@ -192,7 +192,7 @@ API：
 
 ```bash
 cd api
-uv run flask --app manage:app run --host 127.0.0.1 --port 8765 --debug
+uv run flask --app manage:app run --host 0.0.0.0 --port 8765 --debug
 ```
 
 Celery Worker（macOS / Linux）：
@@ -232,8 +232,9 @@ pnpm dev
 
 ### 移动端
 
-移动端使用 Expo SDK 54，可直接使用应用商店版 Expo Go 调试。先在 `mobile/.env` 配置
-手机或浏览器能够访问的 API 地址：
+移动端使用 Expo SDK 54，可直接使用应用商店版 Expo Go 调试。开发模式默认从 Expo
+开发服务器地址推导电脑的局域网 IP，并连接同一台电脑的 `8765` 端口；也可以在
+`mobile/.env` 显式覆盖 API 地址：
 
 ```dotenv
 EXPO_PUBLIC_API_URL=http://192.168.1.10:8765

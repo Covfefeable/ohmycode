@@ -1,11 +1,22 @@
 import * as Device from "expo-device";
+import Constants from "expo-constants";
 import * as SecureStore from "expo-secure-store";
 import { fetch as expoFetch } from "expo/fetch";
 
 import { clearTokens, readTokens, storeTokens } from "./token-store";
 import type { ApiErrorPayload, AuthResponse, AuthTokens, User } from "./types";
 
-const apiUrl = (process.env.EXPO_PUBLIC_API_URL ?? "http://ai.llmol.com:8765").replace(/\/+$/, "");
+function developmentApiUrl(): string | null {
+  const hostUri = Constants.expoConfig?.hostUri ?? Constants.expoGoConfig?.debuggerHost;
+  const host = hostUri?.match(/^\[([^\]]+)\]|^([^:]+)/)?.slice(1).find(Boolean);
+  return host ? `http://${host}:8765` : null;
+}
+
+const apiUrl = (
+  process.env.EXPO_PUBLIC_API_URL
+  ?? (__DEV__ ? developmentApiUrl() : null)
+  ?? "http://ai.llmol.com:8765"
+).replace(/\/+$/, "");
 const DEVICE_ID_KEY = "ohmycode.device.id";
 
 export class ApiError extends Error {

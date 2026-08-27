@@ -3,8 +3,15 @@ from uuid import UUID
 
 from ..extensions import db
 from ..models import AgentRun, Conversation, Project
-from .agent import stream_completion, stream_prepare_completion
+from .agent import (
+    recover_completion,
+    resume_completion,
+    stream_completion,
+    stream_prepare_completion,
+)
+from .agent.provider_stream import PreparedCompletion
 from .agent.runs import cancel_run
+from .agent.tools import UPDATE_TASKS_TOOL
 from .conversations import create_conversation, delete_conversation, get_conversation
 from .errors import ServiceError
 
@@ -13,8 +20,9 @@ MOBILE_PROJECT_PATH = "ohmycode://mobile/conversations"
 MOBILE_SYSTEM_INSTRUCTIONS = """You are OhMyCode's mobile assistant.
 Answer clearly and directly using the conversation context. You do not have access to the
 user's filesystem, terminal, desktop workspace, attachments, MCP servers, or local Skills.
-Never claim that you executed commands or changed files. If a request requires local code
-execution, explain that it should be continued in the OhMyCode desktop application."""
+You may use the task-planning tool to communicate progress. Never claim that you executed
+commands or changed files. If a request requires local code execution, explain that it should
+be continued in the OhMyCode desktop application."""
 
 
 def _mobile_project(user_id: UUID) -> Project:
@@ -96,6 +104,54 @@ def cancel_mobile_run(user_id: UUID, run_id: UUID, partial_message: str = "") ->
     cancel_run(user_id, run_id, partial_message)
 
 
+def _owned_mobile_run(user_id: UUID, run_id: UUID) -> AgentRun:
+    run = db.session.scalar(
+        db.select(AgentRun)
+        .join(Conversation)
+        .join(Project)
+        .where(
+            AgentRun.id == run_id,
+            Project.user_id == user_id,
+            Project.kind == "mobile",
+        )
+    )
+    if not run:
+        raise ServiceError("not_found", 404)
+    return run
+
+
+def resume_mobile_run(
+    user_id: UUID, run_id: UUID, results: list[dict]
+) -> PreparedCompletion | list[dict]:
+    _owned_mobile_run(user_id, run_id)
+    return resume_completion(
+        user_id,
+        run_id,
+        results,
+        tools_override=[UPDATE_TASKS_TOOL],
+        system_instructions=MOBILE_SYSTEM_INSTRUCTIONS,
+    )
+
+
+def recover_mobile_run(
+    user_id: UUID,
+    run_id: UUID,
+    partial_content: str,
+    partial_reasoning: str,
+    results: list[dict],
+) -> PreparedCompletion | list[dict]:
+    _owned_mobile_run(user_id, run_id)
+    return recover_completion(
+        user_id,
+        run_id,
+        partial_content=partial_content,
+        partial_reasoning=partial_reasoning,
+        results=results,
+        tools_override=[UPDATE_TASKS_TOOL],
+        system_instructions=MOBILE_SYSTEM_INSTRUCTIONS,
+    )
+
+
 def stream_mobile_chat(
     user_id: UUID,
     conversation_id: UUID,
@@ -111,7 +167,7 @@ def stream_mobile_chat(
         model_id,
         None,
         turn_id=turn_id,
-        tools_enabled=False,
+        tools_override=[UPDATE_TASKS_TOOL],
         system_instructions=MOBILE_SYSTEM_INSTRUCTIONS,
     )
     while True:

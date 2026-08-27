@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from "react";
+import { AUTH_LIQUID_ETHER_COLORS, AUTH_LIQUID_ETHER_PROPS } from "@ohmycode/web-effects/auth-liquid-ether";
 import styles from "./AuthBackground.module.css";
 
 const LiquidEther = lazy(() => import("@ohmycode/web-effects").then(({ LiquidEther }) => ({ default: LiquidEther })));
@@ -17,12 +18,8 @@ export function AuthBackground() {
   const light = document.documentElement.dataset.theme === "light";
   return <div className={styles.background} aria-hidden="true">
     {ready && !reducedMotion && <Suspense fallback={null}><LiquidEther
-      colors={light ? ["#dcefe1", "#72b886", "#18843a"] : ["#08130c", "#22773b", "#7dff98"]}
-      mouseForce={16}
-      cursorSize={90}
-      resolution={0.4}
-      autoSpeed={0.35}
-      autoIntensity={1.5}
+      {...AUTH_LIQUID_ETHER_PROPS}
+      colors={light ? AUTH_LIQUID_ETHER_COLORS.light : AUTH_LIQUID_ETHER_COLORS.dark}
     /></Suspense>}
   </div>;
 }

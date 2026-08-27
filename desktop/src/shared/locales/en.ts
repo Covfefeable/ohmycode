@@ -93,7 +93,7 @@ export const en = {
     stop: "Stop",
     stoppedByUser: "You stopped this task",
     loadFailed: "The conversation could not be loaded.",
-    sendFailed: "The message could not be sent. Try again later.",
+    sendFailed: "The message could not be sent. Try again later.", authenticationFailed: "Model provider authentication failed. Check the API key.", permissionDenied: "The model provider denied access. Check the account permissions.", rateLimited: "The model provider rate limit was reached. Try again later.", providerFailed: "The model provider returned an error. Check the model configuration.",
     copy: "Copy",
     edit: "Edit and resend",
     cancel: "Cancel",
@@ -249,7 +249,7 @@ export const en = {
     tokenUsageTitle: "Token usage", noTokenUsage: "No usage recorded in the last year", tokenUsageTotal: "{{count}} tokens used in the last year", tokenUsageDay: "{{date}} · {{count}} tokens", tokenUsageLess: "Less", tokenUsageMore: "More",
     mcpTitle: "MCP services", mcpDescription: "Connect remote HTTP or local stdio MCP servers.", addMcp: "Add service", editMcp: "Edit MCP", mcpName: "Service name", mcpIdentifier: "Identifier", mcpTransport: "Transport", command: "Command", arguments: "Arguments", workingDirectory: "Working directory", tools: "tools", mcpSaved: "MCP service saved.", mcpSaveFailed: "The MCP service could not be saved.", mcpConnected: "Connected. {{count}} tools discovered.", mcpConnectionFailed: "The MCP service could not be reached.", reconnectMcp: "Reconnect", viewMcpTools: "View tools", mcpToolsTitle: "{{name}} tools", mcpToolsCount: "{{count}} tools", noToolDescription: "No description", noMcpTools: "No tools cached. Reconnect first.", noMcp: "No MCP services", noMcpDescription: "Add one to let agents discover and invoke its tools when needed.",
     skillsTitle: "Skills", skillsDescription: "Install ZIP skill packages for secure local extraction and use.", uploadSkill: "Install skill", skillInstalled: "Skill installed.", skillInstallFailed: "The skill could not be installed.", skillDownloaded: "Skill downloaded to this device.", skillDownloadFailed: "The skill could not be downloaded.", downloadSkill: "Download to this device", removeLocalSkill: "Remove from this device", deleteSkillEverywhere: "Delete everywhere", confirmRemoveLocalSkill: "Remove local skill", removeLocalSkillWarning: "The cloud archive will remain available for download.", confirmDeleteSkill: "Delete skill everywhere", deleteSkillWarning: "This removes both the local files and cloud archive and cannot be undone.", skillRemovedLocally: "Skill removed from this device.", skillDeleted: "Skill deleted everywhere.", skillDeleteFailed: "The skill could not be deleted.", noSkillDescription: "No description was provided.", noSkills: "No skills installed", noSkillsDescription: "Choose a ZIP archive containing SKILL.md to get started.",
-    testErrors: { missing_api_key: "Enter an API key first.", connection_failed: "Connection failed.", http_401: "Authentication failed.", http_403: "Access denied.", http_404: "Models endpoint not found.", http_429: "Rate limit exceeded." },
+    testErrors: { missing_api_key: "Enter an API key first.", connection_failed: "Connection failed.", http_401: "Authentication failed.", http_403: "Access denied.", http_404: "Chat Completions endpoint not found.", http_429: "Rate limit exceeded." },
   },
   language: {
     label: "Language",

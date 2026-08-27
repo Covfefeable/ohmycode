@@ -11,6 +11,7 @@ type AuthContextValue = {
   login(credentials: Credentials): Promise<void>;
   register(credentials: Credentials): Promise<void>;
   logout(): Promise<void>;
+  updateUser(patch: Partial<User>): void;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -35,6 +36,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       await clearTokens();
       setUser(null);
     },
+    updateUser: (patch) => setUser((current) => current ? { ...current, ...patch } : current),
   }), [ready, user]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

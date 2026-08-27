@@ -169,9 +169,15 @@ def test_model(user_id: UUID, payload: dict) -> dict:
         return {"ok": False, "message": "missing_api_key"}
     try:
         started = perf_counter()
-        response = httpx.get(
-            f"{str(payload.get('baseUrl') or '').rstrip('/')}/models",
+        response = httpx.post(
+            f"{str(payload.get('baseUrl') or '').rstrip('/')}/chat/completions",
             headers={"Authorization": f"Bearer {api_key}"},
+            json={
+                "model": str(payload.get("model") or ""),
+                "messages": [{"role": "user", "content": "Reply with OK."}],
+                "max_tokens": 1,
+                "stream": False,
+            },
             timeout=15,
         )
         if not response.is_success:

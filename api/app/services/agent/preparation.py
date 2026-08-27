@@ -124,6 +124,7 @@ def stream_prepare_completion(
     turn_id: UUID | None = None,
     attachments: object = None,
     tools_enabled: bool = True,
+    tools_override: list[dict] | None = None,
     system_instructions: str = AGENT_SYSTEM_INSTRUCTIONS,
 ):
     conversation = prepare_user_prompt(
@@ -151,11 +152,14 @@ def stream_prepare_completion(
         },
     )
     db.session.commit()
-    tools, mailbox = (
-        completion_tools_and_mailbox(conversation_id, configuration)
-        if tools_enabled
-        else ([], [])
-    )
+    if tools_override is not None:
+        tools, mailbox = tools_override, []
+    else:
+        tools, mailbox = (
+            completion_tools_and_mailbox(conversation_id, configuration)
+            if tools_enabled
+            else ([], [])
+        )
     return prepared_completion(
         run,
         configuration,

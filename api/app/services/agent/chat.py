@@ -141,7 +141,12 @@ def _loaded_capability_tools(run: AgentRun) -> list[dict]:
 
 
 def resume_completion(
-    user_id: UUID, run_id: UUID, results: list[dict], workspace_instructions: str = ""
+    user_id: UUID,
+    run_id: UUID,
+    results: list[dict],
+    workspace_instructions: str = "",
+    tools_override: list[dict] | None = None,
+    system_instructions: str = AGENT_SYSTEM_INSTRUCTIONS,
 ) -> PreparedCompletion:
     run = get_owned_run(user_id, run_id)
     if run.status != "waiting_tool" or not results:
@@ -162,7 +167,7 @@ def resume_completion(
     if not conversation:
         raise ServiceError("not_found", 404)
     context = prepare_context(
-        run, configuration, list(conversation.messages), AGENT_SYSTEM_INSTRUCTIONS
+        run, configuration, list(conversation.messages), system_instructions
     )
     checkpoint = latest_checkpoint(run.conversation_id)
     checkpoint_sequence = 0
@@ -185,10 +190,19 @@ def resume_completion(
             {"runId": str(run.id), "toolEventSequence": run.last_event_sequence},
         )
         model_messages = [{"role": "system", "content": f"Conversation checkpoint:\n{summary}"}]
-    tools, mailbox = completion_tools_and_mailbox(run.conversation_id, configuration)
-    tools.extend(_loaded_capability_tools(run))
+    if tools_override is None:
+        tools, mailbox = completion_tools_and_mailbox(run.conversation_id, configuration)
+        tools.extend(_loaded_capability_tools(run))
+    else:
+        tools, mailbox = tools_override, []
     return prepared_completion(
-        run, configuration, model_messages, workspace_instructions, tools, mailbox
+        run,
+        configuration,
+        model_messages,
+        workspace_instructions,
+        tools,
+        mailbox,
+        system_instructions,
     )
 
 
@@ -236,11 +250,20 @@ def recover_completion(
     partial_content: str = "",
     partial_reasoning: str = "",
     results: list[dict] | None = None,
+    tools_override: list[dict] | None = None,
+    system_instructions: str = AGENT_SYSTEM_INSTRUCTIONS,
 ) -> PreparedCompletion | list[dict]:
     run = get_owned_run(user_id, run_id)
     if run.status == "waiting_tool":
         if results:
-            return resume_completion(user_id, run_id, results, workspace_instructions)
+            return resume_completion(
+                user_id,
+                run_id,
+                results,
+                workspace_instructions,
+                tools_override,
+                system_instructions,
+            )
         return pending_tool_requests(run)
     if run.status in {"completed", "cancelled"}:
         return []
@@ -253,7 +276,7 @@ def recover_completion(
     if not configuration or not conversation:
         raise ServiceError("not_found", 404)
     context = prepare_context(
-        run, configuration, list(conversation.messages), AGENT_SYSTEM_INSTRUCTIONS
+        run, configuration, list(conversation.messages), system_instructions
     )
     model_messages = [*context.messages, *_tool_history(run)]
     partial_content = partial_content[:200_000]
@@ -276,10 +299,19 @@ def recover_completion(
     run.completed_at = None
     append_event(run, "run.recovered", {"partialContentLength": len(partial_content)})
     db.session.commit()
-    tools, mailbox = completion_tools_and_mailbox(run.conversation_id, configuration)
-    tools.extend(_loaded_capability_tools(run))
+    if tools_override is None:
+        tools, mailbox = completion_tools_and_mailbox(run.conversation_id, configuration)
+        tools.extend(_loaded_capability_tools(run))
+    else:
+        tools, mailbox = tools_override, []
     prepared = prepared_completion(
-        run, configuration, model_messages, workspace_instructions, tools, mailbox
+        run,
+        configuration,
+        model_messages,
+        workspace_instructions,
+        tools,
+        mailbox,
+        system_instructions,
     )
     return replace(
         prepared,

@@ -1,4 +1,4 @@
-import { LiquidEther } from "@ohmycode/web-effects";
+import { AUTH_LIQUID_ETHER_COLORS, AUTH_LIQUID_ETHER_PROPS, LiquidEther } from "@ohmycode/web-effects";
 import { useEffect, useState } from "react";
 import { View } from "react-native";
 
@@ -17,12 +17,8 @@ export function AuthVisual() {
   }, []);
   return <View pointerEvents="none" style={styles.fill}>
     {!reducedMotion && <LiquidEther
-      autoIntensity={1.25}
-      autoSpeed={0.3}
-      colors={mode === "dark" ? ["#08130c", "#22773b", "#7dff98"] : ["#dcefe1", "#72b886", "#18843a"]}
-      cursorSize={90}
-      mouseForce={14}
-      resolution={0.4}
+      {...AUTH_LIQUID_ETHER_PROPS}
+      colors={mode === "dark" ? AUTH_LIQUID_ETHER_COLORS.dark : AUTH_LIQUID_ETHER_COLORS.light}
     />}
   </View>;
 }

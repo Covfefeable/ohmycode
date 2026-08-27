@@ -1,5 +1,5 @@
-import { ChatHomeScreen } from "@/features/chat/ui/ChatHomeScreen/ChatHomeScreen";
+import { RecentChatRedirect } from "@/features/chat/ui/RecentChatRedirect/RecentChatRedirect";
 
 export default function ChatHomeRoute() {
-  return <ChatHomeScreen />;
+  return <RecentChatRedirect />;
 }

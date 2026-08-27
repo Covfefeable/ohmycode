@@ -1,3 +1,4 @@
+import Feather from "@expo/vector-icons/Feather";
 import { useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -6,7 +7,12 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ApiError } from "@/shared/api/api-client";
 import { useTheme } from "@/shared/theme/ThemeProvider";
+import { MarkdownContent } from "@/shared/ui/MarkdownContent/MarkdownContent";
 import { cancelMobileRun, createMobileConversation, getMobileConversation, streamMobileMessage, type MobileMessage } from "../../api/mobile-chat-api";
+import { updateMobileActivity } from "../../model/updateMobileActivity";
+import { ChatSidebar } from "../ChatSidebar/ChatSidebar";
+import { MobileActivityTimeline } from "../MobileActivityTimeline/MobileActivityTimeline";
+import { StreamingCursor } from "../StreamingCursor/StreamingCursor";
 import { styles } from "./ChatScreen.styles";
 
 type Props = { conversationId: string };
@@ -25,6 +31,7 @@ export function ChatScreen({ conversationId }: Props) {
   const [loading, setLoading] = useState(conversationId !== "new");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     if (conversationId === "new") return;
@@ -50,7 +57,8 @@ export function ChatScreen({ conversationId }: Props) {
     setSending(true);
     const optimisticUser: MobileMessage = { id: `user-${Date.now()}`, role: "user", content };
     const assistantId = `assistant-${Date.now()}`;
-    setMessages((current) => [...current, optimisticUser, { id: assistantId, role: "assistant", content: "" }]);
+    const agentStartedAt = new Date().toISOString();
+    setMessages((current) => [...current, optimisticUser, { id: assistantId, role: "assistant", content: "", activity: [], agentStartedAt }]);
     try {
       let id = activeId;
       if (id === "new") {
@@ -63,19 +71,23 @@ export function ChatScreen({ conversationId }: Props) {
       abortRef.current = controller;
       await streamMobileMessage(id, content, controller.signal, (event) => {
         if (event.type === "run.started") runIdRef.current = event.runId;
-        if (event.type === "message.delta") {
-          setMessages((current) => current.map((message) => message.id === assistantId ? { ...message, content: message.content + event.content } : message));
-        }
-        if (event.type === "run.failed") {
-          throw new ApiError(event.errorCode);
-        }
+        setMessages((current) => current.map((message) => message.id === assistantId ? {
+          ...message,
+          content: event.type === "message.delta" ? message.content + event.content : message.content,
+          activity: updateMobileActivity(message.activity ?? [], event),
+        } : message));
       });
       const persisted = await getMobileConversation(id);
       setMessages(persisted.messages ?? []);
       setTitle(persisted.title);
     } catch (caught) {
       if (caught instanceof Error && caught.name === "AbortError") return;
-      const key = caught instanceof ApiError && caught.code === "model_not_configured" ? "modelMissing" : "failed";
+      const code = caught instanceof ApiError ? caught.code : "";
+      const key = code === "model_not_configured" ? "modelMissing"
+        : code.startsWith("provider_http_401") ? "authenticationFailed"
+          : code.startsWith("provider_http_403") ? "permissionDenied"
+            : code.startsWith("provider_http_429") ? "rateLimited"
+              : code.startsWith("provider_http_") ? "providerFailed" : "failed";
       setError(t(`chat.${key}`));
       setMessages((current) => current.filter((message) => message.id !== assistantId || message.content));
     } finally {
@@ -97,8 +109,10 @@ export function ChatScreen({ conversationId }: Props) {
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.canvas }]}>
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.screen}>
-        <View style={[styles.header, { borderBottomColor: colors.border }]}>
-          <Pressable accessibilityLabel={t("common.back")} onPress={() => router.back()} style={styles.back}><Text style={[styles.backText, { color: colors.text }]}>‹</Text></Pressable>
+        <View style={[styles.header, { borderBottomColor: colors.border }]}> 
+          <Pressable accessibilityLabel={t("navigation.openSidebar")} onPress={() => setSidebarOpen(true)} style={({ pressed }) => [styles.menu, { backgroundColor: colors.surfaceRaised, borderColor: colors.border, opacity: pressed ? 0.72 : 1 }]}>
+            <Feather color={colors.text} name="menu" size={19} />
+          </Pressable>
           <Text numberOfLines={1} style={[styles.title, { color: colors.text }]}>{title}</Text>
           <View style={styles.headerSpacer} />
         </View>
@@ -110,9 +124,13 @@ export function ChatScreen({ conversationId }: Props) {
             onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
             ref={listRef}
             renderItem={({ item }) => item.role === "user" ? (
-              <View style={[styles.userBubble, { backgroundColor: colors.surfaceRaised }]}><Text style={[styles.messageText, { color: colors.text }]}>{item.content}</Text></View>
+              <View style={[styles.userBubble, { backgroundColor: colors.surfaceRaised }]}><MarkdownContent>{item.content}</MarkdownContent></View>
             ) : (
-              <View style={styles.assistantMessage}>{item.content ? <Text style={[styles.messageText, { color: colors.text }]}>{item.content}</Text> : <ActivityIndicator color={colors.accent} size="small" />}</View>
+              <View style={styles.assistantMessage}>
+                <MobileActivityTimeline active={sending && item.id.startsWith("assistant-")} durationMs={item.agentDurationMs} finalContent={item.content} startedAt={item.agentStartedAt} steps={item.activity ?? []} />
+                {item.content ? <MarkdownContent>{item.content}</MarkdownContent> : null}
+                {sending && item.id.startsWith("assistant-") ? <View style={styles.cursorRow}><StreamingCursor /></View> : null}
+              </View>
             )}
             ListEmptyComponent={<Text style={[styles.emptyText, { color: colors.textDim }]}>{t("chat.empty")}</Text>}
           />
@@ -135,9 +153,10 @@ export function ChatScreen({ conversationId }: Props) {
             onPress={sending ? () => void stop() : () => void send()}
             style={({ pressed }) => [styles.send, { backgroundColor: colors.accent, opacity: pressed || (!draft.trim() && !sending) ? 0.55 : 1 }]}
           >
-            <Text style={[styles.sendIcon, { color: colors.accentInk }]}>{sending ? "■" : "↑"}</Text>
+            <Feather color={colors.accentInk} name={sending ? "square" : "arrow-up"} size={18} />
           </Pressable>
         </View>
+        <ChatSidebar activeConversationId={activeId} onClose={() => setSidebarOpen(false)} visible={sidebarOpen} />
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

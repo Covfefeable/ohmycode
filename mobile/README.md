@@ -13,8 +13,9 @@ pnpm install
 pnpm --filter @ohmycode/mobile start
 ```
 
-Set `EXPO_PUBLIC_API_URL` when the phone cannot reach the default API. A physical
-device cannot use the computer's `127.0.0.1`; use a reachable LAN or hosted URL.
+Development builds derive the API host from the Expo development server and use
+port `8765`. Set `EXPO_PUBLIC_API_URL` to override it. The API must listen on
+`0.0.0.0`; a physical device cannot reach a server bound to `127.0.0.1`.
 
 ```bash
 EXPO_PUBLIC_API_URL=http://192.168.1.10:8765 pnpm --filter @ohmycode/mobile start

@@ -10,5 +10,6 @@ export const styles = StyleSheet.create({
     height: 48,
     paddingHorizontal: spacing[4],
   },
+  inputDisabled: { opacity: 0.72 },
   label: { fontSize: typography.small, fontWeight: "600" },
 });

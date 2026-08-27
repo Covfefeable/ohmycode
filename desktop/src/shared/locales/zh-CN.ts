@@ -92,7 +92,7 @@ export const zhCN = {
     stop: "停止",
     stoppedByUser: "你主动停止了这次任务",
     loadFailed: "对话加载失败。",
-    sendFailed: "消息发送失败，请稍后重试。",
+    sendFailed: "消息发送失败，请稍后重试。", authenticationFailed: "模型服务身份验证失败，请检查 API Key。", permissionDenied: "模型服务拒绝访问，请检查账户权限。", rateLimited: "模型服务请求频率超限，请稍后重试。", providerFailed: "模型服务返回错误，请检查模型配置。",
     copy: "复制",
     edit: "编辑并重新发送",
     cancel: "取消",
@@ -248,7 +248,7 @@ export const zhCN = {
     tokenUsageTitle: "Token 使用量", noTokenUsage: "最近一年暂无使用记录", tokenUsageTotal: "最近一年共使用 {{count}} Token", tokenUsageDay: "{{date}} · {{count}} Token", tokenUsageLess: "少", tokenUsageMore: "多",
     mcpTitle: "MCP 服务", mcpDescription: "连接远程 HTTP 或本地 stdio MCP 服务。", addMcp: "添加服务", editMcp: "编辑 MCP", mcpName: "服务名称", mcpIdentifier: "标识符", mcpTransport: "连接方式", command: "启动命令", arguments: "命令参数", workingDirectory: "工作目录", tools: "个工具", mcpSaved: "MCP 服务已保存。", mcpSaveFailed: "MCP 服务保存失败。", mcpConnected: "连接成功，发现 {{count}} 个工具。", mcpConnectionFailed: "MCP 服务连接失败。", reconnectMcp: "重新连接", viewMcpTools: "查看工具", mcpToolsTitle: "{{name}} 的工具", mcpToolsCount: "共 {{count}} 个工具", noToolDescription: "暂无描述", noMcpTools: "尚未获取工具，请先重新连接。", noMcp: "尚未添加 MCP 服务", noMcpDescription: "添加后可在 Agent 运行时按需发现和调用工具。",
     skillsTitle: "Skills", skillsDescription: "安装 ZIP 格式的 Skill 包，并在本机安全解压使用。", uploadSkill: "安装 Skill", skillInstalled: "Skill 已安装。", skillInstallFailed: "Skill 安装失败。", skillDownloaded: "Skill 已下载到本机。", skillDownloadFailed: "Skill 下载失败。", downloadSkill: "下载到本机", removeLocalSkill: "仅从本机删除", deleteSkillEverywhere: "彻底删除", confirmRemoveLocalSkill: "从本机删除 Skill", removeLocalSkillWarning: "云端备份会保留，之后可以重新下载。", confirmDeleteSkill: "彻底删除 Skill", deleteSkillWarning: "将同时删除本机文件和云端备份，此操作无法撤销。", skillRemovedLocally: "已从本机删除。", skillDeleted: "Skill 已彻底删除。", skillDeleteFailed: "Skill 删除失败。", noSkillDescription: "此 Skill 没有提供描述。", noSkills: "尚未安装 Skill", noSkillsDescription: "选择一个包含 SKILL.md 的 ZIP 文件开始安装。",
-    testErrors: { missing_api_key: "请先填写 API Key。", connection_failed: "连接失败。", http_401: "身份验证失败。", http_403: "没有访问权限。", http_404: "未找到 Models 接口。", http_429: "请求频率超限。" },
+    testErrors: { missing_api_key: "请先填写 API Key。", connection_failed: "连接失败。", http_401: "身份验证失败。", http_403: "没有访问权限。", http_404: "未找到 Chat Completions 接口。", http_429: "请求频率超限。" },
   },
   language: {
     label: "语言",

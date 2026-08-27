@@ -3,6 +3,7 @@
   "main": "expo-router/entry",
   "version": "0.1.0",
   "dependencies": {
+    "@expo/vector-icons": "15.1.1",
     "@ohmycode/agent-runtime": "workspace:*",
     "@ohmycode/design-tokens": "workspace:*",
     "@ohmycode/protocol": "workspace:*",

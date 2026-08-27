@@ -106,5 +106,7 @@ def test_mobile_stream_does_not_offer_desktop_tools(monkeypatch):
 
     assert response.status_code == 200
     assert b"Hello from mobile" in response.data
-    assert "tools" not in provider_payloads[0]
+    assert [tool["function"]["name"] for tool in provider_payloads[0]["tools"]] == [
+        "update_tasks"
+    ]
     assert "mobile assistant" in provider_payloads[0]["messages"][0]["content"]

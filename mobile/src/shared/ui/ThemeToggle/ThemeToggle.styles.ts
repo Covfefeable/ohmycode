@@ -9,5 +9,4 @@ export const styles = StyleSheet.create({
     justifyContent: "center",
     width: 34,
   },
-  icon: { fontSize: 18, lineHeight: 20 },
 });

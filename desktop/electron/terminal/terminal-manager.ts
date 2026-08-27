@@ -6,6 +6,7 @@ import { listProjects } from "../projects/projects-service.js";
 import { commandRequiresApproval } from "./command-policy.js";
 import { TERMINAL_CONFIG } from "./config.js";
 import { shellLaunch } from "./platform.js";
+import { ensureNodePtyHelperExecutable } from "./node-pty-helper.js";
 import type { TerminalAction, TerminalResult, TerminalStatus } from "./types.js";
 
 type Session = {
@@ -106,6 +107,7 @@ async function start(action: Extract<TerminalAction, { action: "start" }>, signa
   }
   const cwd = await projectDirectory(action.projectId, action.cwd, workspaceRoot);
   const launch = shellLaunch(command);
+  ensureNodePtyHelperExecutable();
   const child = pty.spawn(launch.executable, launch.args, {
     cwd,
     cols: TERMINAL_CONFIG.columns,

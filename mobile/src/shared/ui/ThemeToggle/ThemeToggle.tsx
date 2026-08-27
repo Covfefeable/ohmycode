@@ -1,20 +1,23 @@
-import { Pressable, Text } from "react-native";
+import Feather from "@expo/vector-icons/Feather";
+import { Pressable } from "react-native";
+import { useTranslation } from "react-i18next";
 
 import { useTheme } from "@/shared/theme/ThemeProvider";
 import { styles } from "./ThemeToggle.styles";
 
 export function ThemeToggle() {
+  const { t } = useTranslation();
   const { colors, mode, toggle } = useTheme();
   return (
     <Pressable
-      accessibilityLabel="Toggle color theme"
+      accessibilityLabel={t("theme.toggle")}
       onPress={toggle}
       style={({ pressed }) => [
         styles.button,
         { backgroundColor: colors.surfaceRaised, opacity: pressed ? 0.72 : 1 },
       ]}
     >
-      <Text style={[styles.icon, { color: colors.text }]}>{mode === "dark" ? "☼" : "◐"}</Text>
+      <Feather color={colors.text} name={mode === "dark" ? "sun" : "moon"} size={17} />
     </Pressable>
   );
 }

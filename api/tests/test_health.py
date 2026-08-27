@@ -140,6 +140,42 @@ def test_production_rejects_placeholder_secrets(monkeypatch):
         ProductionConfig.validate()
 
 
+def test_model_connection_uses_inference_endpoint_and_rejects_invalid_key(monkeypatch):
+    app = create_test_app()
+    captured = {}
+
+    def post(url, **kwargs):
+        captured.update(url=url, **kwargs)
+        return SimpleNamespace(is_success=False, status_code=401)
+
+    monkeypatch.setattr(settings_commands.httpx, "post", post)
+    with app.test_client() as client:
+        registration = client.post(
+            "/api/auth/register",
+            json={
+                "email": "model-test@example.com",
+                "displayName": "Model Test",
+                "password": "secret123",
+            },
+        )
+        headers = {
+            "Authorization": f"Bearer {registration.get_json()['tokens']['accessToken']}"
+        }
+        response = client.post(
+            "/api/settings/models/test",
+            headers=headers,
+            json={
+                "apiKey": "expired-key",
+                "baseUrl": "https://models.example/v1",
+                "model": "example-model",
+            },
+        )
+
+    assert response.get_json() == {"ok": False, "message": "http_401"}
+    assert captured["url"] == "https://models.example/v1/chat/completions"
+    assert captured["json"]["model"] == "example-model"
+
+
 def test_production_requires_independent_secrets(monkeypatch):
     shared_secret = "x" * 32
     monkeypatch.setattr(ProductionConfig, "SECRET_KEY", shared_secret)

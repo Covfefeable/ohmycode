@@ -46,6 +46,10 @@ export function ConversationChat({ conversationId, active, onUpdated }: Conversa
   const requestErrorMessage = useCallback((error: unknown) => {
     const kind = classifyRequestError(error);
     if (kind === "model_not_configured") return t("agent.modelRequired");
+    if (kind === "authentication_error") return t("agent.authenticationFailed");
+    if (kind === "permission_error") return t("agent.permissionDenied");
+    if (kind === "rate_limit") return t("agent.rateLimited");
+    if (kind === "provider_error") return t("agent.providerFailed");
     if (kind === "network_error") return t("common.networkError");
     return t("agent.sendFailed");
   }, [t]);

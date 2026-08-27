@@ -1,3 +1,4 @@
+import Feather from "@expo/vector-icons/Feather";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -49,7 +50,7 @@ export function ChatHomeScreen() {
         <View style={styles.titleRow}>
           <Text style={[styles.title, { color: colors.text }]}>{t("home.title")}</Text>
           <Pressable onPress={() => router.push({ pathname: "/(app)/chat/[id]", params: { id: "new" } })} style={({ pressed }) => [styles.newButton, { backgroundColor: colors.accent, opacity: pressed ? 0.75 : 1 }]}>
-            <Text style={[styles.newButtonText, { color: colors.accentInk }]}>＋ {t("home.newChat")}</Text>
+            <Feather color={colors.accentInk} name="plus" size={17} /><Text style={[styles.newButtonText, { color: colors.accentInk }]}>{t("home.newChat")}</Text>
           </Pressable>
         </View>
         <Text style={[styles.subtitle, { color: colors.textMuted }]}>{t("home.subtitle")}</Text>
@@ -61,13 +62,13 @@ export function ChatHomeScreen() {
             renderItem={({ item }) => (
               <Pressable onPress={() => router.push({ pathname: "/(app)/chat/[id]", params: { id: item.id } })} style={({ pressed }) => [styles.row, { backgroundColor: pressed ? colors.surfaceHover : colors.surface, borderColor: colors.border }]}>
                 <Text numberOfLines={1} style={[styles.rowTitle, { color: colors.text }]}>{item.title}</Text>
-                <Text style={[styles.chevron, { color: colors.textDim }]}>›</Text>
+                <Feather color={colors.textDim} name="chevron-right" size={20} />
               </Pressable>
             )}
           />
         ) : <View style={[styles.empty, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <View style={[styles.emptyMark, { backgroundColor: colors.accentSoft }]}>
-            <Text style={[styles.emptyMarkText, { color: colors.accent }]}>＋</Text>
+            <Feather color={colors.accent} name="plus" size={22} />
           </View>
           <Text style={[styles.emptyTitle, { color: colors.text }]}>{t("home.emptyTitle")}</Text>
           <Text style={[styles.emptyDescription, { color: colors.textMuted }]}>{t("home.emptyDescription")}</Text>
