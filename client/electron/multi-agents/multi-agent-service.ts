@@ -119,7 +119,10 @@ async function orchestrate(task: MultiAgentTask, requestId: string, onEvent: (ev
 export async function runMultiAgentTask(taskId: string, requestId: string, onEvent: (event: MultiAgentRunEvent) => void): Promise<MultiAgentTask> {
   activeRuns.set(requestId, { taskId, cancelled: false });
   try {
-    const started = await apiRequest<MultiAgentTask>(`/api/multi-agents/tasks/${taskId}/start`, { method: "POST" });
+    const current = await getMultiAgentTask(taskId);
+    const started = current.status === "running"
+      ? current
+      : await apiRequest<MultiAgentTask>(`/api/multi-agents/tasks/${taskId}/start`, { method: "POST" });
     onEvent({ type: "task.updated", task: started });
     return await orchestrate(started, requestId, onEvent);
   } catch (error) {

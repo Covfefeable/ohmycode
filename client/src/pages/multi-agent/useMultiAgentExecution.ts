@@ -107,6 +107,7 @@ export function useMultiAgentExecution(options: Options) {
 
   async function sendGroupMessage() {
     if (!options.task || !message.trim()) return;
+    const shouldResume = options.task.status === "completed";
     const target = options.task.members.find((item) => item.id === mentionTargetId);
     const targetId = target?.id || options.task.members.find((item) => item.isHost)?.id;
     if (!targetId) return;
@@ -117,10 +118,12 @@ export function useMultiAgentExecution(options: Options) {
     if (!content) return;
     setSending(true);
     try {
-      options.setTask(await window.ohmycode.multiAgents.sendMessage(options.task.id, targetId, content));
+      const updated = await window.ohmycode.multiAgents.sendMessage(options.task.id, targetId, content);
+      options.setTask(updated);
       setMessage("");
       setMentionTargetId(null);
       setMentionQuery(null);
+      if (shouldResume) await executeTask(updated);
     } catch {
       toast({ type: "error", message: t("multiAgent.adjustFailed") });
     } finally {

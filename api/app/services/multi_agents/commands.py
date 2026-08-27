@@ -348,7 +348,12 @@ def post_user_message(user_id: UUID, node_id: UUID, payload: dict) -> MultiAgent
         content=content,
     )
     db.session.add(message)
-    if target.task.status == "running" and any(
+    if target.task.status == "completed":
+        target.task.status = "running"
+        for node in target.task.members:
+            node.status = "idle"
+        target.status = "ready"
+    elif target.task.status == "running" and any(
         node.status == "running" for node in target.task.members
     ):
         if target.status != "running":

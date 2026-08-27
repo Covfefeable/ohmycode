@@ -202,6 +202,20 @@ def test_host_driven_group_chat_lifecycle(tmp_path):
         assert finished["status"] == "completed"
         assert finished["messages"][-1]["type"] == "final"
 
+        follow_up = client.post(
+            f"/api/multi-agents/nodes/{writer['id']}/user-messages",
+            headers=headers,
+            json={"content": "Revise the opening"},
+        )
+        assert follow_up.status_code == 201
+        resumed = client.get(
+            f"/api/multi-agents/tasks/{task['id']}", headers=headers
+        ).get_json()
+        assert resumed["status"] == "running"
+        assert resumed["currentSpeakerId"] == writer["id"]
+        assert resumed["messages"][-2]["type"] == "final"
+        assert resumed["messages"][-1]["content"] == "Revise the opening"
+
 
 def test_user_message_queues_target_and_host_recovers(tmp_path):
     app = create_app("testing")
