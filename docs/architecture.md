@@ -2,8 +2,7 @@
 
 This document describes the high-level architecture of OhMyCode at version 0.1.0.
 It is a desktop-first Code Agent workspace: the Electron client is the primary
-entry point, and the Python Flask API can run as a local sidecar or as a remote
-service.
+entry point, and the Python Flask API runs as an independently managed service.
 
 ## Table of contents
 
@@ -21,8 +20,8 @@ service.
 
 ## Process boundary
 
-The Electron main process owns the local Flask sidecar and all local agent
-capabilities. The renderer is sandboxed and can only invoke a small, typed
+The Electron main process owns the local agent runtime and capabilities, while
+connecting to a separately managed Flask API. The renderer is sandboxed and can only invoke a small, typed
 preload API. It never receives Node.js, filesystem, or process execution access
 directly.
 

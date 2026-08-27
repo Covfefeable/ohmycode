@@ -1,5 +1,4 @@
 import { app, BrowserWindow } from "electron";
-import { startApiSidecar, stopApiSidecar } from "./api/sidecar.js";
 import { registerAuthIpc } from "./ipc/register-auth-ipc.js";
 import { registerCapabilitiesIpc } from "./ipc/register-capabilities-ipc.js";
 import { registerSystemIpc } from "./ipc/register-system-ipc.js";
@@ -36,9 +35,6 @@ if (!hasSingleInstanceLock) {
     registerProjectsIpc();
     registerMultiAgentIpc();
     void createMainWindow();
-    void startApiSidecar().catch((error) => {
-      console.error("[api] failed to initialize sidecar", error);
-    });
     app.on("activate", () => {
       if (BrowserWindow.getAllWindows().length === 0) void createMainWindow();
     });
@@ -52,5 +48,4 @@ app.on("window-all-closed", () => {
 app.on("before-quit", () => {
   stopAllTerminals();
   void closeMcpSessions();
-  stopApiSidecar();
 });
