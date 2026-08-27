@@ -257,12 +257,13 @@ def stream_completion(prepared: PreparedCompletion):
         if has_output_usage:
             run.output_tokens = (run.output_tokens or 0) + output_tokens_total
         if has_input_usage:
-            yield {
-                "type": "context.usage",
+            context_usage = {
                 "usedTokens": input_tokens_total,
                 "contextLength": prepared.context_length,
                 "source": "provider",
             }
+            append_event(run, "context.usage", context_usage)
+            yield {"type": "context.usage", **context_usage}
         if tool_calls:
             calls = [tool_calls[index] for index in sorted(tool_calls)]
             conversation = db.session.get(Conversation, prepared.conversation_id)

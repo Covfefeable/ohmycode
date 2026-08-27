@@ -117,6 +117,11 @@ export function ConversationChat({ conversationId, active, onUpdated }: Conversa
           .then((value) => {
             if (disposed) return;
             setConversation(value);
+            if (value.contextUsage) {
+              setContextUsage(value.contextUsage.contextLength > 0
+                ? value.contextUsage.usedTokens / value.contextUsage.contextLength
+                : 0);
+            }
             setSending(false);
           })
           .catch(() => {
@@ -147,6 +152,13 @@ export function ConversationChat({ conversationId, active, onUpdated }: Conversa
     ]).then(([loadedConversation, snapshot]) => {
       if (disposed) return;
       setConversation(loadedConversation);
+      if (loadedConversation.contextUsage) {
+        setContextUsage(loadedConversation.contextUsage.contextLength > 0
+          ? loadedConversation.contextUsage.usedTokens / loadedConversation.contextUsage.contextLength
+          : 0);
+      } else {
+        setContextUsage(0);
+      }
       setSuggestions([]);
       if (snapshot?.status === "in_progress") {
         activeTurnIdRef.current = snapshot.turnId;

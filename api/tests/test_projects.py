@@ -214,6 +214,11 @@ def test_project_conversation_and_message_lifecycle(monkeypatch):
         assert final_detail["messages"][-1]["content"] == "Hello stream"
         assert final_detail["messages"][-1]["reasoning"] == "Checking context"
         assert final_detail["messages"][-1]["agentDurationMs"] is not None
+        assert final_detail["contextUsage"] == {
+            "usedTokens": 120,
+            "contextLength": 262_144,
+            "source": "provider",
+        }
         sent_message = final_detail["messages"][-2]
         assert sent_message["attachments"][0]["name"] == "architecture.md"
         user_context = provider_payloads[-1]["messages"][-1]["content"]

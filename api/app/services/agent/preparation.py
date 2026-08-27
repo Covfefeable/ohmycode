@@ -144,12 +144,6 @@ def stream_prepare_completion(
         },
     )
     db.session.commit()
-    yield {
-        "type": "context.usage",
-        "usedTokens": context.estimated_tokens,
-        "contextLength": configuration.context_length,
-        "source": "estimated",
-    }
     tools, mailbox = completion_tools_and_mailbox(conversation_id, configuration)
     return prepared_completion(
         run, configuration, context.messages, workspace_instructions, tools, mailbox

@@ -3,6 +3,7 @@ export type LocalConversation = {
   title: string;
   createdAt: string;
   messages?: LocalMessage[];
+  contextUsage?: { usedTokens: number; contextLength: number; source: "provider" } | null;
 };
 
 export type MessageAttachment = { id: string; name: string; path: string; size: number; mimeType: string };

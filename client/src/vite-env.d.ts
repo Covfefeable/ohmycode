@@ -158,7 +158,7 @@ type AgentActivityStep =
   | { id: string; type: "tool"; tool: string; input: string | TerminalAction; result?: unknown; status: "running" | "completed"; taskId?: string };
 type MessageAttachment = { id: string; name: string; path: string; size: number; mimeType: string };
 type LocalMessage = { id: string; role: "user" | "assistant"; content: string; attachments?: MessageAttachment[]; reasoning?: string | null; activity?: AgentActivityStep[] | null; agentDurationMs?: number | null; agentStartedAt?: string; createdAt: string };
-type LocalConversation = { id: string; title: string; createdAt: string; messages?: LocalMessage[] };
+type LocalConversation = { id: string; title: string; createdAt: string; messages?: LocalMessage[]; contextUsage?: { usedTokens: number; contextLength: number; source: "provider" } | null };
 type LocalProject = { id: string; name: string; path: string; conversations: LocalConversation[] };
 type TerminalStatus = "running" | "exited" | "stopped";
 type TerminalAction =

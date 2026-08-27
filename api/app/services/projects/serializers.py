@@ -1,5 +1,27 @@
+from uuid import UUID
+
 from ...extensions import db
-from ...models import AgentRun, Conversation, Message, Project
+from ...models import AgentEvent, AgentRun, Conversation, Message, Project
+
+
+def latest_context_usage(conversation_id: UUID) -> dict | None:
+    event = db.session.scalar(
+        db.select(AgentEvent)
+        .join(AgentRun, AgentEvent.run_id == AgentRun.id)
+        .where(
+            AgentRun.conversation_id == conversation_id,
+            AgentEvent.event_type == "context.usage",
+        )
+        .order_by(AgentRun.started_at.desc(), AgentEvent.sequence.desc())
+        .limit(1)
+    )
+    if not event:
+        return None
+    return {
+        "usedTokens": int(event.payload.get("usedTokens") or 0),
+        "contextLength": int(event.payload.get("contextLength") or 0),
+        "source": "provider",
+    }
 
 
 def serialize_message(message: Message) -> dict:
@@ -27,6 +49,7 @@ def serialize_conversation(conversation: Conversation, include_messages: bool = 
     }
     if include_messages:
         result["messages"] = [serialize_message(message) for message in conversation.messages]
+        result["contextUsage"] = latest_context_usage(conversation.id)
     return result
 
 
