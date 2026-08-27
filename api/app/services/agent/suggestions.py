@@ -32,6 +32,7 @@ def _aux_completion(
     user_prompt: str,
     *,
     timeout: float = _AUX_TIMEOUT_SECONDS,
+    max_tokens: int | None = None,
 ) -> AuxiliaryCompletion | None:
     try:
         response = httpx.post(
@@ -47,6 +48,7 @@ def _aux_completion(
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt},
                 ],
+                **({"max_tokens": max_tokens} if max_tokens else {}),
             },
             timeout=timeout,
         )
@@ -116,8 +118,9 @@ def maybe_rename_new_conversation(
     completion = _aux_completion(
         configuration,
         TITLE_INSTRUCTIONS,
-        f"User request:\n{user_messages[0].content[:_MAX_INPUT_CHARS]}",
+        f"<user-request>\n{user_messages[0].content[:_MAX_INPUT_CHARS]}\n</user-request>",
         timeout=_TITLE_TIMEOUT_SECONDS,
+        max_tokens=32,
     )
     title = _clean_title(completion.content if completion else None)
     if title:

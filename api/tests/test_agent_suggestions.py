@@ -92,3 +92,39 @@ def test_maybe_rename_leaves_title_when_llm_fails(monkeypatch):
     )
     suggestions.maybe_rename_new_conversation(conversation, object())
     assert conversation.title == "New conversation"
+
+
+def test_title_request_treats_user_content_as_data(monkeypatch):
+    captured = {}
+
+    class Response:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"choices": [{"message": {"content": "修复登录问题"}}]}
+
+    monkeypatch.setattr(
+        suggestions.httpx,
+        "post",
+        lambda *_args, **kwargs: captured.update(kwargs) or Response(),
+    )
+    monkeypatch.setattr(suggestions, "decrypt_api_key", lambda _value: "secret")
+    monkeypatch.setattr(suggestions.db.session, "commit", lambda: None)
+    conversation = SimpleNamespace(
+        title="New conversation",
+        messages=[SimpleNamespace(role="user", content="修复登录问题并运行测试")],
+    )
+    configuration = SimpleNamespace(
+        base_url="https://models.example/v1",
+        model="model",
+        api_key_encrypted="encrypted",
+    )
+
+    suggestions.maybe_rename_new_conversation(conversation, configuration)
+
+    payload = captured["json"]
+    assert payload["max_tokens"] == 32
+    assert "not a coding agent" in payload["messages"][0]["content"]
+    assert payload["messages"][1]["content"].startswith("<user-request>\n")
+    assert payload["messages"][1]["content"].endswith("\n</user-request>")
