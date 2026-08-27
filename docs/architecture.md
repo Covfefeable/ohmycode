@@ -1,8 +1,9 @@
 # Architecture
 
 This document describes the high-level architecture of OhMyCode at version 0.1.0.
-It is a desktop-first Code Agent workspace: the Electron client is the primary
-entry point, and the Python Flask API runs as an independently managed service.
+It is a desktop-first Code Agent workspace with an Expo mobile companion. The
+Electron desktop application owns local execution, the mobile application owns
+only mobile-safe capabilities, and the Python Flask API runs independently.
 
 ## Table of contents
 
@@ -11,6 +12,7 @@ entry point, and the Python Flask API runs as an independently managed service.
 - [Thread / Turn / Item event model](#thread--turn--item-event-model)
 - [Shared Agent Runtime](#shared-agent-runtime)
 - [Electron desktop host](#electron-desktop-host)
+- [Mobile host](#mobile-host)
 - [Flask service boundaries](#flask-service-boundaries)
 - [Agent Loop and context compression](#agent-loop-and-context-compression)
 - [Local tools](#local-tools)
@@ -164,6 +166,14 @@ Important invariants:
   terminals and reconcile the remote run before the Turn is marked interrupted;
   dead PTYs are never presented as resumable processes.
 - Durable conversation content remains owned by Flask and PostgreSQL.
+
+## Mobile host
+
+The Expo application lives in `mobile/` and consumes the same protocol, Agent
+Runtime contracts, and semantic design tokens. Expo SecureStore owns mobile
+credentials. Mobile adapters must never expose desktop filesystem, terminal, or
+attachment-analysis tools; adding a capability requires an explicit mobile
+implementation. Expo Router owns navigation and auth route guards.
 
 ## Flask service boundaries
 

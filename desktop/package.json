@@ -19,6 +19,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@ohmycode/design-tokens": "workspace:*",
+    "@ohmycode/web-effects": "workspace:*",
     "@ohmycode/agent-runtime": "workspace:*",
     "@ohmycode/protocol": "workspace:*",
     "@ohmycode/runtime-core": "workspace:*",

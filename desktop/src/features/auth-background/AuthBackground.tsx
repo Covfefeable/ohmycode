@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import styles from "./AuthBackground.module.css";
 
-const LiquidEther = lazy(() => import("./liquid-ether/LiquidEther"));
+const LiquidEther = lazy(() => import("@ohmycode/web-effects").then(({ LiquidEther }) => ({ default: LiquidEther })));
 
 export function AuthBackground() {
   const [reducedMotion, setReducedMotion] = useState(false);

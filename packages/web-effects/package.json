@@ -1,0 +1,13 @@
+{
+  "name": "@ohmycode/web-effects",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "dependencies": { "three": "0.185.1" },
+  "peerDependencies": { "react": ">=19" },
+  "devDependencies": {
+    "@types/react": "19.2.18",
+    "@types/three": "0.185.4"
+  }
+}

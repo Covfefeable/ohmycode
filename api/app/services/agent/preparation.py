@@ -64,13 +64,14 @@ def completion_payload(
     messages: list[dict],
     workspace_instructions: str,
     mailbox: list[dict],
+    system_instructions: str = AGENT_SYSTEM_INSTRUCTIONS,
 ) -> dict:
     return {
         "model": configuration.model,
         "stream": True,
         "stream_options": {"include_usage": True},
         "messages": [
-            {"role": "system", "content": AGENT_SYSTEM_INSTRUCTIONS},
+            {"role": "system", "content": system_instructions},
             *(
                 [
                     {
@@ -96,9 +97,13 @@ def prepared_completion(
     workspace_instructions: str,
     tools: list[dict],
     mailbox: list[dict],
+    system_instructions: str = AGENT_SYSTEM_INSTRUCTIONS,
 ) -> PreparedCompletion:
-    payload = completion_payload(run, configuration, messages, workspace_instructions, mailbox)
-    payload["tools"] = tools
+    payload = completion_payload(
+        run, configuration, messages, workspace_instructions, mailbox, system_instructions
+    )
+    if tools:
+        payload["tools"] = tools
     return PreparedCompletion(
         run_id=run.id,
         conversation_id=run.conversation_id,
@@ -118,6 +123,8 @@ def stream_prepare_completion(
     workspace_instructions: str = "",
     turn_id: UUID | None = None,
     attachments: object = None,
+    tools_enabled: bool = True,
+    system_instructions: str = AGENT_SYSTEM_INSTRUCTIONS,
 ):
     conversation = prepare_user_prompt(
         user_id, conversation_id, content, edit_message_id, attachments
@@ -129,7 +136,7 @@ def stream_prepare_completion(
     yield {"type": "run.started", "runId": str(run.id)}
     try:
         context = yield from iter_prepare_context(
-            run, configuration, list(conversation.messages), AGENT_SYSTEM_INSTRUCTIONS
+            run, configuration, list(conversation.messages), system_instructions
         )
     except (httpx.HTTPError, KeyError, IndexError, TypeError, ValueError) as error:
         fail_run(run, "context_compaction_failed")
@@ -144,7 +151,17 @@ def stream_prepare_completion(
         },
     )
     db.session.commit()
-    tools, mailbox = completion_tools_and_mailbox(conversation_id, configuration)
+    tools, mailbox = (
+        completion_tools_and_mailbox(conversation_id, configuration)
+        if tools_enabled
+        else ([], [])
+    )
     return prepared_completion(
-        run, configuration, context.messages, workspace_instructions, tools, mailbox
+        run,
+        configuration,
+        context.messages,
+        workspace_instructions,
+        tools,
+        mailbox,
+        system_instructions,
     )

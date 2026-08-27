@@ -1,0 +1,47 @@
+{
+  "name": "@ohmycode/mobile",
+  "main": "expo-router/entry",
+  "version": "0.1.0",
+  "dependencies": {
+    "@ohmycode/agent-runtime": "workspace:*",
+    "@ohmycode/design-tokens": "workspace:*",
+    "@ohmycode/protocol": "workspace:*",
+    "@ohmycode/runtime-core": "workspace:*",
+    "@ohmycode/tool-contracts": "workspace:*",
+    "@ohmycode/web-effects": "workspace:*",
+    "expo": "~57.0.17",
+    "expo-constants": "~57.0.15",
+    "expo-device": "~57.0.1",
+    "expo-linking": "~57.0.8",
+    "expo-localization": "~57.0.1",
+    "expo-router": "~57.0.17",
+    "expo-secure-store": "~57.0.1",
+    "expo-splash-screen": "~57.0.8",
+    "expo-status-bar": "~57.0.1",
+    "expo-system-ui": "~57.0.3",
+    "i18next": "26.4.0",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "react-i18next": "17.0.12",
+    "react-native": "0.86.3",
+    "react-native-safe-area-context": "~5.7.0",
+    "react-native-screens": "~4.26.0",
+    "react-native-web": "~0.21.0"
+  },
+  "devDependencies": {
+    "@types/react": "~19.2.2",
+    "eslint": "^9.39.4",
+    "eslint-config-expo": "~57.0.2",
+    "typescript": "~6.0.3"
+  },
+  "scripts": {
+    "build:packages": "pnpm --filter @ohmycode/design-tokens build && pnpm --filter @ohmycode/protocol build && pnpm --filter @ohmycode/tool-contracts build && pnpm --filter @ohmycode/runtime-core build && pnpm --filter @ohmycode/agent-runtime build",
+    "start": "pnpm build:packages && expo start",
+    "android": "pnpm build:packages && expo start --android",
+    "ios": "pnpm build:packages && expo start --ios",
+    "web": "pnpm build:packages && expo start --web",
+    "lint": "pnpm build:packages && expo lint",
+    "typecheck": "pnpm build:packages && tsc --noEmit"
+  },
+  "private": true
+}

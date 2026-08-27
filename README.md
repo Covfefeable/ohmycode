@@ -31,7 +31,13 @@ desktop/
   src/features/        业务功能组件
   src/shared/          通用 UI、国际化与基础能力
 
+mobile/
+  src/app/             Expo Router 路由与导航边界
+  src/features/        移动端认证与聊天功能
+  src/shared/          API、SecureStore、主题与国际化适配
+
 packages/
+  design-tokens/       桌面与移动端共享的语义设计变量
   protocol/            Thread / Turn / Item 事件协议
   runtime-core/        跨平台事件 Journal 与执行状态
   tool-contracts/      平台无关工具定义与执行契约

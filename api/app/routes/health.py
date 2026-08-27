@@ -22,6 +22,7 @@ def health():
                 "mcp",
                 "skills",
                 "capability-retrieval",
+                "mobile-chat",
             ],
         }
     )
