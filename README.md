@@ -155,7 +155,11 @@ cp api/.env.example api/.env
 cp client/.env.example client/.env
 ```
 
-启动 PostgreSQL 和 Redis：
+`api/.env` 中的 `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY` 必须分别与
+`docker/.env` 中的 `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` 保持一致；否则头像和 Skill
+对象上传会返回 `object_storage_unavailable`。复制示例后如果修改了一侧，也要同步修改另一侧。
+
+启动 PostgreSQL、Redis 和 MinIO：
 
 ```bash
 docker compose --env-file docker/.env -f docker/docker-compose.dev.yml up -d
