@@ -215,6 +215,19 @@ export function ConversationChat({ conversationId, active, onUpdated }: Conversa
     return () => { if (scrollFrameRef.current !== null) window.cancelAnimationFrame(scrollFrameRef.current); };
   }, [active, conversation?.messages]);
 
+  const forceScrollToBottom = useCallback(() => {
+    autoScrollLockedRef.current = true;
+    if (scrollFrameRef.current !== null) window.cancelAnimationFrame(scrollFrameRef.current);
+    scrollFrameRef.current = window.requestAnimationFrame(() => {
+      const scroller = scrollRef.current;
+      if (scroller) {
+        scroller.scrollTop = scroller.scrollHeight;
+        lastScrollTopRef.current = scroller.scrollTop;
+      }
+      scrollFrameRef.current = null;
+    });
+  }, []);
+
   async function copy(message: LocalMessage) {
     await navigator.clipboard.writeText(message.content);
     setCopiedId(message.id);
@@ -237,6 +250,7 @@ export function ConversationChat({ conversationId, active, onUpdated }: Conversa
           : [...currentMessages, { id: `user-${turnId}`, role: "user" as const, content, attachments: nextAttachments, createdAt: now }];
         return { ...current, messages: [...optimisticMessages, existingStream ?? { id: streamId, role: "assistant", content: "", createdAt: now, agentStartedAt: now, activity: [] }] };
       });
+      forceScrollToBottom();
       if (editMessageId) setEditing(null);
       else setAttachments([]);
       setSending(true);
@@ -319,7 +333,7 @@ export function ConversationChat({ conversationId, active, onUpdated }: Conversa
         {!editing || editing.message.id !== message.id ? <div className={styles.messageActions}>
           <time>{new Intl.DateTimeFormat(i18n.language, { hour: "2-digit", minute: "2-digit" }).format(new Date(message.createdAt))}</time>
           <Tooltip content={t("agent.copy")}><button aria-label={t("agent.copy")} onClick={() => void copy(message)}>{copiedId === message.id ? <Check /> : <Copy />}</button></Tooltip>
-          {message.id === lastUserId && !sending && <Tooltip content={t("agent.edit")}><button aria-label={t("agent.edit")} onClick={() => setEditing({ message, content: message.content })}><Pencil /></button></Tooltip>}
+          {message.id === lastUserId && !sending && <Tooltip content={t("agent.edit")}><button aria-label={t("agent.edit")} onClick={() => { setEditing({ message, content: message.content }); forceScrollToBottom(); }}><Pencil /></button></Tooltip>}
         </div> : null}
       </article>)}
       {!conversation.messages?.length && <p className={styles.empty}>{t("agent.emptyConversation")}</p>}
