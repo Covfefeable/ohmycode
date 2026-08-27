@@ -21,6 +21,7 @@ type StartTurnInput = {
 };
 
 let journal: EventJournal | null = null;
+let runtimeStore: SqliteEventStore | null = null;
 const completion = new Map<string, Promise<LocalConversation>>();
 const executions = new Map<string, TurnExecution>();
 const itemState = new Map<string, RuntimeItem>();
@@ -51,8 +52,12 @@ function requireJournal(): EventJournal {
 
 export function initializeAgentRuntime(): void {
   if (journal) return;
-  journal = new EventJournal(
-    new SqliteEventStore(path.join(app.getPath("userData"), "runtime-events.sqlite")),
+  runtimeStore = new SqliteEventStore(
+    path.join(app.getPath("userData"), "runtime-events.sqlite"),
+  );
+  journal = new EventJournal(runtimeStore);
+  const persistedExecutions = new Map(
+    runtimeStore.loadExecutions().map((state) => [state.turnId, state]),
   );
   for (const stale of journal.snapshots("in_progress")) {
     append(stale.turnId, {
@@ -61,7 +66,11 @@ export function initializeAgentRuntime(): void {
       turnId: stale.turnId,
       reason: "runtime_restarted",
     });
-    void new TurnExecution(stale.turnId).interrupt().catch((error) => {
+    const executionState = persistedExecutions.get(stale.turnId);
+    const execution = executionState
+      ? TurnExecution.restore(executionState, runtimeStore)
+      : new TurnExecution(stale.turnId, runtimeStore);
+    void execution.interrupt().catch((error) => {
       console.error("[runtime] failed to reconcile interrupted turn", error);
     });
   }
@@ -70,6 +79,7 @@ export function initializeAgentRuntime(): void {
 export function closeAgentRuntime(): void {
   journal?.close();
   journal = null;
+  runtimeStore = null;
 }
 
 function translate(threadId: string, turnId: string, event: ConversationStreamEvent): void {
@@ -149,9 +159,10 @@ function translate(threadId: string, turnId: string, event: ConversationStreamEv
 
 export function startTurn(input: StartTurnInput): { turnId: string } {
   const turnId = crypto.randomUUID();
-  const execution = new TurnExecution(turnId);
-  executions.set(turnId, execution);
   requireJournal().create(input.threadId, turnId);
+  if (!runtimeStore) throw new Error("runtime_not_initialized");
+  const execution = new TurnExecution(turnId, runtimeStore);
+  executions.set(turnId, execution);
   append(turnId, { type: "turn.started", threadId: input.threadId, turnId });
   const running = streamMessage(
     input.threadId,
@@ -182,6 +193,7 @@ export function startTurn(input: StartTurnInput): { turnId: string } {
   }).finally(() => {
     completion.delete(turnId);
     executions.delete(turnId);
+    execution.complete();
     for (const key of itemState.keys()) if (key.startsWith(`${turnId}:`)) itemState.delete(key);
     activeTaskByTurn.delete(turnId);
   });

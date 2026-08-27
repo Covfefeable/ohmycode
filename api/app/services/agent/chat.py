@@ -1,4 +1,5 @@
 import json
+from dataclasses import replace
 from uuid import UUID
 
 from flask import current_app
@@ -191,9 +192,105 @@ def resume_completion(
     )
 
 
+def pending_tool_requests(run: AgentRun) -> list[dict]:
+    requested = next(
+        (event for event in reversed(run.events) if event.event_type == "tool.requested"), None
+    )
+    if not requested:
+        return []
+    conversation = db.session.get(Conversation, run.conversation_id)
+    if not conversation:
+        raise ServiceError("not_found", 404)
+    assignments = requested.payload.get("taskAssignments", {})
+    results = []
+    for call in requested.payload.get("toolCalls", []):
+        try:
+            arguments = json.loads(call["function"].get("arguments") or "{}")
+        except (KeyError, json.JSONDecodeError) as error:
+            raise ServiceError("invalid_tool_arguments", 409) from error
+        tool_name = str(call.get("function", {}).get("name") or "")
+        if tool_name == "terminal":
+            arguments = {
+                **normalize_terminal_arguments(arguments),
+                "projectId": str(conversation.project_id),
+            }
+        elif tool_name in FILE_TOOL_NAMES or tool_name == VIEW_IMAGE_TOOL_NAME:
+            arguments = {**arguments, "projectId": str(conversation.project_id)}
+        item = {
+            "type": "tool.requested",
+            "runId": str(run.id),
+            "callId": call["id"],
+            "tool": tool_name,
+            "arguments": arguments,
+        }
+        if task_id := assignments.get(call["id"]):
+            item["taskId"] = task_id
+        results.append(item)
+    return results
+
+
+def recover_completion(
+    user_id: UUID,
+    run_id: UUID,
+    workspace_instructions: str = "",
+    partial_content: str = "",
+    partial_reasoning: str = "",
+    results: list[dict] | None = None,
+) -> PreparedCompletion | list[dict]:
+    run = get_owned_run(user_id, run_id)
+    if run.status == "waiting_tool":
+        if results:
+            return resume_completion(user_id, run_id, results, workspace_instructions)
+        return pending_tool_requests(run)
+    if run.status in {"completed", "cancelled"}:
+        return []
+    if run.status == "running":
+        raise ServiceError("run_still_running", 409)
+    if run.status != "failed" or run.error_code != "client_disconnected":
+        return [{"type": "run.failed", "errorCode": run.error_code or "runtime_failed"}]
+    configuration = db.session.get(ModelConfiguration, run.model_configuration_id)
+    conversation = db.session.get(Conversation, run.conversation_id)
+    if not configuration or not conversation:
+        raise ServiceError("not_found", 404)
+    context = prepare_context(
+        run, configuration, list(conversation.messages), AGENT_SYSTEM_INSTRUCTIONS
+    )
+    model_messages = [*context.messages, *_tool_history(run)]
+    partial_content = partial_content[:200_000]
+    partial_reasoning = partial_reasoning[:200_000]
+    if partial_content.strip():
+        model_messages.extend(
+            [
+                {"role": "assistant", "content": partial_content},
+                {
+                    "role": "system",
+                    "content": (
+                        "The previous stream disconnected. Continue directly from the "
+                        "partial assistant response without repeating it."
+                    ),
+                },
+            ]
+        )
+    run.status = "running"
+    run.error_code = None
+    run.completed_at = None
+    append_event(run, "run.recovered", {"partialContentLength": len(partial_content)})
+    db.session.commit()
+    tools, mailbox = completion_tools_and_mailbox(run.conversation_id, configuration)
+    tools.extend(_loaded_capability_tools(run))
+    prepared = prepared_completion(
+        run, configuration, model_messages, workspace_instructions, tools, mailbox
+    )
+    return replace(
+        prepared,
+        initial_answer=partial_content,
+        initial_reasoning=partial_reasoning,
+    )
+
+
 def stream_completion(prepared: PreparedCompletion):
-    answer = ""
-    reasoning = ""
+    answer = prepared.initial_answer
+    reasoning = prepared.initial_reasoning
     tool_calls: dict[int, dict] = {}
     input_tokens_total = 0
     output_tokens_total = 0

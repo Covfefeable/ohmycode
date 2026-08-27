@@ -9,14 +9,25 @@ const directory = await mkdtemp(join(tmpdir(), "ohmycode-runtime-"));
 const databasePath = join(directory, "events.sqlite");
 
 try {
-  const first = new EventJournal(new SqliteEventStore(databasePath));
+  const firstStore = new SqliteEventStore(databasePath);
+  const first = new EventJournal(firstStore);
   first.create("thread-1", "turn-1");
   first.append("turn-1", { type: "turn.started", threadId: "thread-1", turnId: "turn-1" });
+  firstStore.saveExecution({
+    turnId: "turn-1",
+    remoteRunId: "turn-1",
+    phase: "executing_tools",
+    pendingToolCallIds: ["call-1"],
+    terminalIds: ["terminal-1"],
+    updatedAt: Date.now(),
+  });
   first.close();
 
-  const restored = new EventJournal(new SqliteEventStore(databasePath));
+  const restoredStore = new SqliteEventStore(databasePath);
+  const restored = new EventJournal(restoredStore);
   assert.equal(restored.snapshotForThread("thread-1")?.status, "in_progress");
   assert.equal(restored.snapshot("turn-1")?.events.length, 1);
+  assert.deepEqual(restoredStore.loadExecutions()[0]?.pendingToolCallIds, ["call-1"]);
   restored.append("turn-1", {
     type: "turn.interrupted",
     threadId: "thread-1",

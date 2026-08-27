@@ -4,13 +4,33 @@ from uuid import UUID
 from flask import Blueprint, Response, request, stream_with_context
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
-from ..services.agent import resume_completion, stream_completion
+from ..services.agent import recover_completion, resume_completion, stream_completion
+from ..services.agent.provider_stream import PreparedCompletion
 from ..services.agent.runs import cancel_run
 from ..services.errors import ServiceError
 from ..services.projects.queries import device_run
 from .device import current_device
 
 agent_runs_bp = Blueprint("agent_runs", __name__)
+
+
+def stream_response(prepared: PreparedCompletion | list[dict]):
+    @stream_with_context
+    def events():
+        source = (
+            stream_completion(prepared)
+            if isinstance(prepared, PreparedCompletion)
+            else prepared
+        )
+        for event in source:
+            yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+        yield "data: [DONE]\n\n"
+
+    return Response(
+        events(),
+        mimetype="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @agent_runs_bp.post("/<uuid:run_id>/cancel")
@@ -36,14 +56,21 @@ def resume_run_route(run_id: UUID):
         str(payload.get("workspaceInstructions") or ""),
     )
 
-    @stream_with_context
-    def events():
-        for event in stream_completion(prepared):
-            yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
-        yield "data: [DONE]\n\n"
+    return stream_response(prepared)
 
-    return Response(
-        events(),
-        mimetype="text/event-stream",
-        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+
+@agent_runs_bp.post("/<uuid:run_id>/recover")
+@jwt_required()
+def recover_run_route(run_id: UUID):
+    if not device_run(UUID(get_jwt_identity()), current_device(), run_id):
+        raise ServiceError("not_found", 404)
+    payload = request.get_json(silent=True) or {}
+    prepared = recover_completion(
+        UUID(get_jwt_identity()),
+        run_id,
+        str(payload.get("workspaceInstructions") or ""),
+        str(payload.get("partialContent") or ""),
+        str(payload.get("partialReasoning") or ""),
+        payload.get("results") if isinstance(payload.get("results"), list) else [],
     )
+    return stream_response(prepared)

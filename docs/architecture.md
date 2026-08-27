@@ -60,17 +60,25 @@ A normal chat turn flows like this:
 1. The user sends a message in the React UI.
 2. The Renderer calls `startTurn()` on the Agent Runtime through the preload API.
 3. The Runtime creates a Turn in `EventJournal` and asks `conversation-service.ts`
-   to stream from Flask.
+   to start the transport and Tool Loop.
 4. `conversation-service.ts` POSTs to `/api/projects/conversations/{id}/stream`,
    which creates an `AgentRun` and starts the model stream.
 5. The model may stream reasoning, message content, or tool calls. Flask emits
    SSE events, which the Runtime translates into `Thread/Turn/Item` Runtime
    events and publishes to Renderer listeners.
-6. If the model requests a tool, the Runtime executes it locally (terminal or
-   file tool), then calls `/api/agent-runs/{id}/resume` to send the result back
-   to the model. This loop repeats until the run finishes.
+6. If the model requests tools, the Tool Loop executes independent calls in
+   parallel through the Runtime tool registry, then calls
+   `/api/agent-runs/{id}/resume` with the complete result batch. This repeats
+   until the run finishes.
 7. When the model returns a final answer, Flask persists an `assistant` Message,
    and the Runtime emits `turn.completed`.
+
+If an HTTP/SSE connection ends unexpectedly, the Runtime retains the partial
+message, reasoning, pending tool-call IDs, and already-produced tool results.
+It reconnects through `/api/agent-runs/{id}/recover` with bounded backoff. Flask
+then continues a disconnected model stream, replays pending tool requests, or
+accepts an already-produced result batch without executing local side effects a
+second time.
 
 Switching React pages or closing a window does **not** cancel a Turn. The
 Runtime keeps running in Electron main; when the user re-enters the Thread,
@@ -117,7 +125,10 @@ Responsibilities:
 - Allocate `turnId` and create a Turn in `EventJournal`.
 - Translate provider-level SSE events (`ConversationStreamEvent`) into
   `RuntimeEvent` with proper item lifecycles.
-- Execute tool requests locally or delegate to `conversation-service.ts`.
+- Persist execution metadata (`remoteRunId`, phase, pending tool calls, owned
+  terminals) alongside the event journal.
+- Run the transport-independent Tool Loop and dispatch local capabilities via a
+  single tool registry.
 - Handle interruption with `interruptTurn()`, which cancels the model stream,
   stops terminals created by that Turn, retries remote cancellation, persists the partial message, and emits
   `turn.interrupted`.
@@ -132,6 +143,10 @@ Important invariants:
 - Runtime events are committed to local SQLite before publication. Renderer
   reconnection replays them by `sequence`; stale in-progress Turns are marked
   `interrupted(runtime_restarted)` after an Electron process restart.
+- A live Electron process retries recoverable HTTP/SSE disconnects. After an
+  Electron process restart, stale execution metadata is used to stop owned
+  terminals and reconcile the remote run before the Turn is marked interrupted;
+  dead PTYs are never presented as resumable processes.
 - Durable conversation content remains owned by Flask and PostgreSQL.
 
 ## Flask service boundaries
@@ -192,8 +207,15 @@ The model payload includes:
 
 ## Local tools
 
-Local tools run inside Electron main and are invoked by
-`conversation-service.ts`.
+Local tools run inside Electron main. `runtime/tool-loop.ts` owns the
+model/tool/resume loop, while `runtime/tool-registry.ts` is the only dispatcher
+for built-in file, terminal, image, capability, task, collaboration, and dynamic
+MCP tools. `conversation-service.ts` only assembles the workspace context,
+transport, registry, and loop.
+
+Unknown tool names are rejected explicitly. Identical failed operations are
+bounded to prevent ineffective retry loops, and write-capable tools keep the
+existing workspace lock and change-recording behavior.
 
 ### File tools (`client/electron/files/file-tools.ts`)
 

@@ -16,6 +16,8 @@ class PreparedCompletion:
     api_key: str
     context_length: int
     payload: dict
+    initial_answer: str = ""
+    initial_reasoning: str = ""
 
 
 def sse_json_payloads(lines):

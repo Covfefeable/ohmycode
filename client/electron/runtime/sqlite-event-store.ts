@@ -1,5 +1,5 @@
 import { DatabaseSync } from "node:sqlite";
-import type { EventStore } from "@ohmycode/runtime-core";
+import type { EventStore, ExecutionStore, RuntimeExecutionState } from "@ohmycode/runtime-core";
 import type { RuntimeEvent, TurnSnapshot, TurnStatus } from "@ohmycode/protocol";
 
 type TurnRow = {
@@ -11,7 +11,7 @@ type TurnRow = {
 
 type EventRow = { event_json: string };
 
-export class SqliteEventStore implements EventStore {
+export class SqliteEventStore implements EventStore, ExecutionStore {
   private readonly database: DatabaseSync;
 
   constructor(filePath: string) {
@@ -35,6 +35,11 @@ export class SqliteEventStore implements EventStore {
         event_json TEXT NOT NULL,
         created_at INTEGER NOT NULL,
         PRIMARY KEY (turn_id, sequence)
+      );
+      CREATE TABLE IF NOT EXISTS runtime_executions (
+        turn_id TEXT PRIMARY KEY,
+        state_json TEXT NOT NULL,
+        updated_at INTEGER NOT NULL
       );
     `);
   }
@@ -103,6 +108,28 @@ export class SqliteEventStore implements EventStore {
           LIMIT 200
         )
     `);
+  }
+
+  loadExecutions(): RuntimeExecutionState[] {
+    return (this.database.prepare(`
+      SELECT state_json FROM runtime_executions ORDER BY updated_at ASC
+    `).all() as Array<{ state_json: string }>).map(
+      (row) => JSON.parse(row.state_json) as RuntimeExecutionState,
+    );
+  }
+
+  saveExecution(state: RuntimeExecutionState): void {
+    this.database.prepare(`
+      INSERT INTO runtime_executions (turn_id, state_json, updated_at)
+      VALUES (?, ?, ?)
+      ON CONFLICT(turn_id) DO UPDATE SET
+        state_json = excluded.state_json,
+        updated_at = excluded.updated_at
+    `).run(state.turnId, JSON.stringify(state), state.updatedAt);
+  }
+
+  deleteExecution(turnId: string): void {
+    this.database.prepare("DELETE FROM runtime_executions WHERE turn_id = ?").run(turnId);
   }
 
   close(): void {

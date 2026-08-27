@@ -5,7 +5,7 @@ import httpx
 
 from app import create_app
 from app.extensions import db
-from app.models import Project, User
+from app.models import AgentRun, Project, User
 
 
 def test_projects_and_conversations_are_isolated_by_device():
@@ -312,6 +312,35 @@ def test_project_conversation_and_message_lifecycle(monkeypatch):
         assert '"errorCode": "FileNotFoundError"' in failed_body
         assert failed_body.endswith("data: [DONE]\n\n")
 
+        with app.app_context():
+            disconnected_run = db.session.scalar(
+                db.select(AgentRun)
+                .where(AgentRun.conversation_id == uuid.UUID(failed_conversation["id"]))
+                .order_by(AgentRun.started_at.desc())
+            )
+            disconnected_run.error_code = "client_disconnected"
+            db.session.commit()
+            disconnected_run_id = str(disconnected_run.id)
+
+        recovery_payloads = []
+
+        def recovery_stream(*_args, **kwargs):
+            recovery_payloads.append(kwargs["json"])
+            return ProviderResponse()
+
+        monkeypatch.setattr("app.services.agent.provider_stream.httpx.stream", recovery_stream)
+        recovered = client.post(
+            f"/api/agent-runs/{disconnected_run_id}/recover",
+            headers=headers,
+            json={"partialContent": "Partial ", "partialReasoning": "Initial thought"},
+        )
+        assert b'"content": "Hello "' in recovered.data
+        recovered_detail = client.get(
+            f"/api/projects/conversations/{failed_conversation['id']}", headers=headers
+        ).get_json()
+        assert recovered_detail["messages"][-1]["content"] == "Partial Hello stream"
+        assert recovery_payloads[-1]["messages"][-2]["content"] == "Partial "
+
         balance_conversation = client.post(
             f"/api/projects/{project_id}/conversations",
             headers=headers,
@@ -408,9 +437,10 @@ def test_project_conversation_and_message_lifecycle(monkeypatch):
         assert tool_event["type"] == "tool.requested"
         assert tool_event["arguments"]["action"] == "start"
         resumed = client.post(
-            f"/api/agent-runs/{tool_event['runId']}/resume",
+            f"/api/agent-runs/{tool_event['runId']}/recover",
             headers=headers,
             json={
+                "workspaceInstructions": "",
                 "results": [
                     {
                         "callId": tool_event["callId"],

@@ -19,6 +19,21 @@ export interface EventPublisher {
   publish(event: RuntimeEvent): void;
 }
 
+export type RuntimeExecutionState = {
+  turnId: string;
+  remoteRunId: string;
+  phase: "streaming" | "executing_tools" | "resuming" | "recovering" | "interrupting";
+  pendingToolCallIds: string[];
+  terminalIds: string[];
+  updatedAt: number;
+};
+
+export interface ExecutionStore {
+  loadExecutions(): RuntimeExecutionState[];
+  saveExecution(state: RuntimeExecutionState): void;
+  deleteExecution(turnId: string): void;
+}
+
 export class EventJournal {
   private readonly turns = new Map<string, MutableTurn>();
   private readonly activeByThread = new Map<string, string>();
