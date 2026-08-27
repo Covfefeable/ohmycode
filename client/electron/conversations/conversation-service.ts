@@ -11,28 +11,14 @@ import { loadAgentInstructions, renderAgentInstructions } from "../files/agents-
 import type { FileToolName, FileToolRequest } from "../files/types.js";
 import { listProjects } from "../projects/projects-service.js";
 import { executeMcpCapability, loadCapability, searchCapabilities } from "../capabilities/capability-manager.js";
+import {
+  forwardServerStream,
+  type AgentTask,
+  type ConversationStreamEvent,
+  type ToolRequestEvent,
+} from "./server-stream.js";
 
-export type ConversationStreamEvent = {
-  type: "reasoning.delta" | "message.delta";
-  content: string;
-} | { type: "reasoning.started"; stepId: string }
-  | { type: "run.started"; runId: string }
-  | { type: "run.failed"; errorCode: string }
-  | { type: "message.started" }
-  | { type: "context.usage"; usedTokens: number; contextLength: number; source: "estimated" | "provider" }
-  | { type: "context.compaction.started" | "context.compaction.completed"; estimatedTokens: number; contextLength: number }
-  | { type: "task.plan.updated"; tasks: AgentTask[] }
-  | ToolRequestEvent
-  | { type: "tool.completed"; callId: string; result: unknown };
-type ToolRequestEvent = {
-  type: "tool.requested";
-  runId: string;
-  callId: string;
-  tool: "terminal" | "agent_message" | "finish_collaboration" | "view_image" | "search_capabilities" | "load_capability" | FileToolName | string;
-  arguments: TerminalAction | FileToolRequest | ViewImageArguments | { toNodeId: string; content: string } | { content: string };
-  taskId?: string;
-};
-export type AgentTask = { id: string; content: string; status: "pending" | "in_progress" | "completed" };
+export type { AgentTask, ConversationStreamEvent } from "./server-stream.js";
 type ActiveRequest = {
   controller: AbortController;
   runId?: string;
@@ -69,30 +55,6 @@ function toolSignature(request: ToolRequestEvent): string {
     return value;
   };
   return `${request.tool}:${JSON.stringify(sortValue(request.arguments))}`;
-}
-
-async function forwardServerStream(response: Response, onEvent: (event: ConversationStreamEvent) => void): Promise<ToolRequestEvent[]> {
-  if (!response.body) throw new Error("missing_server_stream");
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
-  const toolRequests: ToolRequestEvent[] = [];
-  while (true) {
-    const { done, value } = await reader.read();
-    buffer += decoder.decode(value, { stream: !done });
-    const lines = buffer.split(/\r?\n/);
-    buffer = lines.pop() ?? "";
-    for (const line of lines) {
-      if (!line.startsWith("data:")) continue;
-      const data = line.slice(5).trim();
-      if (!data || data === "[DONE]") continue;
-      const event = JSON.parse(data) as ConversationStreamEvent | ToolRequestEvent;
-      if (event.type === "tool.requested") toolRequests.push(event);
-      onEvent(event);
-    }
-    if (done) break;
-  }
-  return toolRequests;
 }
 
 export async function streamMessage(

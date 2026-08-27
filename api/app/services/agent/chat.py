@@ -351,6 +351,14 @@ def stream_completion(prepared: PreparedCompletion):
         else:
             fail_run(run, "empty_model_response")
             yield {"type": "run.failed", "errorCode": "empty_model_response"}
+    except GeneratorExit:
+        db.session.rollback()
+        run = db.session.get(AgentRun, prepared.run_id)
+        if run:
+            db.session.expire(run)
+        if run and run.status in {"running", "waiting_tool"}:
+            fail_run(run, "client_disconnected")
+        raise
     except Exception as error:
         db.session.rollback()
         run = db.session.get(AgentRun, prepared.run_id)

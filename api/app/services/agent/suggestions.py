@@ -147,8 +147,25 @@ def _configuration_for(
     return configuration, run
 
 
+def _suggestion_prompt(messages: list) -> str | None:
+    user_messages = [message for message in messages if message.role == "user"][-10:]
+    last_assistant = next(
+        (message for message in reversed(messages) if message.role == "assistant"), None
+    )
+    if not user_messages or not last_assistant:
+        return None
+    questions = "\n".join(
+        f"{index}. {message.content[:_MAX_INPUT_CHARS]}"
+        for index, message in enumerate(user_messages, start=1)
+    )
+    return (
+        f"Recent user questions (oldest to newest):\n{questions}\n\n"
+        f"Latest agent reply:\n{last_assistant.content[:_MAX_INPUT_CHARS]}"
+    )
+
+
 def generate_followup_suggestions(user_id: UUID, conversation_id: UUID) -> list[str]:
-    """Generate 2-3 short follow-up suggestions from the latest user+assistant pair."""
+    """Generate follow-ups from the latest ten user questions and last agent reply."""
     conversation = get_conversation(user_id, conversation_id)
     messages = list(conversation.messages)
     last_user_index = next(
@@ -176,10 +193,9 @@ def generate_followup_suggestions(user_id: UUID, conversation_id: UUID) -> list[
         suggestions = cached.get("suggestions")
         return [str(item) for item in suggestions] if isinstance(suggestions, list) else []
     maybe_rename_new_conversation(conversation, configuration, run)
-    prompt = (
-        f"User request:\n{last_user.content[:_MAX_INPUT_CHARS]}\n\n"
-        f"Agent reply:\n{last_assistant.content[:_MAX_INPUT_CHARS]}"
-    )
+    prompt = _suggestion_prompt(messages)
+    if not prompt:
+        return []
     completion = _aux_completion(configuration, SUGGESTION_INSTRUCTIONS, prompt)
     suggestions = _parse_suggestions(completion.content if completion else None)
     _record_auxiliary_usage(run, completion)

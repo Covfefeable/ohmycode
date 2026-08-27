@@ -69,7 +69,7 @@ TITLE_INSTRUCTIONS = (
 
 SUGGESTION_INSTRUCTIONS = (
     "You are suggesting short follow-up messages the user might send next to this coding "
-    "agent, based on the latest user request and the agent's reply. Produce 2 to 3 concrete, "
+    "agent, based on recent user questions and the agent's latest reply. Produce 2 to 3 concrete, "
     "actionable suggestions in the user's language. Each suggestion must be a single short "
     "sentence the user could send verbatim, referencing concrete next steps such as running "
     "tests, reviewing a specific file, or asking for an explanation. Do not add numbering, "

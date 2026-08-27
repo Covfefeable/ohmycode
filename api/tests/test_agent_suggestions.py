@@ -20,6 +20,32 @@ def test_parse_suggestions_strips_markers_and_caps_count():
     assert suggestions._parse_suggestions("") == []
 
 
+def test_suggestion_prompt_uses_latest_ten_user_questions_and_last_reply():
+    messages = []
+    for index in range(12):
+        messages.append(SimpleNamespace(role="user", content=f"question {index}"))
+        messages.append(SimpleNamespace(role="assistant", content=f"reply {index}"))
+
+    prompt = suggestions._suggestion_prompt(messages)
+
+    assert prompt is not None
+    question_lines = prompt.split("\n\nLatest agent reply:", 1)[0].splitlines()[1:]
+    assert question_lines == [
+        f"{index - 1}. question {index}" for index in range(2, 12)
+    ]
+    for index in range(2, 12):
+        assert f"{index - 1}. question {index}" in prompt
+    assert "Latest agent reply:\nreply 11" in prompt
+    assert "reply 10" not in prompt
+
+
+def test_suggestion_prompt_requires_user_question_and_agent_reply():
+    assert suggestions._suggestion_prompt([]) is None
+    assert suggestions._suggestion_prompt(
+        [SimpleNamespace(role="user", content="question")]
+    ) is None
+
+
 def test_maybe_rename_only_on_first_user_message(monkeypatch):
     calls = []
     completion = suggestions.AuxiliaryCompletion("Fix login bug", 8, 3)
