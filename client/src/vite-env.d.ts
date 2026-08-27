@@ -57,9 +57,11 @@ interface Window {
     };
     settings: {
       get(): Promise<PublicSettings>;
-      saveProfile(displayName: string): Promise<void>;
-      saveAvatar(data: string, contentType: string): Promise<void>;
-      saveModels(models: ModelConfiguration[]): Promise<void>;
+      saveProfile(displayName: string): Promise<PublicSettings["profile"]>;
+      saveAvatar(data: string, contentType: string): Promise<PublicSettings["profile"]>;
+      onProfileChanged(callback: (profile: PublicSettings["profile"]) => void): () => void;
+      saveModels(models: ModelConfiguration[]): Promise<ModelConfiguration[]>;
+      onModelsChanged(callback: (models: ModelConfiguration[]) => void): () => void;
       testModel(model: ModelConfiguration): Promise<{ ok: boolean; latencyMs?: number; message?: string }>;
     };
     capabilities: {

@@ -71,7 +71,17 @@ contextBridge.exposeInMainWorld("ohmycode", {
     get: () => ipcRenderer.invoke("settings:get"),
     saveProfile: (displayName) => ipcRenderer.invoke("settings:save-profile", displayName),
     saveAvatar: (data, contentType) => ipcRenderer.invoke("settings:save-avatar", data, contentType),
+    onProfileChanged: (callback) => {
+      const listener = (_event, profile) => callback(profile);
+      ipcRenderer.on("settings:profile-changed", listener);
+      return () => ipcRenderer.removeListener("settings:profile-changed", listener);
+    },
     saveModels: (models) => ipcRenderer.invoke("settings:save-models", models),
+    onModelsChanged: (callback) => {
+      const listener = (_event, models) => callback(models);
+      ipcRenderer.on("settings:models-changed", listener);
+      return () => ipcRenderer.removeListener("settings:models-changed", listener);
+    },
     testModel: (model) => ipcRenderer.invoke("settings:test-model", model),
   },
   capabilities: {

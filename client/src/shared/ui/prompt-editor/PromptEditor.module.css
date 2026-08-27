@@ -34,8 +34,14 @@
   inset: var(--prompt-padding-top, 0) var(--prompt-padding-x, 0) auto;
   line-height: 24px;
 }
-.suggestionActive { display: flex; align-items: baseline; gap: 8px; }
+.suggestionActive { display: flex; align-items: center; gap: 8px; }
 .suggestionText {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  height: 24px;
+}
+.suggestionValue {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -54,7 +60,7 @@
   margin-left: 1px;
   background: var(--color-text-dim);
   animation: suggestionCaretBlink 1s step-end infinite;
-  vertical-align: text-bottom;
+  flex: none;
 }
 @keyframes suggestionCaretBlink {
   0%, 50% { opacity: 1; }

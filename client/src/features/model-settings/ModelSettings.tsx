@@ -72,9 +72,8 @@ export function ModelSettings({ initial }: { initial: ModelConfiguration[] }) {
     const invalid = models.some((item) => !item.name.trim() || !item.baseUrl.trim() || !item.model.trim() || (!item.hasApiKey && !item.apiKey?.trim()));
     if (invalid) { toast({ type: "error", message: t("settings.modelValidation") }); return; }
     try {
-      await window.ohmycode.settings.saveModels(models);
-      const fresh = await window.ohmycode.settings.get();
-      setModels(fresh.models);
+      const freshModels = await window.ohmycode.settings.saveModels(models);
+      setModels(freshModels);
       toast({ type: "success", message: t("settings.modelsSaved") });
     } catch { toast({ type: "error", message: t("settings.saveFailed") }); }
   }

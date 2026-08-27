@@ -19,9 +19,10 @@ export function NavigationRail() {
     void window.ohmycode.settings.get().then((settings) => {
       if (active) setAvatar(settings.profile.avatarDataUrl ?? "");
     }).catch(() => undefined);
-    const update = (event: Event) => setAvatar(String((event as CustomEvent).detail ?? ""));
-    window.addEventListener("ohmycode:avatar-updated", update);
-    return () => { active = false; window.removeEventListener("ohmycode:avatar-updated", update); };
+    const unsubscribe = window.ohmycode.settings.onProfileChanged((profile) => {
+      if (active) setAvatar(profile.avatarDataUrl ?? "");
+    });
+    return () => { active = false; unsubscribe(); };
   }, []);
   return (
     <nav className={styles.rail} aria-label={t("navigation.label")}>

@@ -21,6 +21,12 @@ export function SettingsPage() {
   const [settings, setSettings] = useState<PublicSettings | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
+  useEffect(() => window.ohmycode.settings.onModelsChanged((models) => {
+    setSettings((current) => current ? { ...current, models } : current);
+  }), []);
+  useEffect(() => window.ohmycode.settings.onProfileChanged((profile) => {
+    setSettings((current) => current ? { ...current, profile } : current);
+  }), []);
   useEffect(() => {
     if (!location.pathname.startsWith("/settings")) return;
     let active = true;

@@ -18,11 +18,12 @@ export function ProfileSettings({ initial, tokenUsage }: { initial: PublicSettin
   const fileRef = useRef<HTMLInputElement>(null);
   async function save() {
     try {
-      await window.ohmycode.settings.saveProfile(displayName);
+      let profile = await window.ohmycode.settings.saveProfile(displayName);
       if (pendingAvatar) {
-        await window.ohmycode.settings.saveAvatar(pendingAvatar.data, pendingAvatar.contentType);
-        window.dispatchEvent(new CustomEvent("ohmycode:avatar-updated", { detail: avatar }));
+        profile = await window.ohmycode.settings.saveAvatar(pendingAvatar.data, pendingAvatar.contentType);
       }
+      setAvatar(profile.avatarDataUrl ?? "");
+      setDisplayName(profile.displayName);
       setPendingAvatar(null);
       toast({ type: "success", message: t("settings.profileSaved") });
     }

@@ -1,4 +1,4 @@
-import { ipcMain } from "electron";
+import { BrowserWindow, ipcMain } from "electron";
 import {
   getPublicSettings,
   saveAvatar,
@@ -10,8 +10,28 @@ import type { ModelInput } from "../settings/types.js";
 
 export function registerSettingsIpc(): void {
   ipcMain.handle("settings:get", getPublicSettings);
-  ipcMain.handle("settings:save-profile", (_event, displayName: string) => saveProfile(displayName));
-  ipcMain.handle("settings:save-avatar", (_event, data: string, contentType: string) => saveAvatar(data, contentType));
-  ipcMain.handle("settings:save-models", (_event, models: ModelInput[]) => saveModels(models));
+  const publishProfile = async () => {
+    const profile = (await getPublicSettings()).profile;
+    for (const window of BrowserWindow.getAllWindows()) {
+      if (!window.isDestroyed()) window.webContents.send("settings:profile-changed", profile);
+    }
+    return profile;
+  };
+  ipcMain.handle("settings:save-profile", async (_event, displayName: string) => {
+    await saveProfile(displayName);
+    return publishProfile();
+  });
+  ipcMain.handle("settings:save-avatar", async (_event, data: string, contentType: string) => {
+    await saveAvatar(data, contentType);
+    return publishProfile();
+  });
+  ipcMain.handle("settings:save-models", async (_event, models: ModelInput[]) => {
+    await saveModels(models);
+    const freshModels = (await getPublicSettings()).models;
+    for (const window of BrowserWindow.getAllWindows()) {
+      if (!window.isDestroyed()) window.webContents.send("settings:models-changed", freshModels);
+    }
+    return freshModels;
+  });
   ipcMain.handle("settings:test-model", (_event, model: ModelInput) => testModel(model));
 }

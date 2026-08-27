@@ -157,7 +157,7 @@ export function PromptEditor({ value, onChange, placeholder, ariaLabel, options 
   const showSuggestions = suggestions.length > 0 && !value;
   const placeholderNode = showSuggestions
     ? <span className={`${styles.placeholder} ${styles.suggestionActive}`}>
-        <span className={styles.suggestionText}>{typed}<span className={styles.suggestionCaret} /></span>
+        <span className={styles.suggestionText}><span className={styles.suggestionValue}>{typed}</span><span className={styles.suggestionCaret} /></span>
         <span className={styles.suggestionHint}>{t("agent.applySuggestion")}</span>
       </span>
     : <span className={styles.placeholder}>{placeholder}</span>;

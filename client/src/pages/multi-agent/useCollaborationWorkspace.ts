@@ -31,6 +31,8 @@ export function useCollaborationWorkspace() {
     return settings.models;
   }, []);
 
+  useEffect(() => window.ohmycode.settings.onModelsChanged(setModels), []);
+
   useEffect(() => {
     if (!location.pathname.startsWith("/agents")) return;
     let active = true;

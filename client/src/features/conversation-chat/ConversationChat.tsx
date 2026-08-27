@@ -52,6 +52,12 @@ export function ConversationChat({ conversationId, active, onUpdated }: Conversa
 
   useEffect(() => { conversationRef.current = conversation; }, [conversation]);
   useEffect(() => { onUpdatedRef.current = onUpdated; }, [onUpdated]);
+  useEffect(() => window.ohmycode.settings.onModelsChanged((nextModels) => {
+    setModels(nextModels);
+    setSelectedModelId((current) => nextModels.some((model) => model.id === current)
+      ? current
+      : nextModels[0]?.id ?? "");
+  }), []);
   useEffect(() => {
     const dock = composerDockRef.current;
     const scroller = scrollRef.current;
