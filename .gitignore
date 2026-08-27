@@ -20,14 +20,14 @@ node_modules/
 
 # Build and test output
 packages/*/dist/
-client/dist/
-client/dist-electron/
-client/release/
+desktop/dist/
+desktop/dist-electron/
+desktop/release/
 coverage/
 
 # Generated compatibility files
-client/vite.config.js
-client/vite.config.d.ts
+desktop/vite.config.js
+desktop/vite.config.d.ts
 
 # Local infrastructure data
 docker/volumes/

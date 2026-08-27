@@ -40,7 +40,7 @@
 - Use TypeScript with strict types. Avoid parallel ad-hoc event shapes when an existing Runtime event can represent the state.
 - Organize React code by page, feature, widget, entity, and shared responsibility.
 - A component and its component-specific CSS module must live in the same directory.
-- Reuse design tokens from `client/src/app/tokens.css`; do not redefine theme values across CSS modules.
+- Reuse design tokens from `desktop/src/app/tokens.css`; do not redefine theme values across CSS modules.
 - All user-facing text must use react-i18next locale keys.
 - Shared interactions such as tooltip, toast, confirmation, popover, and icon button should use the existing shared components.
 - Support Windows and macOS paths and platform behavior. Do not hardcode one platform's shell, file manager, separators, or home directory.
@@ -77,7 +77,7 @@ uv run pytest
 Client:
 
 ```bash
-cd client
+cd desktop
 pnpm test:runtime
 pnpm typecheck
 pnpm lint

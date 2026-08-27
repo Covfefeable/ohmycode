@@ -1,5 +1,5 @@
 {
-  "name": "ohmycode-client",
+  "name": "@ohmycode/desktop",
   "version": "0.1.0",
   "private": true,
   "description": "Electron desktop client for OhMyCode",

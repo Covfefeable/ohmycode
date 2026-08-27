@@ -47,7 +47,7 @@ Flask HTTP API
 Key boundaries:
 
 - React Renderer code must not execute OS commands or access Node APIs. Use the
-  narrow IPC boundary registered under `client/electron/ipc/`.
+  narrow IPC boundary registered under `desktop/electron/ipc/`.
 - Local tools (terminal, file tools) stay behind the Runtime. Do not expose
   generic terminal or filesystem APIs to the Renderer.
 - Secrets and model credentials live in the service or Electron main process and
@@ -115,7 +115,7 @@ truth for active Turn state and supports:
 
 ## Electron Agent Runtime
 
-The Runtime adapter is implemented in `client/electron/runtime/agent-runtime.ts`.
+The Runtime adapter is implemented in `desktop/electron/runtime/agent-runtime.ts`.
 The platform-neutral event journal lives in `packages/runtime-core`, while
 `sqlite-event-store.ts` persists its state under Electron's `userData` directory.
 The Runtime is a module-level singleton inside Electron main.
@@ -217,7 +217,7 @@ Unknown tool names are rejected explicitly. Identical failed operations are
 bounded to prevent ineffective retry loops, and write-capable tools keep the
 existing workspace lock and change-recording behavior.
 
-### File tools (`client/electron/files/file-tools.ts`)
+### File tools (`desktop/electron/files/file-tools.ts`)
 
 - `read_file`: read UTF-8 text with line numbers, bounded bytes.
 - `search_files`: content or filename search inside the workspace.
@@ -232,7 +232,7 @@ Safety mechanisms:
 - Hierarchical `AGENTS.md` instructions are loaded and returned with results.
 - Binary files are rejected by `read_file` and `search_files`.
 
-### Terminal (`client/electron/terminal/terminal-manager.ts`)
+### Terminal (`desktop/electron/terminal/terminal-manager.ts`)
 
 - Persistent PTY terminals via `node-pty`.
 - Supports `start`, `read`, `write`, `stop`, and `list`.
