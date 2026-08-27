@@ -13,5 +13,7 @@ export type LocalProject = {
   id: string;
   name: string;
   path: string;
+  deviceId: string;
+  deviceName: string;
   conversations: LocalConversation[];
 };

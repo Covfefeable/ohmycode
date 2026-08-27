@@ -1,4 +1,6 @@
 import { BrowserWindow } from "electron";
+import { EventJournal, type EventPublisher } from "@ohmycode/runtime-core";
+import type { RuntimeEvent, RuntimeEventPayload, RuntimeItem, TurnSnapshot } from "@ohmycode/protocol";
 import type { LocalConversation, LocalMessage, MessageAttachment } from "../projects/types.js";
 import {
   stopMessage,
@@ -6,8 +8,6 @@ import {
   type ConversationStreamEvent,
   type AgentExecutionContext,
 } from "../conversations/conversation-service.js";
-import { EventJournal } from "./event-journal.js";
-import type { RuntimeEvent, RuntimeEventPayload, RuntimeItem, TurnSnapshot } from "./types.js";
 
 type StartTurnInput = {
   threadId: string;
@@ -26,16 +26,18 @@ const interrupting = new Set<string>();
 const activeTaskByTurn = new Map<string, string>();
 const stateKey = (turnId: string, itemId: string): string => `${turnId}:${itemId}`;
 
-function publish(event: RuntimeEvent): void {
-  for (const listener of listeners.get(event.turnId) ?? []) listener(event);
-  for (const window of BrowserWindow.getAllWindows()) {
-    if (!window.isDestroyed()) window.webContents.send(`thread:event:${event.threadId}`, event);
-  }
-}
+const publisher: EventPublisher = {
+  publish(event) {
+    for (const listener of listeners.get(event.turnId) ?? []) listener(event);
+    for (const window of BrowserWindow.getAllWindows()) {
+      if (!window.isDestroyed()) window.webContents.send(`thread:event:${event.threadId}`, event);
+    }
+  },
+};
 
 function append(turnId: string, event: RuntimeEventPayload): RuntimeEvent {
   const stored = journal.append(turnId, event);
-  publish(stored);
+  publisher.publish(stored);
   return stored;
 }
 

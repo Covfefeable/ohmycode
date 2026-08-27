@@ -132,19 +132,10 @@ type ConversationStreamEvent =
   | { type: "task.plan.updated"; tasks: AgentTask[] }
   | { type: "tool.requested"; runId: string; callId: string; tool: "terminal" | "agent_message" | "finish_collaboration" | "view_image" | "read_file" | "search_files" | "list_directory" | "apply_patch" | "update_tasks"; arguments: TerminalAction | { imageUrl: string; detail?: "low" | "high" } | Record<string, unknown>; taskId?: string }
   | { type: "tool.completed"; callId: string; result: unknown };
-type AgentTask = { id: string; content: string; status: "pending" | "in_progress" | "completed" };
-type RuntimeItem = { id: string; threadId: string; turnId: string; kind: "reasoning" | "agent_message" | "tool" | "context"; status: "in_progress" | "completed" | "failed" | "interrupted"; content?: string; tool?: string; input?: unknown; output?: unknown; errorCode?: string; taskId?: string };
-type RuntimeEvent =
-  | { sequence: number; type: "turn.started"; threadId: string; turnId: string }
-  | { sequence: number; type: "item.started"; threadId: string; turnId: string; item: RuntimeItem }
-  | { sequence: number; type: "item.delta"; threadId: string; turnId: string; itemId: string; delta: string }
-  | { sequence: number; type: "item.completed"; threadId: string; turnId: string; item: RuntimeItem }
-  | { sequence: number; type: "context.updated"; threadId: string; turnId: string; usedTokens: number; contextLength: number; source: "estimated" | "provider" }
-  | { sequence: number; type: "task.updated"; threadId: string; turnId: string; tasks: AgentTask[] }
-  | { sequence: number; type: "turn.completed"; threadId: string; turnId: string }
-  | { sequence: number; type: "turn.failed"; threadId: string; turnId: string; errorCode: string }
-  | { sequence: number; type: "turn.interrupted"; threadId: string; turnId: string };
-type TurnSnapshot = { threadId: string; turnId: string; status: "in_progress" | "completed" | "failed" | "interrupted"; lastSequence: number; events: RuntimeEvent[] };
+type AgentTask = import("@ohmycode/protocol").AgentTask;
+type RuntimeItem = import("@ohmycode/protocol").RuntimeItem;
+type RuntimeEvent = import("@ohmycode/protocol").RuntimeEvent;
+type TurnSnapshot = import("@ohmycode/protocol").TurnSnapshot;
 type MultiAgentRunEvent =
   | { type: "task.updated"; task: MultiAgentTask }
   | { type: "node.event"; nodeId: string; event: RuntimeEvent }
@@ -159,7 +150,7 @@ type AgentActivityStep =
 type MessageAttachment = { id: string; name: string; path: string; size: number; mimeType: string };
 type LocalMessage = { id: string; role: "user" | "assistant"; content: string; attachments?: MessageAttachment[]; reasoning?: string | null; activity?: AgentActivityStep[] | null; agentDurationMs?: number | null; agentStartedAt?: string; createdAt: string };
 type LocalConversation = { id: string; title: string; createdAt: string; messages?: LocalMessage[]; contextUsage?: { usedTokens: number; contextLength: number; source: "provider" } | null };
-type LocalProject = { id: string; name: string; path: string; conversations: LocalConversation[] };
+type LocalProject = { id: string; name: string; path: string; deviceId: string; deviceName: string; conversations: LocalConversation[] };
 type TerminalStatus = "running" | "exited" | "stopped";
 type TerminalAction =
   | { action: "start"; projectId: string; command: string; cwd?: string; yieldMs?: number; intent?: "read" | "write" }

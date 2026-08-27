@@ -15,12 +15,16 @@ if TYPE_CHECKING:
 
 class Project(db.Model):
     __tablename__ = "projects"
-    __table_args__ = (UniqueConstraint("user_id", "path", name="uq_projects_user_path"),)
+    __table_args__ = (
+        UniqueConstraint("user_id", "device_id", "path", name="uq_projects_user_device_path"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), index=True
     )
+    device_id: Mapped[str] = mapped_column(String(64), index=True)
+    device_name: Mapped[str] = mapped_column(String(255))
     name: Mapped[str] = mapped_column(String(255))
     path: Mapped[str] = mapped_column(String(1024))
     kind: Mapped[str] = mapped_column(String(32), default="workspace", index=True)

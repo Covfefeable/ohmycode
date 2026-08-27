@@ -2,27 +2,36 @@ from uuid import UUID
 
 from ...extensions import db
 from ...models import Project
+from ..devices import DeviceContext
 from ..errors import ServiceError
 from .queries import owned_project
 
 
-def list_projects(user_id: UUID) -> list[Project]:
+def list_projects(user_id: UUID, device: DeviceContext) -> list[Project]:
     return list(
         db.session.scalars(
             db.select(Project)
-            .where(Project.user_id == user_id, Project.kind == "workspace")
+            .where(
+                Project.user_id == user_id,
+                Project.device_id == device.id,
+                Project.kind == "workspace",
+            )
             .order_by(Project.created_at)
         )
     )
 
 
-def create_project(user_id: UUID, payload: dict) -> Project:
+def create_project(user_id: UUID, device: DeviceContext, payload: dict) -> Project:
     project_path = str(payload.get("path") or "").strip()[:1024]
     name = str(payload.get("name") or "").strip()[:255]
     if not project_path or not name:
         raise ServiceError("validation_error", 422)
     existing = db.session.scalar(
-        db.select(Project).where(Project.user_id == user_id, Project.path == project_path)
+        db.select(Project).where(
+            Project.user_id == user_id,
+            Project.device_id == device.id,
+            Project.path == project_path,
+        )
     )
     if existing:
         if existing.kind == "multi_agent":
@@ -31,7 +40,14 @@ def create_project(user_id: UUID, payload: dict) -> Project:
             db.session.commit()
             return existing
         raise ServiceError("project_exists", 409)
-    project = Project(user_id=user_id, name=name, path=project_path, kind="workspace")
+    project = Project(
+        user_id=user_id,
+        device_id=device.id,
+        device_name=device.name,
+        name=name,
+        path=project_path,
+        kind="workspace",
+    )
     db.session.add(project)
     db.session.commit()
     return project

@@ -1,10 +1,11 @@
 from ...extensions import db
 from ...models import AgentRun, MultiAgent, MultiAgentMessage, MultiAgentTask, WorkspaceChange
 from ..agent.runs import build_run_activity
+from ..devices import DeviceContext
 from .planner import validate_plan
 
 
-def serialize_agent(agent: MultiAgent) -> dict:
+def serialize_agent(agent: MultiAgent, device: DeviceContext | None = None) -> dict:
     team = validate_plan(agent.template_team or {})
     return {
         "id": str(agent.id),
@@ -21,6 +22,7 @@ def serialize_agent(agent: MultiAgent) -> dict:
                 "createdAt": task.created_at.isoformat(),
             }
             for task in agent.tasks
+            if device is None or task.project.device_id == device.id
         ],
     }
 
@@ -52,9 +54,7 @@ def serialize_task(task: MultiAgentTask) -> dict:
         runs = runs_by_conversation.get(node.conversation_id, [])
         run = runs[-1] if runs else None
         activity = [
-            step
-            for item in runs
-            for step in build_run_activity(item, include_run_boundary=True)
+            step for item in runs for step in build_run_activity(item, include_run_boundary=True)
         ]
         final_output = {**(node.final_output or {})}
         if activity:

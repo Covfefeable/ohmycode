@@ -17,15 +17,7 @@ def test_planner_repairs_an_invalid_generated_team(monkeypatch):
     monkeypatch.setattr(planner, "decrypt_api_key", lambda _value: "secret")
     responses = iter(
         [
-            {
-                "choices": [
-                    {
-                        "message": {
-                            "content": '{"title":"Bad","members":[{"key":"host"}]}'
-                        }
-                    }
-                ]
-            },
+            {"choices": [{"message": {"content": '{"title":"Bad","members":[{"key":"host"}]}'}}]},
             {
                 "choices": [
                     {
@@ -75,7 +67,11 @@ def _setup(client):
         "/api/auth/register",
         json={"email": "team@example.com", "displayName": "Team", "password": "secret123"},
     ).get_json()["tokens"]["accessToken"]
-    return {"Authorization": f"Bearer {token}"}
+    return {
+        "Authorization": f"Bearer {token}",
+        "X-OhMyCode-Device-Id": "device-a",
+        "X-OhMyCode-Device-Name": "Test%20device",
+    }
 
 
 def _create_team(client, headers):
@@ -257,11 +253,14 @@ def test_user_message_queues_target_and_host_recovers(tmp_path):
             f"/api/multi-agents/tasks/{task['id']}/stop", headers=headers
         ).get_json()
         assert [item["id"] for item in stopped["messages"]] == before_stop_message_ids
-        assert db.session.scalar(
-            db.select(db.func.count(Message.id)).where(
-                Message.conversation_id == UUID(host["conversationId"])
+        assert (
+            db.session.scalar(
+                db.select(db.func.count(Message.id)).where(
+                    Message.conversation_id == UUID(host["conversationId"])
+                )
             )
-        ) == 1
+            == 1
+        )
 
         restarted = client.post(
             f"/api/multi-agents/tasks/{task['id']}/start", headers=headers
@@ -269,11 +268,14 @@ def test_user_message_queues_target_and_host_recovers(tmp_path):
         assert len(restarted["messages"]) == 1
         assert restarted["messages"][0]["id"] not in before_stop_message_ids
         assert restarted["messages"][0]["content"] == task["request"]
-        assert db.session.scalar(
-            db.select(db.func.count(Message.id)).where(
-                Message.conversation_id == UUID(host["conversationId"])
+        assert (
+            db.session.scalar(
+                db.select(db.func.count(Message.id)).where(
+                    Message.conversation_id == UUID(host["conversationId"])
+                )
             )
-        ) == 0
+            == 0
+        )
 
 
 def test_remote_service_treats_client_workspace_path_as_opaque():

@@ -16,7 +16,11 @@ export type RuntimeItem = {
   taskId?: string;
 };
 
-export type AgentTask = { id: string; content: string; status: "pending" | "in_progress" | "completed" };
+export type AgentTask = {
+  id: string;
+  content: string;
+  status: "pending" | "in_progress" | "completed";
+};
 
 export type RuntimeEvent =
   | { sequence: number; type: "turn.started"; threadId: string; turnId: string }

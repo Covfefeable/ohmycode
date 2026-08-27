@@ -1,13 +1,28 @@
-import type { RuntimeEvent, RuntimeEventPayload, TurnSnapshot, TurnStatus } from "./types.js";
+import type {
+  RuntimeEvent,
+  RuntimeEventPayload,
+  TurnSnapshot,
+  TurnStatus,
+} from "@ohmycode/protocol";
 
 type MutableTurn = Omit<TurnSnapshot, "events"> & { events: RuntimeEvent[] };
+
+export interface EventPublisher {
+  publish(event: RuntimeEvent): void;
+}
 
 export class EventJournal {
   private readonly turns = new Map<string, MutableTurn>();
   private readonly activeByThread = new Map<string, string>();
 
   create(threadId: string, turnId: string): void {
-    this.turns.set(turnId, { threadId, turnId, status: "in_progress", lastSequence: 0, events: [] });
+    this.turns.set(turnId, {
+      threadId,
+      turnId,
+      status: "in_progress",
+      lastSequence: 0,
+      events: [],
+    });
     this.activeByThread.set(threadId, turnId);
   }
 
@@ -24,14 +39,16 @@ export class EventJournal {
 
   snapshotForThread(threadId: string, afterSequence = 0): TurnSnapshot | null {
     const turnId = this.activeByThread.get(threadId);
-    if (!turnId) return null;
-    return this.snapshot(turnId, afterSequence);
+    return turnId ? this.snapshot(turnId, afterSequence) : null;
   }
 
   snapshot(turnId: string, afterSequence = 0): TurnSnapshot | null {
     const turn = this.turns.get(turnId);
     if (!turn) return null;
-    return { ...turn, events: turn.events.filter((event) => event.sequence > afterSequence) };
+    return {
+      ...turn,
+      events: turn.events.filter((event) => event.sequence > afterSequence),
+    };
   }
 
   private finish(turn: MutableTurn, status: TurnStatus): void {

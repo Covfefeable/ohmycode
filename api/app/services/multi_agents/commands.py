@@ -13,6 +13,7 @@ from ...models import (
     Project,
     WorkspaceChange,
 )
+from ..devices import DeviceContext
 from ..errors import ServiceError
 from .planner import generate_plan, validate_plan
 from .queries import get_task, owned_agent, owned_node
@@ -99,7 +100,9 @@ def delete_agent(user_id: UUID, agent_id: UUID) -> None:
     db.session.commit()
 
 
-def create_task(user_id: UUID, agent_id: UUID, payload: dict) -> MultiAgentTask:
+def create_task(
+    user_id: UUID, device: DeviceContext, agent_id: UUID, payload: dict
+) -> MultiAgentTask:
     agent = owned_agent(user_id, agent_id)
     if not agent:
         raise ServiceError("not_found", 404)
@@ -119,11 +122,20 @@ def create_task(user_id: UUID, agent_id: UUID, payload: dict) -> MultiAgentTask:
             default="workspace",
         )[:255]
     project = db.session.scalar(
-        db.select(Project).where(Project.user_id == user_id, Project.path == workspace_path)
+        db.select(Project).where(
+            Project.user_id == user_id,
+            Project.device_id == device.id,
+            Project.path == workspace_path,
+        )
     )
     if not project:
         project = Project(
-            user_id=user_id, name=workspace_name, path=workspace_path, kind="multi_agent"
+            user_id=user_id,
+            device_id=device.id,
+            device_name=device.name,
+            name=workspace_name,
+            path=workspace_path,
+            kind="multi_agent",
         )
         db.session.add(project)
         db.session.flush()

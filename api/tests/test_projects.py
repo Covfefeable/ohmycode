@@ -8,6 +8,63 @@ from app.extensions import db
 from app.models import Project, User
 
 
+def test_projects_and_conversations_are_isolated_by_device():
+    app = create_app("testing")
+    with app.app_context():
+        db.create_all()
+
+    with app.test_client() as client:
+        registration = client.post(
+            "/api/auth/register",
+            json={
+                "email": "devices@example.com",
+                "displayName": "Devices User",
+                "password": "secret123",
+            },
+        )
+        authorization = f"Bearer {registration.get_json()['tokens']['accessToken']}"
+        first_headers = {
+            "Authorization": authorization,
+            "X-OhMyCode-Device-Id": "device-a",
+            "X-OhMyCode-Device-Name": "Desktop%20A",
+        }
+        second_headers = {
+            "Authorization": authorization,
+            "X-OhMyCode-Device-Id": "device-b",
+            "X-OhMyCode-Device-Name": "Desktop%20B",
+        }
+
+        first = client.post(
+            "/api/projects",
+            headers=first_headers,
+            json={"name": "shared-name", "path": "C:/repos/shared"},
+        ).get_json()
+        second = client.post(
+            "/api/projects",
+            headers=second_headers,
+            json={"name": "shared-name", "path": "C:/repos/shared"},
+        ).get_json()
+        conversation = client.post(
+            f"/api/projects/{first['id']}/conversations",
+            headers=first_headers,
+            json={"title": "Device A chat"},
+        ).get_json()
+
+        assert first["id"] != second["id"]
+        assert [
+            item["id"] for item in client.get("/api/projects", headers=first_headers).get_json()
+        ] == [first["id"]]
+        assert [
+            item["id"] for item in client.get("/api/projects", headers=second_headers).get_json()
+        ] == [second["id"]]
+        assert (
+            client.get(
+                f"/api/projects/conversations/{conversation['id']}", headers=second_headers
+            ).status_code
+            == 404
+        )
+
+
 def test_hidden_multi_agent_project_is_promoted_to_workspace():
     app = create_app("testing")
     with app.app_context():
@@ -23,12 +80,16 @@ def test_hidden_multi_agent_project_is_promoted_to_workspace():
             },
         )
         headers = {
-            "Authorization": f"Bearer {registration.get_json()['tokens']['accessToken']}"
+            "Authorization": f"Bearer {registration.get_json()['tokens']['accessToken']}",
+            "X-OhMyCode-Device-Id": "device-a",
+            "X-OhMyCode-Device-Name": "Test%20device",
         }
         with app.app_context():
             user = db.session.scalar(db.select(User).where(User.email == "promotion@example.com"))
             hidden = Project(
                 user_id=user.id,
+                device_id="device-a",
+                device_name="Test device",
                 name="hidden-run",
                 path="C:/Users/admin/Desktop",
                 kind="multi_agent",
@@ -66,7 +127,11 @@ def test_project_conversation_and_message_lifecycle(monkeypatch):
             },
         )
         token = registration.get_json()["tokens"]["accessToken"]
-        headers = {"Authorization": f"Bearer {token}"}
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "X-OhMyCode-Device-Id": "device-a",
+            "X-OhMyCode-Device-Name": "Test%20device",
+        }
 
         model_id = str(uuid.uuid4())
         saved_settings = client.put(
@@ -265,13 +330,9 @@ def test_project_conversation_and_message_lifecycle(monkeypatch):
                     }
                 },
             )
-            raise httpx.HTTPStatusError(
-                "Payment Required", request=request, response=response
-            )
+            raise httpx.HTTPStatusError("Payment Required", request=request, response=response)
 
-        monkeypatch.setattr(
-            "app.services.agent.provider_stream.httpx.stream", insufficient_balance
-        )
+        monkeypatch.setattr("app.services.agent.provider_stream.httpx.stream", insufficient_balance)
         balance_stream = client.post(
             f"/api/projects/conversations/{balance_conversation['id']}/stream",
             headers=headers,
@@ -380,9 +441,7 @@ def test_project_conversation_and_message_lifecycle(monkeypatch):
             captured_requests.append(kwargs["json"])
             return next(cancellation_responses)
 
-        monkeypatch.setattr(
-            "app.services.agent.provider_stream.httpx.stream", cancellation_stream
-        )
+        monkeypatch.setattr("app.services.agent.provider_stream.httpx.stream", cancellation_stream)
         waiting = client.post(
             f"/api/projects/conversations/{cancelled_conversation['id']}/stream",
             headers=headers,
@@ -418,9 +477,7 @@ def test_project_conversation_and_message_lifecycle(monkeypatch):
             f"/api/projects/conversations/{cancelled_conversation['id']}", headers=headers
         ).get_json()
         assert cancelled_detail["messages"][-1]["content"] == "You stopped this task"
-        assert cancelled_detail["messages"][-1]["activity"][0]["content"] == (
-            "I will check first."
-        )
+        assert cancelled_detail["messages"][-1]["activity"][0]["content"] == ("I will check first.")
         continued = client.post(
             f"/api/projects/conversations/{cancelled_conversation['id']}/stream",
             headers=headers,

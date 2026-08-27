@@ -18,7 +18,9 @@ from ..services.conversations import (
 )
 from ..services.errors import ServiceError
 from ..services.projects import create_project, delete_project, list_projects, serialize_project
+from ..services.projects.queries import device_conversation, device_project
 from ..services.projects.serializers import serialize_conversation, serialize_message
+from .device import current_device
 
 projects_bp = Blueprint("projects", __name__)
 
@@ -30,20 +32,26 @@ def user_id() -> UUID:
 @projects_bp.get("")
 @jwt_required()
 def list_projects_route():
-    return jsonify([serialize_project(project) for project in list_projects(user_id())])
+    return jsonify(
+        [serialize_project(project) for project in list_projects(user_id(), current_device())]
+    )
 
 
 @projects_bp.post("")
 @jwt_required()
 def create_project_route():
     return jsonify(
-        serialize_project(create_project(user_id(), request.get_json(silent=True) or {}))
+        serialize_project(
+            create_project(user_id(), current_device(), request.get_json(silent=True) or {})
+        )
     ), 201
 
 
 @projects_bp.delete("/<uuid:project_id>")
 @jwt_required()
 def delete_project_route(project_id: UUID):
+    if not device_project(user_id(), current_device(), project_id):
+        raise ServiceError("not_found", 404)
     delete_project(user_id(), project_id)
     return "", 204
 
@@ -51,6 +59,8 @@ def delete_project_route(project_id: UUID):
 @projects_bp.post("/<uuid:project_id>/conversations")
 @jwt_required()
 def create_conversation_route(project_id: UUID):
+    if not device_project(user_id(), current_device(), project_id):
+        raise ServiceError("not_found", 404)
     conversation = create_conversation(user_id(), project_id, request.get_json(silent=True) or {})
     return jsonify(serialize_conversation(conversation)), 201
 
@@ -58,12 +68,16 @@ def create_conversation_route(project_id: UUID):
 @projects_bp.get("/conversations/<uuid:conversation_id>")
 @jwt_required()
 def get_conversation_route(conversation_id: UUID):
+    if not device_conversation(user_id(), current_device(), conversation_id):
+        raise ServiceError("not_found", 404)
     return jsonify(serialize_conversation(get_conversation(user_id(), conversation_id), True))
 
 
 @projects_bp.delete("/conversations/<uuid:conversation_id>")
 @jwt_required()
 def delete_conversation_route(conversation_id: UUID):
+    if not device_conversation(user_id(), current_device(), conversation_id):
+        raise ServiceError("not_found", 404)
     delete_conversation(user_id(), conversation_id)
     return "", 204
 
@@ -71,6 +85,8 @@ def delete_conversation_route(conversation_id: UUID):
 @projects_bp.post("/conversations/<uuid:conversation_id>/messages")
 @jwt_required()
 def add_message_route(conversation_id: UUID):
+    if not device_conversation(user_id(), current_device(), conversation_id):
+        raise ServiceError("not_found", 404)
     message = add_message(user_id(), conversation_id, request.get_json(silent=True) or {})
     return jsonify(serialize_message(message)), 201
 
@@ -78,6 +94,8 @@ def add_message_route(conversation_id: UUID):
 @projects_bp.patch("/conversations/<uuid:conversation_id>/messages/<uuid:message_id>")
 @jwt_required()
 def edit_message_route(conversation_id: UUID, message_id: UUID):
+    if not device_conversation(user_id(), current_device(), conversation_id):
+        raise ServiceError("not_found", 404)
     content = str((request.get_json(silent=True) or {}).get("content") or "")
     conversation = edit_last_user_message(user_id(), conversation_id, message_id, content)
     return jsonify(serialize_conversation(conversation, True))
@@ -86,17 +104,22 @@ def edit_message_route(conversation_id: UUID, message_id: UUID):
 @projects_bp.post("/conversations/<uuid:conversation_id>/suggestions")
 @jwt_required()
 def suggest_followups_route(conversation_id: UUID):
+    if not device_conversation(user_id(), current_device(), conversation_id):
+        raise ServiceError("not_found", 404)
     return jsonify({"suggestions": generate_followup_suggestions(user_id(), conversation_id)})
 
 
 @projects_bp.post("/conversations/<uuid:conversation_id>/stream")
 @jwt_required()
 def stream_completion_route(conversation_id: UUID):
+    if not device_conversation(user_id(), current_device(), conversation_id):
+        raise ServiceError("not_found", 404)
     payload = request.get_json(silent=True) or {}
     try:
         turn_id = UUID(str(payload["turnId"])) if payload.get("turnId") else None
     except ValueError:
         return jsonify({"error": {"code": "invalid_turn_id"}}), 422
+
     @stream_with_context
     def events():
         try:

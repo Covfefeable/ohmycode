@@ -1,0 +1,12 @@
+{
+  "name": "ohmycode",
+  "private": true,
+  "packageManager": "pnpm@10.15.0",
+  "scripts": {
+    "build": "pnpm --filter @ohmycode/protocol build && pnpm --filter @ohmycode/runtime-core build && pnpm --filter ohmycode-client build",
+    "typecheck": "pnpm --filter @ohmycode/protocol build && pnpm --filter @ohmycode/runtime-core build && pnpm --filter ohmycode-client typecheck"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["electron", "node-pty"]
+  }
+}

@@ -1,6 +1,7 @@
 import { readTokens, storeTokens } from "../auth/token-store.js";
 import type { AuthTokens } from "../auth/types.js";
 import { getApiUrl } from "../config.js";
+import { getDeviceIdentity } from "../device/device-identity.js";
 
 export class ApiError extends Error {
   constructor(public status: number, public code: string) { super(code); }
@@ -28,10 +29,15 @@ async function refreshAccessToken(refreshToken: string): Promise<AuthTokens | nu
 export async function apiFetch(pathname: string, init: RequestInit = {}): Promise<Response> {
   let tokens = await readTokens();
   if (!tokens) throw new ApiError(401, "authorization_required");
-  const execute = (accessToken: string) => fetch(`${getApiUrl()}${pathname}`, {
-    ...init,
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}`, ...init.headers },
-  });
+  const device = await getDeviceIdentity();
+  const execute = (accessToken: string) => {
+    const headers = new Headers(init.headers);
+    if (!headers.has("Content-Type")) headers.set("Content-Type", "application/json");
+    headers.set("Authorization", `Bearer ${accessToken}`);
+    headers.set("X-OhMyCode-Device-Id", device.id);
+    headers.set("X-OhMyCode-Device-Name", encodeURIComponent(device.name));
+    return fetch(`${getApiUrl()}${pathname}`, { ...init, headers });
+  };
   let response = await execute(tokens.accessToken);
   if (response.status === 401) {
     tokens = await refreshAccessToken(tokens.refreshToken);
