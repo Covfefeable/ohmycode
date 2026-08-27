@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { ReadableStream } from "node:stream/web";
 import { TextEncoder } from "node:util";
-import { forwardServerStream } from "../../dist-electron/conversations/server-stream.js";
+import { forwardServerStream } from "../dist/index.js";
 
 const encoder = new TextEncoder();
 const response = (body) => ({

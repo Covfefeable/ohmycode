@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { ReadableStream } from "node:stream/web";
 import { TextEncoder } from "node:util";
-import { runToolLoop } from "../../dist-electron/runtime/tool-loop.js";
+import { runToolLoop } from "../dist/index.js";
 
 const { AbortController, setTimeout } = globalThis;
 
@@ -31,7 +31,7 @@ await runToolLoop({
       return complete();
     },
   },
-  registry: { execute: async () => { throw new Error("unexpected tool"); } },
+  tools: { execute: async () => { throw new Error("unexpected tool"); } },
   execution: {
     signal: new AbortController().signal,
     setPhase: () => undefined,
@@ -61,7 +61,7 @@ await runToolLoop({
       return response("data: [DONE]\n\n");
     },
   },
-  registry: {
+  tools: {
     execute: async (request) => {
       active += 1;
       maximumActive = Math.max(maximumActive, active);
@@ -98,7 +98,7 @@ await runToolLoop({
       return complete();
     },
   },
-  registry: {
+  tools: {
     execute: async (request) => {
       sideEffectCount += 1;
       return { callId: request.callId, result: { changed: true } };

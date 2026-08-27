@@ -9,7 +9,11 @@ import {
   type AgentExecutionContext,
 } from "../conversations/conversation-service.js";
 import { SqliteEventStore } from "./sqlite-event-store.js";
-import { TurnExecution } from "./turn-execution.js";
+import {
+  createDesktopTurnExecution,
+  restoreDesktopTurnExecution,
+  type DesktopTurnExecution,
+} from "./desktop-execution-adapter.js";
 
 type StartTurnInput = {
   threadId: string;
@@ -23,7 +27,7 @@ type StartTurnInput = {
 let journal: EventJournal | null = null;
 let runtimeStore: SqliteEventStore | null = null;
 const completion = new Map<string, Promise<LocalConversation>>();
-const executions = new Map<string, TurnExecution>();
+const executions = new Map<string, DesktopTurnExecution>();
 const itemState = new Map<string, RuntimeItem>();
 const listeners = new Map<string, Set<(event: RuntimeEvent) => void>>();
 const interrupting = new Set<string>();
@@ -68,8 +72,8 @@ export function initializeAgentRuntime(): void {
     });
     const executionState = persistedExecutions.get(stale.turnId);
     const execution = executionState
-      ? TurnExecution.restore(executionState, runtimeStore)
-      : new TurnExecution(stale.turnId, runtimeStore);
+      ? restoreDesktopTurnExecution(executionState, runtimeStore)
+      : createDesktopTurnExecution(stale.turnId, runtimeStore);
     void execution.interrupt().catch((error) => {
       console.error("[runtime] failed to reconcile interrupted turn", error);
     });
@@ -161,7 +165,7 @@ export function startTurn(input: StartTurnInput): { turnId: string } {
   const turnId = crypto.randomUUID();
   requireJournal().create(input.threadId, turnId);
   if (!runtimeStore) throw new Error("runtime_not_initialized");
-  const execution = new TurnExecution(turnId, runtimeStore);
+  const execution = createDesktopTurnExecution(turnId, runtimeStore);
   executions.set(turnId, execution);
   append(turnId, { type: "turn.started", threadId: input.threadId, turnId });
   const running = streamMessage(

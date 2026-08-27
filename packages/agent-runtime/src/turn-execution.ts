@@ -1,17 +1,16 @@
-import type { LocalMessage } from "../projects/types.js";
 import type { ExecutionStore, RuntimeExecutionState } from "@ohmycode/runtime-core";
-import { ApiError, apiRequest } from "../api/api-client.js";
-import { executeTerminalAction } from "../terminal/terminal-manager.js";
+import type { TurnExecutionAdapter } from "./contracts.js";
 
-export class TurnExecution {
+export class TurnExecution<PartialState = unknown> {
   private readonly controller = new AbortController();
-  private readonly terminalIds = new Set<string>();
+  private readonly resourceIds = new Set<string>();
   private remoteRunId: string;
   private phase: RuntimeExecutionState["phase"] = "streaming";
   private readonly pendingToolCallIds = new Set<string>();
 
   constructor(
     private readonly turnId: string,
+    private readonly adapter: TurnExecutionAdapter<PartialState>,
     private readonly store?: ExecutionStore,
     persistInitialState = true,
   ) {
@@ -19,12 +18,16 @@ export class TurnExecution {
     if (persistInitialState) this.persist();
   }
 
-  static restore(state: RuntimeExecutionState, store: ExecutionStore): TurnExecution {
-    const execution = new TurnExecution(state.turnId, store, false);
+  static restore<PartialState>(
+    state: RuntimeExecutionState,
+    adapter: TurnExecutionAdapter<PartialState>,
+    store: ExecutionStore,
+  ): TurnExecution<PartialState> {
+    const execution = new TurnExecution(state.turnId, adapter, store, false);
     execution.remoteRunId = state.remoteRunId;
     execution.phase = state.phase;
     for (const callId of state.pendingToolCallIds) execution.pendingToolCallIds.add(callId);
-    for (const terminalId of state.terminalIds) execution.terminalIds.add(terminalId);
+    for (const resourceId of state.resourceIds) execution.resourceIds.add(resourceId);
     execution.persist();
     return execution;
   }
@@ -38,8 +41,8 @@ export class TurnExecution {
     this.persist();
   }
 
-  registerTerminal(terminalId: string): void {
-    this.terminalIds.add(terminalId);
+  registerResource(resourceId: string): void {
+    this.resourceIds.add(resourceId);
     this.persist();
   }
 
@@ -58,35 +61,28 @@ export class TurnExecution {
     this.store?.deleteExecution(this.turnId);
   }
 
-  async interrupt(partialMessage?: LocalMessage): Promise<void> {
+  async interrupt(partialState?: PartialState): Promise<void> {
     this.setPhase("interrupting");
     this.controller.abort();
     await Promise.allSettled(
-      [...this.terminalIds].map((terminalId) =>
-        executeTerminalAction({ action: "stop", terminalId }),
-      ),
+      [...this.resourceIds].map((resourceId) => this.adapter.stopResource(resourceId)),
     );
-    if (this.remoteRunId) await this.cancelRemoteRun(partialMessage);
+    if (this.remoteRunId) await this.cancelRemoteRun(partialState);
     this.complete();
   }
 
-  private async cancelRemoteRun(partialMessage?: LocalMessage): Promise<void> {
+  private async cancelRemoteRun(partialState?: PartialState): Promise<void> {
     let lastError: unknown;
     for (const delay of [0, 150, 500, 1_000]) {
       if (delay) await new Promise((resolve) => setTimeout(resolve, delay));
       try {
-        await apiRequest(`/api/agent-runs/${this.remoteRunId}/cancel`, {
-          method: "POST",
-          body: JSON.stringify({ partialMessage }),
-        });
+        await this.adapter.cancelRemoteRun(this.remoteRunId, partialState);
         return;
       } catch (error) {
-        lastError = error instanceof ApiError && error.status === 404 ? undefined : error;
+        lastError = this.adapter.isMissingRemoteRunError(error) ? undefined : error;
       }
     }
-    if (lastError) {
-      console.error("[runtime] failed to cancel remote run after retries", lastError);
-    }
+    if (lastError) this.adapter.reportCancellationFailure?.(lastError);
   }
 
   private persist(): void {
@@ -95,7 +91,7 @@ export class TurnExecution {
       remoteRunId: this.remoteRunId,
       phase: this.phase,
       pendingToolCallIds: [...this.pendingToolCallIds],
-      terminalIds: [...this.terminalIds],
+      resourceIds: [...this.resourceIds],
       updatedAt: Date.now(),
     });
   }

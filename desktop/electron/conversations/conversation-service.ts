@@ -1,13 +1,13 @@
 import { loadAgentInstructions, renderAgentInstructions } from "../files/agents-instructions.js";
+import { runToolLoop, type AgentStreamEvent, type AgentTask } from "@ohmycode/agent-runtime";
 import { listProjects } from "../projects/projects-service.js";
 import type { LocalConversation, MessageAttachment } from "../projects/types.js";
-import { runToolLoop } from "../runtime/tool-loop.js";
 import { RuntimeToolRegistry } from "../runtime/tool-registry.js";
-import type { TurnExecution } from "../runtime/turn-execution.js";
+import type { DesktopTurnExecution } from "../runtime/desktop-execution-adapter.js";
 import { ConversationTransport } from "./conversation-transport.js";
-import type { ConversationStreamEvent } from "./server-stream.js";
 
-export type { AgentTask, ConversationStreamEvent } from "./server-stream.js";
+export type ConversationStreamEvent = AgentStreamEvent;
+export type { AgentTask };
 export type AgentExecutionContext = { ownerId: string; workspacePath: string };
 
 async function conversationWorkspace(
@@ -28,7 +28,7 @@ export async function streamMessage(
   editMessageId: string | undefined,
   attachments: MessageAttachment[] | undefined,
   onEvent: (event: ConversationStreamEvent) => void,
-  execution: TurnExecution,
+  execution: DesktopTurnExecution,
   executionContext?: AgentExecutionContext,
   turnId?: string,
 ): Promise<LocalConversation> {
@@ -61,7 +61,7 @@ export async function streamMessage(
       runId: turnId,
       workspaceInstructions,
       transport,
-      registry,
+      tools: registry,
       execution,
       onEvent: (event) => {
         if (event.type === "run.started") execution.setRemoteRunId(event.runId);

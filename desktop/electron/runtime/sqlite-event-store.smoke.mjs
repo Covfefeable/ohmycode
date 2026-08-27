@@ -18,7 +18,7 @@ try {
     remoteRunId: "turn-1",
     phase: "executing_tools",
     pendingToolCallIds: ["call-1"],
-    terminalIds: ["terminal-1"],
+    resourceIds: ["terminal-1"],
     updatedAt: Date.now(),
   });
   first.close();

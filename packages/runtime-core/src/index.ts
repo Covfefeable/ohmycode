@@ -24,7 +24,7 @@ export type RuntimeExecutionState = {
   remoteRunId: string;
   phase: "streaming" | "executing_tools" | "resuming" | "recovering" | "interrupting";
   pendingToolCallIds: string[];
-  terminalIds: string[];
+  resourceIds: string[];
   updatedAt: number;
 };
 

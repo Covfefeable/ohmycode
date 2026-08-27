@@ -8,17 +8,14 @@ import { recordWorkspaceChanges, snapshotWorkspace } from "../multi-agents/works
 import { executeTerminalAction } from "../terminal/terminal-manager.js";
 import type { TerminalAction } from "../terminal/types.js";
 import type { AgentExecutionContext } from "../conversations/conversation-service.js";
-import type { AgentTask, ConversationStreamEvent, ToolRequestEvent } from "../conversations/server-stream.js";
-import type { TurnExecution } from "./turn-execution.js";
-
-export type ToolResult = { callId: string; result: unknown };
+import type { DesktopTurnExecution } from "./desktop-execution-adapter.js";
 
 type RegistryOptions = {
-  execution: TurnExecution;
+  execution: DesktopTurnExecution;
   executionContext?: AgentExecutionContext;
   workspaceRoot?: string;
   attachmentPaths: Set<string>;
-  onEvent(event: ConversationStreamEvent): void;
+  onEvent(event: AgentStreamEvent): void;
 };
 
 const FILE_TOOLS = new Set(["read_file", "search_files", "list_directory", "apply_patch"]);
@@ -50,7 +47,7 @@ function toolSignature(request: ToolRequestEvent): string {
   return `${request.tool}:${JSON.stringify(sortValue(request.arguments))}`;
 }
 
-export class RuntimeToolRegistry {
+export class RuntimeToolRegistry implements ToolExecutor {
   private readonly inspectedPaths = new Set<string>();
   private readonly failedToolCalls = new Map<string, number>();
   private readonly leasedTerminalIds = new Set<string>();
@@ -207,7 +204,7 @@ export class RuntimeToolRegistry {
     }
     const items = Array.isArray(result) ? result : [result];
     if (action.action === "start") {
-      for (const item of items) if (item.terminalId) this.options.execution.registerTerminal(item.terminalId);
+      for (const item of items) if (item.terminalId) this.options.execution.registerResource(item.terminalId);
     }
     if (release) {
       const running = items.find((item) => item.status === "running");
@@ -226,3 +223,5 @@ export class RuntimeToolRegistry {
     return result;
   }
 }
+import type { AgentStreamEvent, AgentTask, ToolRequestEvent } from "@ohmycode/agent-runtime";
+import type { ToolExecutor, ToolResult } from "@ohmycode/tool-contracts";

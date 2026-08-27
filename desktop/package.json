@@ -7,11 +7,11 @@
   "type": "module",
   "scripts": {
     "dev": "concurrently -k \"vite\" \"pnpm electron:dev\"",
-    "build:packages": "pnpm --filter @ohmycode/protocol build && pnpm --filter @ohmycode/runtime-core build",
+    "build:packages": "pnpm --filter @ohmycode/protocol build && pnpm --filter @ohmycode/tool-contracts build && pnpm --filter @ohmycode/runtime-core build && pnpm --filter @ohmycode/agent-runtime build",
     "electron:dev": "wait-on tcp:5173 && pnpm build:packages && tsc -p electron/tsconfig.json && cross-env VITE_DEV_SERVER_URL=http://127.0.0.1:5173 electron .",
     "build": "pnpm build:packages && tsc -b && vite build && tsc -p electron/tsconfig.json",
     "test:file-tools": "pnpm build:packages && tsc -p electron/tsconfig.json && node electron/files/file-tools.smoke.mjs",
-    "test:runtime": "pnpm build:packages && tsc -p electron/tsconfig.json && node electron/runtime/event-journal.smoke.mjs && node electron/runtime/sqlite-event-store.smoke.mjs && node electron/conversations/conversation-stream.smoke.mjs && node electron/runtime/tool-loop.smoke.mjs",
+    "test:runtime": "pnpm build:packages && pnpm --filter @ohmycode/agent-runtime test && tsc -p electron/tsconfig.json && node electron/runtime/event-journal.smoke.mjs && node electron/runtime/sqlite-event-store.smoke.mjs",
     "dist:win": "pnpm build && electron-builder --win nsis --x64",
     "dist:mac": "pnpm build && electron-builder --mac dmg --arm64",
     "typecheck": "tsc -b --pretty false",
@@ -19,8 +19,10 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@ohmycode/agent-runtime": "workspace:*",
     "@ohmycode/protocol": "workspace:*",
     "@ohmycode/runtime-core": "workspace:*",
+    "@ohmycode/tool-contracts": "workspace:*",
     "@lexical/react": "0.49.0",
     "@lexical/utils": "0.49.0",
     "@modelcontextprotocol/sdk": "1.30.0",

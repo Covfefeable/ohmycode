@@ -1,6 +1,5 @@
 import { apiErrorFromResponse, apiFetch, apiRequest } from "../api/api-client.js";
 import type { LocalConversation, MessageAttachment } from "../projects/types.js";
-import type { ToolResult } from "../runtime/tool-registry.js";
 
 export type StartStreamInput = {
   conversationId: string;
@@ -17,7 +16,7 @@ async function checked(response: Response): Promise<Response> {
   return response;
 }
 
-export class ConversationTransport {
+export class ConversationTransport implements AgentTransport {
   constructor(private readonly signal: AbortSignal) {}
 
   start(input: StartStreamInput): Promise<Response> {
@@ -66,3 +65,5 @@ export class ConversationTransport {
     return apiRequest(`/api/projects/conversations/${conversationId}`);
   }
 }
+import type { AgentTransport } from "@ohmycode/agent-runtime";
+import type { ToolResult } from "@ohmycode/tool-contracts";

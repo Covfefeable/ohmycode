@@ -1,16 +1,15 @@
-import type { ConversationTransport } from "../conversations/conversation-transport.js";
-import { forwardServerStream, type ConversationStreamEvent } from "../conversations/server-stream.js";
-import type { RuntimeToolRegistry, ToolResult } from "./tool-registry.js";
-import type { TurnExecution } from "./turn-execution.js";
+import type { ToolResult } from "@ohmycode/tool-contracts";
+import type { AgentStreamEvent, AgentTransport, RuntimePorts, TurnController } from "./contracts.js";
+import { forwardServerStream } from "./server-stream.js";
 
-type ToolLoopOptions = {
+export type ToolLoopOptions = {
   response: Response;
   runId: string;
   workspaceInstructions: string;
-  transport: ConversationTransport;
-  registry: RuntimeToolRegistry;
-  execution: TurnExecution;
-  onEvent(event: ConversationStreamEvent): void;
+  transport: AgentTransport;
+  tools: RuntimePorts["tools"];
+  execution: TurnController;
+  onEvent(event: AgentStreamEvent): void;
 };
 
 const RECOVERY_DELAYS = [250, 1_000, 3_000, 8_000, 15_000];
@@ -66,7 +65,7 @@ export async function runToolLoop(options: ToolLoopOptions): Promise<void> {
   let partialContent = "";
   let partialReasoning = "";
   let pendingResults: ToolResult[] = [];
-  const consume = (event: ConversationStreamEvent) => {
+  const consume = (event: AgentStreamEvent) => {
     if (event.type === "message.delta") partialContent += event.content;
     if (event.type === "reasoning.delta") partialReasoning += event.content;
     options.onEvent(event);
@@ -77,13 +76,7 @@ export async function runToolLoop(options: ToolLoopOptions): Promise<void> {
     try {
       requests = await forwardServerStream(response, consume);
     } catch (error) {
-      response = await recover(
-        options,
-        error,
-        partialContent,
-        partialReasoning,
-        pendingResults,
-      );
+      response = await recover(options, error, partialContent, partialReasoning, pendingResults);
       if (pendingResults.length) options.execution.setPendingToolCalls([]);
       pendingResults = [];
       continue;
@@ -91,7 +84,7 @@ export async function runToolLoop(options: ToolLoopOptions): Promise<void> {
     if (!requests.length || options.execution.signal.aborted) return;
     options.execution.setPhase("executing_tools");
     options.execution.setPendingToolCalls(requests.map((request) => request.callId));
-    const results = await Promise.all(requests.map((request) => options.registry.execute(request)));
+    const results = await Promise.all(requests.map((request) => options.tools.execute(request)));
     pendingResults = results;
     partialContent = "";
     partialReasoning = "";
@@ -106,13 +99,7 @@ export async function runToolLoop(options: ToolLoopOptions): Promise<void> {
       pendingResults = [];
       options.execution.setPendingToolCalls([]);
     } catch (error) {
-      response = await recover(
-        options,
-        error,
-        partialContent,
-        partialReasoning,
-        pendingResults,
-      );
+      response = await recover(options, error, partialContent, partialReasoning, pendingResults);
       options.execution.setPendingToolCalls([]);
       pendingResults = [];
     }
