@@ -1,13 +1,15 @@
-import { BrowserWindow } from "electron";
+import path from "node:path";
+import { app, BrowserWindow } from "electron";
 import { EventJournal, type EventPublisher } from "@ohmycode/runtime-core";
 import type { RuntimeEvent, RuntimeEventPayload, RuntimeItem, TurnSnapshot } from "@ohmycode/protocol";
 import type { LocalConversation, LocalMessage, MessageAttachment } from "../projects/types.js";
 import {
-  stopMessage,
   streamMessage,
   type ConversationStreamEvent,
   type AgentExecutionContext,
 } from "../conversations/conversation-service.js";
+import { SqliteEventStore } from "./sqlite-event-store.js";
+import { TurnExecution } from "./turn-execution.js";
 
 type StartTurnInput = {
   threadId: string;
@@ -18,8 +20,9 @@ type StartTurnInput = {
   executionContext?: AgentExecutionContext;
 };
 
-const journal = new EventJournal();
+let journal: EventJournal | null = null;
 const completion = new Map<string, Promise<LocalConversation>>();
+const executions = new Map<string, TurnExecution>();
 const itemState = new Map<string, RuntimeItem>();
 const listeners = new Map<string, Set<(event: RuntimeEvent) => void>>();
 const interrupting = new Set<string>();
@@ -36,12 +39,41 @@ const publisher: EventPublisher = {
 };
 
 function append(turnId: string, event: RuntimeEventPayload): RuntimeEvent {
-  const stored = journal.append(turnId, event);
+  const stored = requireJournal().append(turnId, event);
   publisher.publish(stored);
   return stored;
 }
 
+function requireJournal(): EventJournal {
+  if (!journal) throw new Error("runtime_not_initialized");
+  return journal;
+}
+
+export function initializeAgentRuntime(): void {
+  if (journal) return;
+  journal = new EventJournal(
+    new SqliteEventStore(path.join(app.getPath("userData"), "runtime-events.sqlite")),
+  );
+  for (const stale of journal.snapshots("in_progress")) {
+    append(stale.turnId, {
+      type: "turn.interrupted",
+      threadId: stale.threadId,
+      turnId: stale.turnId,
+      reason: "runtime_restarted",
+    });
+    void new TurnExecution(stale.turnId).interrupt().catch((error) => {
+      console.error("[runtime] failed to reconcile interrupted turn", error);
+    });
+  }
+}
+
+export function closeAgentRuntime(): void {
+  journal?.close();
+  journal = null;
+}
+
 function translate(threadId: string, turnId: string, event: ConversationStreamEvent): void {
+  if (interrupting.has(turnId)) return;
   if (event.type === "run.started") return;
   if (event.type === "context.usage") {
     append(turnId, { type: "context.updated", threadId, turnId, usedTokens: event.usedTokens, contextLength: event.contextLength, source: event.source });
@@ -117,7 +149,9 @@ function translate(threadId: string, turnId: string, event: ConversationStreamEv
 
 export function startTurn(input: StartTurnInput): { turnId: string } {
   const turnId = crypto.randomUUID();
-  journal.create(input.threadId, turnId);
+  const execution = new TurnExecution(turnId);
+  executions.set(turnId, execution);
+  requireJournal().create(input.threadId, turnId);
   append(turnId, { type: "turn.started", threadId: input.threadId, turnId });
   const running = streamMessage(
     input.threadId,
@@ -125,12 +159,12 @@ export function startTurn(input: StartTurnInput): { turnId: string } {
     input.modelId,
     input.editMessageId,
     input.attachments,
-    turnId,
     (event) => translate(input.threadId, turnId, event),
+    execution,
     input.executionContext,
     turnId,
   ).then((conversation) => {
-    const snapshot = journal.snapshot(turnId);
+    const snapshot = requireJournal().snapshot(turnId);
     if (snapshot?.status === "in_progress" && !interrupting.has(turnId)) {
       for (const item of itemState.values()) {
         if (item.turnId === turnId && item.status === "in_progress") {
@@ -142,11 +176,12 @@ export function startTurn(input: StartTurnInput): { turnId: string } {
     }
     return conversation;
   }).catch((error) => {
-    const snapshot = journal.snapshot(turnId);
+    const snapshot = requireJournal().snapshot(turnId);
     if (snapshot?.status === "in_progress" && !interrupting.has(turnId)) append(turnId, { type: "turn.failed", threadId: input.threadId, turnId, errorCode: error instanceof Error ? error.message : "runtime_failed" });
     throw error;
   }).finally(() => {
     completion.delete(turnId);
+    executions.delete(turnId);
     for (const key of itemState.keys()) if (key.startsWith(`${turnId}:`)) itemState.delete(key);
     activeTaskByTurn.delete(turnId);
   });
@@ -155,7 +190,7 @@ export function startTurn(input: StartTurnInput): { turnId: string } {
   return { turnId };
 }
 
-export const getThreadSnapshot = (threadId: string, afterSequence = 0): TurnSnapshot | null => journal.snapshotForThread(threadId, afterSequence);
+export const getThreadSnapshot = (threadId: string, afterSequence = 0): TurnSnapshot | null => requireJournal().snapshotForThread(threadId, afterSequence);
 export const waitForTurn = (turnId: string): Promise<LocalConversation> | null => completion.get(turnId) ?? null;
 export function subscribeTurn(turnId: string, listener: (event: RuntimeEvent) => void): () => void {
   const current = listeners.get(turnId) ?? new Set();
@@ -168,12 +203,12 @@ export function subscribeTurn(turnId: string, listener: (event: RuntimeEvent) =>
 }
 
 export async function interruptTurn(turnId: string, partialMessage?: LocalMessage): Promise<void> {
-  const snapshot = journal.snapshot(turnId);
-  if (!snapshot || snapshot.status !== "in_progress") return;
+  const snapshot = requireJournal().snapshot(turnId);
+  if (!snapshot || snapshot.status !== "in_progress" || interrupting.has(turnId)) return;
   interrupting.add(turnId);
   try {
-    await stopMessage(turnId, partialMessage);
-    append(turnId, { type: "turn.interrupted", threadId: snapshot.threadId, turnId });
+    await executions.get(turnId)?.interrupt(partialMessage);
+    append(turnId, { type: "turn.interrupted", threadId: snapshot.threadId, turnId, reason: "user_requested" });
   } finally {
     interrupting.delete(turnId);
   }

@@ -31,7 +31,7 @@ export type RuntimeEvent =
   | { sequence: number; type: "task.updated"; threadId: string; turnId: string; tasks: AgentTask[] }
   | { sequence: number; type: "turn.completed"; threadId: string; turnId: string }
   | { sequence: number; type: "turn.failed"; threadId: string; turnId: string; errorCode: string }
-  | { sequence: number; type: "turn.interrupted"; threadId: string; turnId: string };
+  | { sequence: number; type: "turn.interrupted"; threadId: string; turnId: string; reason?: "user_requested" | "runtime_restarted" };
 
 export type RuntimeEventPayload = RuntimeEvent extends infer Event
   ? Event extends RuntimeEvent

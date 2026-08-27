@@ -8,6 +8,7 @@ import { registerMultiAgentIpc } from "./ipc/register-multi-agent-ipc.js";
 import { stopAllTerminals } from "./terminal/terminal-manager.js";
 import { closeMcpSessions } from "./capabilities/mcp-manager.js";
 import { createMainWindow } from "./window/create-main-window.js";
+import { closeAgentRuntime, initializeAgentRuntime } from "./runtime/agent-runtime.js";
 
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
 
@@ -28,6 +29,7 @@ if (!hasSingleInstanceLock) {
   });
 
   app.whenReady().then(() => {
+    initializeAgentRuntime();
     registerAuthIpc();
     registerCapabilitiesIpc();
     registerSystemIpc();
@@ -46,6 +48,7 @@ app.on("window-all-closed", () => {
 });
 
 app.on("before-quit", () => {
+  closeAgentRuntime();
   stopAllTerminals();
   void closeMcpSessions();
 });

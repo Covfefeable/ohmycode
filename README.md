@@ -126,7 +126,9 @@ sequenceDiagram
 
 Runtime 在 Electron Main 进程中常驻。切换页面或会话只会取消 Renderer 的订阅，
 不会取消 Turn。再次进入 Thread 时，客户端先订阅实时频道，再读取 Snapshot，并按
-`sequence` 去重和重放，因此不会丢失切换期间产生的事件。
+`sequence` 去重和重放，因此不会丢失切换期间产生的事件。Runtime 事件先写入本地
+SQLite 再发布；Electron 进程重启后，未结束的 Turn 会恢复为明确的中断状态，并尝试
+取消服务端对应的 AgentRun。
 
 用户停止任务时，Runtime 先将 Turn 标记为正在中断，再取消模型流、停止该 Turn 启动的
 终端、通知 Flask 持久化部分输出，最后发布 `turn.interrupted`，避免停止和自然完成互相竞争。

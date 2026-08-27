@@ -107,8 +107,10 @@ truth for active Turn state and supports:
 
 ## Electron Agent Runtime
 
-The Runtime is implemented in `client/electron/runtime/agent-runtime.ts` and
-`event-journal.ts`. It is a module-level singleton inside Electron main.
+The Runtime adapter is implemented in `client/electron/runtime/agent-runtime.ts`.
+The platform-neutral event journal lives in `packages/runtime-core`, while
+`sqlite-event-store.ts` persists its state under Electron's `userData` directory.
+The Runtime is a module-level singleton inside Electron main.
 
 Responsibilities:
 
@@ -117,7 +119,7 @@ Responsibilities:
   `RuntimeEvent` with proper item lifecycles.
 - Execute tool requests locally or delegate to `conversation-service.ts`.
 - Handle interruption with `interruptTurn()`, which cancels the model stream,
-  stops terminals, persists the partial message, and emits
+  stops terminals created by that Turn, retries remote cancellation, persists the partial message, and emits
   `turn.interrupted`.
 - Publish events to all live Renderer windows on `thread:event:${threadId}`.
 
@@ -127,8 +129,10 @@ Important invariants:
   per Turn.
 - In-progress reasoning or message items are closed before a tool item is
   started.
-- The Runtime does **not** persist conversation state itself; durable storage
-  is handled by Flask and PostgreSQL.
+- Runtime events are committed to local SQLite before publication. Renderer
+  reconnection replays them by `sequence`; stale in-progress Turns are marked
+  `interrupted(runtime_restarted)` after an Electron process restart.
+- Durable conversation content remains owned by Flask and PostgreSQL.
 
 ## Flask service boundaries
 
@@ -282,10 +286,6 @@ The remaining item is:
 
 Additional known areas for future architecture work:
 
-- **Runtime durability**: the EventJournal is currently in-memory only. A crash
-  of the Electron main process loses active Turn state. Long-running work may
-  eventually move to a dedicated execution service rather than living inside
-  HTTP routes.
 - **Execution service**: for resilient background tasks, consider extracting
   the Agent Loop from Flask HTTP routes into a worker backed by Redis or a
   persistent queue, with the API acting as coordinator.

@@ -20,6 +20,11 @@ journal.append("turn-1", { type: "item.started", threadId: "thread-1", turnId: "
 journal.append("turn-1", { type: "item.delta", threadId: "thread-1", turnId: "turn-1", itemId: item.id, delta: "hello" });
 journal.append("turn-1", { type: "turn.completed", threadId: "thread-1", turnId: "turn-1" });
 
+assert.throws(
+  () => journal.append("turn-1", { type: "turn.interrupted", threadId: "thread-1", turnId: "turn-1" }),
+  /turn_already_finished/,
+);
+
 assert.equal(started.sequence, 1);
 assert.equal(journal.snapshotForThread("thread-1")?.status, "completed");
 assert.deepEqual(journal.snapshot("turn-1", 2)?.events.map((event) => event.sequence), [3, 4]);

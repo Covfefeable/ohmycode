@@ -1,6 +1,6 @@
 import { ApiError, apiErrorFromResponse, apiFetch, apiRequest } from "../api/api-client.js";
 import type { LocalConversation } from "../projects/types.js";
-import type { LocalMessage, MessageAttachment } from "../projects/types.js";
+import type { MessageAttachment } from "../projects/types.js";
 import { executeTerminalAction } from "../terminal/terminal-manager.js";
 import type { TerminalAction } from "../terminal/types.js";
 import { acquireWorkspaceWriteLock } from "../multi-agents/workspace-write-lock.js";
@@ -9,6 +9,7 @@ import { executeFileTool } from "../files/file-tools.js";
 import { executeViewImage, type ViewImageArguments } from "../files/image-tool.js";
 import { loadAgentInstructions, renderAgentInstructions } from "../files/agents-instructions.js";
 import type { FileToolName, FileToolRequest } from "../files/types.js";
+import type { TurnExecution } from "../runtime/turn-execution.js";
 import { listProjects } from "../projects/projects-service.js";
 import { executeMcpCapability, loadCapability, searchCapabilities } from "../capabilities/capability-manager.js";
 import {
@@ -20,16 +21,13 @@ import {
 
 export type { AgentTask, ConversationStreamEvent } from "./server-stream.js";
 type ActiveRequest = {
-  controller: AbortController;
-  runId?: string;
-  terminalIds: Set<string>;
   inspectedPaths: Set<string>;
   failedToolCalls: Map<string, number>;
   attachmentPaths: Set<string>;
+  leasedTerminalIds: Set<string>;
 };
 export type AgentExecutionContext = { ownerId: string; workspacePath: string };
 const terminalWriteLeases = new Map<string, () => void>();
-const activeRequests = new Map<string, ActiveRequest>();
 
 async function conversationWorkspace(conversationId: string, executionContext?: AgentExecutionContext): Promise<string | undefined> {
   if (executionContext) return executionContext.workspacePath;
@@ -63,19 +61,17 @@ export async function streamMessage(
   modelId: string | undefined,
   editMessageId: string | undefined,
   attachments: MessageAttachment[] | undefined,
-  requestId: string,
   onEvent: (event: ConversationStreamEvent) => void,
+  execution: TurnExecution,
   executionContext?: AgentExecutionContext,
   turnId?: string,
 ): Promise<LocalConversation> {
   const active: ActiveRequest = {
-    controller: new AbortController(),
-    terminalIds: new Set(),
     inspectedPaths: new Set(),
     failedToolCalls: new Map(),
     attachmentPaths: new Set((attachments ?? []).map((item) => item.path)),
+    leasedTerminalIds: new Set(),
   };
-  activeRequests.set(requestId, active);
   try {
     const workspaceRoot = await conversationWorkspace(conversationId, executionContext);
     const workspaceInstructions = workspaceRoot
@@ -84,15 +80,15 @@ export async function streamMessage(
     let response = await apiFetch(`/api/projects/conversations/${conversationId}/stream`, {
       method: "POST",
       body: JSON.stringify({ content, modelId, editMessageId, attachments, workspaceInstructions, turnId }),
-      signal: active.controller.signal,
+      signal: execution.signal,
     });
     if (!response.ok) throw await apiErrorFromResponse(response);
     while (true) {
       const requests = await forwardServerStream(response, (event) => {
-        if (event.type === "run.started") active.runId = event.runId;
+        if (event.type === "run.started") execution.setRemoteRunId(event.runId);
         onEvent(event);
       });
-      if (requests.length === 0 || active.controller.signal.aborted) break;
+      if (requests.length === 0 || execution.signal.aborted) break;
       const results = await Promise.all(requests.map(async (request) => {
         const signature = toolSignature(request);
         try {
@@ -184,22 +180,28 @@ export async function streamMessage(
           }
           let result;
           try {
-            result = await executeTerminalAction(terminalAction, active.controller.signal, executionContext?.workspacePath);
+            result = await executeTerminalAction(terminalAction, execution.signal, executionContext?.workspacePath);
           } catch (error) {
             release?.();
             throw error;
           }
           const items = Array.isArray(result) ? result : [result];
-          for (const item of items) if (item.terminalId) active.terminalIds.add(item.terminalId);
+          if (terminalAction.action === "start") {
+            for (const item of items) if (item.terminalId) execution.registerTerminal(item.terminalId);
+          }
           if (release) {
             const running = items.find((item) => item.status === "running");
-            if (running) terminalWriteLeases.set(running.terminalId, release);
+            if (running) {
+              terminalWriteLeases.set(running.terminalId, release);
+              active.leasedTerminalIds.add(running.terminalId);
+            }
             else release();
           }
           for (const item of items) {
             if (item.status !== "running") {
               terminalWriteLeases.get(item.terminalId)?.();
               terminalWriteLeases.delete(item.terminalId);
+              active.leasedTerminalIds.delete(item.terminalId);
             }
           }
           onEvent({ type: "tool.completed", callId: request.callId, result });
@@ -212,35 +214,21 @@ export async function streamMessage(
           return { callId: request.callId, result };
         }
       }));
-      if (active.controller.signal.aborted) break;
+      if (execution.signal.aborted) break;
       response = await apiFetch(`/api/agent-runs/${requests[0].runId}/resume`, {
         method: "POST",
         body: JSON.stringify({ results, workspaceInstructions }),
-        signal: active.controller.signal,
+        signal: execution.signal,
       });
       if (!response.ok) throw await apiErrorFromResponse(response);
     }
   } catch (error) {
-    if (!active.controller.signal.aborted) throw error;
+    if (!execution.signal.aborted) throw error;
   } finally {
-    for (const terminalId of active.terminalIds) {
+    for (const terminalId of active.leasedTerminalIds) {
       terminalWriteLeases.get(terminalId)?.();
       terminalWriteLeases.delete(terminalId);
     }
-    activeRequests.delete(requestId);
   }
   return apiRequest(`/api/projects/conversations/${conversationId}`);
-}
-
-export async function stopMessage(requestId: string, partialMessage?: LocalMessage): Promise<void> {
-  const active = activeRequests.get(requestId);
-  if (!active) return;
-  active.controller.abort();
-  await Promise.allSettled([
-    ...[...active.terminalIds].map((terminalId) => executeTerminalAction({ action: "stop", terminalId })),
-    ...(active.runId ? [apiRequest(`/api/agent-runs/${active.runId}/cancel`, {
-      method: "POST",
-      body: JSON.stringify({ partialMessage }),
-    })] : []),
-  ]);
 }
