@@ -218,6 +218,51 @@ uv venv --clear .venv
 uv sync
 ```
 
+## 客户端打包
+
+客户端包含 `node-pty` 原生模块，应当在目标操作系统上安装依赖并打包：Windows 安装包在
+Windows 上构建，macOS 安装包在 macOS 上构建。不要在不同操作系统之间复制
+`client/node_modules`。
+
+### Windows x64
+
+在 Windows PowerShell 中执行：
+
+```powershell
+cd client
+pnpm install --frozen-lockfile
+pnpm dist:win
+```
+
+该命令会先完成 TypeScript、Renderer 和 Electron Main 构建，再生成 NSIS 安装程序：
+
+```text
+client/release/OhMyCode-Setup-<version>-x64.exe
+```
+
+### macOS Apple Silicon
+
+在 Apple Silicon Mac（M1/M2/M3 等）的终端中执行：
+
+```bash
+cd client
+pnpm install --frozen-lockfile
+pnpm dist:mac
+```
+
+该命令生成 arm64 DMG：
+
+```text
+client/release/OhMyCode-Setup-<version>-arm64.dmg
+```
+
+当前构建没有配置 Windows 代码签名或 Apple Developer ID 签名与公证，因此分发给其他设备
+时可能触发 SmartScreen 或 Gatekeeper 提示。正式公开发布前应配置对应平台的签名证书；
+不要把证书、密码或 Apple 凭据写入仓库。
+
+打包客户端默认连接 `client/electron/config.ts` 中的生产 API 地址。安装包不包含 Flask API、
+Celery Worker、Celery Beat、PostgreSQL、Redis 或 MinIO。
+
 ## 服务端部署
 
 当前桌面客户端默认连接 `http://ai.llmol.com:8765`，也可以通过
