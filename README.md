@@ -265,7 +265,7 @@ Celery Worker、Celery Beat、PostgreSQL、Redis 或 MinIO。
 
 ## 服务端部署
 
-当前桌面客户端默认连接 `http://ai.llmol.com:8765`，也可以通过
+当前桌面客户端默认通过 Nginx 连接 `http://ai.llmol.com:8765`，也可以通过
 `OHMYCODE_API_URL` 覆盖。远程地址不会触发 Electron 的本地 API Sidecar。
 
 在服务器上复制并修改生产环境文件：
@@ -280,12 +280,16 @@ cp docker/.env.example docker/.env
 ```bash
 docker compose --env-file docker/.env -f docker/docker-compose.yml up -d --build
 docker compose --env-file docker/.env -f docker/docker-compose.yml ps
-curl http://127.0.0.1:8765/api/health
+curl http://127.0.0.1:${EXPOSE_HTTP_PORT:-8765}/api/health
 ```
 
-Compose 默认通过 `0.0.0.0:8765` 暴露 API，PostgreSQL 和 Redis 不暴露到宿主机。
-服务器防火墙需要放行 TCP 8765。当前 HTTP 地址适合连通性测试，但认证令牌和请求内容
-不会被加密；正式使用应在 API 前配置 HTTPS 反向代理，并将客户端地址切换为 HTTPS。
+生产 Compose 只通过 Nginx 暴露 HTTP/HTTPS，API、PostgreSQL、Redis 和 MinIO 均不直接
+暴露到宿主机。服务器防火墙只需放行配置的 `EXPOSE_HTTP_PORT` 和
+`EXPOSE_HTTPS_PORT`。SSE 流式响应已关闭代理缓冲，并使用可配置的长连接超时。
+
+正式部署应将证书和私钥放入 `docker/nginx/ssl/`，设置 `ENABLE_SSL=true`，并把客户端
+生产地址切换为 HTTPS。证书文件、私钥和 `docker/volumes/` 数据都不得提交。详细说明见
+`docker/README.md`。
 
 ## 验证
 

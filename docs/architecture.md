@@ -256,17 +256,20 @@ Core tables:
 - `multi_agents`, `multi_agent_tasks`, `multi_agent_nodes`,
   `multi_agent_messages`, `workspace_changes`: collaboration state.
 
-Redis is currently used for service health checks and reserved for future
-ephemeral coordination, cancellation flags, event fan-out, and workers.
+Redis is used for service health checks, Celery broker/result transport, and
+distributed locks around scheduled capability-index reconciliation.
 
 ## Environment boundary
 
 Host processes connect to `localhost`. Containers connect to Compose service
 names (`postgres` and `redis`). Electron itself is not containerized.
 
-Remote deployments expose the Flask API over TCP 8765; the production API
-validates that `SECRET_KEY` and `JWT_SECRET_KEY` are independent, random, and
-at least 32 characters. Clients connect via HTTPS in production.
+Remote deployments expose only Nginx on the configured HTTP/HTTPS ports. Nginx
+proxies `/api` to Flask on the internal Compose network and disables buffering
+for streaming responses. Flask, PostgreSQL, Redis, and MinIO are not published
+to the host. The production API validates that `SECRET_KEY` and
+`JWT_SECRET_KEY` are independent, random, and at least 32 characters. Clients
+connect via HTTPS in production.
 
 ## Remaining work
 
@@ -289,4 +292,3 @@ Additional known areas for future architecture work:
   persistent queue, with the API acting as coordinator.
 - **Diff review UI**: pending patch queue, side-by-side diff rendering, and
   approval/rejection actions in the Renderer.
-

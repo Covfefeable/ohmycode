@@ -5,6 +5,9 @@
     "moduleResolution": "NodeNext",
     "strict": true,
     "skipLibCheck": true,
+    "sourceMap": false,
+    "inlineSourceMap": false,
+    "declarationMap": false,
     "outDir": "../dist-electron",
     "rootDir": ".",
     "types": ["node"]

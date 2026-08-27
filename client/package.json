@@ -75,7 +75,8 @@
       "dist-electron/**/*",
       "electron/preload.cjs",
       "build/icon.png",
-      "package.json"
+      "package.json",
+      "!**/*.map"
     ],
     "asarUnpack": [
       "**/node_modules/node-pty/**/*"
