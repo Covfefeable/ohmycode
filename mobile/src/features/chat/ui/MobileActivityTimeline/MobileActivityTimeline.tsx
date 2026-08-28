@@ -16,7 +16,7 @@ function formatValue(value: unknown): string {
 function Step({ step }: { step: Exclude<MobileActivityStep, { type: "run" | "task_plan" }> }) {
   const { t } = useTranslation();
   const { colors } = useTheme();
-  const [open, setOpen] = useState(step.status === "running");
+  const [open, setOpen] = useState(false);
   const running = step.status === "running";
   const label = step.type === "reasoning"
     ? t(running ? "activity.thinking" : "activity.thought")

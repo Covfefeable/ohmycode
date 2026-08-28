@@ -83,7 +83,12 @@ def delete_mobile_conversation_route(conversation_id: UUID):
 @jwt_required()
 def cancel_mobile_run_route(run_id: UUID):
     payload = request.get_json(silent=True) or {}
-    cancel_mobile_run(user_id(), run_id, str(payload.get("partialMessage") or ""))
+    partial_message = payload.get("partialMessage")
+    cancel_mobile_run(
+        user_id(),
+        run_id,
+        partial_message if isinstance(partial_message, dict) else {},
+    )
     return "", 204
 
 

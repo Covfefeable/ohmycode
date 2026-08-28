@@ -104,7 +104,7 @@ def delete_mobile_conversation(user_id: UUID, conversation_id: UUID) -> None:
     delete_conversation(user_id, conversation_id)
 
 
-def cancel_mobile_run(user_id: UUID, run_id: UUID, partial_message: str = "") -> None:
+def cancel_mobile_run(user_id: UUID, run_id: UUID, partial_message: object = None) -> None:
     owned = db.session.scalar(
         db.select(AgentRun)
         .join(Conversation)

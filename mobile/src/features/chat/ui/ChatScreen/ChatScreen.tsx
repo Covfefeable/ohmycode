@@ -9,7 +9,7 @@ import { ApiError } from "@/shared/api/api-client";
 import { useTheme } from "@/shared/theme/ThemeProvider";
 import { MarkdownContent } from "@/shared/ui/MarkdownContent/MarkdownContent";
 import { cancelMobileRun, createMobileConversation, getMobileConversation, streamMobileMessage, type MobileMessage } from "../../api/mobile-chat-api";
-import { updateMobileActivity } from "../../model/updateMobileActivity";
+import { updateMobileActivity, updateStreamingContent } from "../../model/updateMobileActivity";
 import { ChatSidebar } from "../ChatSidebar/ChatSidebar";
 import { MobileActivityTimeline } from "../MobileActivityTimeline/MobileActivityTimeline";
 import { StreamingCursor } from "../StreamingCursor/StreamingCursor";
@@ -24,6 +24,7 @@ export function ChatScreen({ conversationId }: Props) {
   const listRef = useRef<FlatList<MobileMessage>>(null);
   const abortRef = useRef<AbortController | null>(null);
   const runIdRef = useRef<string | null>(null);
+  const streamingConversationRef = useRef<string | null>(null);
   const [activeId, setActiveId] = useState(conversationId);
   const [title, setTitle] = useState(t("chat.newTitle"));
   const [messages, setMessages] = useState<MobileMessage[]>([]);
@@ -34,8 +35,19 @@ export function ChatScreen({ conversationId }: Props) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
-    if (conversationId === "new") return;
+    setActiveId(conversationId);
+    if (streamingConversationRef.current === conversationId) {
+      setLoading(false);
+      return;
+    }
+    if (conversationId === "new") {
+      setTitle(t("chat.newTitle"));
+      setMessages([]);
+      setLoading(false);
+      return;
+    }
     let active = true;
+    setLoading(true);
     void getMobileConversation(conversationId)
       .then((conversation) => {
         if (!active) return;
@@ -55,6 +67,8 @@ export function ChatScreen({ conversationId }: Props) {
     setDraft("");
     setError("");
     setSending(true);
+    const controller = new AbortController();
+    abortRef.current = controller;
     const optimisticUser: MobileMessage = { id: `user-${Date.now()}`, role: "user", content };
     const assistantId = `assistant-${Date.now()}`;
     const agentStartedAt = new Date().toISOString();
@@ -62,21 +76,21 @@ export function ChatScreen({ conversationId }: Props) {
     try {
       let id = activeId;
       if (id === "new") {
-        const created = await createMobileConversation();
+        const created = await createMobileConversation(controller.signal);
         id = created.id;
+        streamingConversationRef.current = id;
         setActiveId(id);
         router.setParams({ id });
       }
-      const controller = new AbortController();
-      abortRef.current = controller;
+      streamingConversationRef.current = id;
       await streamMobileMessage(id, content, controller.signal, (event) => {
         if (event.type === "run.started") runIdRef.current = event.runId;
         setMessages((current) => current.map((message) => message.id === assistantId ? {
           ...message,
-          content: event.type === "message.delta" ? message.content + event.content : message.content,
+          content: updateStreamingContent(message.content, event),
           activity: updateMobileActivity(message.activity ?? [], event),
         } : message));
-      });
+      }, (id) => { runIdRef.current = id; });
       const persisted = await getMobileConversation(id);
       setMessages(persisted.messages ?? []);
       setTitle(persisted.title);
@@ -91,6 +105,7 @@ export function ChatScreen({ conversationId }: Props) {
       setError(t(`chat.${key}`));
       setMessages((current) => current.filter((message) => message.id !== assistantId || message.content));
     } finally {
+      streamingConversationRef.current = null;
       abortRef.current = null;
       runIdRef.current = null;
       setSending(false);
@@ -100,10 +115,15 @@ export function ChatScreen({ conversationId }: Props) {
   const stop = async () => {
     const partialMessage = [...messages].reverse().find(
       (message) => message.role === "assistant",
-    )?.content ?? "";
+    );
     const runId = runIdRef.current;
-    if (runId) await cancelMobileRun(runId, partialMessage).catch(() => undefined);
     abortRef.current?.abort();
+    if (runId) {
+      await cancelMobileRun(runId, {
+        content: partialMessage?.content ?? "",
+        activity: partialMessage?.activity ?? [],
+      }).catch(() => undefined);
+    }
   };
 
   return (

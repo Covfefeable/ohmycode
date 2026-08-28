@@ -8,7 +8,7 @@ export const styles = StyleSheet.create({
   planItem: { flexDirection: "row", gap: spacing[2] },
   planText: { flex: 1, fontSize: typography.small, lineHeight: 18 },
   step: { marginBottom: spacing[2] },
-  stepHead: { alignItems: "center", flexDirection: "row", gap: spacing[2], minHeight: 28 },
+  stepHead: { alignItems: "center", flexDirection: "row", gap: spacing[2], minHeight: 28, paddingHorizontal: spacing[2] },
   stepLabel: { flex: 1, fontSize: typography.small, fontWeight: "600" },
   summary: { alignItems: "center", alignSelf: "flex-start", borderRadius: radii.medium, flexDirection: "row", gap: spacing[2], minHeight: 30, paddingHorizontal: spacing[2] },
   summaryText: { fontSize: typography.small, fontWeight: "600" },

@@ -38,7 +38,10 @@ function plugin(
 export class MobileToolRegistry implements ToolExecutor {
   private readonly registry = new ToolRegistry();
 
-  constructor(private readonly onEvent: (event: AgentStreamEvent) => void) {
+  constructor(
+    private readonly onEvent: (event: AgentStreamEvent) => void,
+    private readonly signal?: AbortSignal,
+  ) {
     const mcp = new MobileMcpClient();
     this.registry.register(plugin(
       "task-plan",
@@ -51,24 +54,24 @@ export class MobileToolRegistry implements ToolExecutor {
       () => ({ ok: true }),
     ));
     this.registry.register(new CapabilityPlugin({
-      search: searchMobileCapabilities,
-      load: loadMobileCapability,
+      search: (query) => searchMobileCapabilities(query, signal),
+      load: (id) => loadMobileCapability(id, signal),
     }));
     this.registry.register(new ToolResultReaderPlugin({
       read: (runId, callId, options) => authenticatedRequest(
         `/api/mobile/conversations/runs/${runId}/tool-results/${encodeURIComponent(callId)}/read`,
-        { method: "POST", body: JSON.stringify(options) },
+        { method: "POST", body: JSON.stringify(options), signal },
       ),
       search: (runId, callId, query, options) => authenticatedRequest(
         `/api/mobile/conversations/runs/${runId}/tool-results/${encodeURIComponent(callId)}/search`,
-        { method: "POST", body: JSON.stringify({ query, ...options }) },
+        { method: "POST", body: JSON.stringify({ query, ...options }), signal },
       ),
     }));
     this.registry.register(plugin(
       "mcp",
       [],
       (toolName) => toolName.startsWith("mcp__"),
-      (call) => mcp.execute(call.tool, call.arguments as Record<string, unknown>),
+      (call) => mcp.execute(call.tool, call.arguments as Record<string, unknown>, signal),
       () => mcp.close(),
     ));
   }
@@ -78,6 +81,7 @@ export class MobileToolRegistry implements ToolExecutor {
     try {
       result = (await this.registry.execute(call)).result;
     } catch (error) {
+      if (this.signal?.aborted) throw error;
       result = {
         error: error instanceof Error ? error.message : "tool_failed",
         tool: call.tool,

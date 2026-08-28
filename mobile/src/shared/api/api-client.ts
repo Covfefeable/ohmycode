@@ -52,6 +52,7 @@ async function request<T>(pathname: string, init: RequestInit = {}): Promise<T> 
     } as Parameters<typeof expoFetch>[1]));
   } catch (error) {
     if (error instanceof ApiError) throw error;
+    if (error instanceof Error && error.name === "AbortError") throw error;
     throw new ApiError("network_error");
   }
 }
@@ -127,7 +128,8 @@ export async function authenticatedFetch(
           Authorization: `Bearer ${accessToken}`,
         },
       } as Parameters<typeof expoFetch>[1]);
-    } catch {
+    } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") throw error;
       throw new ApiError("network_error");
     }
   };

@@ -45,3 +45,9 @@ export function updateMobileActivity(steps: MobileActivityStep[], event: AgentSt
 
   return next;
 }
+
+export function updateStreamingContent(content: string, event: AgentStreamEvent): string {
+  if (event.type === "message.started" || event.type === "tool.requested") return "";
+  if (event.type === "message.delta") return content + event.content;
+  return content;
+}

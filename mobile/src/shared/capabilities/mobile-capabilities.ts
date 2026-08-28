@@ -11,21 +11,22 @@ const MAX_FILES = 500;
 export const safeCapabilityName = (value: string): string =>
   value.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 48);
 
-async function inventories(): Promise<{ servers: McpServer[]; skills: SkillRecord[] }> {
+async function inventories(signal?: AbortSignal): Promise<{ servers: McpServer[]; skills: SkillRecord[] }> {
   const [mcp, skill] = await Promise.all([
-    authenticatedRequest<{ servers: McpServer[] }>("/api/capabilities/mcp"),
-    authenticatedRequest<{ skills: SkillRecord[] }>("/api/capabilities/skills"),
+    authenticatedRequest<{ servers: McpServer[] }>("/api/capabilities/mcp", { signal }),
+    authenticatedRequest<{ skills: SkillRecord[] }>("/api/capabilities/skills", { signal }),
   ]);
   return { servers: mcp.servers, skills: skill.skills };
 }
 
-export async function searchMobileCapabilities(query: string): Promise<unknown> {
+export async function searchMobileCapabilities(query: string, signal?: AbortSignal): Promise<unknown> {
   const [search, inventory] = await Promise.all([
     authenticatedRequest<{ results: CapabilitySearchResult[] }>("/api/capabilities/search", {
       method: "POST",
       body: JSON.stringify({ query }),
+      signal,
     }),
-    inventories(),
+    inventories(signal),
   ]);
   const supportedMcp = new Set(
     inventory.servers
@@ -58,8 +59,8 @@ function readSkillManifest(archive: Uint8Array): string {
   return new TextDecoder().decode(entries[names[normalized.indexOf(manifestName)]]);
 }
 
-export async function loadMobileCapability(id: string): Promise<unknown> {
-  const inventory = await inventories();
+export async function loadMobileCapability(id: string, signal?: AbortSignal): Promise<unknown> {
+  const inventory = await inventories(signal);
   if (id.startsWith("mcp:")) {
     const server = inventory.servers.find((item) =>
       `mcp:${item.id}` === id && item.enabled && item.transport === "http");
@@ -82,7 +83,10 @@ export async function loadMobileCapability(id: string): Promise<unknown> {
     const skill = inventory.skills.find((item) =>
       `skill:${item.name}` === id && item.enabled);
     if (!skill) throw new Error("capability_unavailable_on_mobile");
-    const response = await authenticatedFetch(`/api/capabilities/skills/${skill.id}/archive`);
+    const response = await authenticatedFetch(
+      `/api/capabilities/skills/${skill.id}/archive`,
+      { signal },
+    );
     const archive = new Uint8Array(await response.arrayBuffer());
     return {
       id,

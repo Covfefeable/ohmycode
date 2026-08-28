@@ -39,10 +39,11 @@ export function listMobileConversations(): Promise<MobileConversation[]> {
   return authenticatedRequest("/api/mobile/conversations");
 }
 
-export function createMobileConversation(): Promise<MobileConversation> {
+export function createMobileConversation(signal?: AbortSignal): Promise<MobileConversation> {
   return authenticatedRequest("/api/mobile/conversations", {
     method: "POST",
     body: JSON.stringify({ title: "New conversation" }),
+    signal,
   });
 }
 
@@ -50,7 +51,14 @@ export function getMobileConversation(id: string): Promise<MobileConversation> {
   return authenticatedRequest(`/api/mobile/conversations/${id}`);
 }
 
-export function cancelMobileRun(runId: string, partialMessage: string): Promise<void> {
+export function deleteMobileConversation(id: string): Promise<void> {
+  return authenticatedRequest(`/api/mobile/conversations/${id}`, { method: "DELETE" });
+}
+
+export function cancelMobileRun(
+  runId: string,
+  partialMessage: Pick<MobileMessage, "activity" | "content">,
+): Promise<void> {
   return authenticatedRequest(`/api/mobile/conversations/runs/${runId}/cancel`, {
     method: "POST",
     body: JSON.stringify({ partialMessage }),
@@ -62,8 +70,10 @@ export async function streamMobileMessage(
   content: string,
   signal: AbortSignal,
   onEvent: (event: AgentStreamEvent) => void,
+  onRunId: (runId: string) => void,
 ): Promise<void> {
   const localTurnId = turnId();
+  onRunId(localTurnId);
   const response = await authenticatedFetch(`/api/mobile/conversations/${id}/stream`, {
     method: "POST",
     body: JSON.stringify({ content, turnId: localTurnId }),
@@ -74,7 +84,7 @@ export async function streamMobileMessage(
     { method: "POST", body: JSON.stringify(payload), signal },
   );
   let failedCode = "";
-  const tools = new MobileToolRegistry(onEvent);
+  const tools = new MobileToolRegistry(onEvent, signal);
   try {
     await runToolLoop({
       response,

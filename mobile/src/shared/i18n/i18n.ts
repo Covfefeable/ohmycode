@@ -8,7 +8,7 @@ const resources = {
       common: { appName: "OhMyCode", back: "返回", close: "关闭", retry: "重试" },
       language: { label: "语言", zhCN: "中文", en: "EN" },
       theme: { toggle: "切换颜色主题" },
-      navigation: { closeSidebar: "关闭侧栏", newChat: "新建对话", noRecentChats: "暂无最近对话", openSidebar: "打开侧栏", recentChats: "最近对话", settings: "设置" },
+      navigation: { closeSidebar: "关闭侧栏", deleteChat: "删除", deleteFailed: "删除对话失败", newChat: "新建对话", noRecentChats: "暂无最近对话", openSidebar: "打开侧栏", recentChats: "最近对话", settings: "设置" },
       settings: { addModel: "添加模型", apiKey: "API Key", baseUrl: "服务地址", configName: "配置名称", contextLengthK: "上下文长度（K）", defaultModel: "默认", keyStored: "已保存，留空保持不变", languageDescription: "选择移动端界面语言。", modelName: "模型名称", modelsDescription: "配置聊天所使用的模型、服务地址和密钥。", modelsSaved: "模型配置已保存。", modelsTitle: "模型配置", profileDescription: "管理你的 OhMyCode 个人身份。", profileSaved: "个人信息已保存。", profileTitle: "个人信息", removeModel: "删除模型", saveFailed: "设置保存失败，请检查必填项。", saveModels: "保存模型配置", saveProfile: "保存个人信息", supportsVision: "支持图片输入", test: "测试", testFailed: "连接测试失败。", testModel: "测试模型连接", testSuccess: "连接测试通过。", title: "设置", unnamedModel: "未命名模型" },
       auth: {
         workspaceTagline: "你的本地代码工作空间",
@@ -72,7 +72,7 @@ const resources = {
       common: { appName: "OhMyCode", back: "Back", close: "Close", retry: "Retry" },
       language: { label: "Language", zhCN: "中文", en: "EN" },
       theme: { toggle: "Toggle color theme" },
-      navigation: { closeSidebar: "Close sidebar", newChat: "New chat", noRecentChats: "No recent chats", openSidebar: "Open sidebar", recentChats: "Recent chats", settings: "Settings" },
+      navigation: { closeSidebar: "Close sidebar", deleteChat: "Delete", deleteFailed: "Could not delete conversation", newChat: "New chat", noRecentChats: "No recent chats", openSidebar: "Open sidebar", recentChats: "Recent chats", settings: "Settings" },
       settings: { addModel: "Add model", apiKey: "API key", baseUrl: "Base URL", configName: "Configuration name", contextLengthK: "Context length (K)", defaultModel: "Default", keyStored: "Stored; leave blank to keep it", languageDescription: "Choose the language used by the mobile app.", modelName: "Model name", modelsDescription: "Configure the model, service URL, and API key used for chat.", modelsSaved: "Model configurations saved.", modelsTitle: "Model configuration", profileDescription: "Manage your OhMyCode identity.", profileSaved: "Profile saved.", profileTitle: "Personal profile", removeModel: "Remove model", saveFailed: "Settings could not be saved. Check the required fields.", saveModels: "Save model configurations", saveProfile: "Save profile", supportsVision: "Supports image input", test: "Test", testFailed: "Connection test failed.", testModel: "Test model connection", testSuccess: "Connection test passed.", title: "Settings", unnamedModel: "Unnamed model" },
       auth: {
         workspaceTagline: "Your local coding workspace",
