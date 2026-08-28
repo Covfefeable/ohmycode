@@ -1,0 +1,67 @@
+import { Client } from "@modelcontextprotocol/sdk/client";
+// Expo's ESLint resolver does not understand the SDK's wildcard package exports.
+// eslint-disable-next-line import/no-unresolved
+import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
+// eslint-disable-next-line import/no-unresolved
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+
+import { authenticatedRequest } from "@/shared/api/api-client";
+
+import { safeCapabilityName } from "./mobile-capabilities";
+import type { McpServer } from "./types";
+
+type Session = { client: Client; server: McpServer };
+
+export class MobileMcpClient {
+  private readonly sessions = new Map<string, Session>();
+
+  private async servers(): Promise<McpServer[]> {
+    const result = await authenticatedRequest<{ servers: McpServer[] }>(
+      "/api/capabilities/mcp/runtime",
+    );
+    return result.servers.filter((server) => server.transport === "http");
+  }
+
+  private async connect(server: McpServer): Promise<Client> {
+    await this.sessions.get(server.id)?.client.close().catch(() => undefined);
+    const url = new URL(server.configuration.url || "");
+    const client = new Client({ name: "ohmycode-mobile", version: "0.1.0" }, { capabilities: {} });
+    const transport = /\/sse\/?$/i.test(url.pathname)
+      ? new SSEClientTransport(url, {
+        requestInit: { headers: server.configuration.headers },
+      })
+      : new StreamableHTTPClientTransport(url, {
+        requestInit: { headers: server.configuration.headers },
+      });
+    await client.connect(transport);
+    this.sessions.set(server.id, { client, server });
+    client.onclose = () => {
+      if (this.sessions.get(server.id)?.client === client) this.sessions.delete(server.id);
+    };
+    return client;
+  }
+
+  async execute(toolName: string, args: Record<string, unknown>): Promise<unknown> {
+    const match = /^mcp__([a-zA-Z0-9_-]+)__(.+)$/.exec(toolName);
+    if (!match) throw new Error("invalid_mcp_tool");
+    const server = (await this.servers()).find((item) => item.identifier === match[1]);
+    if (!server) throw new Error("capability_unavailable_on_mobile");
+    const originalName = server.tools.find((tool) => safeCapabilityName(tool.name) === match[2])?.name;
+    if (!originalName) throw new Error("mcp_tool_not_found");
+    let session = this.sessions.get(server.id);
+    if (!session) session = { client: await this.connect(server), server };
+    try {
+      return await session.client.callTool({ name: originalName, arguments: args });
+    } catch {
+      this.sessions.delete(server.id);
+      await session.client.close().catch(() => undefined);
+      const client = await this.connect(server);
+      return client.callTool({ name: originalName, arguments: args });
+    }
+  }
+
+  async close(): Promise<void> {
+    await Promise.allSettled([...this.sessions.values()].map((session) => session.client.close()));
+    this.sessions.clear();
+  }
+}

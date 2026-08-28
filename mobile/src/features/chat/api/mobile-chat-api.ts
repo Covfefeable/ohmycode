@@ -1,6 +1,7 @@
 import { runToolLoop, type AgentStreamEvent } from "@ohmycode/agent-runtime";
 
 import { ApiError, authenticatedFetch, authenticatedRequest } from "@/shared/api/api-client";
+import { MobileToolRegistry } from "@/features/chat/tools/mobile-tool-registry";
 
 export type MobileMessage = {
   id: string;
@@ -73,32 +74,29 @@ export async function streamMobileMessage(
     { method: "POST", body: JSON.stringify(payload), signal },
   );
   let failedCode = "";
-  await runToolLoop({
-    response,
-    runId: localTurnId,
-    workspaceInstructions: "",
-    execution: {
-      signal,
-      setPendingToolCalls: () => undefined,
-      setPhase: () => undefined,
-    },
-    tools: {
-      execute: async (call) => {
-        const result = call.tool === "update_tasks"
-          ? { ok: true }
-          : { error: "capability_unavailable_on_mobile", tool: call.tool };
-        onEvent({ type: "tool.completed", callId: call.callId, result });
-        return { callId: call.callId, result };
+  const tools = new MobileToolRegistry(onEvent);
+  try {
+    await runToolLoop({
+      response,
+      runId: localTurnId,
+      workspaceInstructions: "",
+      execution: {
+        signal,
+        setPendingToolCalls: () => undefined,
+        setPhase: () => undefined,
       },
-    },
-    transport: {
-      recover: (runId, _workspaceInstructions, partialContent, partialReasoning, results) => postRun(runId, "recover", { partialContent, partialReasoning, results }),
-      resume: (runId, results) => postRun(runId, "resume", { results }),
-    },
-    onEvent: (event) => {
-      if (event.type === "run.failed") failedCode = event.errorCode;
-      onEvent(event);
-    },
-  });
+      tools,
+      transport: {
+        recover: (runId, _workspaceInstructions, partialContent, partialReasoning, results) => postRun(runId, "recover", { partialContent, partialReasoning, results }),
+        resume: (runId, results) => postRun(runId, "resume", { results }),
+      },
+      onEvent: (event) => {
+        if (event.type === "run.failed") failedCode = event.errorCode;
+        onEvent(event);
+      },
+    });
+  } finally {
+    await tools.close();
+  }
   if (failedCode) throw new ApiError(failedCode);
 }

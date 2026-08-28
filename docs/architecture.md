@@ -124,6 +124,15 @@ failure recovery, pending-result replay, and Turn execution. Tool definitions
 and execution contracts live separately in `packages/tool-contracts`, while
 `packages/runtime-core` owns the event journal and execution state.
 
+Tool execution is composed from `ToolPlugin` instances in a shared
+`ToolRegistry`. Desktop and Mobile construct separate registries for their own
+supported tools. Both reuse the same capability plugin for
+`search_capabilities` and `load_capability`; each host filters results through
+its own adapter. MCP schemas are not injected at startup: a selected MCP is
+added to subsequent model requests only after `load_capability` returns its
+tool definitions. Once loaded, that selected MCP remains available to later
+Turns in the same Thread; unrelated MCP servers remain absent.
+
 The shared packages depend on ports for model transport, tool execution,
 persistence, lifecycle events, and resource cancellation. They must not import
 Electron, React Native, Expo, Node built-ins, or application directories;
@@ -172,8 +181,10 @@ Important invariants:
 The Expo application lives in `mobile/` and consumes the same protocol, Agent
 Runtime contracts, and semantic design tokens. Expo SecureStore owns mobile
 credentials. Mobile adapters must never expose desktop filesystem, terminal, or
-attachment-analysis tools; adding a capability requires an explicit mobile
-implementation. Expo Router owns navigation and auth route guards.
+attachment-analysis tools. Its registry supports task planning, capability
+search/load, synchronized Skills, and enabled HTTP MCP servers; stdio MCP stays
+desktop-only. Capability search fails closed by removing entries the mobile
+adapter cannot execute. Expo Router owns navigation and auth route guards.
 
 ## Flask service boundaries
 

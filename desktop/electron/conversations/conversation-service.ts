@@ -70,7 +70,7 @@ export async function streamMessage(
   } catch (error) {
     if (!execution.signal.aborted) throw error;
   } finally {
-    registry.close();
+    await registry.close();
   }
   return transport.conversation(conversationId);
 }

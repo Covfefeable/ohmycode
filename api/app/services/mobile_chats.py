@@ -11,7 +11,7 @@ from .agent import (
 )
 from .agent.provider_stream import PreparedCompletion
 from .agent.runs import cancel_run
-from .agent.tools import UPDATE_TASKS_TOOL
+from .agent.tools import LOAD_CAPABILITY_TOOL, SEARCH_CAPABILITIES_TOOL, UPDATE_TASKS_TOOL
 from .conversations import create_conversation, delete_conversation, get_conversation
 from .errors import ServiceError
 
@@ -19,10 +19,12 @@ MOBILE_DEVICE_ID = "mobile"
 MOBILE_PROJECT_PATH = "ohmycode://mobile/conversations"
 MOBILE_SYSTEM_INSTRUCTIONS = """You are OhMyCode's mobile assistant.
 Answer clearly and directly using the conversation context. You do not have access to the
-user's filesystem, terminal, desktop workspace, attachments, MCP servers, or local Skills.
-You may use the task-planning tool to communicate progress. Never claim that you executed
-commands or changed files. If a request requires local code execution, explain that it should
-be continued in the OhMyCode desktop application."""
+user's filesystem, terminal, desktop workspace, attachments, local MCP servers, or local Skills.
+You may search and load capabilities supported by this client: enabled remote HTTP MCP servers
+and synchronized Skills. Capability tools are only available after you load the corresponding
+capability. Never claim that you executed commands or changed local files. If a request requires
+local code execution, explain that it should be continued in the OhMyCode desktop application."""
+MOBILE_TOOLS = [UPDATE_TASKS_TOOL, SEARCH_CAPABILITIES_TOOL, LOAD_CAPABILITY_TOOL]
 
 
 def _mobile_project(user_id: UUID) -> Project:
@@ -128,7 +130,7 @@ def resume_mobile_run(
         user_id,
         run_id,
         results,
-        tools_override=[UPDATE_TASKS_TOOL],
+        tools_override=MOBILE_TOOLS,
         system_instructions=MOBILE_SYSTEM_INSTRUCTIONS,
     )
 
@@ -147,7 +149,7 @@ def recover_mobile_run(
         partial_content=partial_content,
         partial_reasoning=partial_reasoning,
         results=results,
-        tools_override=[UPDATE_TASKS_TOOL],
+        tools_override=MOBILE_TOOLS,
         system_instructions=MOBILE_SYSTEM_INSTRUCTIONS,
     )
 
@@ -167,7 +169,7 @@ def stream_mobile_chat(
         model_id,
         None,
         turn_id=turn_id,
-        tools_override=[UPDATE_TASKS_TOOL],
+        tools_override=MOBILE_TOOLS,
         system_instructions=MOBILE_SYSTEM_INSTRUCTIONS,
     )
     while True:

@@ -7,6 +7,7 @@ from flask import current_app
 from ...extensions import db
 from ...models import AgentRun, Conversation, Message, ModelConfiguration
 from ..errors import ServiceError
+from .capability_state import loaded_capability_tools
 from .config import TOOL_RESULT_TOKEN_BUDGET
 from .context import (
     COMPACTION_RATIO,
@@ -123,23 +124,6 @@ def _image_tool_content(result: object) -> list[dict] | None:
     ]
 
 
-def _loaded_capability_tools(run: AgentRun) -> list[dict]:
-    tools: dict[str, dict] = {}
-    for event in run.events:
-        if event.event_type != "tool.output":
-            continue
-        for item in event.payload.get("results", []):
-            result = item.get("result")
-            if not isinstance(result, dict):
-                continue
-            for tool in result.get("tools", []):
-                function = tool.get("function") if isinstance(tool, dict) else None
-                name = function.get("name") if isinstance(function, dict) else None
-                if isinstance(name, str):
-                    tools[name] = tool
-    return list(tools.values())
-
-
 def resume_completion(
     user_id: UUID,
     run_id: UUID,
@@ -192,9 +176,9 @@ def resume_completion(
         model_messages = [{"role": "system", "content": f"Conversation checkpoint:\n{summary}"}]
     if tools_override is None:
         tools, mailbox = completion_tools_and_mailbox(run.conversation_id, configuration)
-        tools.extend(_loaded_capability_tools(run))
+        tools.extend(loaded_capability_tools(run.conversation_id))
     else:
-        tools, mailbox = tools_override, []
+        tools, mailbox = [*tools_override, *loaded_capability_tools(run.conversation_id)], []
     return prepared_completion(
         run,
         configuration,
@@ -301,9 +285,9 @@ def recover_completion(
     db.session.commit()
     if tools_override is None:
         tools, mailbox = completion_tools_and_mailbox(run.conversation_id, configuration)
-        tools.extend(_loaded_capability_tools(run))
+        tools.extend(loaded_capability_tools(run.conversation_id))
     else:
-        tools, mailbox = tools_override, []
+        tools, mailbox = [*tools_override, *loaded_capability_tools(run.conversation_id)], []
     prepared = prepared_completion(
         run,
         configuration,

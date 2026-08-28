@@ -1,3 +1,17 @@
+import {
+  CapabilityPlugin,
+  ToolRegistry,
+  type AgentStreamEvent,
+  type AgentTask,
+  type ToolRequestEvent,
+} from "@ohmycode/agent-runtime";
+import type {
+  ToolCall,
+  ToolDefinition,
+  ToolExecutor,
+  ToolPlugin,
+  ToolResult,
+} from "@ohmycode/tool-contracts";
 import { ApiError, apiRequest } from "../api/api-client.js";
 import { executeMcpCapability, loadCapability, searchCapabilities } from "../capabilities/capability-manager.js";
 import { executeFileTool } from "../files/file-tools.js";
@@ -21,6 +35,28 @@ type RegistryOptions = {
 const FILE_TOOLS = new Set(["read_file", "search_files", "list_directory", "apply_patch"]);
 const terminalWriteLeases = new Map<string, () => void>();
 type ToolHandler = (request: ToolRequestEvent) => Promise<unknown> | unknown;
+
+function functionalPlugin(
+  id: string,
+  names: readonly string[],
+  handler: ToolHandler,
+  handles = (toolName: string) => names.includes(toolName),
+): ToolPlugin {
+  const definitions: ToolDefinition[] = names.map((name) => ({
+    name,
+    description: `${id} tool`,
+    inputSchema: { type: "object", properties: {} },
+  }));
+  return {
+    id,
+    definitions: () => definitions,
+    handles,
+    execute: async (call: ToolCall) => ({
+      callId: call.callId,
+      result: await handler({ type: "tool.requested", ...call }),
+    }),
+  };
+}
 
 function toolError(error: unknown): { error: string; code?: string } {
   if (error instanceof ApiError && error.code === "agent_cannot_schedule_itself") {
@@ -51,35 +87,55 @@ export class DesktopToolRegistry implements ToolExecutor {
   private readonly inspectedPaths = new Set<string>();
   private readonly failedToolCalls = new Map<string, number>();
   private readonly leasedTerminalIds = new Set<string>();
-  private readonly handlers = new Map<string, ToolHandler>();
+  private readonly registry = new ToolRegistry();
 
   constructor(private readonly options: RegistryOptions) {
-    this.register("update_tasks", (request) => this.updateTasks(request));
-    this.register("agent_message", (request) => this.collaboration(request, "messages"));
-    this.register("finish_collaboration", (request) => this.collaboration(request, "finish"));
-    this.register("view_image", (request) => executeViewImage(
+    this.registry.register(functionalPlugin(
+      "task-plan",
+      ["update_tasks"],
+      (request) => this.updateTasks(request),
+    ));
+    this.registry.register(functionalPlugin(
+      "collaboration",
+      ["agent_message", "finish_collaboration"],
+      (request) => this.collaboration(
+        request,
+        request.tool === "agent_message" ? "messages" : "finish",
+      ),
+    ));
+    this.registry.register(functionalPlugin("image", ["view_image"], (request) => executeViewImage(
       request.arguments as ViewImageArguments & { projectId: string },
       this.options.workspaceRoot,
       this.options.attachmentPaths,
+    )));
+    this.registry.register(new CapabilityPlugin({
+      search: searchCapabilities,
+      load: loadCapability,
+    }));
+    this.registry.register(functionalPlugin(
+      "files",
+      [...FILE_TOOLS],
+      (request) => this.executeFile(
+        request,
+        this.options.workspaceRoot,
+        this.options.executionContext,
+      ),
     ));
-    this.register("search_capabilities", (request) =>
-      searchCapabilities(String((request.arguments as { query?: string }).query ?? "")));
-    this.register("load_capability", (request) =>
-      loadCapability(String((request.arguments as { id?: string }).id ?? "")));
-    for (const name of FILE_TOOLS) {
-      this.register(name, (request) =>
-        this.executeFile(request, this.options.workspaceRoot, this.options.executionContext));
-    }
-    this.register("terminal", (request) => this.executeTerminal(
-      request.arguments as TerminalAction,
-      this.options.workspaceRoot,
-      this.options.executionContext,
+    this.registry.register(functionalPlugin("terminal", ["terminal"], (request) =>
+      this.executeTerminal(
+        request.arguments as TerminalAction,
+        this.options.workspaceRoot,
+        this.options.executionContext,
+      )));
+    this.registry.register(functionalPlugin(
+      "mcp",
+      [],
+      (request) => executeMcpCapability(
+        request.tool,
+        request.arguments as Record<string, unknown>,
+      ),
+      (toolName) => toolName.startsWith("mcp__"),
     ));
-  }
-
-  register(name: string, handler: ToolHandler): void {
-    if (!name || this.handlers.has(name)) throw new Error(`tool_already_registered:${name}`);
-    this.handlers.set(name, handler);
   }
 
   async execute(request: ToolRequestEvent): Promise<ToolResult> {
@@ -101,21 +157,17 @@ export class DesktopToolRegistry implements ToolExecutor {
     return { callId: request.callId, result };
   }
 
-  close(): void {
+  async close(): Promise<void> {
     for (const terminalId of this.leasedTerminalIds) {
       terminalWriteLeases.get(terminalId)?.();
       terminalWriteLeases.delete(terminalId);
     }
     this.leasedTerminalIds.clear();
+    await this.registry.close();
   }
 
   private async dispatch(request: ToolRequestEvent): Promise<unknown> {
-    if (request.tool.startsWith("mcp__")) {
-      return executeMcpCapability(request.tool, request.arguments as Record<string, unknown>);
-    }
-    const handler = this.handlers.get(request.tool);
-    if (!handler) throw new Error(`unknown_tool:${request.tool}`);
-    return handler(request);
+    return (await this.registry.execute(request)).result;
   }
 
   private updateTasks(request: ToolRequestEvent): unknown {
@@ -223,5 +275,3 @@ export class DesktopToolRegistry implements ToolExecutor {
     return result;
   }
 }
-import type { AgentStreamEvent, AgentTask, ToolRequestEvent } from "@ohmycode/agent-runtime";
-import type { ToolExecutor, ToolResult } from "@ohmycode/tool-contracts";

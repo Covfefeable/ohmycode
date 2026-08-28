@@ -112,7 +112,8 @@ SEARCH_CAPABILITIES_TOOL = {
     "function": {
         "name": "search_capabilities",
         "description": (
-            "Search enabled MCP servers and locally installed Skills by name and description. "
+            "Search MCP servers and Skills supported by the current client "
+            "by name and description. "
             "Use this only when the task may benefit from an external integration or specialized "
             "workflow; do not search on every turn."
         ),

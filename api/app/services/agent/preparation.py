@@ -8,6 +8,7 @@ from ..conversations import prepare_user_prompt
 from ..errors import ServiceError
 from ..model_credentials import decrypt_api_key
 from ..settings import get_model_configuration
+from .capability_state import loaded_capability_tools
 from .context import iter_prepare_context
 from .prompts import AGENT_SYSTEM_INSTRUCTIONS
 from .provider_stream import PreparedCompletion
@@ -153,13 +154,15 @@ def stream_prepare_completion(
     )
     db.session.commit()
     if tools_override is not None:
-        tools, mailbox = tools_override, []
+        tools, mailbox = [*tools_override, *loaded_capability_tools(conversation_id)], []
     else:
         tools, mailbox = (
             completion_tools_and_mailbox(conversation_id, configuration)
             if tools_enabled
             else ([], [])
         )
+        if tools_enabled:
+            tools.extend(loaded_capability_tools(conversation_id))
     return prepared_completion(
         run,
         configuration,
