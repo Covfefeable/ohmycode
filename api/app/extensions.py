@@ -38,7 +38,7 @@ def init_celery(app):
                 "schedule": 300.0,
             }
         },
-        imports=("app.tasks.capability_embedding",),
+        imports=("app.tasks.capability_embedding", "app.tasks.turn_summary"),
     )
     celery.set_default()
     app.extensions["celery"] = celery

@@ -1,5 +1,6 @@
 from .agent_event import AgentEvent
 from .agent_run import AgentRun
+from .agent_run_summary import AgentRunSummary
 from .agent_session import AgentSession
 from .context_checkpoint import ContextCheckpoint
 from .conversation import Conversation
@@ -20,6 +21,7 @@ from .user import User
 __all__ = [
     "AgentEvent",
     "AgentRun",
+    "AgentRunSummary",
     "AgentSession",
     "ContextCheckpoint",
     "Conversation",

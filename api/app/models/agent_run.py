@@ -9,6 +9,7 @@ from ..extensions import db
 
 if TYPE_CHECKING:
     from .agent_event import AgentEvent
+    from .agent_run_summary import AgentRunSummary
     from .context_checkpoint import ContextCheckpoint
 
 
@@ -35,5 +36,8 @@ class AgentRun(db.Model):
         back_populates="run", cascade="all, delete-orphan", order_by="AgentEvent.sequence"
     )
     checkpoints: Mapped[list["ContextCheckpoint"]] = relationship(
-        back_populates="run", cascade="all, delete-orphan"
+        back_populates="run", cascade="all, delete-orphan", foreign_keys="ContextCheckpoint.run_id"
+    )
+    summary: Mapped["AgentRunSummary | None"] = relationship(
+        back_populates="run", cascade="all, delete-orphan", uselist=False
     )

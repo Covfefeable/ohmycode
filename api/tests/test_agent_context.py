@@ -1,13 +1,31 @@
 import json
 import uuid
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
 import httpx
 from openai import APIStatusError
 
-from app.models import AgentRun
+from app import create_app
+from app.extensions import db
+from app.models import (
+    AgentEvent,
+    AgentRun,
+    AgentRunSummary,
+    Conversation,
+    Message,
+    ModelConfiguration,
+    Project,
+    User,
+)
+from app.services.agent import turn_summaries
 from app.services.agent.chat import _tool_result_content
-from app.services.agent.context import COMPACTION_RATIO, estimate_tokens
+from app.services.agent.context import (
+    COMPACTION_RATIO,
+    _protected_run_ids,
+    _render_messages,
+    estimate_tokens,
+)
 from app.services.agent.prompts import AGENT_SYSTEM_INSTRUCTIONS
 from app.services.agent.provider_stream import PreparedCompletion, _payload, provider_payloads
 from app.services.agent.task_plan import active_task_id, normalize_task_plan
@@ -25,6 +43,121 @@ def test_provider_chunk_uses_sdk_serialization():
             return {"choices": [], "provider_extension": "preserved"}
 
     assert _payload(Chunk()) == {"choices": [], "provider_extension": "preserved"}
+
+
+def test_turn_context_uses_summaries_only_before_the_latest_two_turns(monkeypatch):
+    app = create_app("testing")
+    with app.app_context():
+        db.create_all()
+        user = User(
+            email="context-turns@example.com",
+            display_name="Context Turns",
+            password_hash="unused",
+        )
+        db.session.add(user)
+        db.session.flush()
+        project = Project(
+            user_id=user.id,
+            device_id="desktop",
+            device_name="Desktop",
+            name="workspace",
+            path="/workspace",
+        )
+        db.session.add(project)
+        db.session.flush()
+        conversation = Conversation(project_id=project.id)
+        model = ModelConfiguration(
+            user_id=user.id,
+            name="Model",
+            base_url="https://example.com/v1",
+            model="example",
+            api_key_encrypted=b"secret",
+        )
+        db.session.add_all([conversation, model])
+        db.session.flush()
+        messages = []
+        runs = []
+        for number in range(1, 4):
+            user_message = Message(
+                conversation_id=conversation.id,
+                role="user",
+                content=f"user-{number}",
+            )
+            run = AgentRun(
+                conversation_id=conversation.id,
+                model_configuration_id=model.id,
+                status="completed",
+                last_event_sequence=1,
+                completed_at=datetime.now(UTC) + timedelta(seconds=number),
+            )
+            db.session.add_all([user_message, run])
+            db.session.flush()
+            db.session.add(
+                AgentEvent(
+                    run=run,
+                    sequence=1,
+                    event_type="tool.output",
+                    payload={"turn": number},
+                )
+            )
+            assistant = Message(
+                conversation_id=conversation.id,
+                agent_run_id=run.id,
+                role="assistant",
+                content=f"assistant-{number}",
+            )
+            db.session.add(assistant)
+            messages.extend([user_message, assistant])
+            runs.append(run)
+        db.session.add(
+            AgentRunSummary(
+                run=runs[0],
+                conversation_id=conversation.id,
+                status="completed",
+                source_last_sequence=1,
+                source_digest="digest",
+                source_size=100,
+                summary="summary-one",
+            )
+        )
+        db.session.add(
+            AgentRunSummary(
+                run=runs[1],
+                conversation_id=conversation.id,
+                status="pending",
+                source_last_sequence=1,
+                source_digest="pending",
+                source_size=100,
+            )
+        )
+        db.session.commit()
+
+        rendered = _render_messages(messages, _protected_run_ids(messages))
+        system_messages = [item["content"] for item in rendered if item["role"] == "system"]
+
+        assert "summary-one" in system_messages[0]
+        assert "Complete AgentEvent history" in system_messages[1]
+        assert "Complete AgentEvent history" in system_messages[2]
+        assert [item["content"] for item in rendered if item["role"] == "user"] == [
+            "user-1",
+            "user-2",
+            "user-3",
+        ]
+
+        runs[0].summary.status = "failed"
+        monkeypatch.setattr(turn_summaries, "TURN_SUMMARY_SOURCE_BYTES", 1)
+        assert turn_summaries.enqueue_turn_summaries(conversation.id) == [runs[0].id]
+        assert runs[0].summary.status == "pending"
+        assert runs[1].summary.status == "pending"
+        assert runs[2].summary is None
+        monkeypatch.setattr(
+            turn_summaries,
+            "_summary_request",
+            lambda _model, _content, _instructions: "generated-summary",
+        )
+        assert turn_summaries.summarize_agent_run(runs[0].id) is True
+        assert runs[0].summary.status == "completed"
+        assert runs[0].summary.summary == "generated-summary"
 
 
 def test_provider_automatically_retries_without_unsupported_stream_options(monkeypatch):

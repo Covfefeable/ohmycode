@@ -1,3 +1,4 @@
+import json
 import math
 from collections.abc import Generator
 from dataclasses import dataclass
@@ -12,7 +13,6 @@ from .prompts import COMPACTION_INSTRUCTIONS
 from .runs import append_event
 
 COMPACTION_RATIO = 0.70
-RECENT_CONTEXT_RATIO = 0.20
 
 
 @dataclass(frozen=True)
@@ -28,10 +28,6 @@ def estimate_tokens(text: str) -> int:
     return max(1, math.ceil(ascii_count / 4) + non_ascii_count)
 
 
-def _message_tokens(message: Message) -> int:
-    return estimate_tokens(_message_content(message)) + 4
-
-
 def _message_content(message: Message) -> str:
     attachments = message.attachments or []
     if not attachments:
@@ -43,6 +39,86 @@ def _message_content(message: Message) -> str:
     return f"{message.content}\n\n" + "\n".join(lines)
 
 
+def _context_tokens(messages: list[dict[str, str]]) -> int:
+    return estimate_tokens(json.dumps(messages, ensure_ascii=False))
+
+
+def _run_context_message(run: AgentRun, protected: bool) -> dict[str, str]:
+    summary = run.summary
+    if not protected and summary and summary.status == "completed" and summary.summary:
+        return {
+            "role": "system",
+            "content": f"AgentEvent summary for completed turn {run.id}:\n{summary.summary}",
+        }
+    events = [
+        {
+            "sequence": event.sequence,
+            "type": event.event_type,
+            "payload": event.payload,
+        }
+        for event in run.events
+    ]
+    return {
+        "role": "system",
+        "content": (
+            f"Complete AgentEvent history for completed turn {run.id}:\n"
+            f"{json.dumps(events, ensure_ascii=False, separators=(',', ':'))}"
+        ),
+    }
+
+
+def _message_index(messages: list[Message], message_id: UUID | None) -> int:
+    if message_id is None:
+        return 0
+    for index, message in enumerate(messages):
+        if message.id == message_id:
+            return index + 1
+    return 0
+
+
+def _protected_run_ids(messages: list[Message]) -> set[UUID]:
+    completed = [
+        message.agent_run_id
+        for message in messages
+        if message.role == "assistant"
+        and message.agent_run_id
+        and (run := db.session.get(AgentRun, message.agent_run_id))
+        and run.status == "completed"
+    ]
+    return set(completed[-2:])
+
+
+def _render_messages(messages: list[Message], protected_run_ids: set[UUID]) -> list[dict]:
+    rendered: list[dict] = []
+    for message in messages:
+        if message.role == "assistant" and message.agent_run_id:
+            run = db.session.get(AgentRun, message.agent_run_id)
+            if run and run.status == "completed":
+                rendered.append(_run_context_message(run, run.id in protected_run_ids))
+        rendered.append({"role": message.role, "content": _message_content(message)})
+    return rendered
+
+
+def _protected_start(messages: list[Message], protected_run_ids: set[UUID]) -> int:
+    starts = [
+        index
+        for index, message in enumerate(messages)
+        if message.role == "user" and index == len(messages) - 1
+    ]
+    for index, message in enumerate(messages):
+        if message.agent_run_id in protected_run_ids:
+            user_index = next(
+                (
+                    candidate
+                    for candidate in range(index - 1, -1, -1)
+                    if messages[candidate].role == "user"
+                ),
+                index,
+            )
+            starts.append(user_index)
+    return min(starts, default=len(messages))
+
+
 def latest_checkpoint(conversation_id: UUID) -> ContextCheckpoint | None:
     return db.session.scalar(
         db.select(ContextCheckpoint)
@@ -51,7 +127,11 @@ def latest_checkpoint(conversation_id: UUID) -> ContextCheckpoint | None:
     )
 
 
-def _summary_request(model: ModelConfiguration, content: str) -> str:
+def _summary_request(
+    model: ModelConfiguration,
+    content: str,
+    instructions: str = COMPACTION_INSTRUCTIONS,
+) -> str:
     response = httpx.post(
         f"{model.base_url.rstrip('/')}/chat/completions",
         headers={
@@ -64,7 +144,7 @@ def _summary_request(model: ModelConfiguration, content: str) -> str:
             "messages": [
                 {
                     "role": "system",
-                    "content": COMPACTION_INSTRUCTIONS,
+                    "content": instructions,
                 },
                 {"role": "user", "content": content},
             ],
@@ -76,14 +156,6 @@ def _summary_request(model: ModelConfiguration, content: str) -> str:
     return str(payload["choices"][0]["message"]["content"]).strip()
 
 
-def _render_for_summary(summary: str | None, messages: list[Message]) -> str:
-    parts = []
-    if summary:
-        parts.append(f"PREVIOUS CHECKPOINT:\n{summary}")
-    parts.extend(f"{message.role.upper()}:\n{_message_content(message)}" for message in messages)
-    return "\n\n".join(parts)
-
-
 def iter_prepare_context(
     run: AgentRun,
     model: ModelConfiguration,
@@ -91,28 +163,19 @@ def iter_prepare_context(
     system_instructions: str = "",
 ) -> Generator[dict, None, PreparedContext]:
     checkpoint = latest_checkpoint(run.conversation_id)
-    if checkpoint and checkpoint.source_message_count > len(messages):
-        checkpoint = None
-    source_count = checkpoint.source_message_count if checkpoint else 0
-    active_messages = messages[source_count:]
+    source_start = _message_index(messages, checkpoint.covered_message_id if checkpoint else None)
+    active_messages = messages[source_start:]
     checkpoint_summary = checkpoint.summary if checkpoint else None
-    estimated = sum(_message_tokens(message) for message in active_messages)
+    protected_run_ids = _protected_run_ids(messages)
+    rendered_messages = _render_messages(active_messages, protected_run_ids)
+    estimated = _context_tokens(rendered_messages)
     estimated += estimate_tokens(system_instructions) if system_instructions else 0
-    if checkpoint_summary:
-        estimated += estimate_tokens(checkpoint_summary)
+    estimated += estimate_tokens(checkpoint_summary) if checkpoint_summary else 0
 
     threshold = int(model.context_length * COMPACTION_RATIO)
     compacted = False
-    if estimated >= threshold and len(active_messages) > 2:
-        recent_budget = max(1, int(model.context_length * RECENT_CONTEXT_RATIO))
-        recent_tokens = 0
-        split = len(active_messages)
-        while split > 0:
-            candidate_tokens = _message_tokens(active_messages[split - 1])
-            if recent_tokens + candidate_tokens > recent_budget and split < len(active_messages):
-                break
-            recent_tokens += candidate_tokens
-            split -= 1
+    if estimated >= threshold:
+        split = _protected_start(active_messages, protected_run_ids)
         if split > 0:
             append_event(
                 run,
@@ -127,16 +190,41 @@ def iter_prepare_context(
             }
             summary = _summary_request(
                 model,
-                _render_for_summary(checkpoint_summary, active_messages[:split]),
+                "\n\n".join(
+                    part
+                    for part in (
+                        (
+                            f"PREVIOUS CHECKPOINT:\n{checkpoint_summary}"
+                            if checkpoint_summary
+                            else ""
+                        ),
+                        "HISTORY TO COMPACT:\n"
+                        + json.dumps(
+                            _render_messages(active_messages[:split], set()),
+                            ensure_ascii=False,
+                        ),
+                    )
+                    if part
+                ),
             )
-            source_count += split
+            covered_message = active_messages[split - 1]
+            covered_run = next(
+                (
+                    db.session.get(AgentRun, item.agent_run_id)
+                    for item in reversed(active_messages[:split])
+                    if item.agent_run_id
+                ),
+                None,
+            )
             checkpoint = ContextCheckpoint(
                 run=run,
                 conversation_id=run.conversation_id,
-                source_message_count=source_count,
+                covered_message_id=covered_message.id,
+                covered_run_id=covered_run.id if covered_run else None,
+                covered_event_sequence=(covered_run.last_event_sequence if covered_run else 0),
                 estimated_tokens=estimate_tokens(summary),
                 summary=summary,
-                state={"compactionRatio": COMPACTION_RATIO},
+                state={"compactionRatio": COMPACTION_RATIO, "version": 2},
             )
             db.session.add(checkpoint)
             db.session.flush()
@@ -145,16 +233,19 @@ def iter_prepare_context(
                 "context.compacted",
                 {
                     "checkpointId": str(checkpoint.id),
-                    "sourceMessageCount": source_count,
+                    "coveredMessageId": str(covered_message.id),
+                    "coveredRunId": str(covered_run.id) if covered_run else None,
+                    "coveredEventSequence": (covered_run.last_event_sequence if covered_run else 0),
                 },
             )
             db.session.commit()
             checkpoint_summary = summary
-            active_messages = messages[source_count:]
+            active_messages = active_messages[split:]
+            rendered_messages = _render_messages(active_messages, protected_run_ids)
             estimated = (
                 estimate_tokens(system_instructions)
                 + estimate_tokens(summary)
-                + sum(_message_tokens(message) for message in active_messages)
+                + _context_tokens(rendered_messages)
             )
             compacted = True
             yield {
@@ -168,10 +259,7 @@ def iter_prepare_context(
         result.append(
             {"role": "system", "content": f"Conversation checkpoint:\n{checkpoint_summary}"}
         )
-    result.extend(
-        {"role": item.role, "content": _message_content(item)}
-        for item in active_messages
-    )
+    result.extend(_render_messages(active_messages, protected_run_ids))
     return PreparedContext(result, estimated, compacted)
 
 
@@ -187,35 +275,3 @@ def prepare_context(
             next(iterator)
         except StopIteration as completed:
             return completed.value
-
-
-def compact_payload(
-    run: AgentRun,
-    model: ModelConfiguration,
-    messages: list[dict],
-    source_message_count: int,
-    state: dict,
-) -> str:
-    transcript = "\n\n".join(
-        f"{item.get('role', 'unknown').upper()}:\n{json_text}"
-        for item in messages
-        if (json_text := str(item.get("content") or item.get("tool_calls") or ""))
-    )
-    summary = _summary_request(model, transcript)
-    checkpoint = ContextCheckpoint(
-        run=run,
-        conversation_id=run.conversation_id,
-        source_message_count=source_message_count,
-        estimated_tokens=estimate_tokens(summary),
-        summary=summary,
-        state={"compactionRatio": COMPACTION_RATIO, **state},
-    )
-    db.session.add(checkpoint)
-    db.session.flush()
-    append_event(
-        run,
-        "context.compacted",
-        {"checkpointId": str(checkpoint.id), "sourceMessageCount": source_message_count},
-    )
-    db.session.commit()
-    return summary

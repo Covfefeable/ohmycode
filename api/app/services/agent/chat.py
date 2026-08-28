@@ -8,13 +8,7 @@ from ...extensions import db
 from ...models import AgentRun, Conversation, Message, ModelConfiguration
 from ..errors import ServiceError
 from .config import TOOL_RESULT_TOKEN_BUDGET
-from .context import (
-    COMPACTION_RATIO,
-    compact_payload,
-    estimate_tokens,
-    latest_checkpoint,
-    prepare_context,
-)
+from .context import COMPACTION_RATIO, estimate_tokens, prepare_context
 from .preparation import completion_mailbox, prepared_completion
 from .prompts import AGENT_SYSTEM_INSTRUCTIONS
 from .provider_errors import provider_error_code
@@ -172,13 +166,14 @@ def resume_completion(
     if not conversation:
         raise ServiceError("not_found", 404)
     context = prepare_context(
-        run, configuration, list(conversation.messages), system_instructions
+        run,
+        configuration,
+        list(conversation.messages),
+        "\n\n".join(
+            part for part in (system_instructions, workspace_instructions) if part.strip()
+        ),
     )
-    checkpoint = latest_checkpoint(run.conversation_id)
-    checkpoint_sequence = 0
-    if checkpoint and checkpoint.state.get("runId") == str(run.id):
-        checkpoint_sequence = int(checkpoint.state.get("toolEventSequence") or 0)
-    result_count = max(1, _tool_result_count(run, checkpoint_sequence))
+    result_count = max(1, _tool_result_count(run, 0))
     available_tool_tokens = max(
         512,
         int(configuration.context_length * COMPACTION_RATIO) - context.estimated_tokens,
@@ -187,20 +182,8 @@ def resume_completion(
         512,
         min(TOOL_RESULT_TOKEN_BUDGET * 2, available_tool_tokens // result_count),
     )
-    tool_history = _tool_history(run, checkpoint_sequence, tool_result_budget)
+    tool_history = _tool_history(run, 0, tool_result_budget)
     model_messages = [*context.messages, *tool_history]
-    total_estimated = context.estimated_tokens + estimate_tokens(
-        json.dumps(tool_history, ensure_ascii=False)
-    )
-    if total_estimated >= int(configuration.context_length * COMPACTION_RATIO):
-        summary = compact_payload(
-            run,
-            configuration,
-            model_messages,
-            len(conversation.messages),
-            {"runId": str(run.id), "toolEventSequence": run.last_event_sequence},
-        )
-        model_messages = [{"role": "system", "content": f"Conversation checkpoint:\n{summary}"}]
     mailbox = completion_mailbox(run.conversation_id)
     return prepared_completion(
         run,
@@ -275,7 +258,12 @@ def recover_completion(
     if not configuration or not conversation:
         raise ServiceError("not_found", 404)
     context = prepare_context(
-        run, configuration, list(conversation.messages), system_instructions
+        run,
+        configuration,
+        list(conversation.messages),
+        "\n\n".join(
+            part for part in (system_instructions, workspace_instructions) if part.strip()
+        ),
     )
     model_messages = [*context.messages, *_tool_history(run)]
     partial_content = partial_content[:200_000]
@@ -323,8 +311,10 @@ def stream_completion(prepared: PreparedCompletion):
     tool_calls: dict[int, dict] = {}
     input_tokens_total = 0
     output_tokens_total = 0
+    context_tokens_total = 0
     has_input_usage = False
     has_output_usage = False
+    has_context_usage = False
     reasoning_started = False
     message_started = False
     run = db.session.get(AgentRun, prepared.run_id)
@@ -333,12 +323,16 @@ def stream_completion(prepared: PreparedCompletion):
             usage = payload.get("usage") or {}
             input_tokens = usage.get("prompt_tokens", usage.get("input_tokens"))
             output_tokens = usage.get("completion_tokens", usage.get("output_tokens"))
+            context_tokens = usage.get("total_tokens")
             if input_tokens is not None:
                 input_tokens_total = int(input_tokens)
                 has_input_usage = True
             if output_tokens is not None:
                 output_tokens_total = int(output_tokens)
                 has_output_usage = True
+            if context_tokens is not None:
+                context_tokens_total = int(context_tokens)
+                has_context_usage = True
             choice = (payload.get("choices") or [{}])[0]
             delta = choice.get("delta") or {}
             for tool_delta in delta.get("tool_calls") or []:
@@ -382,9 +376,9 @@ def stream_completion(prepared: PreparedCompletion):
             run.input_tokens = (run.input_tokens or 0) + input_tokens_total
         if has_output_usage:
             run.output_tokens = (run.output_tokens or 0) + output_tokens_total
-        if has_input_usage:
+        if has_context_usage:
             context_usage = {
-                "usedTokens": input_tokens_total,
+                "usedTokens": context_tokens_total,
                 "contextLength": prepared.context_length,
                 "source": "provider",
             }

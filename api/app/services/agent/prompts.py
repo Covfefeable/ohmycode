@@ -57,6 +57,14 @@ COMPACTION_INSTRUCTIONS = (
     "tool result later. Do not invent facts. Return only the checkpoint."
 )
 
+TURN_SUMMARY_INSTRUCTIONS = (
+    "Summarize one completed coding-agent turn as durable structured context. Include the user "
+    "objective, completed work, decisions and reasons, tool executions and important results, "
+    "changed files, failures, unresolved work, and resultRef runId/callId values. Omit hidden "
+    "reasoning, repetitive progress, full file contents, full terminal output, and image data. "
+    "Do not invent facts. Return only the structured turn summary."
+)
+
 STOPPED_RUN_CONTEXT = (
     "A previous agent run in this conversation was explicitly stopped by the user before it "
     "completed. Treat that interruption as part of the task history and do not assume the "

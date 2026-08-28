@@ -121,7 +121,12 @@ def stream_prepare_completion(
     yield {"type": "run.started", "runId": str(run.id)}
     try:
         context = yield from iter_prepare_context(
-            run, configuration, list(conversation.messages), system_instructions
+            run,
+            configuration,
+            list(conversation.messages),
+            "\n\n".join(
+                part for part in (system_instructions, workspace_instructions) if part.strip()
+            ),
         )
     except (httpx.HTTPError, KeyError, IndexError, TypeError, ValueError) as error:
         fail_run(run, "context_compaction_failed")

@@ -242,19 +242,25 @@ Flow:
    reasoning/message/tool-call deltas, and yields Runtime events.
 4. If tool calls are requested, the run moves to `waiting_tool`. The Runtime
    executes them and calls `resume_completion()`.
-5. `resume_completion()` replays tool history since the latest checkpoint,
+5. `resume_completion()` replays the current Turn's complete tool history,
    rebuilds the model payload, and re-enters the stream.
 
 Context compression in `api/app/services/agent/context.py`:
 
 - `estimate_tokens()` gives a fast, provider-agnostic token estimate.
-- `prepare_context()` keeps a recent context window and summarizes older
-  messages into a `ContextCheckpoint` when the budget threshold
-  (`COMPACTION_RATIO = 0.70`) is exceeded.
-- `compact_payload()` creates a checkpoint from tool-history payloads when the
-  tool-call transcript grows too large.
-- Checkpoints are persisted in `ContextCheckpoint` and reused across turns in
-  the same conversation.
+- A completed Turn contributes its user message, AgentEvent history, and final
+  assistant answer in chronological order.
+- The latest two completed Turns always use complete AgentEvents. Older Turns
+  use a completed `AgentRunSummary` when available and otherwise continue to
+  use their complete events.
+- Completed Runs whose serialized AgentEvents exceed 32 KiB are summarized by
+  a Celery worker after they leave the latest-two protection window. Original
+  events remain authoritative and are never deleted.
+- `prepare_context()` creates a `ContextCheckpoint` only when the assembled
+  context reaches `COMPACTION_RATIO = 0.70`. The checkpoint covers an explicit
+  message, Run, and event-sequence cursor and never covers the latest two Turns
+  or the current user message.
+- There is no 55% pre-compaction path and no legacy checkpoint reader.
 
 The model payload includes:
 
@@ -262,7 +268,12 @@ The model payload includes:
 - Workspace instructions loaded from hierarchical `AGENTS.md` files.
 - A summary of any previously cancelled run, to avoid retry loops.
 - The Multi-Agent mailbox when the conversation is a collaboration node.
-- Recent conversation messages or a checkpoint summary.
+- A checkpoint summary followed by uncovered historical Turns.
+- Complete AgentEvents for the latest two completed Turns and the current Turn.
+
+Context usage shown by clients is the provider-reported `usage.total_tokens`
+from the latest model request. It is not estimated or derived from alternate
+usage fields.
 
 ## Local tools
 
@@ -342,7 +353,9 @@ Core tables:
   Each Run also persists the latest Runtime-supplied tool snapshot for auditing
   and recovery consistency.
 - `agent_events`: events inside a run, ordered by `(run_id, sequence)`.
-- `context_checkpoints`: conversation summaries used for context compression.
+- `agent_run_summaries`: asynchronous summaries for older, event-heavy Turns.
+- `context_checkpoints`: conversation-prefix summaries with explicit Message,
+  Run, and AgentEvent cursors.
 - `agent_sessions`: persisted agent session state.
 - `mcp_servers`: user MCP configuration and synchronized metadata.
 - `retrieval_documents`: Capability search documents and pgvector embeddings.

@@ -140,6 +140,9 @@ def complete_run(run: AgentRun, message_id: UUID) -> None:
     run.status = "completed"
     run.completed_at = datetime.now(UTC)
     db.session.commit()
+    from .turn_summaries import enqueue_turn_summaries
+
+    enqueue_turn_summaries(run.conversation_id)
 
 
 def fail_run(run: AgentRun, error_code: str) -> None:
