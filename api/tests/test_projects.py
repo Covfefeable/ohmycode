@@ -167,6 +167,28 @@ def test_project_conversation_and_message_lifecycle(monkeypatch):
         assert public_settings["models"][0]["hasApiKey"] is True
         assert public_settings["models"][0]["contextLength"] == 262_144
         assert "apiKey" not in public_settings["models"][0]
+        assert public_settings["backgroundTasks"] == {
+            "autoSummaryEnabled": True,
+            "autoSummaryModelId": None,
+            "contextCompactionThreshold": 70,
+            "contextCompactionModelId": None,
+            "suggestionsEnabled": True,
+            "suggestionsModelId": None,
+        }
+        background_tasks = client.put(
+            "/api/settings/background-tasks",
+            headers=headers,
+            json={
+                "autoSummaryEnabled": False,
+                "autoSummaryModelId": model_id,
+                "contextCompactionThreshold": 80,
+                "contextCompactionModelId": model_id,
+                "suggestionsEnabled": False,
+                "suggestionsModelId": model_id,
+            },
+        )
+        assert background_tasks.status_code == 200
+        assert background_tasks.get_json()["contextCompactionThreshold"] == 80
 
         created = client.post(
             "/api/projects",

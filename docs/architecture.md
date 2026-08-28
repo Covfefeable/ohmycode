@@ -257,7 +257,8 @@ Context compression in `api/app/services/agent/context.py`:
   a Celery worker after they leave the latest-two protection window. Original
   events remain authoritative and are never deleted.
 - `prepare_context()` creates a `ContextCheckpoint` only when the assembled
-  context reaches `COMPACTION_RATIO = 0.70`. The checkpoint covers an explicit
+  context reaches the user's configured compaction threshold (70% by default).
+  The checkpoint uses the configured compaction model, covers an explicit
   message, Run, and event-sequence cursor and never covers the latest two Turns
   or the current user message.
 - There is no 55% pre-compaction path and no legacy checkpoint reader.
@@ -354,6 +355,8 @@ Core tables:
   and recovery consistency.
 - `agent_events`: events inside a run, ordered by `(run_id, sequence)`.
 - `agent_run_summaries`: asynchronous summaries for older, event-heavy Turns.
+- `background_task_settings`: per-user switches, model selections, and the
+  ContextCheckpoint threshold for summaries, compaction, and suggestions.
 - `context_checkpoints`: conversation-prefix summaries with explicit Message,
   Run, and AgentEvent cursors.
 - `agent_sessions`: persisted agent session state.

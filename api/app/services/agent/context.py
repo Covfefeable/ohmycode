@@ -9,6 +9,11 @@ import httpx
 from ...extensions import db
 from ...models import AgentRun, ContextCheckpoint, Message, ModelConfiguration
 from ..model_credentials import decrypt_api_key
+from ..settings.background_tasks import (
+    background_task_settings,
+    configured_model,
+    conversation_user_id,
+)
 from .prompts import COMPACTION_INSTRUCTIONS
 from .runs import append_event
 
@@ -163,6 +168,8 @@ def iter_prepare_context(
     system_instructions: str = "",
 ) -> Generator[dict, None, PreparedContext]:
     checkpoint = latest_checkpoint(run.conversation_id)
+    user_id = conversation_user_id(run.conversation_id)
+    background_settings = background_task_settings(user_id)
     source_start = _message_index(messages, checkpoint.covered_message_id if checkpoint else None)
     active_messages = messages[source_start:]
     checkpoint_summary = checkpoint.summary if checkpoint else None
@@ -172,7 +179,7 @@ def iter_prepare_context(
     estimated += estimate_tokens(system_instructions) if system_instructions else 0
     estimated += estimate_tokens(checkpoint_summary) if checkpoint_summary else 0
 
-    threshold = int(model.context_length * COMPACTION_RATIO)
+    threshold = int(model.context_length * background_settings.context_compaction_ratio)
     compacted = False
     if estimated >= threshold:
         split = _protected_start(active_messages, protected_run_ids)
@@ -188,8 +195,11 @@ def iter_prepare_context(
                 "estimatedTokens": estimated,
                 "contextLength": model.context_length,
             }
+            compaction_model = configured_model(
+                user_id, background_settings.context_compaction_model_id
+            ) or model
             summary = _summary_request(
-                model,
+                compaction_model,
                 "\n\n".join(
                     part
                     for part in (

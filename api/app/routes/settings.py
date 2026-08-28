@@ -7,6 +7,7 @@ from ..services.settings import (
     get_avatar,
     get_settings,
     save_avatar,
+    save_background_tasks,
     save_models,
     save_profile,
     test_model,
@@ -56,6 +57,12 @@ def save_models_route():
     models = (request.get_json(silent=True) or {}).get("models") or []
     save_models(user_id(), models)
     return "", 204
+
+
+@settings_bp.put("/background-tasks")
+@jwt_required()
+def save_background_tasks_route():
+    return jsonify(save_background_tasks(user_id(), request.get_json(silent=True) or {}))
 
 
 @settings_bp.post("/models/test")

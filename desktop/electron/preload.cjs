@@ -77,6 +77,7 @@ contextBridge.exposeInMainWorld("ohmycode", {
       return () => ipcRenderer.removeListener("settings:profile-changed", listener);
     },
     saveModels: (models) => ipcRenderer.invoke("settings:save-models", models),
+    saveBackgroundTasks: (settings) => ipcRenderer.invoke("settings:save-background-tasks", settings),
     onModelsChanged: (callback) => {
       const listener = (_event, models) => callback(models);
       ipcRenderer.on("settings:models-changed", listener);

@@ -5,7 +5,12 @@ from uuid import UUID
 from flask import current_app
 
 from ...extensions import db
-from ...models import AgentRun, AgentRunSummary, ModelConfiguration
+from ...models import AgentRun, AgentRunSummary
+from ..settings.background_tasks import (
+    background_task_settings,
+    configured_model,
+    conversation_user_id,
+)
 from .context import _summary_request
 from .prompts import TURN_SUMMARY_INSTRUCTIONS
 
@@ -36,6 +41,10 @@ def event_source(run: AgentRun) -> tuple[str, str, int]:
 
 
 def enqueue_turn_summaries(conversation_id: UUID) -> list[UUID]:
+    user_id = conversation_user_id(conversation_id)
+    if not background_task_settings(user_id).auto_summary_enabled:
+        db.session.commit()
+        return []
     completed_runs = list(
         db.session.scalars(
             db.select(AgentRun)
@@ -111,7 +120,9 @@ def summarize_agent_run(run_id: UUID) -> bool:
         summary.source_last_sequence = run.last_event_sequence
         db.session.commit()
         return False
-    model = db.session.get(ModelConfiguration, run.model_configuration_id)
+    user_id = conversation_user_id(run.conversation_id)
+    settings = background_task_settings(user_id)
+    model = configured_model(user_id, settings.auto_summary_model_id)
     if not model:
         summary.status = "failed"
         summary.error = "model_not_configured"

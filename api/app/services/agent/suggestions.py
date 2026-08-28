@@ -8,6 +8,7 @@ from ...models import AgentRun, Conversation, ModelConfiguration
 from ..conversations import get_conversation
 from ..model_credentials import decrypt_api_key
 from ..settings import get_model_configuration
+from ..settings.background_tasks import background_task_settings, configured_model
 from .prompts import SUGGESTION_INSTRUCTIONS, TITLE_INSTRUCTIONS
 from .runs import append_event
 
@@ -170,6 +171,10 @@ def _suggestion_prompt(messages: list) -> str | None:
 def generate_followup_suggestions(user_id: UUID, conversation_id: UUID) -> list[str]:
     """Generate follow-ups from the latest ten user questions and last agent reply."""
     conversation = get_conversation(user_id, conversation_id)
+    task_settings = background_task_settings(user_id)
+    if not task_settings.suggestions_enabled:
+        db.session.commit()
+        return []
     messages = list(conversation.messages)
     last_user_index = next(
         (index for index in range(len(messages) - 1, -1, -1) if messages[index].role == "user"),
@@ -189,6 +194,7 @@ def generate_followup_suggestions(user_id: UUID, conversation_id: UUID) -> list[
     if not last_user or not last_assistant:
         return []
     configuration, run = _configuration_for(conversation_id, user_id)
+    configuration = configured_model(user_id, task_settings.suggestions_model_id) or configuration
     if not configuration or not run:
         return []
     cached = _event_payload(run, "conversation.suggestions.generated")

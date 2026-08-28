@@ -2,11 +2,12 @@ import { BrowserWindow, ipcMain } from "electron";
 import {
   getPublicSettings,
   saveAvatar,
+  saveBackgroundTasks,
   saveModels,
   saveProfile,
   testModel,
 } from "../settings/settings-service.js";
-import type { ModelInput } from "../settings/types.js";
+import type { BackgroundTaskSettings, ModelInput } from "../settings/types.js";
 
 export function registerSettingsIpc(): void {
   ipcMain.handle("settings:get", getPublicSettings);
@@ -33,5 +34,6 @@ export function registerSettingsIpc(): void {
     }
     return freshModels;
   });
+  ipcMain.handle("settings:save-background-tasks", (_event, settings: BackgroundTaskSettings) => saveBackgroundTasks(settings));
   ipcMain.handle("settings:test-model", (_event, model: ModelInput) => testModel(model));
 }

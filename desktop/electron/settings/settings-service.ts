@@ -1,8 +1,8 @@
 import { apiFetch, apiRequest } from "../api/api-client.js";
-import type { ModelInput } from "./types.js";
+import type { BackgroundTaskSettings, ModelInput } from "./types.js";
 import { readLegacySettings, removeLegacySettings } from "./legacy-settings.js";
 
-type PublicSettings = { profile: { displayName: string; avatarAvailable: boolean; avatarDataUrl?: string | null }; models: ModelInput[]; tokenUsage: { date: string; tokens: number }[] };
+type PublicSettings = { profile: { displayName: string; avatarAvailable: boolean; avatarDataUrl?: string | null }; models: ModelInput[]; backgroundTasks: BackgroundTaskSettings; tokenUsage: { date: string; tokens: number }[] };
 
 export async function getPublicSettings(): Promise<PublicSettings> {
   let settings = await apiRequest<PublicSettings>("/api/settings");
@@ -33,6 +33,13 @@ export function saveAvatar(data: string, contentType: string): Promise<void> {
 
 export function saveModels(models: ModelInput[]): Promise<void> {
   return apiRequest("/api/settings/models", { method: "PUT", body: JSON.stringify({ models }) });
+}
+
+export function saveBackgroundTasks(settings: BackgroundTaskSettings) {
+  return apiRequest<BackgroundTaskSettings>("/api/settings/background-tasks", {
+    method: "PUT",
+    body: JSON.stringify(settings),
+  });
 }
 
 export function testModel(model: ModelInput) {

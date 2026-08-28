@@ -2,6 +2,7 @@ from .agent_event import AgentEvent
 from .agent_run import AgentRun
 from .agent_run_summary import AgentRunSummary
 from .agent_session import AgentSession
+from .background_task_settings import BackgroundTaskSettings
 from .context_checkpoint import ContextCheckpoint
 from .conversation import Conversation
 from .mcp_server import McpServer, SkillPackage
@@ -23,6 +24,7 @@ __all__ = [
     "AgentRun",
     "AgentRunSummary",
     "AgentSession",
+    "BackgroundTaskSettings",
     "ContextCheckpoint",
     "Conversation",
     "Message",

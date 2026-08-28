@@ -13,6 +13,7 @@ from ...models import AgentRun, Conversation, ModelConfiguration, Project, User
 from ..errors import ServiceError
 from ..model_credentials import decrypt_api_key, encrypt_api_key
 from ..object_storage import delete_object, get_object, put_object
+from .background_tasks import background_task_settings, serialize_background_tasks
 from .queries import models_for_user
 
 
@@ -62,6 +63,7 @@ def get_settings(user_id: UUID) -> dict:
             "avatarAvailable": bool(user.avatar_object_key),
         },
         "models": [serialize_model(item) for item in models_for_user(user_id)],
+        "backgroundTasks": serialize_background_tasks(background_task_settings(user_id)),
         "tokenUsage": token_usage,
     }
 

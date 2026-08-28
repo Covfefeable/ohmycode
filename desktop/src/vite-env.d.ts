@@ -61,6 +61,7 @@ interface Window {
       saveAvatar(data: string, contentType: string): Promise<PublicSettings["profile"]>;
       onProfileChanged(callback: (profile: PublicSettings["profile"]) => void): () => void;
       saveModels(models: ModelConfiguration[]): Promise<ModelConfiguration[]>;
+      saveBackgroundTasks(settings: BackgroundTaskSettings): Promise<BackgroundTaskSettings>;
       onModelsChanged(callback: (models: ModelConfiguration[]) => void): () => void;
       testModel(model: ModelConfiguration): Promise<{ ok: boolean; latencyMs?: number; message?: string }>;
     };
@@ -111,9 +112,11 @@ type SkillRecord = { id: string; name: string; description: string; version: str
 type PublicSettings = {
   profile: { displayName: string; avatarAvailable: boolean; avatarDataUrl?: string | null };
   models: ModelConfiguration[];
+  backgroundTasks: BackgroundTaskSettings;
   tokenUsage: TokenUsageEntry[];
 };
 type TokenUsageEntry = { date: string; tokens: number };
+type BackgroundTaskSettings = { autoSummaryEnabled: boolean; autoSummaryModelId: string | null; contextCompactionThreshold: number; contextCompactionModelId: string | null; suggestionsEnabled: boolean; suggestionsModelId: string | null };
 type MultiAgentTaskSummary = { id: string; title: string; status: string; createdAt: string };
 type MultiAgentTemplateMember = { key: string; name: string; role: string; instructions: string; modelId?: string | null; isHost: boolean; sortOrder: number };
 type MultiAgentTemplateTeam = { title: string; members: MultiAgentTemplateMember[] };
