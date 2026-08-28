@@ -1,11 +1,15 @@
 import json
 import uuid
+from types import SimpleNamespace
+
+import httpx
+from openai import APIStatusError
 
 from app.models import AgentRun
 from app.services.agent.chat import _tool_result_content
 from app.services.agent.context import COMPACTION_RATIO, estimate_tokens
 from app.services.agent.prompts import AGENT_SYSTEM_INSTRUCTIONS
-from app.services.agent.provider_stream import sse_json_payloads
+from app.services.agent.provider_stream import PreparedCompletion, _payload, provider_payloads
 from app.services.agent.task_plan import active_task_id, normalize_task_plan
 
 
@@ -15,21 +19,61 @@ def test_context_defaults_and_multilingual_token_estimate():
     assert estimate_tokens("你好世界") == 4
 
 
-def test_sse_parser_ignores_control_fields_and_supports_multiline_data():
-    lines = [
-        ": keep-alive",
-        "event: message",
-        "id: 1",
-        "data: {",
-        'data: "choices": []',
-        "data: }",
-        "",
-        "event: done",
-        "data: [DONE]",
-        "",
-    ]
+def test_provider_chunk_uses_sdk_serialization():
+    class Chunk:
+        def to_dict(self):
+            return {"choices": [], "provider_extension": "preserved"}
 
-    assert list(sse_json_payloads(lines)) == [{"choices": []}]
+    assert _payload(Chunk()) == {"choices": [], "provider_extension": "preserved"}
+
+
+def test_provider_automatically_retries_without_unsupported_stream_options(monkeypatch):
+    requests = []
+    client_options = {}
+
+    class Chunk:
+        def to_dict(self):
+            return {"choices": [{"delta": {"content": "ok"}}]}
+
+    def create(**payload):
+        requests.append(payload)
+        if len(requests) == 1:
+            response = httpx.Response(
+                400,
+                request=httpx.Request("POST", "https://example.com/v1/chat/completions"),
+            )
+            raise APIStatusError("unsupported", response=response, body={})
+        return [Chunk()]
+
+    class Client:
+        def __init__(self, **options):
+            client_options.update(options)
+            self.chat = SimpleNamespace(completions=SimpleNamespace(create=create))
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return None
+
+    monkeypatch.setattr("app.services.agent.provider_stream.OpenAI", Client)
+    prepared = PreparedCompletion(
+        run_id=uuid.uuid4(),
+        conversation_id=uuid.uuid4(),
+        endpoint="https://example.com/v1/chat/completions",
+        api_key="secret",
+        context_length=128_000,
+        payload={
+            "model": "example-model",
+            "stream": True,
+            "stream_options": {"include_usage": True},
+        },
+    )
+
+    assert list(provider_payloads(prepared)) == [{"choices": [{"delta": {"content": "ok"}}]}]
+    assert "stream_options" in requests[0]
+    assert "stream_options" not in requests[1]
+    assert client_options["base_url"] == "https://example.com/v1"
 
 
 def test_large_tool_results_return_a_pageable_reference_without_dropping_silently():
@@ -73,14 +117,17 @@ def test_task_plan_is_bounded_and_has_only_one_active_task():
     assert error is None
     assert tasks is not None
     assert active_task_id(tasks) == "implement"
-    assert normalize_task_plan(
-        {
-            "tasks": [
-                {"id": "one", "content": "One", "status": "in_progress"},
-                {"id": "two", "content": "Two", "status": "in_progress"},
-            ]
-        }
-    )[1] == "multiple_active_tasks"
+    assert (
+        normalize_task_plan(
+            {
+                "tasks": [
+                    {"id": "one", "content": "One", "status": "in_progress"},
+                    {"id": "two", "content": "Two", "status": "in_progress"},
+                ]
+            }
+        )[1]
+        == "multiple_active_tasks"
+    )
 
 
 def test_agent_prompt_bundles_task_updates_with_real_work():

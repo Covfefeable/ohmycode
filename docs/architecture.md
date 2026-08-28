@@ -234,11 +234,15 @@ Flow:
 
 1. `prepare_completion()` creates an `AgentRun`, prepares the context window,
    and returns a `PreparedCompletion` with endpoint, decrypted key, and payload.
-2. `stream_completion()` streams the OpenAI-compatible Chat Completions
-   endpoint, accumulates reasoning/message/tool-call deltas, and yields events.
-3. If tool calls are requested, the run moves to `waiting_tool`. The Runtime
+2. `provider_stream.py` uses the official OpenAI Python SDK for compatible Chat
+   Completions transport, SSE decoding, standard retries, and HTTP errors. It
+   automatically retries once without `stream_options` when a provider rejects
+   that optional field; this is protocol negotiation, not a user setting.
+3. `stream_completion()` consumes structured provider chunks, accumulates
+   reasoning/message/tool-call deltas, and yields Runtime events.
+4. If tool calls are requested, the run moves to `waiting_tool`. The Runtime
    executes them and calls `resume_completion()`.
-4. `resume_completion()` replays tool history since the latest checkpoint,
+5. `resume_completion()` replays tool history since the latest checkpoint,
    rebuilds the model payload, and re-enters the stream.
 
 Context compression in `api/app/services/agent/context.py`:

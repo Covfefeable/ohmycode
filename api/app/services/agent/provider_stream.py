@@ -1,9 +1,7 @@
-import json
-import time
 from dataclasses import dataclass
 from uuid import UUID
 
-import httpx
+from openai import APIStatusError, OpenAI
 
 from .config import MODEL_REQUEST_TIMEOUT_SECONDS, MODEL_STREAM_ATTEMPTS
 
@@ -20,92 +18,36 @@ class PreparedCompletion:
     initial_reasoning: str = ""
 
 
-def sse_json_payloads(lines):
-    data_lines: list[str] = []
+def _base_url(endpoint: str) -> str:
+    suffix = "/chat/completions"
+    return endpoint[: -len(suffix)] if endpoint.endswith(suffix) else endpoint
 
-    def decode_event():
-        if not data_lines:
-            return None
-        data = "\n".join(data_lines).strip()
-        if not data or data == "[DONE]":
-            data_lines.clear()
-            return None
-        payload = json.loads(data)
-        data_lines.clear()
-        return payload
 
-    for line in lines:
-        if line == "":
-            payload = decode_event()
-            if payload is not None:
-                yield payload
-            continue
-        if line.startswith("data:"):
-            if data_lines:
-                try:
-                    payload = decode_event()
-                except json.JSONDecodeError:
-                    payload = None
-                else:
-                    if payload is not None:
-                        yield payload
-            data_lines.append(line[5:].lstrip())
-    payload = decode_event()
-    if payload is not None:
-        yield payload
+def _payload(chunk: object) -> dict:
+    if isinstance(chunk, dict):
+        return chunk
+    to_dict = getattr(chunk, "to_dict", None)
+    if callable(to_dict):
+        value = to_dict()
+        if isinstance(value, dict):
+            return value
+    raise TypeError("invalid_provider_chunk")
 
 
 def provider_payloads(prepared: PreparedCompletion):
-    request_payload = prepared.payload
-    for attempt in range(MODEL_STREAM_ATTEMPTS):
-        meaningful_output = False
+    request_payload = dict(prepared.payload)
+    with OpenAI(
+        api_key=prepared.api_key,
+        base_url=_base_url(prepared.endpoint),
+        timeout=MODEL_REQUEST_TIMEOUT_SECONDS,
+        max_retries=max(0, MODEL_STREAM_ATTEMPTS - 1),
+    ) as client:
         try:
-            with httpx.stream(
-                "POST",
-                prepared.endpoint,
-                headers={
-                    "Authorization": f"Bearer {prepared.api_key}",
-                    "Content-Type": "application/json",
-                },
-                json=request_payload,
-                timeout=MODEL_REQUEST_TIMEOUT_SECONDS,
-            ) as provider_response:
-                provider_response.raise_for_status()
-                for parsed in sse_json_payloads(provider_response.iter_lines()):
-                    choice = (parsed.get("choices") or [{}])[0]
-                    delta = choice.get("delta") or {}
-                    message = choice.get("message") or {}
-                    if (
-                        delta.get("content")
-                        or delta.get("reasoning_content")
-                        or delta.get("reasoning")
-                        or delta.get("tool_calls")
-                        or choice.get("text")
-                        or message.get("content")
-                        or message.get("tool_calls")
-                    ):
-                        meaningful_output = True
-                    yield parsed
-            if meaningful_output:
-                return
-        except httpx.HTTPStatusError as error:
-            if error.response.status_code == 400 and "stream_options" in request_payload:
-                request_payload = {
-                    key: value
-                    for key, value in request_payload.items()
-                    if key != "stream_options"
-                }
-                continue
-            retryable = error.response.status_code == 429 or error.response.status_code >= 500
-            if meaningful_output or not retryable or attempt == MODEL_STREAM_ATTEMPTS - 1:
+            stream = client.chat.completions.create(**request_payload)
+        except APIStatusError as error:
+            if error.status_code != 400 or "stream_options" not in request_payload:
                 raise
-            time.sleep(min(2**attempt, 4))
-        except (
-            httpx.ConnectError,
-            httpx.ConnectTimeout,
-            httpx.ReadError,
-            httpx.ReadTimeout,
-            httpx.RemoteProtocolError,
-        ):
-            if meaningful_output or attempt == MODEL_STREAM_ATTEMPTS - 1:
-                raise
+            request_payload.pop("stream_options")
+            stream = client.chat.completions.create(**request_payload)
+        for chunk in stream:
+            yield _payload(chunk)

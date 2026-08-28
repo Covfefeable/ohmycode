@@ -2,6 +2,7 @@ import json
 import uuid
 
 import httpx
+from openai import APIStatusError
 
 from app import create_app
 from app.extensions import db
@@ -224,41 +225,24 @@ def test_project_conversation_and_message_lifecycle(monkeypatch):
         projects = client.get("/api/projects", headers=headers).get_json()
         assert projects[0]["conversations"][0]["id"] == conversation_id
 
-        class ProviderResponse:
-            def __enter__(self):
-                return self
-
-            def __exit__(self, *_args):
-                return None
-
-            def raise_for_status(self):
-                return None
-
-            def iter_lines(self):
-                return iter(
-                    [
-                        'data: {"choices":[{"delta":{"reasoning_content":"Checking context"}}]}',
-                        'data: {"choices":[{"delta":{"content":"Hello "}}]}',
-                        'data: {"choices":[{"delta":{"content":"stream"}}]}',
-                        'data: {"choices":[],"usage":{"prompt_tokens":120,"completion_tokens":30}}',
-                        "data: [DONE]",
-                    ]
-                )
-
-        class EmptyProviderResponse(ProviderResponse):
-            def iter_lines(self):
-                return iter(['data: {"choices":[]}', "data: [DONE]"])
-
-        provider_responses = iter([EmptyProviderResponse(), ProviderResponse()])
+        complete_response = [
+            {"choices": [{"delta": {"reasoning_content": "Checking context"}}]},
+            {"choices": [{"delta": {"content": "Hello "}}]},
+            {"choices": [{"delta": {"content": "stream"}}]},
+            {
+                "choices": [],
+                "usage": {"prompt_tokens": 120, "completion_tokens": 30},
+            },
+        ]
         provider_payloads = []
 
-        def provider_stream(*_args, **kwargs):
-            provider_payloads.append(kwargs["json"])
-            return next(provider_responses)
+        def fake_provider_payloads(prepared):
+            provider_payloads.append(prepared.payload)
+            yield from complete_response
 
         monkeypatch.setattr(
-            "app.services.agent.provider_stream.httpx.stream",
-            provider_stream,
+            "app.services.agent.chat.provider_payloads",
+            fake_provider_payloads,
         )
         requested_turn_id = str(uuid.uuid4())
         streamed = client.post(
@@ -310,10 +294,11 @@ def test_project_conversation_and_message_lifecycle(monkeypatch):
             json={"title": "Failed provider stream"},
         ).get_json()
 
-        def missing_provider(*_args, **_kwargs):
+        def missing_provider(_prepared):
             raise FileNotFoundError("provider dependency disappeared")
+            yield
 
-        monkeypatch.setattr("app.services.agent.provider_stream.httpx.stream", missing_provider)
+        monkeypatch.setattr("app.services.agent.chat.provider_payloads", missing_provider)
         failed_stream = client.post(
             f"/api/projects/conversations/{failed_conversation['id']}/stream",
             headers=headers,
@@ -336,11 +321,11 @@ def test_project_conversation_and_message_lifecycle(monkeypatch):
 
         recovery_payloads = []
 
-        def recovery_stream(*_args, **kwargs):
-            recovery_payloads.append(kwargs["json"])
-            return ProviderResponse()
+        def recovery_stream(prepared):
+            recovery_payloads.append(prepared.payload)
+            yield from complete_response
 
-        monkeypatch.setattr("app.services.agent.provider_stream.httpx.stream", recovery_stream)
+        monkeypatch.setattr("app.services.agent.chat.provider_payloads", recovery_stream)
         recovered = client.post(
             f"/api/agent-runs/{disconnected_run_id}/recover",
             headers=headers,
@@ -363,7 +348,7 @@ def test_project_conversation_and_message_lifecycle(monkeypatch):
             json={"title": "Provider balance failure"},
         ).get_json()
 
-        def insufficient_balance(*_args, **_kwargs):
+        def insufficient_balance(_prepared):
             request = httpx.Request("POST", "https://example.com/chat/completions")
             response = httpx.Response(
                 402,
@@ -375,9 +360,14 @@ def test_project_conversation_and_message_lifecycle(monkeypatch):
                     }
                 },
             )
-            raise httpx.HTTPStatusError("Payment Required", request=request, response=response)
+            raise APIStatusError(
+                "Payment Required",
+                response=response,
+                body=response.json(),
+            )
+            yield
 
-        monkeypatch.setattr("app.services.agent.provider_stream.httpx.stream", insufficient_balance)
+        monkeypatch.setattr("app.services.agent.chat.provider_payloads", insufficient_balance)
         balance_stream = client.post(
             f"/api/projects/conversations/{balance_conversation['id']}/stream",
             headers=headers,
@@ -393,51 +383,36 @@ def test_project_conversation_and_message_lifecycle(monkeypatch):
             json={"title": "Agent terminal"},
         ).get_json()
 
-        class ToolProviderResponse(ProviderResponse):
-            def iter_lines(self):
-                tool_delta = {
-                    "choices": [
-                        {
-                            "delta": {
-                                "tool_calls": [
-                                    {
-                                        "index": 0,
-                                        "id": "call_1",
-                                        "function": {
-                                            "name": "terminal",
-                                            "arguments": json.dumps(
-                                                {
-                                                    "command": "git status --short",
-                                                }
-                                            ),
-                                        },
-                                    }
-                                ]
-                            }
+        tool_response = [
+            {"choices": [{"delta": {"content": "I will check first."}}]},
+            {
+                "choices": [
+                    {
+                        "delta": {
+                            "tool_calls": [
+                                {
+                                    "index": 0,
+                                    "id": "call_1",
+                                    "function": {
+                                        "name": "terminal",
+                                        "arguments": json.dumps({"command": "git status --short"}),
+                                    },
+                                }
+                            ]
                         }
-                    ]
-                }
-                return iter(
-                    [
-                        'data: {"choices":[{"delta":{"content":"I will check first."}}]}',
-                        f"data: {json.dumps(tool_delta)}",
-                        "data: [DONE]",
-                    ]
-                )
+                    }
+                ]
+            },
+        ]
+        final_response = [{"choices": [{"delta": {"content": "Working tree is clean."}}]}]
+        responses = iter([tool_response, final_response])
 
-        class FinalProviderResponse(ProviderResponse):
-            def iter_lines(self):
-                return iter(
-                    [
-                        'data: {"choices":[{"delta":{"content":"Working tree is clean."}}]}',
-                        "data: [DONE]",
-                    ]
-                )
+        def agent_provider_payloads(_prepared):
+            yield from next(responses)
 
-        responses = iter([ToolProviderResponse(), FinalProviderResponse()])
         monkeypatch.setattr(
-            "app.services.agent.provider_stream.httpx.stream",
-            lambda *_args, **_kwargs: next(responses),
+            "app.services.agent.chat.provider_payloads",
+            agent_provider_payloads,
         )
         tool_stream = client.post(
             f"/api/projects/conversations/{agent_conversation['id']}/stream",
@@ -482,13 +457,13 @@ def test_project_conversation_and_message_lifecycle(monkeypatch):
             json={"title": "Cancelled agent"},
         ).get_json()
         captured_requests = []
-        cancellation_responses = iter([ToolProviderResponse(), FinalProviderResponse()])
+        cancellation_responses = iter([tool_response, final_response])
 
-        def cancellation_stream(*_args, **kwargs):
-            captured_requests.append(kwargs["json"])
-            return next(cancellation_responses)
+        def cancellation_stream(prepared):
+            captured_requests.append(prepared.payload)
+            yield from next(cancellation_responses)
 
-        monkeypatch.setattr("app.services.agent.provider_stream.httpx.stream", cancellation_stream)
+        monkeypatch.setattr("app.services.agent.chat.provider_payloads", cancellation_stream)
         waiting = client.post(
             f"/api/projects/conversations/{cancelled_conversation['id']}/stream",
             headers=headers,

@@ -34,9 +34,7 @@ def _headers(client, email: str) -> dict[str, str]:
         "/api/auth/register",
         json={"email": email, "displayName": "Mobile User", "password": "secret123"},
     )
-    return {
-        "Authorization": f"Bearer {registration.get_json()['tokens']['accessToken']}"
-    }
+    return {"Authorization": f"Bearer {registration.get_json()['tokens']['accessToken']}"}
 
 
 def test_mobile_conversations_are_account_scoped_and_hidden_from_projects():
@@ -53,17 +51,16 @@ def test_mobile_conversations_are_account_scoped_and_hidden_from_projects():
         conversation_id = created.get_json()["id"]
 
         assert created.status_code == 201
-        assert client.get("/api/mobile/conversations", headers=owner).get_json()[0][
-            "id"
-        ] == conversation_id
+        assert (
+            client.get("/api/mobile/conversations", headers=owner).get_json()[0]["id"]
+            == conversation_id
+        )
         assert (
             client.get(f"/api/mobile/conversations/{conversation_id}", headers=other).status_code
             == 404
         )
         assert (
-            client.delete(
-                f"/api/mobile/conversations/{conversation_id}", headers=other
-            ).status_code
+            client.delete(f"/api/mobile/conversations/{conversation_id}", headers=other).status_code
             == 404
         )
         desktop_headers = {
@@ -73,9 +70,7 @@ def test_mobile_conversations_are_account_scoped_and_hidden_from_projects():
         }
         assert client.get("/api/projects", headers=desktop_headers).get_json() == []
         assert (
-            client.delete(
-                f"/api/mobile/conversations/{conversation_id}", headers=owner
-            ).status_code
+            client.delete(f"/api/mobile/conversations/{conversation_id}", headers=owner).status_code
             == 204
         )
         assert client.get("/api/mobile/conversations", headers=owner).get_json() == []
@@ -88,29 +83,11 @@ def test_mobile_stream_does_not_offer_desktop_tools(monkeypatch):
 
     provider_payloads = []
 
-    class ProviderResponse:
-        def __enter__(self):
-            return self
+    def fake_provider_payloads(prepared):
+        provider_payloads.append(prepared.payload)
+        yield {"choices": [{"delta": {"content": "Hello from mobile"}}]}
 
-        def __exit__(self, *_args):
-            return None
-
-        def raise_for_status(self):
-            return None
-
-        def iter_lines(self):
-            return iter(
-                [
-                    'data: {"choices":[{"delta":{"content":"Hello from mobile"}}]}',
-                    "data: [DONE]",
-                ]
-            )
-
-    def provider_stream(*_args, **kwargs):
-        provider_payloads.append(kwargs["json"])
-        return ProviderResponse()
-
-    monkeypatch.setattr("app.services.agent.provider_stream.httpx.stream", provider_stream)
+    monkeypatch.setattr("app.services.agent.chat.provider_payloads", fake_provider_payloads)
 
     with app.test_client() as client:
         headers = _headers(client, "mobile-stream@example.com")
@@ -140,8 +117,10 @@ def test_mobile_stream_does_not_offer_desktop_tools(monkeypatch):
             f"/api/mobile/conversations/{conversation_id}/stream",
             headers=headers,
             json={
-                "content": "Hello", "modelId": model_id,
-                "turnId": str(uuid.uuid4()), "tools": MOBILE_TOOLS,
+                "content": "Hello",
+                "modelId": model_id,
+                "turnId": str(uuid.uuid4()),
+                "tools": MOBILE_TOOLS,
             },
         )
 
@@ -166,43 +145,35 @@ def test_mobile_load_capability_adds_only_loaded_tools_on_resume(monkeypatch):
     responses = iter(
         [
             [
-                'data: {"choices":[{"delta":{"tool_calls":[{"index":0,'
-                '"id":"load-1","function":{"name":"load_capability",'
-                '"arguments":"{\\"id\\":\\"mcp:example\\"}"}}]}}]}',
-                "data: [DONE]",
+                {
+                    "choices": [
+                        {
+                            "delta": {
+                                "tool_calls": [
+                                    {
+                                        "index": 0,
+                                        "id": "load-1",
+                                        "function": {
+                                            "name": "load_capability",
+                                            "arguments": '{"id":"mcp:example"}',
+                                        },
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                }
             ],
-            [
-                'data: {"choices":[{"delta":{"content":"Loaded"}}]}',
-                "data: [DONE]",
-            ],
-            [
-                'data: {"choices":[{"delta":{"content":"Using loaded tool"}}]}',
-                "data: [DONE]",
-            ],
+            [{"choices": [{"delta": {"content": "Loaded"}}]}],
+            [{"choices": [{"delta": {"content": "Using loaded tool"}}]}],
         ]
     )
 
-    class ProviderResponse:
-        def __init__(self, lines):
-            self.lines = lines
+    def fake_provider_payloads(prepared):
+        provider_payloads.append(prepared.payload)
+        yield from next(responses)
 
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *_args):
-            return None
-
-        def raise_for_status(self):
-            return None
-
-        def iter_lines(self):
-            return iter(self.lines)
-
-    def provider_stream(*_args, **kwargs):
-        provider_payloads.append(kwargs["json"])
-        return ProviderResponse(next(responses))
-
-    monkeypatch.setattr("app.services.agent.provider_stream.httpx.stream", provider_stream)
+    monkeypatch.setattr("app.services.agent.chat.provider_payloads", fake_provider_payloads)
 
     with app.test_client() as client:
         headers = _headers(client, "mobile-capability@example.com")
@@ -231,8 +202,10 @@ def test_mobile_load_capability_adds_only_loaded_tools_on_resume(monkeypatch):
             f"/api/mobile/conversations/{conversation_id}/stream",
             headers=headers,
             json={
-                "content": "Load it", "modelId": model_id,
-                "turnId": run_id, "tools": MOBILE_TOOLS,
+                "content": "Load it",
+                "modelId": model_id,
+                "turnId": run_id,
+                "tools": MOBILE_TOOLS,
             },
         )
         first_data = first.data
@@ -296,7 +269,9 @@ def test_mobile_load_capability_adds_only_loaded_tools_on_resume(monkeypatch):
             f"/api/mobile/conversations/{conversation_id}/stream",
             headers=headers,
             json={
-                "content": "Use it", "modelId": model_id, "turnId": next_run_id,
+                "content": "Use it",
+                "modelId": model_id,
+                "turnId": next_run_id,
                 "tools": [*MOBILE_TOOLS, loaded_tool],
             },
         )
@@ -347,28 +322,27 @@ def test_mobile_cancel_persists_partial_message(monkeypatch):
     with app.app_context():
         db.create_all()
 
-    class ProviderResponse:
-        def __enter__(self):
-            return self
+    def fake_provider_payloads(_prepared):
+        yield {
+            "choices": [
+                {
+                    "delta": {
+                        "tool_calls": [
+                            {
+                                "index": 0,
+                                "id": "search-1",
+                                "function": {
+                                    "name": "search_capabilities",
+                                    "arguments": '{"query":"web"}',
+                                },
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
 
-        def __exit__(self, *_args):
-            return None
-
-        def raise_for_status(self):
-            return None
-
-        def iter_lines(self):
-            return iter([
-                'data: {"choices":[{"delta":{"tool_calls":[{"index":0,'
-                '"id":"search-1","function":{"name":"search_capabilities",'
-                '"arguments":"{\\"query\\":\\"web\\"}"}}]}}]}',
-                "data: [DONE]",
-            ])
-
-    monkeypatch.setattr(
-        "app.services.agent.provider_stream.httpx.stream",
-        lambda *_args, **_kwargs: ProviderResponse(),
-    )
+    monkeypatch.setattr("app.services.agent.chat.provider_payloads", fake_provider_payloads)
 
     with app.test_client() as client:
         headers = _headers(client, "mobile-cancel@example.com")
@@ -377,13 +351,15 @@ def test_mobile_cancel_persists_partial_message(monkeypatch):
             "/api/settings/models",
             headers=headers,
             json={
-                "models": [{
-                    "id": model_id,
-                    "name": "Mobile model",
-                    "baseUrl": "https://example.com/v1",
-                    "model": "example-model",
-                    "apiKey": "server-only-secret",
-                }]
+                "models": [
+                    {
+                        "id": model_id,
+                        "name": "Mobile model",
+                        "baseUrl": "https://example.com/v1",
+                        "model": "example-model",
+                        "apiKey": "server-only-secret",
+                    }
+                ]
             },
         )
         conversation_id = client.post(
@@ -394,18 +370,22 @@ def test_mobile_cancel_persists_partial_message(monkeypatch):
             f"/api/mobile/conversations/{conversation_id}/stream",
             headers=headers,
             json={
-                "content": "Search", "modelId": model_id,
-                "turnId": run_id, "tools": MOBILE_TOOLS,
+                "content": "Search",
+                "modelId": model_id,
+                "turnId": run_id,
+                "tools": MOBILE_TOOLS,
             },
         )
         streamed_data = streamed.data
-        activity = [{
-            "id": "search-1",
-            "type": "tool",
-            "tool": "search_capabilities",
-            "input": {"query": "web"},
-            "status": "running",
-        }]
+        activity = [
+            {
+                "id": "search-1",
+                "type": "tool",
+                "tool": "search_capabilities",
+                "input": {"query": "web"},
+                "status": "running",
+            }
+        ]
         cancelled = client.post(
             f"/api/mobile/conversations/runs/{run_id}/cancel",
             headers=headers,
