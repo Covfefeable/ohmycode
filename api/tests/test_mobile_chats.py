@@ -3,6 +3,30 @@ import uuid
 
 from app import create_app
 from app.extensions import db
+from app.models import AgentRun
+
+
+def _tools(*names: str) -> list[dict]:
+    return [
+        {
+            "type": "function",
+            "function": {
+                "name": name,
+                "description": f"{name} tool",
+                "parameters": {"type": "object", "properties": {}},
+            },
+        }
+        for name in names
+    ]
+
+
+MOBILE_TOOLS = _tools(
+    "update_tasks",
+    "search_capabilities",
+    "load_capability",
+    "read_tool_result",
+    "search_tool_result",
+)
 
 
 def _headers(client, email: str) -> dict[str, str]:
@@ -115,7 +139,10 @@ def test_mobile_stream_does_not_offer_desktop_tools(monkeypatch):
         response = client.post(
             f"/api/mobile/conversations/{conversation_id}/stream",
             headers=headers,
-            json={"content": "Hello", "modelId": model_id, "turnId": str(uuid.uuid4())},
+            json={
+                "content": "Hello", "modelId": model_id,
+                "turnId": str(uuid.uuid4()), "tools": MOBILE_TOOLS,
+            },
         )
 
     assert response.status_code == 200
@@ -203,7 +230,10 @@ def test_mobile_load_capability_adds_only_loaded_tools_on_resume(monkeypatch):
         first = client.post(
             f"/api/mobile/conversations/{conversation_id}/stream",
             headers=headers,
-            json={"content": "Load it", "modelId": model_id, "turnId": run_id},
+            json={
+                "content": "Load it", "modelId": model_id,
+                "turnId": run_id, "tools": MOBILE_TOOLS,
+            },
         )
         first_data = first.data
         loaded_tool = {
@@ -228,7 +258,8 @@ def test_mobile_load_capability_adds_only_loaded_tools_on_resume(monkeypatch):
                             "document": long_document,
                         },
                     }
-                ]
+                ],
+                "tools": [*MOBILE_TOOLS, loaded_tool],
             },
         )
         resumed_data = resumed.data
@@ -264,7 +295,10 @@ def test_mobile_load_capability_adds_only_loaded_tools_on_resume(monkeypatch):
         next_turn = client.post(
             f"/api/mobile/conversations/{conversation_id}/stream",
             headers=headers,
-            json={"content": "Use it", "modelId": model_id, "turnId": next_run_id},
+            json={
+                "content": "Use it", "modelId": model_id, "turnId": next_run_id,
+                "tools": [*MOBILE_TOOLS, loaded_tool],
+            },
         )
 
     assert first.status_code == 200
@@ -296,6 +330,16 @@ def test_mobile_load_capability_adds_only_loaded_tools_on_resume(monkeypatch):
         "search_tool_result",
         "mcp__example__lookup",
     ]
+    with app.app_context():
+        run = db.session.get(AgentRun, uuid.UUID(run_id))
+        assert [tool["function"]["name"] for tool in run.tool_snapshot] == [
+            "update_tasks",
+            "search_capabilities",
+            "load_capability",
+            "read_tool_result",
+            "search_tool_result",
+            "mcp__example__lookup",
+        ]
 
 
 def test_mobile_cancel_persists_partial_message(monkeypatch):
@@ -349,7 +393,10 @@ def test_mobile_cancel_persists_partial_message(monkeypatch):
         streamed = client.post(
             f"/api/mobile/conversations/{conversation_id}/stream",
             headers=headers,
-            json={"content": "Search", "modelId": model_id, "turnId": run_id},
+            json={
+                "content": "Search", "modelId": model_id,
+                "turnId": run_id, "tools": MOBILE_TOOLS,
+            },
         )
         streamed_data = streamed.data
         activity = [{

@@ -1,5 +1,5 @@
 import { Fragment, type ReactNode } from "react";
-import { Linking, Text, View } from "react-native";
+import { Linking, ScrollView, Text, View } from "react-native";
 
 import { useTheme } from "@/shared/theme/ThemeProvider";
 import { styles } from "./MarkdownContent.styles";
@@ -66,11 +66,11 @@ function Inline({ content }: { content: string }) {
 
 export function MarkdownContent({ children }: { children: string }) {
   const { colors } = useTheme();
-  return <View>{blocks(children).map((block, index) => {
-    if (block.type === "code") return <Text key={index} selectable style={[styles.codeBlock, { backgroundColor: colors.surfaceRaised, color: colors.text }]}>{block.content}</Text>;
+  return <View style={styles.container}>{blocks(children).map((block, index) => {
+    if (block.type === "code") return <ScrollView key={index} horizontal style={[styles.codeBlock, { backgroundColor: colors.surfaceRaised }]} contentContainerStyle={styles.codeContent}><Text selectable style={[styles.codeText, { color: colors.text }]}>{block.content}</Text></ScrollView>;
     if (block.type === "heading") return <Text key={index} selectable style={[block.level === 1 ? styles.heading1 : block.level === 2 ? styles.heading2 : styles.heading3, { color: colors.text }]}><Inline content={block.content} /></Text>;
     if (block.type === "quote") return <View key={index} style={[styles.blockquote, { borderLeftColor: colors.borderStrong }]}><Text selectable style={[styles.paragraph, { color: colors.textMuted }]}><Inline content={block.content} /></Text></View>;
-    if (block.type === "list") return <View key={index}>{block.items.map((item, itemIndex) => <View key={itemIndex} style={styles.listItem}><Text style={[styles.listMarker, { color: colors.textDim }]}>{block.ordered ? `${itemIndex + 1}.` : "•"}</Text><Text selectable style={[styles.paragraph, { color: colors.text }]}><Inline content={item} /></Text></View>)}</View>;
+    if (block.type === "list") return <View key={index} style={styles.list}>{block.items.map((item, itemIndex) => <View key={itemIndex} style={styles.listItem}><Text style={[styles.listMarker, { color: colors.textDim }]}>{block.ordered ? `${itemIndex + 1}.` : "•"}</Text><Text selectable style={[styles.listText, styles.paragraph, { color: colors.text }]}><Inline content={item} /></Text></View>)}</View>;
     return <Text key={index} selectable style={[styles.paragraph, { color: colors.text }]}><Inline content={block.content} /></Text>;
   })}</View>;
 }

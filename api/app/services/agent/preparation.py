@@ -8,32 +8,20 @@ from ..conversations import prepare_user_prompt
 from ..errors import ServiceError
 from ..model_credentials import decrypt_api_key
 from ..settings import get_model_configuration
-from .capability_state import loaded_capability_tools
 from .context import iter_prepare_context
 from .prompts import AGENT_SYSTEM_INSTRUCTIONS
 from .provider_stream import PreparedCompletion
 from .runs import append_event, cancelled_run_context, fail_run, start_run
 from .task_plan import task_plan_context
-from .tools import (
-    AGENT_MESSAGE_TOOL,
-    AGENT_TOOLS,
-    FINISH_COLLABORATION_TOOL,
-    UPDATE_TASKS_TOOL,
-    VIEW_IMAGE_TOOL,
-)
+from .tool_snapshot import validate_tool_snapshot
 
 
-def completion_tools_and_mailbox(
-    conversation_id: UUID, configuration: ModelConfiguration
-) -> tuple[list[dict], list[dict]]:
+def completion_mailbox(conversation_id: UUID) -> list[dict]:
     node = db.session.scalar(
         db.select(MultiAgentNode).where(MultiAgentNode.conversation_id == conversation_id)
     )
     if not node:
-        tools = [*AGENT_TOOLS, UPDATE_TASKS_TOOL]
-        if configuration.supports_vision:
-            tools.append(VIEW_IMAGE_TOOL)
-        return tools, []
+        return []
     messages = list(
         db.session.scalars(
             db.select(MultiAgentMessage)
@@ -51,12 +39,7 @@ def completion_tools_and_mailbox(
         if mailbox
         else []
     )
-    tools = [*AGENT_TOOLS, AGENT_MESSAGE_TOOL]
-    if node.is_host:
-        tools.append(FINISH_COLLABORATION_TOOL)
-    if configuration.supports_vision:
-        tools.append(VIEW_IMAGE_TOOL)
-    return tools, context
+    return context
 
 
 def completion_payload(
@@ -124,17 +107,17 @@ def stream_prepare_completion(
     workspace_instructions: str = "",
     turn_id: UUID | None = None,
     attachments: object = None,
-    tools_enabled: bool = True,
-    tools_override: list[dict] | None = None,
+    tool_snapshot: object = None,
     system_instructions: str = AGENT_SYSTEM_INSTRUCTIONS,
 ):
+    tools = validate_tool_snapshot(tool_snapshot)
     conversation = prepare_user_prompt(
         user_id, conversation_id, content, edit_message_id, attachments
     )
     configuration = get_model_configuration(user_id, model_id)
     if not configuration:
         raise ServiceError("model_not_configured", 422)
-    run = start_run(conversation_id, configuration, turn_id)
+    run = start_run(conversation_id, configuration, turn_id, tools)
     yield {"type": "run.started", "runId": str(run.id)}
     try:
         context = yield from iter_prepare_context(
@@ -153,16 +136,7 @@ def stream_prepare_completion(
         },
     )
     db.session.commit()
-    if tools_override is not None:
-        tools, mailbox = [*tools_override, *loaded_capability_tools(conversation_id)], []
-    else:
-        tools, mailbox = (
-            completion_tools_and_mailbox(conversation_id, configuration)
-            if tools_enabled
-            else ([], [])
-        )
-        if tools_enabled:
-            tools.extend(loaded_capability_tools(conversation_id))
+    mailbox = completion_mailbox(conversation_id)
     return prepared_completion(
         run,
         configuration,

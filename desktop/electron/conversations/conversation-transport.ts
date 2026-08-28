@@ -1,5 +1,7 @@
 import { apiErrorFromResponse, apiFetch, apiRequest } from "../api/api-client.js";
 import type { LocalConversation, MessageAttachment } from "../projects/types.js";
+import type { AgentTransport } from "@ohmycode/agent-runtime";
+import type { ProviderToolDefinition, ToolResult } from "@ohmycode/tool-contracts";
 
 export type StartStreamInput = {
   conversationId: string;
@@ -9,6 +11,7 @@ export type StartStreamInput = {
   attachments?: MessageAttachment[];
   workspaceInstructions: string;
   turnId: string;
+  tools: ProviderToolDefinition[];
 };
 
 async function checked(response: Response): Promise<Response> {
@@ -29,15 +32,16 @@ export class ConversationTransport implements AgentTransport {
         attachments: input.attachments,
         workspaceInstructions: input.workspaceInstructions,
         turnId: input.turnId,
+        tools: input.tools,
       }),
       signal: this.signal,
     }).then(checked);
   }
 
-  resume(runId: string, results: ToolResult[], workspaceInstructions: string): Promise<Response> {
+  resume(runId: string, results: ToolResult[], workspaceInstructions: string, tools: ProviderToolDefinition[]): Promise<Response> {
     return apiFetch(`/api/agent-runs/${runId}/resume`, {
       method: "POST",
-      body: JSON.stringify({ results, workspaceInstructions }),
+      body: JSON.stringify({ results, workspaceInstructions, tools }),
       signal: this.signal,
     }).then(checked);
   }
@@ -48,6 +52,7 @@ export class ConversationTransport implements AgentTransport {
     partialContent: string,
     partialReasoning: string,
     results: ToolResult[],
+    tools: ProviderToolDefinition[],
   ): Promise<Response> {
     return apiFetch(`/api/agent-runs/${runId}/recover`, {
       method: "POST",
@@ -56,6 +61,7 @@ export class ConversationTransport implements AgentTransport {
         partialContent,
         partialReasoning,
         results,
+        tools,
       }),
       signal: this.signal,
     }).then(checked);
@@ -65,5 +71,3 @@ export class ConversationTransport implements AgentTransport {
     return apiRequest(`/api/projects/conversations/${conversationId}`);
   }
 }
-import type { AgentTransport } from "@ohmycode/agent-runtime";
-import type { ToolResult } from "@ohmycode/tool-contracts";

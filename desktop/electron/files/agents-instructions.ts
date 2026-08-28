@@ -1,12 +1,12 @@
 import path from "node:path";
-import { readFile, stat } from "node:fs/promises";
+import { readFile, realpath, stat } from "node:fs/promises";
 import { assertInside } from "./workspace.js";
 
 export type AgentInstruction = { path: string; content: string };
 
 export async function loadAgentInstructions(root: string, target = root): Promise<AgentInstruction[]> {
-  const resolvedRoot = path.resolve(root);
-  const resolvedTarget = path.resolve(target);
+  const resolvedRoot = await realpath(root);
+  const resolvedTarget = await realpath(target).catch(() => path.resolve(target));
   assertInside(resolvedRoot, resolvedTarget);
   let directory = resolvedTarget;
   try { if ((await stat(resolvedTarget)).isFile()) directory = path.dirname(resolvedTarget); } catch { directory = path.dirname(resolvedTarget); }

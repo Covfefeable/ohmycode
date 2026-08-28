@@ -1,5 +1,6 @@
 import {
   CapabilityPlugin,
+  TASK_PLAN_DEFINITION,
   ToolRegistry,
   ToolResultReaderPlugin,
   type AgentStreamEvent,
@@ -9,8 +10,10 @@ import type {
   ToolDefinition,
   ToolExecutor,
   ToolPlugin,
+  ProviderToolDefinition,
   ToolResult,
 } from "@ohmycode/tool-contracts";
+import { fromProviderTool, toProviderTool } from "@ohmycode/tool-contracts";
 
 import {
   loadMobileCapability,
@@ -37,25 +40,46 @@ function plugin(
 
 export class MobileToolRegistry implements ToolExecutor {
   private readonly registry = new ToolRegistry();
+  private readonly dynamicDefinitions = new Map<string, ToolDefinition>();
 
   constructor(
     private readonly onEvent: (event: AgentStreamEvent) => void,
     private readonly signal?: AbortSignal,
+    initialDynamicDefinitions: ProviderToolDefinition[] = [],
+    private readonly onDynamicDefinitionsChanged?: (definitions: ProviderToolDefinition[]) => void,
   ) {
+    for (const definition of initialDynamicDefinitions) {
+      const parsed = fromProviderTool(definition);
+      this.dynamicDefinitions.set(parsed.name, parsed);
+    }
     const mcp = new MobileMcpClient();
     this.registry.register(plugin(
       "task-plan",
-      [{
-        name: "update_tasks",
-        description: "Update the current task plan.",
-        inputSchema: { type: "object", properties: {} },
-      }],
+      [TASK_PLAN_DEFINITION],
       (toolName) => toolName === "update_tasks",
       () => ({ ok: true }),
     ));
     this.registry.register(new CapabilityPlugin({
       search: (query) => searchMobileCapabilities(query, signal),
-      load: (id) => loadMobileCapability(id, signal),
+      load: async (id) => {
+        const result = await loadMobileCapability(id, signal);
+        if (result && typeof result === "object" && Array.isArray((result as { tools?: unknown }).tools)) {
+          for (const tool of (result as { tools: unknown[] }).tools) {
+            if (tool && typeof tool === "object" && (tool as ProviderToolDefinition).type === "function") {
+              const definition = fromProviderTool(tool as ProviderToolDefinition);
+              const existing = this.registry.definitions().find((item) => item.name === definition.name);
+              if (existing && !this.dynamicDefinitions.has(definition.name)) {
+                throw new Error(`tool_already_registered:${definition.name}`);
+              }
+              this.dynamicDefinitions.set(definition.name, definition);
+            }
+          }
+          this.onDynamicDefinitionsChanged?.(
+            [...this.dynamicDefinitions.values()].map(toProviderTool),
+          );
+        }
+        return result;
+      },
     }));
     this.registry.register(new ToolResultReaderPlugin({
       read: (runId, callId, options) => authenticatedRequest(
@@ -67,13 +91,20 @@ export class MobileToolRegistry implements ToolExecutor {
         { method: "POST", body: JSON.stringify({ query, ...options }), signal },
       ),
     }));
-    this.registry.register(plugin(
-      "mcp",
-      [],
-      (toolName) => toolName.startsWith("mcp__"),
-      (call) => mcp.execute(call.tool, call.arguments as Record<string, unknown>, signal),
-      () => mcp.close(),
-    ));
+    this.registry.register({
+      id: "mcp",
+      definitions: () => [...this.dynamicDefinitions.values()],
+      handles: (toolName) => toolName.startsWith("mcp__"),
+      execute: async (call) => ({
+        callId: call.callId,
+        result: await mcp.execute(call.tool, call.arguments as Record<string, unknown>, signal),
+      }),
+      close: () => mcp.close(),
+    });
+  }
+
+  definitions(): ProviderToolDefinition[] {
+    return this.registry.definitions().map(toProviderTool);
   }
 
   async execute(call: ToolCall): Promise<ToolResult> {

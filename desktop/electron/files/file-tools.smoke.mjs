@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, realpath, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import process from "node:process";
@@ -62,6 +62,6 @@ if (!boundedSearch.truncated || boundedSearch.output.length > 120) throw new Err
 if (boundedSearch.totalMatches !== 80 || boundedSearch.returnedMatches >= 80) throw new Error("Search truncation metadata is inaccurate");
 if (!rejectedUninspectedEdit) throw new Error("Patch accepted an existing file that was not read first");
 if (value !== "gamma\nbeta\n") throw new Error("Patch did not produce the expected file content");
-if (!patch.affectedPaths?.includes(join(root, "demo.txt"))) throw new Error("Patch did not report the affected path");
+if (!patch.affectedPaths?.includes(join(await realpath(root), "demo.txt"))) throw new Error("Patch did not report the affected path");
 
 process.stdout.write("File tools smoke test passed\n");

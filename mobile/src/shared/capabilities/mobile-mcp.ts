@@ -10,8 +10,32 @@ import type { McpServer } from "./types";
 
 type Session = { client: Client; server: McpServer };
 
+type CompatibleAbortSignal = AbortSignal & { throwIfAborted: () => void };
+
+function compatibleAbortSignal(signal?: AbortSignal): CompatibleAbortSignal | undefined {
+  if (!signal) return undefined;
+  const candidate = signal as CompatibleAbortSignal;
+  if (typeof candidate.throwIfAborted === "function") return candidate;
+  return new Proxy(candidate, {
+    get(target, property) {
+      if (property === "throwIfAborted") {
+        return () => {
+          if (!target.aborted) return;
+          if (target.reason !== undefined) throw target.reason;
+          const error = new Error("aborted");
+          error.name = "AbortError";
+          throw error;
+        };
+      }
+      const value = Reflect.get(target, property, target);
+      return typeof value === "function" ? value.bind(target) : value;
+    },
+  });
+}
+
 export class MobileMcpClient {
   private readonly sessions = new Map<string, Session>();
+  private readonly connections = new Map<string, Promise<Client>>();
 
   private async servers(signal?: AbortSignal): Promise<McpServer[]> {
     const result = await authenticatedRequest<{ servers: McpServer[] }>(
@@ -22,7 +46,18 @@ export class MobileMcpClient {
   }
 
   private async connect(server: McpServer, signal?: AbortSignal): Promise<Client> {
-    await this.sessions.get(server.id)?.client.close().catch(() => undefined);
+    const existing = this.connections.get(server.id);
+    if (existing) return existing;
+    const connection = this.open(server, signal);
+    this.connections.set(server.id, connection);
+    try {
+      return await connection;
+    } finally {
+      if (this.connections.get(server.id) === connection) this.connections.delete(server.id);
+    }
+  }
+
+  private async open(server: McpServer, signal?: AbortSignal): Promise<Client> {
     const url = new URL(server.configuration.url || "");
     const client = new Client({ name: "ohmycode-mobile", version: "0.1.0" }, { capabilities: {} });
     let transport;
@@ -40,7 +75,7 @@ export class MobileMcpClient {
         requestInit: { headers: server.configuration.headers },
       });
     }
-    await client.connect(transport, { signal });
+    await client.connect(transport, { signal: compatibleAbortSignal(signal) });
     this.sessions.set(server.id, { client, server });
     client.onclose = () => {
       if (this.sessions.get(server.id)?.client === client) this.sessions.delete(server.id);
@@ -65,7 +100,7 @@ export class MobileMcpClient {
       return await session.client.callTool(
         { name: originalName, arguments: args },
         undefined,
-        { signal },
+        { signal: compatibleAbortSignal(signal) },
       );
     } catch {
       if (signal?.aborted) {
@@ -80,12 +115,13 @@ export class MobileMcpClient {
       return client.callTool(
         { name: originalName, arguments: args },
         undefined,
-        { signal },
+        { signal: compatibleAbortSignal(signal) },
       );
     }
   }
 
   async close(): Promise<void> {
+    await Promise.allSettled(this.connections.values());
     await Promise.allSettled([...this.sessions.values()].map((session) => session.client.close()));
     this.sessions.clear();
   }

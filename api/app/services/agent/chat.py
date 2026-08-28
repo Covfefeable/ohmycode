@@ -7,7 +7,6 @@ from flask import current_app
 from ...extensions import db
 from ...models import AgentRun, Conversation, Message, ModelConfiguration
 from ..errors import ServiceError
-from .capability_state import loaded_capability_tools
 from .config import TOOL_RESULT_TOKEN_BUDGET
 from .context import (
     COMPACTION_RATIO,
@@ -16,7 +15,7 @@ from .context import (
     latest_checkpoint,
     prepare_context,
 )
-from .preparation import completion_tools_and_mailbox, prepared_completion
+from .preparation import completion_mailbox, prepared_completion
 from .prompts import AGENT_SYSTEM_INSTRUCTIONS
 from .provider_errors import provider_error_code
 from .provider_stream import PreparedCompletion, provider_payloads
@@ -29,11 +28,9 @@ from .runs import (
 )
 from .task_plan import active_task_id, latest_task_plan, normalize_task_plan
 from .tool_results import render_tool_result, slice_to_token_budget
-from .tools import (
-    FILE_TOOL_NAMES,
-    VIEW_IMAGE_TOOL_NAME,
-    normalize_terminal_arguments,
-)
+from .tool_snapshot import validate_tool_snapshot
+
+VIEW_IMAGE_TOOL_NAME = "view_image"
 
 
 def _tool_result_content(run: AgentRun, item: dict, token_budget: int) -> str:
@@ -151,7 +148,7 @@ def resume_completion(
     run_id: UUID,
     results: list[dict],
     workspace_instructions: str = "",
-    tools_override: list[dict] | None = None,
+    tool_snapshot: object = None,
     system_instructions: str = AGENT_SYSTEM_INSTRUCTIONS,
 ) -> PreparedCompletion:
     run = get_owned_run(user_id, run_id)
@@ -163,6 +160,8 @@ def resume_completion(
     expected_ids = {item["id"] for item in requested.payload["toolCalls"]} if requested else set()
     if {str(item.get("callId")) for item in results} != expected_ids:
         raise ServiceError("invalid_tool_results", 422)
+    tools = validate_tool_snapshot(tool_snapshot)
+    run.tool_snapshot = tools
     configuration = db.session.get(ModelConfiguration, run.model_configuration_id)
     if not configuration:
         raise ServiceError("model_not_configured", 422)
@@ -202,11 +201,7 @@ def resume_completion(
             {"runId": str(run.id), "toolEventSequence": run.last_event_sequence},
         )
         model_messages = [{"role": "system", "content": f"Conversation checkpoint:\n{summary}"}]
-    if tools_override is None:
-        tools, mailbox = completion_tools_and_mailbox(run.conversation_id, configuration)
-        tools.extend(loaded_capability_tools(run.conversation_id))
-    else:
-        tools, mailbox = [*tools_override, *loaded_capability_tools(run.conversation_id)], []
+    mailbox = completion_mailbox(run.conversation_id)
     return prepared_completion(
         run,
         configuration,
@@ -224,9 +219,6 @@ def pending_tool_requests(run: AgentRun) -> list[dict]:
     )
     if not requested:
         return []
-    conversation = db.session.get(Conversation, run.conversation_id)
-    if not conversation:
-        raise ServiceError("not_found", 404)
     assignments = requested.payload.get("taskAssignments", {})
     results = []
     for call in requested.payload.get("toolCalls", []):
@@ -235,13 +227,6 @@ def pending_tool_requests(run: AgentRun) -> list[dict]:
         except (KeyError, json.JSONDecodeError) as error:
             raise ServiceError("invalid_tool_arguments", 409) from error
         tool_name = str(call.get("function", {}).get("name") or "")
-        if tool_name == "terminal":
-            arguments = {
-                **normalize_terminal_arguments(arguments),
-                "projectId": str(conversation.project_id),
-            }
-        elif tool_name in FILE_TOOL_NAMES or tool_name == VIEW_IMAGE_TOOL_NAME:
-            arguments = {**arguments, "projectId": str(conversation.project_id)}
         item = {
             "type": "tool.requested",
             "runId": str(run.id),
@@ -262,7 +247,7 @@ def recover_completion(
     partial_content: str = "",
     partial_reasoning: str = "",
     results: list[dict] | None = None,
-    tools_override: list[dict] | None = None,
+    tool_snapshot: object = None,
     system_instructions: str = AGENT_SYSTEM_INSTRUCTIONS,
 ) -> PreparedCompletion | list[dict]:
     run = get_owned_run(user_id, run_id)
@@ -273,9 +258,11 @@ def recover_completion(
                 run_id,
                 results,
                 workspace_instructions,
-                tools_override,
+                tool_snapshot,
                 system_instructions,
             )
+        run.tool_snapshot = validate_tool_snapshot(tool_snapshot)
+        db.session.commit()
         return pending_tool_requests(run)
     if run.status in {"completed", "cancelled"}:
         return []
@@ -309,13 +296,11 @@ def recover_completion(
     run.status = "running"
     run.error_code = None
     run.completed_at = None
+    tools = validate_tool_snapshot(tool_snapshot)
+    run.tool_snapshot = tools
     append_event(run, "run.recovered", {"partialContentLength": len(partial_content)})
     db.session.commit()
-    if tools_override is None:
-        tools, mailbox = completion_tools_and_mailbox(run.conversation_id, configuration)
-        tools.extend(loaded_capability_tools(run.conversation_id))
-    else:
-        tools, mailbox = [*tools_override, *loaded_capability_tools(run.conversation_id)], []
+    mailbox = completion_mailbox(run.conversation_id)
     prepared = prepared_completion(
         run,
         configuration,
@@ -440,13 +425,6 @@ def stream_completion(prepared: PreparedCompletion):
                     fail_run(run, "invalid_tool_arguments")
                     return
                 tool_name = call["function"]["name"]
-                if tool_name == "terminal":
-                    arguments = {
-                        **normalize_terminal_arguments(arguments),
-                        "projectId": str(conversation.project_id),
-                    }
-                elif tool_name in FILE_TOOL_NAMES or tool_name == VIEW_IMAGE_TOOL_NAME:
-                    arguments = {**arguments, "projectId": str(conversation.project_id)}
                 request = {"callId": call["id"], "tool": tool_name, "arguments": arguments}
                 if tool_name != "update_tasks" and current_task_id:
                     request["taskId"] = current_task_id

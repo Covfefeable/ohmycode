@@ -66,15 +66,18 @@ A normal chat turn flows like this:
 2. The Renderer calls `startTurn()` on the Agent Runtime through the preload API.
 3. The Runtime creates a Turn in `EventJournal` and asks `conversation-service.ts`
    to start the transport and Tool Loop.
-4. `conversation-service.ts` POSTs to `/api/projects/conversations/{id}/stream`,
-   which creates an `AgentRun` and starts the model stream.
+4. `conversation-service.ts` exports the Runtime's current tool definitions and
+   POSTs them to `/api/projects/conversations/{id}/stream`. Flask validates and
+   persists this Run tool snapshot, then forwards it to the model unchanged.
 5. The model may stream reasoning, message content, or tool calls. Flask emits
    SSE events, which the Runtime translates into `Thread/Turn/Item` Runtime
    events and publishes to Renderer listeners.
 6. If the model requests tools, the Tool Loop executes independent calls in
    parallel through the Runtime tool registry, then calls
-   `/api/agent-runs/{id}/resume` with the complete result batch. This repeats
-   until the run finishes.
+   `/api/agent-runs/{id}/resume` with the complete result batch and the current
+   tool snapshot. This repeats until the run finishes. Loading an MCP updates
+   the client Registry before resume, so its definitions are available to the
+   next model request without Flask reconstructing capability state.
 7. When the model returns a final answer, Flask persists an `assistant` Message,
    and the Runtime emits `turn.completed`.
 
@@ -126,8 +129,11 @@ failure recovery, pending-result replay, and Turn execution. Tool definitions
 and execution contracts live separately in `packages/tool-contracts`, while
 `packages/runtime-core` owns the event journal and execution state.
 
-Tool execution is composed from `ToolPlugin` instances in a shared
-`ToolRegistry`. Desktop and Mobile construct separate registries for their own
+Tool definitions and execution are composed from `ToolPlugin` instances in a
+shared `ToolRegistry`. The active Desktop or Mobile Runtime is the sole source
+of tool capability and Schema. Flask bounds, persists, and forwards each Run's
+snapshot but does not define tools or infer loaded capabilities from event
+history. Desktop and Mobile construct separate registries for their own
 supported tools. Both reuse the same capability plugin for
 `search_capabilities` and `load_capability`; each host filters results through
 its own adapter. MCP schemas are not injected at startup: a selected MCP is
@@ -208,7 +214,6 @@ Main service groups:
 |-------|------|----------------|
 | Agent chat | `api/app/services/agent/` | Prepare context, stream model requests, resume after tools, context compaction. |
 | Capability discovery | `api/app/services/capabilities/`, `retrieval/` | Synchronize Skills/MCP metadata, embeddings, vector search, and optional reranking. |
-| Tool contracts | `api/app/services/agent/tools.py` | Provider-facing schemas for built-in, capability, collaboration, and result-reader tools. Execution remains client-hosted. |
 | Multi-Agent | `api/app/services/multi_agents/` | Host scheduling, collaboration tasks, group chat, workspace change tracking. |
 | Conversations | `api/app/services/conversations/` | Message CRUD and user prompt preparation. |
 | Auth | `api/app/services/auth/` | JWT, registration, login, and token handling. |
@@ -327,6 +332,8 @@ Core tables:
 - `messages`: user and assistant messages, linked to conversations and runs.
 - `model_configurations`: provider URL, model name, encrypted API key.
 - `agent_runs`: turns with status, token usage, and error code.
+  Each Run also persists the latest Runtime-supplied tool snapshot for auditing
+  and recovery consistency.
 - `agent_events`: events inside a run, ordered by `(run_id, sequence)`.
 - `context_checkpoints`: conversation summaries used for context compression.
 - `agent_sessions`: persisted agent session state.

@@ -15,6 +15,7 @@ const response = (body) => ({
   }),
 });
 const complete = () => response("data: [DONE]\n\n");
+const toolSnapshot = () => [];
 
 const recovered = [];
 const recoveryEvents = [];
@@ -38,6 +39,7 @@ await runToolLoop({
     setPendingToolCalls: () => undefined,
   },
   onEvent: (event) => recoveryEvents.push(event),
+  toolSnapshot,
 });
 assert.equal(recovered.length, 1);
 assert.equal(recovered[0][2], "partial");
@@ -77,6 +79,7 @@ await runToolLoop({
     setPendingToolCalls: () => undefined,
   },
   onEvent: () => undefined,
+  toolSnapshot,
 });
 assert.equal(maximumActive, 2);
 assert.deepEqual(executed.sort(), ["a", "b"]);
@@ -110,6 +113,7 @@ await runToolLoop({
     setPendingToolCalls: () => undefined,
   },
   onEvent: () => undefined,
+  toolSnapshot,
 });
 assert.equal(sideEffectCount, 1);
 assert.deepEqual(recoveredResults[0], [

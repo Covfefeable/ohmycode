@@ -1,5 +1,5 @@
 import type { ExecutionStore, RuntimeExecutionState } from "@ohmycode/runtime-core";
-import type { ToolExecutor, ToolResult } from "@ohmycode/tool-contracts";
+import type { ProviderToolDefinition, ToolExecutor, ToolResult } from "@ohmycode/tool-contracts";
 
 export type AgentTask = {
   id: string;
@@ -29,13 +29,14 @@ export type AgentStreamEvent =
   | { type: "tool.completed"; callId: string; result: unknown };
 
 export interface AgentTransport {
-  resume(runId: string, results: ToolResult[], workspaceInstructions: string): Promise<Response>;
+  resume(runId: string, results: ToolResult[], workspaceInstructions: string, tools: ProviderToolDefinition[]): Promise<Response>;
   recover(
     runId: string,
     workspaceInstructions: string,
     partialContent: string,
     partialReasoning: string,
     results: ToolResult[],
+    tools: ProviderToolDefinition[],
   ): Promise<Response>;
 }
 

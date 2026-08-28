@@ -2,6 +2,9 @@ import { runToolLoop, type AgentStreamEvent } from "@ohmycode/agent-runtime";
 
 import { ApiError, authenticatedFetch, authenticatedRequest } from "@/shared/api/api-client";
 import { MobileToolRegistry } from "@/features/chat/tools/mobile-tool-registry";
+import type { ProviderToolDefinition } from "@ohmycode/tool-contracts";
+
+const threadDynamicTools = new Map<string, ProviderToolDefinition[]>();
 
 export type MobileMessage = {
   id: string;
@@ -74,9 +77,15 @@ export async function streamMobileMessage(
 ): Promise<void> {
   const localTurnId = turnId();
   onRunId(localTurnId);
+  const tools = new MobileToolRegistry(
+    onEvent,
+    signal,
+    threadDynamicTools.get(id),
+    (definitions) => threadDynamicTools.set(id, definitions),
+  );
   const response = await authenticatedFetch(`/api/mobile/conversations/${id}/stream`, {
     method: "POST",
-    body: JSON.stringify({ content, turnId: localTurnId }),
+    body: JSON.stringify({ content, turnId: localTurnId, tools: tools.definitions() }),
     signal,
   });
   const postRun = (runId: string, action: "recover" | "resume", payload: object) => authenticatedFetch(
@@ -84,7 +93,6 @@ export async function streamMobileMessage(
     { method: "POST", body: JSON.stringify(payload), signal },
   );
   let failedCode = "";
-  const tools = new MobileToolRegistry(onEvent, signal);
   try {
     await runToolLoop({
       response,
@@ -96,9 +104,10 @@ export async function streamMobileMessage(
         setPhase: () => undefined,
       },
       tools,
+      toolSnapshot: () => tools.definitions(),
       transport: {
-        recover: (runId, _workspaceInstructions, partialContent, partialReasoning, results) => postRun(runId, "recover", { partialContent, partialReasoning, results }),
-        resume: (runId, results) => postRun(runId, "resume", { results }),
+        recover: (runId, _workspaceInstructions, partialContent, partialReasoning, results, toolSnapshot) => postRun(runId, "recover", { partialContent, partialReasoning, results, tools: toolSnapshot }),
+        resume: (runId, results, _workspaceInstructions, toolSnapshot) => postRun(runId, "resume", { results, tools: toolSnapshot }),
       },
       onEvent: (event) => {
         if (event.type === "run.failed") failedCode = event.errorCode;

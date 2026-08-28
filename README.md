@@ -89,6 +89,8 @@ flowchart LR
 
 - React Renderer 只负责展示与用户交互，不拥有正在执行任务的真实状态。
 - 共享 Agent Runtime 负责 Turn 与 Tool Loop；Desktop Runtime Host 绑定 IPC、本地工具和终端会话。
+- Desktop/Mobile Runtime Registry 是工具能力和 Schema 的唯一来源；Flask 仅校验、
+  持久化并转发每个 Run 的工具快照。
 - Event Journal 为每个 Turn 分配单调递增序号，支持重新订阅和增量重放。
 - Flask 负责认证、配置、项目数据、消息持久化、上下文构造和模型 Agent Loop。
 - PostgreSQL 保存用户、项目、会话、消息、运行记录和协作数据。

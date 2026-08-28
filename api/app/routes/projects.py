@@ -132,6 +132,7 @@ def stream_completion_route(conversation_id: UUID):
                 str(payload.get("workspaceInstructions") or ""),
                 turn_id,
                 payload.get("attachments"),
+                tool_snapshot=payload.get("tools"),
             )
             while True:
                 try:

@@ -97,7 +97,7 @@ def cancel_mobile_run_route(run_id: UUID):
 def resume_mobile_run_route(run_id: UUID):
     payload = request.get_json(silent=True) or {}
     results = payload.get("results") if isinstance(payload.get("results"), list) else []
-    return stream_prepared(resume_mobile_run(user_id(), run_id, results))
+    return stream_prepared(resume_mobile_run(user_id(), run_id, results, payload.get("tools")))
 
 
 @mobile_chats_bp.post("/runs/<uuid:run_id>/recover")
@@ -111,6 +111,7 @@ def recover_mobile_run_route(run_id: UUID):
         str(payload.get("partialContent") or ""),
         str(payload.get("partialReasoning") or ""),
         results,
+        payload.get("tools"),
     ))
 
 
@@ -162,6 +163,7 @@ def stream_mobile_conversation_route(conversation_id: UUID):
                 str(payload.get("content") or ""),
                 payload.get("modelId"),
                 turn_id,
+                payload.get("tools"),
             ):
                 yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
         except ServiceError as error:

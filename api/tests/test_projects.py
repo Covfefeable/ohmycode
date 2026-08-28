@@ -7,6 +7,17 @@ from app import create_app
 from app.extensions import db
 from app.models import AgentRun, Project, User
 
+DESKTOP_TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "terminal",
+            "description": "Terminal tool",
+            "parameters": {"type": "object", "properties": {}},
+        },
+    }
+]
+
 
 def test_projects_and_conversations_are_isolated_by_device():
     app = create_app("testing")
@@ -257,6 +268,7 @@ def test_project_conversation_and_message_lifecycle(monkeypatch):
                 "content": "Continue",
                 "modelId": model_id,
                 "turnId": requested_turn_id,
+                "tools": DESKTOP_TOOLS,
                 "attachments": [
                     {
                         "id": "attachment-1",
@@ -305,7 +317,7 @@ def test_project_conversation_and_message_lifecycle(monkeypatch):
         failed_stream = client.post(
             f"/api/projects/conversations/{failed_conversation['id']}/stream",
             headers=headers,
-            json={"content": "Continue", "modelId": model_id},
+            json={"content": "Continue", "modelId": model_id, "tools": DESKTOP_TOOLS},
         )
         failed_body = failed_stream.get_data(as_text=True)
         assert '"type": "run.failed"' in failed_body
@@ -332,7 +344,11 @@ def test_project_conversation_and_message_lifecycle(monkeypatch):
         recovered = client.post(
             f"/api/agent-runs/{disconnected_run_id}/recover",
             headers=headers,
-            json={"partialContent": "Partial ", "partialReasoning": "Initial thought"},
+            json={
+                "partialContent": "Partial ",
+                "partialReasoning": "Initial thought",
+                "tools": DESKTOP_TOOLS,
+            },
         )
         assert b'"content": "Hello "' in recovered.data
         recovered_detail = client.get(
@@ -365,7 +381,7 @@ def test_project_conversation_and_message_lifecycle(monkeypatch):
         balance_stream = client.post(
             f"/api/projects/conversations/{balance_conversation['id']}/stream",
             headers=headers,
-            json={"content": "Continue", "modelId": model_id},
+            json={"content": "Continue", "modelId": model_id, "tools": DESKTOP_TOOLS},
         )
         balance_body = balance_stream.get_data(as_text=True)
         assert '"errorCode": "provider_http_402:invalid_request_error"' in balance_body
@@ -426,7 +442,7 @@ def test_project_conversation_and_message_lifecycle(monkeypatch):
         tool_stream = client.post(
             f"/api/projects/conversations/{agent_conversation['id']}/stream",
             headers=headers,
-            json={"content": "Check Git", "modelId": model_id},
+            json={"content": "Check Git", "modelId": model_id, "tools": DESKTOP_TOOLS},
         )
         tool_event = next(
             event
@@ -435,7 +451,7 @@ def test_project_conversation_and_message_lifecycle(monkeypatch):
             if (event := json.loads(line.removeprefix("data: ")))["type"] == "tool.requested"
         )
         assert tool_event["type"] == "tool.requested"
-        assert tool_event["arguments"]["action"] == "start"
+        assert tool_event["arguments"]["command"] == "git status --short"
         resumed = client.post(
             f"/api/agent-runs/{tool_event['runId']}/recover",
             headers=headers,
@@ -446,7 +462,8 @@ def test_project_conversation_and_message_lifecycle(monkeypatch):
                         "callId": tool_event["callId"],
                         "result": {"status": "exited", "exitCode": 0, "output": ""},
                     }
-                ]
+                ],
+                "tools": DESKTOP_TOOLS,
             },
         )
         assert b"Working tree is clean." in resumed.data
@@ -475,7 +492,7 @@ def test_project_conversation_and_message_lifecycle(monkeypatch):
         waiting = client.post(
             f"/api/projects/conversations/{cancelled_conversation['id']}/stream",
             headers=headers,
-            json={"content": "Start checking", "modelId": model_id},
+            json={"content": "Start checking", "modelId": model_id, "tools": DESKTOP_TOOLS},
         )
         started_event = next(
             event
@@ -511,7 +528,7 @@ def test_project_conversation_and_message_lifecycle(monkeypatch):
         continued = client.post(
             f"/api/projects/conversations/{cancelled_conversation['id']}/stream",
             headers=headers,
-            json={"content": "Continue", "modelId": model_id},
+            json={"content": "Continue", "modelId": model_id, "tools": DESKTOP_TOOLS},
         )
         assert b"Working tree is clean." in continued.data
         assert any(

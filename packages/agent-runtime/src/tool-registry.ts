@@ -6,6 +6,29 @@ import type {
   ToolResult,
 } from "@ohmycode/tool-contracts";
 
+export const TASK_PLAN_DEFINITION: ToolDefinition = {
+  name: "update_tasks",
+  description: "Create or update the task checklist for substantial work. Send the complete current snapshot.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      tasks: {
+        type: "array",
+        maxItems: 20,
+        items: {
+          type: "object",
+          properties: {
+            id: { type: "string" }, content: { type: "string" },
+            status: { type: "string", enum: ["pending", "in_progress", "completed"] },
+          },
+          required: ["id", "content", "status"],
+        },
+      },
+    },
+    required: ["tasks"],
+  },
+};
+
 export class ToolRegistry implements ToolExecutor {
   private readonly plugins: ToolPlugin[] = [];
 

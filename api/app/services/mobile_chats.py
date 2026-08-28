@@ -11,13 +11,6 @@ from .agent import (
 )
 from .agent.provider_stream import PreparedCompletion
 from .agent.runs import cancel_run
-from .agent.tools import (
-    LOAD_CAPABILITY_TOOL,
-    READ_TOOL_RESULT_TOOL,
-    SEARCH_CAPABILITIES_TOOL,
-    SEARCH_TOOL_RESULT_TOOL,
-    UPDATE_TASKS_TOOL,
-)
 from .conversations import create_conversation, delete_conversation, get_conversation
 from .errors import ServiceError
 
@@ -32,15 +25,6 @@ capability. When a long tool response contains resultRef, search or page through
 result instead of assuming its middle is unavailable. Never claim that you executed commands or
 changed local files. If a request requires local code execution, explain that it should be
 continued in the OhMyCode desktop application."""
-MOBILE_TOOLS = [
-    UPDATE_TASKS_TOOL,
-    SEARCH_CAPABILITIES_TOOL,
-    LOAD_CAPABILITY_TOOL,
-    READ_TOOL_RESULT_TOOL,
-    SEARCH_TOOL_RESULT_TOOL,
-]
-
-
 def _mobile_project(user_id: UUID) -> Project:
     project = db.session.scalar(
         db.select(Project).where(
@@ -137,14 +121,14 @@ def get_owned_mobile_run(user_id: UUID, run_id: UUID) -> AgentRun:
 
 
 def resume_mobile_run(
-    user_id: UUID, run_id: UUID, results: list[dict]
+    user_id: UUID, run_id: UUID, results: list[dict], tool_snapshot: object
 ) -> PreparedCompletion | list[dict]:
     get_owned_mobile_run(user_id, run_id)
     return resume_completion(
         user_id,
         run_id,
         results,
-        tools_override=MOBILE_TOOLS,
+        tool_snapshot=tool_snapshot,
         system_instructions=MOBILE_SYSTEM_INSTRUCTIONS,
     )
 
@@ -155,6 +139,7 @@ def recover_mobile_run(
     partial_content: str,
     partial_reasoning: str,
     results: list[dict],
+    tool_snapshot: object,
 ) -> PreparedCompletion | list[dict]:
     get_owned_mobile_run(user_id, run_id)
     return recover_completion(
@@ -163,7 +148,7 @@ def recover_mobile_run(
         partial_content=partial_content,
         partial_reasoning=partial_reasoning,
         results=results,
-        tools_override=MOBILE_TOOLS,
+        tool_snapshot=tool_snapshot,
         system_instructions=MOBILE_SYSTEM_INSTRUCTIONS,
     )
 
@@ -174,6 +159,7 @@ def stream_mobile_chat(
     content: str,
     model_id: str | None,
     turn_id: UUID | None,
+    tool_snapshot: object,
 ) -> Iterator[dict]:
     _owned_mobile_conversation(user_id, conversation_id)
     preparation = stream_prepare_completion(
@@ -183,7 +169,7 @@ def stream_mobile_chat(
         model_id,
         None,
         turn_id=turn_id,
-        tools_override=MOBILE_TOOLS,
+        tool_snapshot=tool_snapshot,
         system_instructions=MOBILE_SYSTEM_INSTRUCTIONS,
     )
     while True:

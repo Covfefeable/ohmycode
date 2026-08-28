@@ -1,4 +1,4 @@
-import type { ToolResult } from "@ohmycode/tool-contracts";
+import type { ProviderToolDefinition, ToolResult } from "@ohmycode/tool-contracts";
 import type { AgentStreamEvent, AgentTransport, RuntimePorts, TurnController } from "./contracts.js";
 import { forwardServerStream } from "./server-stream.js";
 
@@ -8,6 +8,7 @@ export type ToolLoopOptions = {
   workspaceInstructions: string;
   transport: AgentTransport;
   tools: RuntimePorts["tools"];
+  toolSnapshot(): ProviderToolDefinition[];
   execution: TurnController;
   onEvent(event: AgentStreamEvent): void;
 };
@@ -48,6 +49,7 @@ async function recover(
         partialContent,
         partialReasoning,
         results,
+        options.toolSnapshot(),
       );
     } catch (error) {
       lastError = error;
@@ -95,6 +97,7 @@ export async function runToolLoop(options: ToolLoopOptions): Promise<void> {
         requests[0].runId,
         results,
         options.workspaceInstructions,
+        options.toolSnapshot(),
       );
       pendingResults = [];
       options.execution.setPendingToolCalls([]);

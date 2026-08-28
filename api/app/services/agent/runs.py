@@ -9,9 +9,16 @@ from .prompts import STOPPED_RUN_CONTEXT
 
 
 def start_run(
-    conversation_id: UUID, model: ModelConfiguration, turn_id: UUID | None = None
+    conversation_id: UUID,
+    model: ModelConfiguration,
+    turn_id: UUID | None = None,
+    tool_snapshot: list[dict] | None = None,
 ) -> AgentRun:
-    values = {"conversation_id": conversation_id, "model_configuration_id": model.id}
+    values = {
+        "conversation_id": conversation_id,
+        "model_configuration_id": model.id,
+        "tool_snapshot": tool_snapshot or [],
+    }
     if turn_id is not None:
         values["id"] = turn_id
     run = AgentRun(**values)

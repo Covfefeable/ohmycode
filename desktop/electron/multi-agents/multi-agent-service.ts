@@ -43,7 +43,7 @@ async function runTurn(task: MultiAgentTask, memberId: string, requestId: string
     threadId: started.conversationId,
     content: started.prompt,
     modelId: started.modelId ?? undefined,
-    executionContext: { ownerId: member.id, workspacePath: task.workspacePath },
+    executionContext: { ownerId: member.id, workspacePath: task.workspacePath, isHost: member.isHost },
   });
   const active = activeRuns.get(requestId);
   if (active) active.nodeTurnId = turnId;

@@ -55,6 +55,7 @@ def resume_run_route(run_id: UUID):
         run_id,
         payload.get("results") if isinstance(payload.get("results"), list) else [],
         str(payload.get("workspaceInstructions") or ""),
+        payload.get("tools"),
     )
 
     return stream_response(prepared)
@@ -73,6 +74,7 @@ def recover_run_route(run_id: UUID):
         str(payload.get("partialContent") or ""),
         str(payload.get("partialReasoning") or ""),
         payload.get("results") if isinstance(payload.get("results"), list) else [],
+        payload.get("tools"),
     )
     return stream_response(prepared)
 

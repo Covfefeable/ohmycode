@@ -3,14 +3,19 @@ import { StyleSheet } from "react-native";
 
 export const styles = StyleSheet.create({
   blockquote: { borderLeftWidth: 3, marginVertical: spacing[2], paddingLeft: spacing[3] },
-  codeBlock: { borderRadius: radii.medium, fontFamily: "monospace", fontSize: typography.small, lineHeight: 19, marginVertical: spacing[2], overflow: "hidden", padding: spacing[3] },
+  codeBlock: { borderRadius: radii.medium, flexGrow: 0, marginVertical: spacing[2], maxWidth: "100%" },
+  codeContent: { padding: spacing[3] },
+  codeText: { fontFamily: "monospace", fontSize: typography.small, lineHeight: 19 },
+  container: { flexShrink: 1, maxWidth: "100%", minWidth: 0, width: "100%" },
   heading1: { fontSize: 24, fontWeight: "800", lineHeight: 30, marginBottom: spacing[2], marginTop: spacing[4] },
   heading2: { fontSize: 20, fontWeight: "700", lineHeight: 26, marginBottom: spacing[2], marginTop: spacing[4] },
   heading3: { fontSize: 17, fontWeight: "700", lineHeight: 23, marginBottom: spacing[1], marginTop: spacing[3] },
   inlineCode: { borderRadius: radii.small, fontFamily: "monospace", fontSize: typography.small, paddingHorizontal: 4 },
   link: { textDecorationLine: "underline" },
-  listItem: { flexDirection: "row", gap: spacing[2], marginVertical: 2 },
+  list: { maxWidth: "100%" },
+  listItem: { flexDirection: "row", gap: spacing[2], marginVertical: 2, maxWidth: "100%" },
   listMarker: { fontSize: typography.body, lineHeight: 21, width: 18 },
-  paragraph: { fontSize: typography.chat, lineHeight: 21, marginVertical: spacing[1] },
+  listText: { flex: 1, minWidth: 0 },
+  paragraph: { flexShrink: 1, fontSize: typography.chat, lineHeight: 21, marginVertical: spacing[1], maxWidth: "100%" },
   strong: { fontWeight: "700" },
 });

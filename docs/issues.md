@@ -41,8 +41,6 @@ items outcome-oriented and remove or move them to release notes after delivery.
 
 ## P2 — maintainability and product readiness
 
-- [ ] Generate or validate provider-facing tool schemas from the shared tool
-  contracts to reduce drift between Flask, Desktop, and Mobile definitions.
 - [ ] Add observability for Turn latency, provider failures, recovery attempts,
   queue depth, embedding freshness, and storage health without logging secrets.
 - [ ] Document supported OpenAI-compatible provider differences and test a small
@@ -58,3 +56,5 @@ items outcome-oriented and remove or move them to release notes after delivery.
   Skills, and HTTP MCP support.
 - [x] Complete tool-result persistence with bounded read/search access.
 - [x] Desktop terminal spawn regression and invalid model-key handling fixes.
+- [x] Runtime-owned tool schemas with per-Run snapshots; Flask no longer defines
+  static Desktop/Mobile tools or reconstructs MCP capability state.
