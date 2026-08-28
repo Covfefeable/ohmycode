@@ -6,12 +6,14 @@ from flask_jwt_extended import get_jwt_identity, jwt_required
 
 from ..services.agent import stream_completion
 from ..services.agent.provider_stream import PreparedCompletion
+from ..services.agent.tool_results import read_tool_result, search_tool_result
 from ..services.errors import ServiceError
 from ..services.mobile_chats import (
     cancel_mobile_run,
     create_mobile_conversation,
     delete_mobile_conversation,
     get_mobile_conversation,
+    get_owned_mobile_run,
     list_mobile_conversations,
     recover_mobile_run,
     resume_mobile_run,
@@ -105,6 +107,36 @@ def recover_mobile_run_route(run_id: UUID):
         str(payload.get("partialReasoning") or ""),
         results,
     ))
+
+
+@mobile_chats_bp.post("/runs/<uuid:run_id>/tool-results/<call_id>/read")
+@jwt_required()
+def read_mobile_tool_result_route(run_id: UUID, call_id: str):
+    identity = user_id()
+    get_owned_mobile_run(identity, run_id)
+    payload = request.get_json(silent=True) or {}
+    return read_tool_result(
+        identity,
+        run_id,
+        call_id,
+        payload.get("cursor"),
+        payload.get("maxTokens"),
+    )
+
+
+@mobile_chats_bp.post("/runs/<uuid:run_id>/tool-results/<call_id>/search")
+@jwt_required()
+def search_mobile_tool_result_route(run_id: UUID, call_id: str):
+    identity = user_id()
+    get_owned_mobile_run(identity, run_id)
+    payload = request.get_json(silent=True) or {}
+    return search_tool_result(
+        identity,
+        run_id,
+        call_id,
+        str(payload.get("query") or ""),
+        payload.get("maxMatches"),
+    )
 
 
 @mobile_chats_bp.post("/<uuid:conversation_id>/stream")

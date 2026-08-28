@@ -11,7 +11,13 @@ from .agent import (
 )
 from .agent.provider_stream import PreparedCompletion
 from .agent.runs import cancel_run
-from .agent.tools import LOAD_CAPABILITY_TOOL, SEARCH_CAPABILITIES_TOOL, UPDATE_TASKS_TOOL
+from .agent.tools import (
+    LOAD_CAPABILITY_TOOL,
+    READ_TOOL_RESULT_TOOL,
+    SEARCH_CAPABILITIES_TOOL,
+    SEARCH_TOOL_RESULT_TOOL,
+    UPDATE_TASKS_TOOL,
+)
 from .conversations import create_conversation, delete_conversation, get_conversation
 from .errors import ServiceError
 
@@ -22,9 +28,17 @@ Answer clearly and directly using the conversation context. You do not have acce
 user's filesystem, terminal, desktop workspace, attachments, local MCP servers, or local Skills.
 You may search and load capabilities supported by this client: enabled remote HTTP MCP servers
 and synchronized Skills. Capability tools are only available after you load the corresponding
-capability. Never claim that you executed commands or changed local files. If a request requires
-local code execution, explain that it should be continued in the OhMyCode desktop application."""
-MOBILE_TOOLS = [UPDATE_TASKS_TOOL, SEARCH_CAPABILITIES_TOOL, LOAD_CAPABILITY_TOOL]
+capability. When a long tool response contains resultRef, search or page through that complete
+result instead of assuming its middle is unavailable. Never claim that you executed commands or
+changed local files. If a request requires local code execution, explain that it should be
+continued in the OhMyCode desktop application."""
+MOBILE_TOOLS = [
+    UPDATE_TASKS_TOOL,
+    SEARCH_CAPABILITIES_TOOL,
+    LOAD_CAPABILITY_TOOL,
+    READ_TOOL_RESULT_TOOL,
+    SEARCH_TOOL_RESULT_TOOL,
+]
 
 
 def _mobile_project(user_id: UUID) -> Project:
@@ -106,7 +120,7 @@ def cancel_mobile_run(user_id: UUID, run_id: UUID, partial_message: str = "") ->
     cancel_run(user_id, run_id, partial_message)
 
 
-def _owned_mobile_run(user_id: UUID, run_id: UUID) -> AgentRun:
+def get_owned_mobile_run(user_id: UUID, run_id: UUID) -> AgentRun:
     run = db.session.scalar(
         db.select(AgentRun)
         .join(Conversation)
@@ -125,7 +139,7 @@ def _owned_mobile_run(user_id: UUID, run_id: UUID) -> AgentRun:
 def resume_mobile_run(
     user_id: UUID, run_id: UUID, results: list[dict]
 ) -> PreparedCompletion | list[dict]:
-    _owned_mobile_run(user_id, run_id)
+    get_owned_mobile_run(user_id, run_id)
     return resume_completion(
         user_id,
         run_id,
@@ -142,7 +156,7 @@ def recover_mobile_run(
     partial_reasoning: str,
     results: list[dict],
 ) -> PreparedCompletion | list[dict]:
-    _owned_mobile_run(user_id, run_id)
+    get_owned_mobile_run(user_id, run_id)
     return recover_completion(
         user_id,
         run_id,

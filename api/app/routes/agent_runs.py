@@ -7,6 +7,7 @@ from flask_jwt_extended import get_jwt_identity, jwt_required
 from ..services.agent import recover_completion, resume_completion, stream_completion
 from ..services.agent.provider_stream import PreparedCompletion
 from ..services.agent.runs import cancel_run
+from ..services.agent.tool_results import read_tool_result, search_tool_result
 from ..services.errors import ServiceError
 from ..services.projects.queries import device_run
 from .device import current_device
@@ -74,3 +75,35 @@ def recover_run_route(run_id: UUID):
         payload.get("results") if isinstance(payload.get("results"), list) else [],
     )
     return stream_response(prepared)
+
+
+@agent_runs_bp.post("/<uuid:run_id>/tool-results/<call_id>/read")
+@jwt_required()
+def read_tool_result_route(run_id: UUID, call_id: str):
+    identity = UUID(get_jwt_identity())
+    if not device_run(identity, current_device(), run_id):
+        raise ServiceError("not_found", 404)
+    payload = request.get_json(silent=True) or {}
+    return read_tool_result(
+        identity,
+        run_id,
+        call_id,
+        payload.get("cursor"),
+        payload.get("maxTokens"),
+    )
+
+
+@agent_runs_bp.post("/<uuid:run_id>/tool-results/<call_id>/search")
+@jwt_required()
+def search_tool_result_route(run_id: UUID, call_id: str):
+    identity = UUID(get_jwt_identity())
+    if not device_run(identity, current_device(), run_id):
+        raise ServiceError("not_found", 404)
+    payload = request.get_json(silent=True) or {}
+    return search_tool_result(
+        identity,
+        run_id,
+        call_id,
+        str(payload.get("query") or ""),
+        payload.get("maxMatches"),
+    )

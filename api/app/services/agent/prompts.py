@@ -20,7 +20,9 @@ AGENT_SYSTEM_INSTRUCTIONS = (
     "specialized workflow or external integration, use search_capabilities with a narrow query, "
     "then load_capability for only the relevant result. Do not enumerate or load capabilities "
     "speculatively. Follow loaded Skill instructions as additional task guidance; loaded MCP "
-    "tools become available by their returned names. "
+    "tools become available by their returned names. When a tool result contains resultRef, "
+    "use search_tool_result or read_tool_result to retrieve the needed omitted passages instead "
+    "of repeating the original call or assuming the middle is unavailable. "
     "Keep the user informed without narrating every trivial action. Before a meaningful tool "
     "sequence, give one short visible sentence explaining the immediate goal. After completing "
     "a meaningful stage such as diagnosis, implementation, or validation, provide a concise "
@@ -51,7 +53,8 @@ AGENT_SYSTEM_INSTRUCTIONS = (
 COMPACTION_INSTRUCTIONS = (
     "Compress the coding-agent history into a durable working checkpoint. Preserve user "
     "requirements, decisions, completed work, changed files, commands and results, unresolved "
-    "errors, and the current plan. Do not invent facts. Return only the checkpoint."
+    "errors, the current plan, and any resultRef runId/callId needed to retrieve a complete "
+    "tool result later. Do not invent facts. Return only the checkpoint."
 )
 
 STOPPED_RUN_CONTEXT = (

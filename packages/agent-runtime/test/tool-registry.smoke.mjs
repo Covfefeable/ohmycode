@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { CapabilityPlugin, ToolRegistry } from "../dist/index.js";
+import { CapabilityPlugin, ToolRegistry, ToolResultReaderPlugin } from "../dist/index.js";
 
 const calls = [];
 let closed = false;
@@ -14,6 +14,10 @@ registry.register(new CapabilityPlugin({
     return { id };
   },
 }));
+registry.register(new ToolResultReaderPlugin({
+  read: async (runId, callId, options) => ({ runId, callId, ...options }),
+  search: async (runId, callId, query, options) => ({ runId, callId, query, ...options }),
+}));
 registry.register({
   id: "dynamic",
   definitions: () => [],
@@ -25,10 +29,16 @@ registry.register({
 assert.deepEqual(registry.definitions().map((item) => item.name), [
   "search_capabilities",
   "load_capability",
+  "read_tool_result",
+  "search_tool_result",
 ]);
 assert.deepEqual(
   await registry.execute({ runId: "run", callId: "one", tool: "search_capabilities", arguments: { query: "mail" } }),
   { callId: "one", result: { results: [] } },
+);
+assert.deepEqual(
+  await registry.execute({ runId: "run", callId: "read", tool: "read_tool_result", arguments: { callId: "source", cursor: 12 } }),
+  { callId: "read", result: { runId: "run", callId: "source", cursor: 12, maxTokens: undefined } },
 );
 assert.deepEqual(
   await registry.execute({ runId: "run", callId: "two", tool: "dynamic__echo", arguments: { ok: true } }),

@@ -133,6 +133,14 @@ added to subsequent model requests only after `load_capability` returns its
 tool definitions. Once loaded, that selected MCP remains available to later
 Turns in the same Thread; unrelated MCP servers remain absent.
 
+Complete tool outputs remain persisted in Agent events. When an output is too
+large for the current model context, the tool message contains a bounded prefix
+and a `resultRef` instead of silently preserving only its head and tail. The
+shared `read_tool_result` and `search_tool_result` plugins let Desktop and Mobile
+retrieve exact pages or matching passages from that persisted result. Initial
+preview size is allocated from the remaining context budget across the current
+tool results; explicit pages remain independently bounded.
+
 The shared packages depend on ports for model transport, tool execution,
 persistence, lifecycle events, and resource cancellation. They must not import
 Electron, React Native, Expo, Node built-ins, or application directories;

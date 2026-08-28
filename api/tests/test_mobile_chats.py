@@ -1,3 +1,4 @@
+import json
 import uuid
 
 from app import create_app
@@ -110,6 +111,8 @@ def test_mobile_stream_does_not_offer_desktop_tools(monkeypatch):
         "update_tasks",
         "search_capabilities",
         "load_capability",
+        "read_tool_result",
+        "search_tool_result",
     ]
     assert "mobile assistant" in provider_payloads[0]["messages"][0]["content"]
 
@@ -163,6 +166,7 @@ def test_mobile_load_capability_adds_only_loaded_tools_on_resume(monkeypatch):
 
     with app.test_client() as client:
         headers = _headers(client, "mobile-capability@example.com")
+        other_headers = _headers(client, "mobile-capability-other@example.com")
         model_id = str(uuid.uuid4())
         client.put(
             "/api/settings/models",
@@ -197,6 +201,7 @@ def test_mobile_load_capability_adds_only_loaded_tools_on_resume(monkeypatch):
                 "parameters": {"type": "object", "properties": {}},
             },
         }
+        long_document = "begin\n" + ("middle passage\n" * 800) + "end"
         resumed = client.post(
             f"/api/mobile/conversations/runs/{run_id}/resume",
             headers=headers,
@@ -204,12 +209,44 @@ def test_mobile_load_capability_adds_only_loaded_tools_on_resume(monkeypatch):
                 "results": [
                     {
                         "callId": "load-1",
-                        "result": {"id": "mcp:example", "tools": [loaded_tool]},
+                        "result": {
+                            "id": "mcp:example",
+                            "tools": [loaded_tool],
+                            "document": long_document,
+                        },
                     }
                 ]
             },
         )
         resumed_data = resumed.data
+        read_result = client.post(
+            f"/api/mobile/conversations/runs/{run_id}/tool-results/load-1/read",
+            headers=headers,
+            json={"maxTokens": 128},
+        )
+        searched_result = client.post(
+            f"/api/mobile/conversations/runs/{run_id}/tool-results/load-1/search",
+            headers=headers,
+            json={"query": "mcp__example"},
+        )
+        pages = []
+        cursor = 0
+        while True:
+            page_response = client.post(
+                f"/api/mobile/conversations/runs/{run_id}/tool-results/load-1/read",
+                headers=headers,
+                json={"cursor": cursor, "maxTokens": 128},
+            )
+            page = page_response.get_json()
+            pages.append(page["content"])
+            if page["complete"]:
+                break
+            cursor = page["nextCursor"]
+        forbidden_result = client.post(
+            f"/api/mobile/conversations/runs/{run_id}/tool-results/load-1/read",
+            headers=other_headers,
+            json={},
+        )
         next_run_id = str(uuid.uuid4())
         next_turn = client.post(
             f"/api/mobile/conversations/{conversation_id}/stream",
@@ -225,13 +262,24 @@ def test_mobile_load_capability_adds_only_loaded_tools_on_resume(monkeypatch):
         "update_tasks",
         "search_capabilities",
         "load_capability",
+        "read_tool_result",
+        "search_tool_result",
         "mcp__example__lookup",
     ]
+    assert read_result.status_code == 200
+    assert read_result.get_json()["callId"] == "load-1"
+    assert searched_result.status_code == 200
+    assert searched_result.get_json()["matches"]
+    reconstructed_result = json.loads("".join(pages))
+    assert reconstructed_result["document"] == long_document
+    assert forbidden_result.status_code == 404
     assert next_turn.status_code == 200
     assert b"Using loaded tool" in next_turn.data
     assert [tool["function"]["name"] for tool in provider_payloads[2]["tools"]] == [
         "update_tasks",
         "search_capabilities",
         "load_capability",
+        "read_tool_result",
+        "search_tool_result",
         "mcp__example__lookup",
     ]

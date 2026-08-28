@@ -141,6 +141,54 @@ LOAD_CAPABILITY_TOOL = {
     },
 }
 
+READ_TOOL_RESULT_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "read_tool_result",
+        "description": (
+            "Read a bounded page from a complete tool result when its initial response returned "
+            "a resultRef. Continue with nextCursor until the needed section is available."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "runId": {
+                    "type": "string",
+                    "description": "Use resultRef.runId; omit only for the current run.",
+                },
+                "callId": {"type": "string"},
+                "cursor": {"type": "integer", "minimum": 0},
+                "maxTokens": {"type": "integer", "minimum": 128, "maximum": 3000},
+            },
+            "required": ["callId"],
+        },
+    },
+}
+
+SEARCH_TOOL_RESULT_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "search_tool_result",
+        "description": (
+            "Search the complete content behind a truncated tool result and return bounded "
+            "matching passages with character ranges."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "runId": {
+                    "type": "string",
+                    "description": "Use resultRef.runId; omit only for the current run.",
+                },
+                "callId": {"type": "string"},
+                "query": {"type": "string"},
+                "maxMatches": {"type": "integer", "minimum": 1, "maximum": 8},
+            },
+            "required": ["callId", "query"],
+        },
+    },
+}
+
 UPDATE_TASKS_TOOL = {
     "type": "function",
     "function": {
@@ -183,6 +231,8 @@ AGENT_TOOLS = [
     TERMINAL_TOOL,
     SEARCH_CAPABILITIES_TOOL,
     LOAD_CAPABILITY_TOOL,
+    READ_TOOL_RESULT_TOOL,
+    SEARCH_TOOL_RESULT_TOOL,
 ]
 
 VIEW_IMAGE_TOOL_NAME = "view_image"

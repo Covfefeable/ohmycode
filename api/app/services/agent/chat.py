@@ -28,6 +28,7 @@ from .runs import (
     get_owned_run,
 )
 from .task_plan import active_task_id, latest_task_plan, normalize_task_plan
+from .tool_results import render_tool_result, slice_to_token_budget
 from .tools import (
     FILE_TOOL_NAMES,
     VIEW_IMAGE_TOOL_NAME,
@@ -35,26 +36,48 @@ from .tools import (
 )
 
 
-def _truncate_tool_content(content: str, token_budget: int) -> str:
-    if estimate_tokens(content) <= token_budget:
-        return content
-    notice = (
-        "\n\n… tool result truncated to the context budget. "
-        "Use a narrower query/path or read_file range to inspect the omitted content. …\n\n"
+def _tool_result_content(run: AgentRun, item: dict, token_budget: int) -> str:
+    serialized = json.dumps(item["result"], ensure_ascii=False)
+    if estimate_tokens(serialized) <= token_budget:
+        return serialized
+    rendered = render_tool_result(item["result"])
+    manifest = {
+        "contextTruncated": True,
+        "sourceMayBeTruncated": (
+            isinstance(item["result"], dict) and bool(item["result"].get("truncated"))
+        )
+        or "[...]" in rendered,
+        "resultRef": {"runId": str(run.id), "callId": item["callId"]},
+        "totalCharacters": len(rendered),
+        "estimatedTokens": estimate_tokens(rendered),
+        "preview": "",
+        "nextCursor": 0,
+        "instructions": (
+            "Use search_tool_result to find a passage or read_tool_result with nextCursor "
+            "to read the complete result without losing the middle."
+        ),
+    }
+    base_tokens = estimate_tokens(json.dumps(manifest, ensure_ascii=False))
+    preview, next_cursor = slice_to_token_budget(
+        rendered, 0, max(1, token_budget - base_tokens - 16)
     )
-    low, high = 0, len(content)
-    best = notice.strip()
-    while low <= high:
-        kept = (low + high) // 2
-        head = (kept + 1) // 2
-        tail = kept // 2
-        candidate = f"{content[:head]}{notice}{content[-tail:] if tail else ''}"
-        if estimate_tokens(candidate) <= token_budget:
-            best = candidate
-            low = kept + 1
-        else:
-            high = kept - 1
-    return best
+    manifest["preview"] = preview
+    manifest["nextCursor"] = next_cursor if next_cursor < len(rendered) else None
+    encoded = json.dumps(manifest, ensure_ascii=False)
+    while preview and estimate_tokens(encoded) > token_budget:
+        preview = preview[: max(0, len(preview) * 3 // 4)]
+        manifest["preview"] = preview
+        manifest["nextCursor"] = len(preview)
+        encoded = json.dumps(manifest, ensure_ascii=False)
+    return encoded
+
+
+def _tool_result_count(run: AgentRun, after_sequence: int) -> int:
+    return sum(
+        len(event.payload.get("results", []))
+        for event in run.events
+        if event.sequence > after_sequence and event.event_type == "tool.output"
+    )
 
 
 def _tool_history(
@@ -80,20 +103,19 @@ def _tool_history(
         elif event.event_type == "tool.output":
             image_messages = []
             for result in event.payload["results"]:
-                content = json.dumps(result["result"], ensure_ascii=False)
+                model_result = result["result"]
                 if tool_names.get(result["callId"]) == VIEW_IMAGE_TOOL_NAME:
                     image_parts = _image_tool_content(result["result"])
                     if image_parts is not None:
-                        content = json.dumps(
-                            {
-                                key: value
-                                for key, value in result["result"].items()
-                                if key != "dataUrl"
-                            },
-                            ensure_ascii=False,
-                        )
+                        model_result = {
+                            key: value
+                            for key, value in result["result"].items()
+                            if key != "dataUrl"
+                        }
                         image_messages.append({"role": "user", "content": image_parts})
-                content = _truncate_tool_content(content, token_budget)
+                content = _tool_result_content(
+                    run, {**result, "result": model_result}, token_budget
+                )
                 history.append(
                     {
                         "role": "tool",
@@ -157,8 +179,14 @@ def resume_completion(
     checkpoint_sequence = 0
     if checkpoint and checkpoint.state.get("runId") == str(run.id):
         checkpoint_sequence = int(checkpoint.state.get("toolEventSequence") or 0)
-    tool_result_budget = min(
-        TOOL_RESULT_TOKEN_BUDGET, max(512, configuration.context_length // 8)
+    result_count = max(1, _tool_result_count(run, checkpoint_sequence))
+    available_tool_tokens = max(
+        512,
+        int(configuration.context_length * COMPACTION_RATIO) - context.estimated_tokens,
+    )
+    tool_result_budget = max(
+        512,
+        min(TOOL_RESULT_TOKEN_BUDGET * 2, available_tool_tokens // result_count),
     )
     tool_history = _tool_history(run, checkpoint_sequence, tool_result_budget)
     model_messages = [*context.messages, *tool_history]

@@ -1,5 +1,6 @@
 import {
   CapabilityPlugin,
+  ToolResultReaderPlugin,
   ToolRegistry,
   type AgentStreamEvent,
   type AgentTask,
@@ -111,6 +112,16 @@ export class DesktopToolRegistry implements ToolExecutor {
     this.registry.register(new CapabilityPlugin({
       search: searchCapabilities,
       load: loadCapability,
+    }));
+    this.registry.register(new ToolResultReaderPlugin({
+      read: (runId, callId, options) => apiRequest(
+        `/api/agent-runs/${runId}/tool-results/${encodeURIComponent(callId)}/read`,
+        { method: "POST", body: JSON.stringify(options) },
+      ),
+      search: (runId, callId, query, options) => apiRequest(
+        `/api/agent-runs/${runId}/tool-results/${encodeURIComponent(callId)}/search`,
+        { method: "POST", body: JSON.stringify({ query, ...options }) },
+      ),
     }));
     this.registry.register(functionalPlugin(
       "files",

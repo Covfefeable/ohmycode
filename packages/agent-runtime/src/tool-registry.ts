@@ -89,3 +89,86 @@ export class CapabilityPlugin implements ToolPlugin {
     return { callId: call.callId, result };
   }
 }
+
+export type ToolResultReaderAdapter = {
+  read(
+    runId: string,
+    callId: string,
+    options: { cursor?: number; maxTokens?: number },
+  ): Promise<unknown>;
+  search(
+    runId: string,
+    callId: string,
+    query: string,
+    options: { maxMatches?: number },
+  ): Promise<unknown>;
+};
+
+const TOOL_RESULT_DEFINITIONS: readonly ToolDefinition[] = [
+  {
+    name: "read_tool_result",
+    description: "Read one bounded page from a complete tool result.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        runId: { type: "string" },
+        callId: { type: "string" },
+        cursor: { type: "integer", minimum: 0 },
+        maxTokens: { type: "integer", minimum: 128, maximum: 3000 },
+      },
+      required: ["callId"],
+    },
+  },
+  {
+    name: "search_tool_result",
+    description: "Search the complete content behind a truncated tool result.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        runId: { type: "string" },
+        callId: { type: "string" },
+        query: { type: "string" },
+        maxMatches: { type: "integer", minimum: 1, maximum: 8 },
+      },
+      required: ["callId", "query"],
+    },
+  },
+];
+
+export class ToolResultReaderPlugin implements ToolPlugin {
+  readonly id = "tool-results";
+
+  constructor(private readonly adapter: ToolResultReaderAdapter) {}
+
+  definitions(): readonly ToolDefinition[] {
+    return TOOL_RESULT_DEFINITIONS;
+  }
+
+  handles(toolName: string): boolean {
+    return toolName === "read_tool_result" || toolName === "search_tool_result";
+  }
+
+  async execute(call: ToolCall): Promise<ToolResult> {
+    const args = call.arguments && typeof call.arguments === "object"
+      ? call.arguments as {
+        callId?: unknown;
+        runId?: unknown;
+        cursor?: unknown;
+        maxTokens?: unknown;
+        query?: unknown;
+        maxMatches?: unknown;
+      }
+      : {};
+    const callId = String(args.callId ?? "");
+    const resultRunId = String(args.runId ?? call.runId);
+    const result = call.tool === "read_tool_result"
+      ? await this.adapter.read(resultRunId, callId, {
+        cursor: typeof args.cursor === "number" ? args.cursor : undefined,
+        maxTokens: typeof args.maxTokens === "number" ? args.maxTokens : undefined,
+      })
+      : await this.adapter.search(resultRunId, callId, String(args.query ?? ""), {
+        maxMatches: typeof args.maxMatches === "number" ? args.maxMatches : undefined,
+      });
+    return { callId: call.callId, result };
+  }
+}

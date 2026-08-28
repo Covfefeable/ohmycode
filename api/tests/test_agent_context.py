@@ -1,4 +1,8 @@
-from app.services.agent.chat import _truncate_tool_content
+import json
+import uuid
+
+from app.models import AgentRun
+from app.services.agent.chat import _tool_result_content
 from app.services.agent.context import COMPACTION_RATIO, estimate_tokens
 from app.services.agent.prompts import AGENT_SYSTEM_INSTRUCTIONS
 from app.services.agent.provider_stream import sse_json_payloads
@@ -28,14 +32,26 @@ def test_sse_parser_ignores_control_fields_and_supports_multiline_data():
     assert list(sse_json_payloads(lines)) == [{"choices": []}]
 
 
-def test_tool_results_are_truncated_to_budget_with_actionable_hint():
+def test_large_tool_results_return_a_pageable_reference_without_dropping_silently():
     content = "prefix\n" + ("large-result " * 2000) + "\nsuffix"
-    truncated = _truncate_tool_content(content, 120)
+    run = AgentRun(id=uuid.uuid4())
+    rendered = _tool_result_content(
+        run,
+        {"callId": "call-long", "result": {"content": content}},
+        300,
+    )
+    manifest = json.loads(rendered)
 
-    assert estimate_tokens(truncated) <= 120
-    assert truncated.startswith("prefix")
-    assert truncated.endswith("suffix")
-    assert "narrower query/path" in truncated
+    assert estimate_tokens(rendered) <= 300
+    assert manifest["contextTruncated"] is True
+    assert manifest["resultRef"] == {
+        "runId": str(run.id),
+        "callId": "call-long",
+    }
+    assert manifest["preview"].startswith('{"content": "prefix')
+    assert "suffix" not in manifest["preview"]
+    assert 0 < manifest["nextCursor"] < manifest["totalCharacters"]
+    assert "read_tool_result" in manifest["instructions"]
 
 
 def test_agent_prompt_requires_meaningful_visible_progress():

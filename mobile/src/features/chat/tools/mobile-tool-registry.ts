@@ -1,4 +1,9 @@
-import { CapabilityPlugin, ToolRegistry, type AgentStreamEvent } from "@ohmycode/agent-runtime";
+import {
+  CapabilityPlugin,
+  ToolRegistry,
+  ToolResultReaderPlugin,
+  type AgentStreamEvent,
+} from "@ohmycode/agent-runtime";
 import type {
   ToolCall,
   ToolDefinition,
@@ -12,6 +17,7 @@ import {
   searchMobileCapabilities,
 } from "@/shared/capabilities/mobile-capabilities";
 import { MobileMcpClient } from "@/shared/capabilities/mobile-mcp";
+import { authenticatedRequest } from "@/shared/api/api-client";
 
 function plugin(
   id: string,
@@ -47,6 +53,16 @@ export class MobileToolRegistry implements ToolExecutor {
     this.registry.register(new CapabilityPlugin({
       search: searchMobileCapabilities,
       load: loadMobileCapability,
+    }));
+    this.registry.register(new ToolResultReaderPlugin({
+      read: (runId, callId, options) => authenticatedRequest(
+        `/api/mobile/conversations/runs/${runId}/tool-results/${encodeURIComponent(callId)}/read`,
+        { method: "POST", body: JSON.stringify(options) },
+      ),
+      search: (runId, callId, query, options) => authenticatedRequest(
+        `/api/mobile/conversations/runs/${runId}/tool-results/${encodeURIComponent(callId)}/search`,
+        { method: "POST", body: JSON.stringify({ query, ...options }) },
+      ),
     }));
     this.registry.register(plugin(
       "mcp",

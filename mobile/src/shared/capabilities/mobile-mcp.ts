@@ -1,12 +1,10 @@
 import { Client } from "@modelcontextprotocol/sdk/client";
-// Expo's ESLint resolver does not understand the SDK's wildcard package exports.
-// eslint-disable-next-line import/no-unresolved
-import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 // eslint-disable-next-line import/no-unresolved
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 
 import { authenticatedRequest } from "@/shared/api/api-client";
 
+import { ensureEventGlobals } from "./event-globals";
 import { safeCapabilityName } from "./mobile-capabilities";
 import type { McpServer } from "./types";
 
@@ -26,13 +24,21 @@ export class MobileMcpClient {
     await this.sessions.get(server.id)?.client.close().catch(() => undefined);
     const url = new URL(server.configuration.url || "");
     const client = new Client({ name: "ohmycode-mobile", version: "0.1.0" }, { capabilities: {} });
-    const transport = /\/sse\/?$/i.test(url.pathname)
-      ? new SSEClientTransport(url, {
-        requestInit: { headers: server.configuration.headers },
-      })
-      : new StreamableHTTPClientTransport(url, {
+    let transport;
+    if (/\/sse\/?$/i.test(url.pathname)) {
+      ensureEventGlobals();
+      // Expo's resolver does not understand the SDK's wildcard exports. Keep
+      // SSE lazy so its EventSource dependency sees the React Native globals.
+      // eslint-disable-next-line import/no-unresolved
+      const { SSEClientTransport } = await import("@modelcontextprotocol/sdk/client/sse.js");
+      transport = new SSEClientTransport(url, {
         requestInit: { headers: server.configuration.headers },
       });
+    } else {
+      transport = new StreamableHTTPClientTransport(url, {
+        requestInit: { headers: server.configuration.headers },
+      });
+    }
     await client.connect(transport);
     this.sessions.set(server.id, { client, server });
     client.onclose = () => {
