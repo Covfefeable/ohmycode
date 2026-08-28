@@ -123,6 +123,8 @@ export const en = {
     welcomeDescriptionChat: "Create a host and specialist roles that collaborate one at a time in a shared group chat.",
     run: "Run",
     runNewTask: "Run in a new folder",
+    executionLimit: "Execution limit",
+    executionLimitHint: "At the limit, delegation stops and the host must summarize the available results.",
     saveTemplate: "Save collaboration",
     agentNode: "Agent node",
     nodeName: "Name",

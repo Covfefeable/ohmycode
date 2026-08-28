@@ -20,6 +20,7 @@ export function useMultiAgentExecution(options: Options) {
   const [runDialogOpen, setRunDialogOpen] = useState(false);
   const [runDescription, setRunDescription] = useState("");
   const [runWorkspacePath, setRunWorkspacePath] = useState("");
+  const [runExecutionLimit, setRunExecutionLimit] = useState(20);
   const [runRequestId, setRunRequestId] = useState<string | null>(null);
   const [activities, setActivities] = useState<Record<string, AgentActivityStep[]>>({});
   const [message, setMessage] = useState("");
@@ -89,7 +90,7 @@ export function useMultiAgentExecution(options: Options) {
         toast({ type: "error", message: t("multiAgent.modelRequired") });
         return;
       }
-      const created = await window.ohmycode.multiAgents.createTask(options.selectedAgentId, runDescription, runWorkspacePath);
+      const created = await window.ohmycode.multiAgents.createTask(options.selectedAgentId, runDescription, runWorkspacePath, runExecutionLimit);
       setRunDialogOpen(false);
       setRunDescription("");
       setRunWorkspacePath("");
@@ -171,9 +172,9 @@ export function useMultiAgentExecution(options: Options) {
   }
 
   return {
-    runDialogOpen, runDescription, runWorkspacePath, runRequestId, activities,
+    runDialogOpen, runDescription, runWorkspacePath, runExecutionLimit, runRequestId, activities,
     message, mentionQuery, mentionMembers, sending, setRunDialogOpen, setRunDescription,
-    setRunWorkspacePath, executeTask, runCollaboration, sendGroupMessage,
+    setRunWorkspacePath, setRunExecutionLimit, executeTask, runCollaboration, sendGroupMessage,
     changeGroupMessage, selectMention, closeMention, stopTask,
   };
 }

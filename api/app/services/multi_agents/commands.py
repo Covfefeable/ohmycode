@@ -19,6 +19,9 @@ from .planner import generate_plan, validate_plan
 from .queries import get_task, owned_agent, owned_node
 
 TASK_TERMINAL = {"completed", "failed", "stopped"}
+DEFAULT_EXECUTION_LIMIT = 12
+MIN_EXECUTION_LIMIT = 2
+MAX_EXECUTION_LIMIT = 100
 
 
 def _team(agent: MultiAgent) -> dict:
@@ -139,12 +142,19 @@ def create_task(
         )
         db.session.add(project)
         db.session.flush()
+    try:
+        execution_limit = int(payload.get("executionLimit", DEFAULT_EXECUTION_LIMIT))
+    except (TypeError, ValueError) as error:
+        raise ServiceError("validation_error", 422) from error
+    if not MIN_EXECUTION_LIMIT <= execution_limit <= MAX_EXECUTION_LIMIT:
+        raise ServiceError("validation_error", 422)
     task = MultiAgentTask(
         agent=agent,
         project=project,
         title=str(payload.get("title") or workspace_name)[:240],
         request=request,
         status="draft",
+        execution_limit=execution_limit,
     )
     db.session.add(task)
     db.session.flush()
@@ -220,12 +230,17 @@ def _chat_transcript(task: MultiAgentTask) -> str:
     return "\n\n".join(rows) or "No messages yet."
 
 
-def _execution_prompt(node: MultiAgentNode) -> str:
+def _execution_prompt(node: MultiAgentNode, force_summary: bool = False) -> str:
     task = node.task
     peers = "\n".join(
         f"- {item.name}: {item.id}{' (主持人)' if item.is_host else ''}" for item in task.members
     )
     host_rules = (
+        "The collaboration execution limit has been reached. You must now call "
+        "finish_collaboration with the best final answer supported by the work so far. "
+        "Do not delegate or call agent_message. Clearly identify any remaining gaps."
+        if force_summary
+        else
         "You are the host. Decide who should speak next. Delegate using agent_message. "
         "When the user's goal is fully satisfied, call finish_collaboration with the final "
         "answer. You may not delegate to yourself."
@@ -276,9 +291,16 @@ def start_node(user_id: UUID, node_id: UUID) -> tuple[MultiAgentNode, str]:
         raise ServiceError("node_not_ready", 409)
     if any(item.status == "running" for item in node.task.members):
         raise ServiceError("another_agent_is_running", 409)
+    if node.task.execution_count >= node.task.execution_limit and not node.is_host:
+        node.status = "idle"
+        _host(node.task).status = "ready"
+        db.session.commit()
+        raise ServiceError("collaboration_execution_limit_reached", 409)
+    force_summary = node.is_host and node.task.execution_count >= node.task.execution_limit - 1
     node.status = "running"
+    node.task.execution_count += 1
     db.session.commit()
-    return node, _execution_prompt(node)
+    return node, _execution_prompt(node, force_summary)
 
 
 def recover_host(user_id: UUID, task_id: UUID) -> MultiAgentTask:
@@ -311,6 +333,10 @@ def post_message(user_id: UUID, node_id: UUID, payload: dict) -> MultiAgentMessa
         raise ServiceError("validation_error", 422)
     if target.task.status != "running":
         raise ServiceError("collaboration_not_running", 409)
+    if source.is_host and source.task.execution_count >= source.task.execution_limit:
+        raise ServiceError("collaboration_host_must_summarize", 409)
+    if source.task.execution_count >= source.task.execution_limit:
+        target = _host(source.task)
     message = MultiAgentMessage(
         task_id=source.task_id,
         sequence=_next_message_sequence(source.task_id),
@@ -350,6 +376,7 @@ def post_user_message(user_id: UUID, node_id: UUID, payload: dict) -> MultiAgent
     db.session.add(message)
     if target.task.status == "completed":
         target.task.status = "running"
+        target.task.execution_count = 0
         for node in target.task.members:
             node.status = "idle"
         target.status = "ready"
@@ -455,6 +482,7 @@ def _reset_task(task: MultiAgentTask) -> None:
         conversation.messages.clear()
     for node in task.members:
         node.status, node.final_output = "idle", None
+    task.execution_count = 0
     for message in task_messages(task):
         db.session.delete(message)
     db.session.flush()

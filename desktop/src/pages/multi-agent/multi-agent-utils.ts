@@ -12,6 +12,8 @@ export function templateTask(agent: MultiAgentSummary): MultiAgentTask {
     request: agent.description,
     status: "template",
     workspacePath: "",
+    executionLimit: 12,
+    executionCount: 0,
     currentSpeakerId: null,
     messages: [],
     members: agent.templateTeam.members.map((member) => ({

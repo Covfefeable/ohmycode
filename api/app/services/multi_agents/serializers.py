@@ -89,6 +89,8 @@ def serialize_task(task: MultiAgentTask) -> dict:
         "title": task.title,
         "request": task.request,
         "status": task.status,
+        "executionLimit": task.execution_limit,
+        "executionCount": task.execution_count,
         "workspacePath": task.project.path,
         "members": members,
         "messages": all_messages,

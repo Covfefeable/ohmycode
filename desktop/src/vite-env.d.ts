@@ -16,7 +16,7 @@ interface Window {
       update(agentId: string, payload: Partial<MultiAgentSummary>): Promise<MultiAgentSummary>;
       delete(agentId: string): Promise<void>;
       selectWorkspace(): Promise<string | null>;
-      createTask(agentId: string, request: string, workspacePath: string): Promise<MultiAgentTask>;
+      createTask(agentId: string, request: string, workspacePath: string, executionLimit: number): Promise<MultiAgentTask>;
       getTask(taskId: string): Promise<MultiAgentTask>;
       deleteTask(taskId: string): Promise<void>;
       runTask(taskId: string, requestId: string): Promise<MultiAgentTask>;
@@ -120,7 +120,7 @@ type MultiAgentTemplateTeam = { title: string; members: MultiAgentTemplateMember
 type MultiAgentSummary = { id: string; name: string; description: string; division: string; templateTeam: MultiAgentTemplateTeam; createdAt: string; tasks: MultiAgentTaskSummary[] };
 type MultiAgentMessage = { id: string; fromNodeId: string | null; toNodeId: string; type: string; senderType: "user" | "agent"; content: string; createdAt: string };
 type MultiAgentMemberData = MultiAgentTemplateMember & { id: string; status: string; conversationId?: string | null; finalOutput?: Record<string, unknown> | null; agentStartedAt?: string | null; agentDurationMs?: number | null; changedFiles: Array<{ id: string; path: string; operation: string; sequence: number }> };
-type MultiAgentTask = { id: string; agentId: string; title: string; request: string; status: string; workspacePath: string; members: MultiAgentMemberData[]; messages: MultiAgentMessage[]; currentSpeakerId?: string | null; createdAt: string; updatedAt: string };
+type MultiAgentTask = { id: string; agentId: string; title: string; request: string; status: string; workspacePath: string; executionLimit: number; executionCount: number; members: MultiAgentMemberData[]; messages: MultiAgentMessage[]; currentSpeakerId?: string | null; createdAt: string; updatedAt: string };
 type ConversationStreamEvent =
   | { type: "reasoning.started"; stepId: string }
   | { type: "run.started"; runId: string }

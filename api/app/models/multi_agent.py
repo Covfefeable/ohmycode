@@ -54,6 +54,8 @@ class MultiAgentTask(db.Model):
     title: Mapped[str] = mapped_column(String(240))
     request: Mapped[str] = mapped_column(Text)
     status: Mapped[str] = mapped_column(String(32), default="draft", index=True)
+    execution_limit: Mapped[int] = mapped_column(Integer, default=12)
+    execution_count: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()

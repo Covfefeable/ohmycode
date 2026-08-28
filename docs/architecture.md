@@ -314,6 +314,9 @@ Execution model:
 
 - Only one node has the active Turn at a time.
 - The host node can use `finish_collaboration` to end the task.
+- Each task persists an execution limit and the number of node Turns started.
+  At the limit, delegation stops and the host receives one final Turn that can
+  only summarize the available results with `finish_collaboration`.
 - Any node can use `agent_message` to post to the mailbox and hand the active
   Turn to another node by exact UUID.
 - The mailbox is injected as a system message into the model payload.

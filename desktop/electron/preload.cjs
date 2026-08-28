@@ -15,7 +15,7 @@ contextBridge.exposeInMainWorld("ohmycode", {
     update: (agentId, payload) => ipcRenderer.invoke("multi-agents:update", agentId, payload),
     delete: (agentId) => ipcRenderer.invoke("multi-agents:delete", agentId),
     selectWorkspace: () => ipcRenderer.invoke("multi-agents:select-workspace"),
-    createTask: (agentId, request, workspacePath) => ipcRenderer.invoke("multi-agents:create-task", agentId, request, workspacePath),
+    createTask: (agentId, request, workspacePath, executionLimit) => ipcRenderer.invoke("multi-agents:create-task", agentId, request, workspacePath, executionLimit),
     getTask: (taskId) => ipcRenderer.invoke("multi-agents:get-task", taskId),
     deleteTask: (taskId) => ipcRenderer.invoke("multi-agents:delete-task", taskId),
     runTask: (taskId, requestId) => ipcRenderer.invoke("multi-agents:run-task", taskId, requestId),

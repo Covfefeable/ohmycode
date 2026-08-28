@@ -19,7 +19,7 @@ export const createMultiAgent = (payload: { name: string; description: string; d
 export const updateMultiAgent = (agentId: string, payload: Partial<MultiAgentSummary>): Promise<MultiAgentSummary> => apiRequest(`/api/multi-agents/${agentId}`, { method: "PATCH", body: JSON.stringify(payload) });
 export const deleteMultiAgent = (agentId: string): Promise<void> => apiRequest(`/api/multi-agents/${agentId}`, { method: "DELETE" });
 export async function selectMultiAgentWorkspace(): Promise<string | null> { const result = await dialog.showOpenDialog({ properties: ["openDirectory"] }); return result.canceled || !result.filePaths[0] ? null : path.resolve(result.filePaths[0]); }
-export async function createMultiAgentTask(agentId: string, request: string, workspacePath: string): Promise<MultiAgentTask> {
+export async function createMultiAgentTask(agentId: string, request: string, workspacePath: string, executionLimit: number): Promise<MultiAgentTask> {
   const resolvedPath = path.resolve(workspacePath);
   const workspace = await stat(resolvedPath).catch(() => null);
   if (!workspace?.isDirectory()) throw new ApiError(422, "workspace_not_found");
@@ -29,6 +29,7 @@ export async function createMultiAgentTask(agentId: string, request: string, wor
       request: request.trim(),
       workspacePath: resolvedPath,
       workspaceName: path.basename(resolvedPath),
+      executionLimit,
     }),
   });
 }

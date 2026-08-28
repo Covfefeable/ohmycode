@@ -19,7 +19,7 @@ export function registerMultiAgentIpc(): void {
   ipcMain.handle("multi-agents:update", (_event, agentId: string, payload) => updateMultiAgent(agentId, payload));
   ipcMain.handle("multi-agents:delete", (_event, agentId: string) => deleteMultiAgent(agentId));
   ipcMain.handle("multi-agents:select-workspace", selectMultiAgentWorkspace);
-  ipcMain.handle("multi-agents:create-task", (_event, agentId: string, request: string, workspacePath: string) => createMultiAgentTask(agentId, request, workspacePath));
+  ipcMain.handle("multi-agents:create-task", (_event, agentId: string, request: string, workspacePath: string, executionLimit: number) => createMultiAgentTask(agentId, request, workspacePath, executionLimit));
   ipcMain.handle("multi-agents:get-task", (_event, taskId: string) => getMultiAgentTask(taskId));
   ipcMain.handle("multi-agents:delete-task", (_event, taskId: string) => deleteMultiAgentTask(taskId));
   ipcMain.handle("multi-agents:run-task", (event, taskId: string, requestId: string) =>

@@ -98,8 +98,10 @@ export function MultiAgentPage() {
         open={execution.runDialogOpen && Boolean(workspace.selectedAgentId)}
         description={execution.runDescription}
         workspacePath={execution.runWorkspacePath}
+        executionLimit={execution.runExecutionLimit}
         onDescriptionChange={execution.setRunDescription}
         onWorkspaceChange={execution.setRunWorkspacePath}
+        onExecutionLimitChange={execution.setRunExecutionLimit}
         onClose={() => execution.setRunDialogOpen(false)}
         onRun={() => void execution.runCollaboration()}
       />

@@ -122,6 +122,8 @@ export const zhCN = {
     welcomeDescriptionChat: "创建主持人和专业角色，让 Agent 在同一个群聊中依次协作。",
     run: "运行",
     runNewTask: "在新目录运行",
+    executionLimit: "执行上限",
+    executionLimitHint: "达到上限后将停止继续委派，并强制主持人汇总已有结果。",
     saveTemplate: "保存协作",
     agentNode: "Agent 节点",
     nodeName: "名称",

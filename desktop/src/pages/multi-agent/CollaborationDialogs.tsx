@@ -36,8 +36,10 @@ type RunProps = {
   open: boolean;
   description: string;
   workspacePath: string;
+  executionLimit: number;
   onDescriptionChange(value: string): void;
   onWorkspaceChange(value: string): void;
+  onExecutionLimitChange(value: number): void;
   onClose(): void;
   onRun(): void;
 };
@@ -53,6 +55,7 @@ export function RunTaskDialog(props: RunProps) {
       <label>{t("multiAgent.workspaceDirectory")}<button className={styles.directoryPicker} onClick={() => void window.ohmycode.multiAgents.selectWorkspace().then((value) => { if (value) props.onWorkspaceChange(value); })}>
         <FolderOpen /><span>{props.workspacePath || t("multiAgent.chooseDirectory")}</span>
       </button></label>
+      <label>{t("multiAgent.executionLimit")}<input type="number" min={2} max={100} value={props.executionLimit} onChange={(event) => props.onExecutionLimitChange(Math.max(2, Math.min(100, Number(event.target.value) || 2)))} /><small>{t("multiAgent.executionLimitHint")}</small></label>
       <footer>
         <button onClick={props.onClose}>{t("multiAgent.cancel")}</button>
         <button className={styles.primary} disabled={!props.description.trim() || !props.workspacePath} onClick={props.onRun}>{t("multiAgent.start")}</button>

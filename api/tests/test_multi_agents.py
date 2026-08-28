@@ -314,3 +314,62 @@ def test_remote_service_treats_client_workspace_path_as_opaque():
         task = response.get_json()
         assert task["workspacePath"] == workspace_path
         assert task["title"] == "client-only-project"
+
+
+def test_execution_limit_forces_host_summary(tmp_path):
+    app = create_app("testing")
+    with app.app_context():
+        db.create_all()
+    with app.test_client() as client:
+        headers = _setup(client)
+        agent = _create_team(client, headers)
+        task = client.post(
+            f"/api/multi-agents/{agent['id']}/tasks",
+            headers=headers,
+            json={
+                "workspacePath": str(tmp_path),
+                "request": "Prepare a launch post",
+                "executionLimit": 2,
+            },
+        ).get_json()
+        host = next(member for member in task["members"] if member["isHost"])
+        writer = next(member for member in task["members"] if member["key"] == "writer")
+        reviewer = next(member for member in task["members"] if member["key"] == "reviewer")
+        assert task["executionLimit"] == 2
+        assert task["executionCount"] == 0
+
+        client.post(f"/api/multi-agents/tasks/{task['id']}/start", headers=headers)
+        client.post(f"/api/multi-agents/nodes/{host['id']}/start", headers=headers)
+        client.post(
+            f"/api/multi-agents/nodes/{host['id']}/messages",
+            headers=headers,
+            json={"toNodeId": writer["id"], "content": "Draft the post"},
+        )
+        client.post(f"/api/multi-agents/nodes/{writer['id']}/start", headers=headers)
+        forced_handoff = client.post(
+            f"/api/multi-agents/nodes/{writer['id']}/messages",
+            headers=headers,
+            json={"toNodeId": reviewer["id"], "content": "Review the draft"},
+        )
+        assert forced_handoff.status_code == 201
+        state = client.get(f"/api/multi-agents/tasks/{task['id']}", headers=headers).get_json()
+        assert state["executionCount"] == 2
+        assert state["currentSpeakerId"] == host["id"]
+
+        forced_start = client.post(
+            f"/api/multi-agents/nodes/{host['id']}/start", headers=headers
+        )
+        assert "must now call finish_collaboration" in forced_start.get_json()["prompt"]
+        delegation = client.post(
+            f"/api/multi-agents/nodes/{host['id']}/messages",
+            headers=headers,
+            json={"toNodeId": reviewer["id"], "content": "Continue reviewing"},
+        )
+        assert delegation.status_code == 409
+        finished = client.post(
+            f"/api/multi-agents/nodes/{host['id']}/finish",
+            headers=headers,
+            json={"content": "Best available launch post"},
+        ).get_json()
+        assert finished["status"] == "completed"
+        assert finished["executionCount"] == 3
