@@ -44,6 +44,8 @@ Flask HTTP API
      |
      +--> PostgreSQL
      +--> Redis
+     +--> MinIO
+     +--> Celery Worker / Beat
      +--> OpenAI-compatible LLM
 ```
 
@@ -205,11 +207,14 @@ Main service groups:
 | Group | Path | Responsibility |
 |-------|------|----------------|
 | Agent chat | `api/app/services/agent/` | Prepare context, stream model requests, resume after tools, context compaction. |
-| Local tool models | `api/app/services/agent/tools.py` | Tool schemas for `read_file`, `search_files`, `list_directory`, `apply_patch`, `terminal`, `agent_message`, `finish_collaboration`. |
+| Capability discovery | `api/app/services/capabilities/`, `retrieval/` | Synchronize Skills/MCP metadata, embeddings, vector search, and optional reranking. |
+| Tool contracts | `api/app/services/agent/tools.py` | Provider-facing schemas for built-in, capability, collaboration, and result-reader tools. Execution remains client-hosted. |
 | Multi-Agent | `api/app/services/multi_agents/` | Host scheduling, collaboration tasks, group chat, workspace change tracking. |
-| Conversations | `api/app/services/conversations.py` | Message CRUD, user prompt preparation. |
-| Auth / users | `api/app/services/auth.py`, `users.py` | JWT, registration, login. |
-| Settings | `api/app/services/settings.py` | Model configuration, encrypted credential storage. |
+| Conversations | `api/app/services/conversations/` | Message CRUD and user prompt preparation. |
+| Auth | `api/app/services/auth/` | JWT, registration, login, and token handling. |
+| Projects / sessions | `api/app/services/projects/`, `sessions/` | Workspace metadata and agent session lifecycle. |
+| Settings | `api/app/services/settings/`, `model_credentials.py` | Model configuration and encrypted credential storage. |
+| Object storage | `api/app/services/object_storage.py` | MinIO-backed avatars and synchronized Skill objects. |
 
 Expected failures use `ServiceError` with stable machine-readable codes.
 Unexpected failures are logged; streaming endpoints still terminate the SSE
@@ -324,11 +329,16 @@ Core tables:
 - `agent_runs`: turns with status, token usage, and error code.
 - `agent_events`: events inside a run, ordered by `(run_id, sequence)`.
 - `context_checkpoints`: conversation summaries used for context compression.
+- `agent_sessions`: persisted agent session state.
+- `mcp_servers`: user MCP configuration and synchronized metadata.
+- `retrieval_documents`: Capability search documents and pgvector embeddings.
 - `multi_agents`, `multi_agent_tasks`, `multi_agent_nodes`,
   `multi_agent_messages`, `workspace_changes`: collaboration state.
 
 Redis is used for service health checks, Celery broker/result transport, and
 distributed locks around scheduled capability-index reconciliation.
+MinIO owns binary/object payloads such as avatars and synchronized Skills;
+PostgreSQL remains the source of truth for their metadata.
 
 ## Environment boundary
 
@@ -339,23 +349,25 @@ Remote deployments expose only Nginx on the configured HTTP/HTTPS ports. Nginx
 proxies `/api` to Flask on the internal Compose network and disables buffering
 for streaming responses. Flask, PostgreSQL, Redis, and MinIO are not published
 to the host. The production API validates that `SECRET_KEY` and
-`JWT_SECRET_KEY` are independent, random, and at least 32 characters. Clients
-connect via HTTPS in production.
+`JWT_SECRET_KEY` are independent, random, and at least 32 characters. Release
+clients should connect via HTTPS; the current plain-HTTP default remains a
+release blocker tracked below.
 
 ## Remaining work
 
-The major architectural layers described in earlier drafts are implemented.
-The remaining item is:
+The major architecture layers are implemented. The next structural priorities
+are tracked in [`issues.md`](issues.md):
 
-5. **Diff review and approval** before applying high-risk file changes. The
-   current `apply_patch` tool executes immediately after the target files have
-   been inspected. A future layer should queue pending patches, render a diff
-   in the UI, and only write them after explicit user approval.
-
-Additional known areas for future architecture work:
-
-- **Execution service**: for resilient background tasks, consider extracting
-  the Agent Loop from Flask HTTP routes into a worker backed by Redis or a
-  persistent queue, with the API acting as coordinator.
-- **Diff review UI**: pending patch queue, side-by-side diff rendering, and
-  approval/rejection actions in the Renderer.
+1. **Diff review and approval**: `apply_patch` currently writes immediately
+   after inspection. High-risk changes need a pending-patch model, review UI,
+   and explicit approve/reject actions before mutation.
+2. **Durable execution coordination**: a live Electron host can recover bounded
+   transport failures, but long-running model execution still depends on the
+   Flask request/process lifecycle. A persistent queue or execution service
+   should own leases, retries, cancellation, and idempotent resume.
+3. **Release security**: production HTTPS, desktop code signing/notarization,
+   secret rotation, dependency scanning, and backup/restore procedures need a
+   documented release gate.
+4. **Cross-host end-to-end coverage**: add automated Desktop/API and Mobile/API
+   flows for streaming, tool resume, interruption/recovery, capability loading,
+   and migrations. Current coverage is strongest at unit and smoke-test level.

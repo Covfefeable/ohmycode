@@ -4,12 +4,19 @@ OhMyCode 是一个桌面优先的 Code Agent 工作空间，使用 Electron、Re
 PostgreSQL 和 Redis 构建。它支持 OpenAI-compatible 模型、流式对话、持久终端、
 文件工具、上下文压缩以及主持人调度的 Multi-Agent 协作。
 
+当前仓库同时包含可运行的桌面端、Expo 移动端、独立 API 服务和生产 Compose。
+项目仍处于 `0.1.0` 阶段；核心执行链路已经落地，但高风险写入审批、后台任务韧性、
+发布安全和端到端测试仍是后续重点。详细边界见
+[`docs/architecture.md`](docs/architecture.md)，当前改进清单见
+[`docs/issues.md`](docs/issues.md)。
+
 ## 技术栈
 
 - 客户端：Electron、React、TypeScript、Vite、react-i18next
 - Agent Runtime：Electron Main 常驻运行时、PTY 终端、文件工具
 - 服务端：Python 3.12、Flask、SQLAlchemy、JWT
 - 基础设施：PostgreSQL、Redis、Docker Compose
+- 检索与异步任务：pgvector、Celery、MinIO
 - 模型协议：OpenAI-compatible Chat Completions，SSE 流式响应
 
 ## 目录结构
@@ -60,6 +67,9 @@ flowchart LR
     MODEL[OpenAI-compatible LLM]
     DB[(PostgreSQL)]
     CACHE[(Redis)]
+    OBJECT[(MinIO)]
+    WORKER[Celery Worker / Beat]
+    MOBILE[Expo Mobile<br/>移动安全工具]
 
     UI <--> IPC
     IPC <--> RT
@@ -69,6 +79,10 @@ flowchart LR
     API <-->|Streaming| MODEL
     API <--> DB
     API <--> CACHE
+    API <--> OBJECT
+    WORKER <--> DB
+    WORKER <--> CACHE
+    MOBILE <-->|HTTP + SSE| API
 ```
 
 职责边界：
@@ -77,7 +91,12 @@ flowchart LR
 - 共享 Agent Runtime 负责 Turn 与 Tool Loop；Desktop Runtime Host 绑定 IPC、本地工具和终端会话。
 - Event Journal 为每个 Turn 分配单调递增序号，支持重新订阅和增量重放。
 - Flask 负责认证、配置、项目数据、消息持久化、上下文构造和模型 Agent Loop。
-- PostgreSQL 保存用户、项目、会话、消息、运行记录和协作数据；Redis 当前纳入服务健康检查，并为后续缓存和临时协调预留。
+- PostgreSQL 保存用户、项目、会话、消息、运行记录和协作数据。
+- Redis 提供健康检查、Celery broker/result transport，以及 Capability Embedding
+  补偿任务的分布式锁。
+- MinIO 保存头像和同步 Skill 等对象；pgvector 保存 Capability Embedding 并支持检索。
+- 移动端复用共享 Runtime，但只注册任务计划、Skill、HTTP MCP 和长工具结果读取等
+  移动安全能力，不暴露本地文件、终端或 stdio MCP。
 
 ## Thread / Turn / Item
 
@@ -168,6 +187,12 @@ cp api/.env.example api/.env
 cp desktop/.env.example desktop/.env
 ```
 
+从仓库根目录安装 JavaScript workspace 依赖：
+
+```bash
+pnpm install --frozen-lockfile
+```
+
 `api/.env` 中的 `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY` 必须分别与
 `docker/.env` 中的 `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` 保持一致；否则头像和 Skill
 对象上传会返回 `object_storage_unavailable`。复制示例后如果修改了一侧，也要同步修改另一侧。
@@ -223,7 +248,6 @@ Worker 负责执行异步任务，Beat 负责定时投递存量 Capability Embed
 
 ```bash
 cd desktop
-pnpm install
 pnpm dev
 ```
 
@@ -349,15 +373,21 @@ cd api
 uv run ruff check app tests
 uv run pytest
 
-cd desktop
-pnpm test:runtime
+cd ..
+pnpm check:boundaries
 pnpm typecheck
-pnpm lint
-pnpm build
+pnpm --dir desktop test:runtime
+pnpm --dir desktop test:file-tools
+pnpm --dir desktop lint
+pnpm --dir desktop build
+pnpm --dir mobile lint
 
 docker compose --env-file docker/.env.example -f docker/docker-compose.yml config
 docker compose --env-file docker/.env.example -f docker/docker-compose.dev.yml config
 ```
+
+根目录 `pnpm typecheck` 已覆盖共享 packages、Desktop 和 Mobile 的类型检查；涉及运行时、
+持久化、IPC、认证、迁移或文件工具的变更，还应执行相应专项测试和受影响应用的完整检查。
 
 ## 开发约束
 

@@ -1,26 +1,60 @@
-## 已修复
+# Project backlog
 
-1. [x] 协作完成后，普通消息唤起主持人，`@` 消息唤起目标成员，并保留已有群聊。
-2. [x] 单 Agent 发送消息或进入编辑态时恢复贴底。
-3. [x] 标题生成使用隔离提示词、数据边界和独立输出长度限制。
-4. [x] MCP / Skill 变更会主动刷新所有 Prompt Editor 的能力选项。
-5. [x] MCP 保存后由 Electron 后台刷新工具元数据；`stdio` 仍在本机执行。
-6. [x] 本地 API 与 MinIO 凭据已同步，并在开发文档中明确配置约束。
-7. [x] 模型测试改为删除按钮左侧的图标操作，补齐 Tooltip、Hover 和 Loading 状态。
+This file records current engineering work, not completed issue history. Keep
+items outcome-oriented and remove or move them to release notes after delivery.
 
+## P0 — release blockers
 
-## 本轮已修复
-1. [x] 移动端预览的时候，登录页流动效果没有，是纯色的
-2. [x] 登陆注册样式参照桌面版，文案要一致，onmycode的my要是绿色，左上角的ohmycode也要改，右边只有模式切换没有中英文切换，补上
-3. [x] 登录进去之后，我预期看到的页面是最近一次的聊天界面，而不是一个列表面板，需要改一下
-4. [x] 聊天界面对话顶部左边有一个悬浮图标，点击侧边展开侧栏，展示”新建对话“操作，”设置“操作，下面是最近对话列表
-5. [x] 设置页面有个人信息，模型配置两个菜单，点击可以进二级页面做配置
-6. [x] 发送消息后，不要展示一个loading图标，以光标形式展示，同桌面版一致
-7. [x] 回答时完全没有处理过程，耗时等，与桌面版不一致
-8. [x] 未使用markdown渲染
-9. [x] 不是流式输出，似乎不能调用工具
-10. [x] 自查其他样式不一致的地方
-11. [x] desktop：模型配置 key失效时候，测试连接依然通过，而且聊天对话时没有明确报错
-12. [x] "error": "posix_spawnp failed." 桌面端调用终端工具失败，在做工具抽离的时候估计产生了bug，其他地方也需要看看有没有问题
-13. [x] 手机端工具执行改为插件注册，支持按需搜索/加载同步 Skill 和 HTTP MCP；stdio、本地文件与终端仍仅限桌面端。
-14. [x] 长工具结果不再按头尾硬截断；完整结果保留在 Agent 事件中，Desktop 与 Mobile 均可按游标读取或搜索缺失段落，并明确区分上下文截断与上游来源可能截断。
+- [ ] Configure HTTPS for the production API and remove the default plain-HTTP
+  production endpoint from release builds.
+- [ ] Add Windows code signing and macOS Developer ID signing/notarization to
+  the release process.
+- [ ] Define backup, restore, and migration rollback procedures for PostgreSQL,
+  MinIO, and the local Runtime SQLite journal.
+- [ ] Add a release security gate covering secret validation, dependency/image
+  scanning, and verification that credentials cannot reach Renderer logs or
+  packaged artifacts.
+
+## P1 — runtime safety and resilience
+
+- [ ] Queue high-risk file patches for diff review and explicit approval before
+  applying them. Preserve the existing inspect-before-write and workspace-lock
+  invariants.
+- [ ] Move long-running model execution behind durable coordination with leases,
+  idempotent resume, cancellation, and retry ownership independent of one Flask
+  request/process.
+- [ ] Add end-to-end recovery tests for SSE disconnect, Electron restart,
+  duplicate tool results, terminal cleanup, and stop-versus-complete races.
+- [ ] Define retention and cleanup policies for Agent events, full tool results,
+  context checkpoints, local journals, and abandoned Celery jobs.
+
+## P1 — quality coverage
+
+- [ ] Add automated Desktop/API happy-path coverage from authentication through
+  streaming response, tool execution, persistence, and replay.
+- [ ] Add Mobile/API coverage for streaming, task plans, synchronized Skills,
+  HTTP MCP loading, result pagination, and unsupported-capability filtering.
+- [ ] Exercise database migrations against both an empty database and a snapshot
+  of the previous release in CI.
+- [ ] Add Compose health/startup tests for API, worker, beat, PostgreSQL, Redis,
+  MinIO, and Nginx SSE proxy behavior.
+
+## P2 — maintainability and product readiness
+
+- [ ] Generate or validate provider-facing tool schemas from the shared tool
+  contracts to reduce drift between Flask, Desktop, and Mobile definitions.
+- [ ] Add observability for Turn latency, provider failures, recovery attempts,
+  queue depth, embedding freshness, and storage health without logging secrets.
+- [ ] Document supported OpenAI-compatible provider differences and test a small
+  compatibility matrix for reasoning fields, tool calls, token usage, and SSE
+  termination.
+- [ ] Establish performance budgets for long conversations, event replay, large
+  tool results, capability retrieval, and mobile rendering.
+
+## Recently completed
+
+- [x] Shared plugin-based tool registry for Desktop and Mobile.
+- [x] Mobile streaming UI, Markdown rendering, task activity, synchronized
+  Skills, and HTTP MCP support.
+- [x] Complete tool-result persistence with bounded read/search access.
+- [x] Desktop terminal spawn regression and invalid model-key handling fixes.
