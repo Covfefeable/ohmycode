@@ -1,5 +1,6 @@
 import { Client } from "@modelcontextprotocol/sdk/client";
 import { createMcpToolName, matchesMcpServer, mcpToolServerToken } from "@ohmycode/tool-contracts";
+import { fetch as expoFetch } from "expo/fetch";
 // eslint-disable-next-line import/no-unresolved
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 
@@ -11,6 +12,15 @@ import type { McpServer } from "./types";
 type Session = { client: Client; server: McpServer };
 
 type CompatibleAbortSignal = AbortSignal & { throwIfAborted: () => void };
+
+const mobileMcpFetch: typeof globalThis.fetch = (input, init) => {
+  const url = typeof input === "string"
+    ? input
+    : input instanceof URL
+      ? input.href
+      : input.url;
+  return expoFetch(url, init as Parameters<typeof expoFetch>[1]);
+};
 
 function compatibleAbortSignal(signal?: AbortSignal): CompatibleAbortSignal | undefined {
   if (!signal) return undefined;
@@ -68,10 +78,13 @@ export class MobileMcpClient {
       // eslint-disable-next-line import/no-unresolved
       const { SSEClientTransport } = await import("@modelcontextprotocol/sdk/client/sse.js");
       transport = new SSEClientTransport(url, {
+        fetch: mobileMcpFetch,
         requestInit: { headers: server.configuration.headers },
+        eventSourceInit: { fetch: mobileMcpFetch },
       });
     } else {
       transport = new StreamableHTTPClientTransport(url, {
+        fetch: mobileMcpFetch,
         requestInit: { headers: server.configuration.headers },
       });
     }
