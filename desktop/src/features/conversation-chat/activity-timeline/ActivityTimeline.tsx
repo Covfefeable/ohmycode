@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from "react";
+import { mcpToolDisplayName } from "@ohmycode/tool-contracts";
 import { Check, ChevronDown, Circle, CircleX, FilePenLine, FileSearch, FileText, FolderOpen, Image, ListChecks, LoaderCircle, TerminalSquare, Wrench } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { MarkdownContent } from "../../../shared/ui/markdown-content";
@@ -123,7 +124,7 @@ function ToolStep({ step }: { step: Extract<AgentActivityStep, { type: "tool" }>
       <span>{genericTool
         ? t(step.status === "running" ? "agent.usingTool" : failed ? "agent.toolFailed" : "agent.usedTool")
         : t(step.status === "running" ? "agent.runningCommand" : failed ? "agent.commandFailed" : "agent.ranCommand")}</span>
-      <code>{genericTool ? step.tool : command}</code>
+      <code>{genericTool ? mcpToolDisplayName(step.tool) : command}</code>
       <ChevronDown className={`${styles.chevron} ${open ? styles.chevronOpen : ""}`} />
     </button>
     {open && result && <pre className={styles.output}>{result}</pre>}

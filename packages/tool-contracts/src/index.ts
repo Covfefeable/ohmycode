@@ -55,12 +55,18 @@ function stableToken(value: string, length: number): string {
 }
 
 export function createMcpToolName(serverId: string, toolName: string): string {
-  const label = toolName.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 10) || "tool";
+  const label = toolName.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 16) || "tool";
   return `mcp__${stableToken(serverId, 24)}__${label}_${stableToken(toolName, 16)}`;
 }
 
 export function mcpToolServerToken(toolName: string): string | undefined {
   return MCP_TOOL_PATTERN.exec(toolName)?.[1];
+}
+
+export function mcpToolDisplayName(toolName: string): string {
+  const match = MCP_TOOL_PATTERN.exec(toolName);
+  if (!match) return toolName;
+  return match[2].replace(/^_+|_+$/g, "") || "MCP tool";
 }
 
 export function matchesMcpServer(serverId: string, token: string): boolean {

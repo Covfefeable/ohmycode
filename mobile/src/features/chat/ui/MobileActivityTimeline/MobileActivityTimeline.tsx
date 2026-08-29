@@ -1,4 +1,5 @@
 import Feather from "@expo/vector-icons/Feather";
+import { mcpToolDisplayName } from "@ohmycode/tool-contracts";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, Text, View } from "react-native";
@@ -21,7 +22,7 @@ function Step({ step }: { step: Exclude<MobileActivityStep, { type: "run" | "tas
   const label = step.type === "reasoning"
     ? t(running ? "activity.thinking" : "activity.thought")
     : step.type === "tool"
-      ? t(running ? "activity.usingTool" : "activity.usedTool", { tool: step.tool })
+      ? t(running ? "activity.usingTool" : "activity.usedTool", { tool: mcpToolDisplayName(step.tool) })
       : t("activity.progress");
   const detail = step.type === "tool" ? formatValue(step.result ?? step.input) : step.content;
   return <View style={styles.step}>
