@@ -1,8 +1,11 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { Check, ChevronDown, Circle, CircleX, FilePenLine, FileSearch, FileText, FolderOpen, Image, ListChecks, LoaderCircle, TerminalSquare } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { MarkdownContent } from "../../../shared/ui/markdown-content";
 import styles from "./ActivityTimeline.module.css";
+
+const FileDiffViewer = lazy(() => import("./file-diff-viewer/FileDiffViewer").then((module) => ({ default: module.FileDiffViewer })));
+const FileContentViewer = lazy(() => import("./file-diff-viewer/FileDiffViewer").then((module) => ({ default: module.FileContentViewer })));
 
 function formatToolResult(value: unknown): string {
   if (value && typeof value === "object" && !Array.isArray(value)) {
@@ -62,6 +65,7 @@ function ToolStep({ step }: { step: Extract<AgentActivityStep, { type: "tool" }>
   const metadata = step.result && typeof step.result === "object" && !Array.isArray(step.result)
     ? step.result as Record<string, unknown>
     : {};
+  const changes = Array.isArray(metadata.changes) ? metadata.changes.filter((item): item is { path: string; original?: string; modified?: string; diffUnavailable?: "file_too_large" } => Boolean(item && typeof item === "object" && typeof (item as { path?: unknown }).path === "string")) : [];
   const resolvedFilePath = typeof metadata.path === "string" ? metadata.path : "";
   const requestedFilePath = typeof input.path === "string" ? input.path : patchTarget(input.patch);
   const clickableFilePath = resolvedFilePath || requestedFilePath;
@@ -119,7 +123,11 @@ function ToolStep({ step }: { step: Extract<AgentActivityStep, { type: "tool" }>
         : displayedFilePath ? <span>{displayedFilePath}</span> : null}
       <button className={styles.expandButton} type="button" aria-expanded={open} onClick={(event) => { event.stopPropagation(); setOpen((value) => !value); }}><ChevronDown className={`${styles.chevron} ${open ? styles.chevronOpen : ""}`} /></button>
     </div>
-    {open && result && <pre className={styles.output}>{result}</pre>}
+    {open && step.tool === "apply_patch" && !failed && changes.length > 0
+      ? <Suspense fallback={<div className={styles.diffLoading}>{t("agent.loadingDiff")}</div>}><FileDiffViewer changes={changes} /></Suspense>
+      : open && step.tool === "read_file" && !failed && result
+        ? <Suspense fallback={<div className={styles.diffLoading}>{t("agent.loadingFilePreview")}</div>}><FileContentViewer content={result} path={clickableFilePath} startLine={typeof input.startLine === "number" ? input.startLine : 1} /></Suspense>
+      : open && result && <pre className={styles.output}>{result}</pre>}
   </div>;
   return <div className={styles.step}>
     <button className={styles.stepHead} type="button" onClick={() => setOpen((value) => !value)}>

@@ -40,4 +40,5 @@
 .reasoning > :first-child { margin-top: 0; }
 .reasoning > :last-child { margin-bottom: 0; }
 .output { border-radius: var(--radius-sm); border-left: 0; background: var(--color-surface-deep); white-space: pre-wrap; overflow-wrap: anywhere; }
+.diffLoading { margin: 2px 8px var(--space-2) 30px; padding: var(--space-4); color: var(--color-text-dim); font-size: var(--font-sm); }
 @keyframes spin { to { transform: rotate(360deg); } }

@@ -63,5 +63,6 @@ if (boundedSearch.totalMatches !== 80 || boundedSearch.returnedMatches >= 80) th
 if (!rejectedUninspectedEdit) throw new Error("Patch accepted an existing file that was not read first");
 if (value !== "gamma\nbeta\n") throw new Error("Patch did not produce the expected file content");
 if (!patch.affectedPaths?.includes(join(await realpath(root), "demo.txt"))) throw new Error("Patch did not report the affected path");
+if (patch.changes?.[0]?.original !== "alpha\nbeta\n" || patch.changes?.[0]?.modified !== "gamma\nbeta\n") throw new Error("Patch did not preserve before/after content");
 
 process.stdout.write("File tools smoke test passed\n");

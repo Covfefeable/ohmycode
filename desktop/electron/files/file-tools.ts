@@ -10,6 +10,7 @@ const DEFAULT_SEARCH_RESULTS = 50;
 const MAX_SEARCH_RESULTS = 200;
 const DEFAULT_OUTPUT_CHARS = 8_000;
 const MAX_OUTPUT_CHARS = 32_000;
+const MAX_DIFF_CONTENT_CHARS = 512_000;
 
 function bounded(value: number | undefined, fallback: number, maximum: number): number {
   return Math.max(1, Math.min(value ?? fallback, maximum));
@@ -173,7 +174,7 @@ async function applyPatch(root: string, request: FileToolRequest, inspectedPaths
   const operations = parsePatch(String(request.patch ?? ""));
   const duplicates = operations.map((operation) => path.normalize(operation.path));
   if (new Set(duplicates).size !== duplicates.length) throw new Error("duplicate_patch_target");
-  const planned: Array<PatchOperation & { target: string; content?: string }> = [];
+  const planned: Array<PatchOperation & { target: string; original: string; content?: string }> = [];
   for (const operation of operations) {
     if (operation.kind === "add") {
       const target = await safeNewPath(root, operation.path);
@@ -183,14 +184,15 @@ async function applyPatch(root: string, request: FileToolRequest, inspectedPaths
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
       }
-      planned.push({ ...operation, target, content: operation.lines.map((line) => line.startsWith("+") ? line.slice(1) : line).join("\n") });
+      planned.push({ ...operation, target, original: "", content: operation.lines.map((line) => line.startsWith("+") ? line.slice(1) : line).join("\n") });
       continue;
     }
     const target = await safeExistingPath(root, operation.path);
     if (!(await stat(target)).isFile()) throw new Error(`not_a_file:${target}`);
     if (!inspectedPaths.has(target)) throw new Error(`inspection_required:${target}`);
-    const content = operation.kind === "update" ? applyUpdate(await readFile(target, "utf8"), operation.lines) : undefined;
-    planned.push({ ...operation, target, content });
+    const original = await readFile(target, "utf8");
+    const content = operation.kind === "update" ? applyUpdate(original, operation.lines) : undefined;
+    planned.push({ ...operation, target, original, content });
   }
   for (const operation of planned) {
     const { target } = operation;
@@ -206,7 +208,14 @@ async function applyPatch(root: string, request: FileToolRequest, inspectedPaths
     }
   }
   const affectedPaths = planned.map((operation) => operation.target);
-  return { operation: "apply_patch", path: affectedPaths[0] ?? root, pathKind: "file", affectedPaths, output: `Updated ${affectedPaths.length} file(s).`, agentInstructions: await loadAgentInstructions(root, affectedPaths[0] ?? root) };
+  const changes = planned.map((operation) => {
+    const modified = operation.kind === "delete" ? "" : operation.content ?? "";
+    if (operation.original.length + modified.length > MAX_DIFF_CONTENT_CHARS) {
+      return { path: operation.target, diffUnavailable: "file_too_large" as const };
+    }
+    return { path: operation.target, original: operation.original, modified };
+  });
+  return { operation: "apply_patch", path: affectedPaths[0] ?? root, pathKind: "file", affectedPaths, changes, output: `Updated ${affectedPaths.length} file(s).`, agentInstructions: await loadAgentInstructions(root, affectedPaths[0] ?? root) };
 }
 
 export async function executeFileTool(name: FileToolName, request: FileToolRequest, workspaceRoot?: string, inspectedPaths = new Set<string>(), allowedPaths = new Set<string>()): Promise<FileToolResult> {

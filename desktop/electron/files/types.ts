@@ -27,5 +27,11 @@ export type FileToolResult = {
   returnedMatches?: number;
   truncationHint?: string;
   affectedPaths?: string[];
+  changes?: Array<{
+    path: string;
+    original?: string;
+    modified?: string;
+    diffUnavailable?: "file_too_large";
+  }>;
   agentInstructions?: Array<{ path: string; content: string }>;
 };
