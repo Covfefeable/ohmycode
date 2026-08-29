@@ -1,8 +1,9 @@
 import { lazy, Suspense, useEffect, useState } from "react";
-import { Check, ChevronDown, Circle, CircleX, FilePenLine, FileSearch, FileText, FolderOpen, Image, ListChecks, LoaderCircle, TerminalSquare } from "lucide-react";
+import { Check, ChevronDown, Circle, CircleX, FilePenLine, FileSearch, FileText, FolderOpen, Image, ListChecks, LoaderCircle, TerminalSquare, Wrench } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { MarkdownContent } from "../../../shared/ui/markdown-content";
 import styles from "./ActivityTimeline.module.css";
+import { toolPresentation } from "./tool-presentation";
 
 const FileDiffViewer = lazy(() => import("./file-diff-viewer/FileDiffViewer").then((module) => ({ default: module.FileDiffViewer })));
 const FileContentViewer = lazy(() => import("./file-diff-viewer/FileDiffViewer").then((module) => ({ default: module.FileContentViewer })));
@@ -72,28 +73,12 @@ function ToolStep({ step }: { step: Extract<AgentActivityStep, { type: "tool" }>
   const imageReference = typeof input.imageUrl === "string" ? input.imageUrl : "";
   const projectId = typeof input.projectId === "string" ? input.projectId : undefined;
   const displayedFilePath = pathName(clickableFilePath || imageReference);
-  const fileTool = ["read_file", "apply_patch", "search_files", "list_directory", "view_image"].includes(step.tool);
-  const fileLabel = step.status === "running" ? t(({
-    read_file: "agent.readingFile",
-    apply_patch: "agent.editingFile",
-    search_files: "agent.searchingFiles",
-    list_directory: "agent.listingDirectory",
-    view_image: "agent.viewingImage",
-  })[step.tool] ?? "agent.usingFileTool") : t((failed ? {
-    read_file: "agent.readFileFailed",
-    apply_patch: "agent.editFileFailed",
-    search_files: "agent.searchFilesFailed",
-    list_directory: "agent.listDirectoryFailed",
-    view_image: "agent.viewImageFailed",
-  } : {
-    read_file: "agent.readFile",
-    apply_patch: "agent.editedFile",
-    search_files: "agent.searchedFiles",
-    list_directory: "agent.listedDirectory",
-    view_image: "agent.viewedImage",
-  })[step.tool] ?? "agent.usingFileTool");
-  const FileIcon = step.tool === "read_file" ? FileText : step.tool === "apply_patch" ? FilePenLine : step.tool === "search_files" ? FileSearch : step.tool === "view_image" ? Image : FolderOpen;
-  if (fileTool) return <div className={styles.step}>
+  const presentation = toolPresentation(step.tool);
+  const fileLabelKey = step.status === "running"
+    ? presentation.labels?.running
+    : failed ? presentation.labels?.failed : presentation.labels?.completed;
+  const FileIcon = presentation.icon === "file" ? FileText : presentation.icon === "edit" ? FilePenLine : presentation.icon === "search" ? FileSearch : presentation.icon === "image" ? Image : FolderOpen;
+  if (presentation.kind === "file") return <div className={styles.step}>
     <div
       className={styles.fileStepHead}
       role="button"
@@ -108,7 +93,7 @@ function ToolStep({ step }: { step: Extract<AgentActivityStep, { type: "tool" }>
     >
       {step.status === "running" ? <LoaderCircle className={styles.spinner} /> : failed ? <CircleX className={styles.failed} /> : <Check />}
       <FileIcon />
-      <span>{fileLabel}</span>
+      <span>{t(fileLabelKey ?? "agent.usingFileTool")}</span>
       {clickableFilePath
         ? <button
             className={styles.pathLink}
@@ -123,18 +108,22 @@ function ToolStep({ step }: { step: Extract<AgentActivityStep, { type: "tool" }>
         : displayedFilePath ? <span>{displayedFilePath}</span> : null}
       <button className={styles.expandButton} type="button" aria-expanded={open} onClick={(event) => { event.stopPropagation(); setOpen((value) => !value); }}><ChevronDown className={`${styles.chevron} ${open ? styles.chevronOpen : ""}`} /></button>
     </div>
-    {open && step.tool === "apply_patch" && !failed && changes.length > 0
+    {open && presentation.viewer === "file-diff" && !failed && changes.length > 0
       ? <Suspense fallback={<div className={styles.diffLoading}>{t("agent.loadingDiff")}</div>}><FileDiffViewer changes={changes} /></Suspense>
-      : open && step.tool === "read_file" && !failed && result
+      : open && presentation.viewer === "file-content" && !failed && result
         ? <Suspense fallback={<div className={styles.diffLoading}>{t("agent.loadingFilePreview")}</div>}><FileContentViewer content={result} path={clickableFilePath} startLine={typeof input.startLine === "number" ? input.startLine : 1} /></Suspense>
       : open && result && <pre className={styles.output}>{result}</pre>}
   </div>;
+  const genericTool = presentation.kind === "generic";
+  const GenericIcon = genericTool ? Wrench : TerminalSquare;
   return <div className={styles.step}>
     <button className={styles.stepHead} type="button" onClick={() => setOpen((value) => !value)}>
       {step.status === "running" ? <LoaderCircle className={styles.spinner} /> : failed ? <CircleX className={styles.failed} /> : <Check />}
-      <TerminalSquare />
-      <span>{step.status === "running" ? t("agent.runningCommand") : failed ? t("agent.commandFailed") : t("agent.ranCommand")}</span>
-      <code>{command}</code>
+      <GenericIcon />
+      <span>{genericTool
+        ? t(step.status === "running" ? "agent.usingTool" : failed ? "agent.toolFailed" : "agent.usedTool")
+        : t(step.status === "running" ? "agent.runningCommand" : failed ? "agent.commandFailed" : "agent.ranCommand")}</span>
+      <code>{genericTool ? step.tool : command}</code>
       <ChevronDown className={`${styles.chevron} ${open ? styles.chevronOpen : ""}`} />
     </button>
     {open && result && <pre className={styles.output}>{result}</pre>}

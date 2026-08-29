@@ -58,7 +58,7 @@ export function updateActivity(steps: AgentActivityStep[], event: ConversationSt
   } else if (event.type === "tool.requested") {
     for (const step of next) if (step.type === "reasoning" || step.type === "message") step.status = "completed";
     if (event.tool === "update_tasks") return next;
-    next.push({ id: event.callId, type: "tool", tool: event.tool, input: event.tool === "terminal" ? event.arguments as TerminalAction : JSON.stringify(event.arguments), status: "running", taskId: event.taskId });
+    next.push({ id: event.callId, type: "tool", tool: event.tool, input: event.arguments, status: "running", taskId: event.taskId });
   } else if (event.type === "tool.completed") {
     const step = next.find((item) => item.type === "tool" && item.id === event.callId);
     if (step?.type === "tool") { step.result = event.result; step.status = "completed"; }

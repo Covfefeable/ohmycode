@@ -6,6 +6,28 @@ import type {
   ToolResult,
 } from "@ohmycode/tool-contracts";
 
+export type ToolHandler = (call: ToolCall) => Promise<unknown> | unknown;
+
+export function defineToolPlugin(options: {
+  id: string;
+  definitions: readonly ToolDefinition[];
+  execute: ToolHandler;
+  handles?: (toolName: string) => boolean;
+  close?: () => Promise<void> | void;
+}): ToolPlugin {
+  const names = new Set(options.definitions.map((definition) => definition.name));
+  return {
+    id: options.id,
+    definitions: () => options.definitions,
+    handles: options.handles ?? ((toolName) => names.has(toolName)),
+    execute: async (call: ToolCall): Promise<ToolResult> => ({
+      callId: call.callId,
+      result: await options.execute(call),
+    }),
+    close: options.close,
+  };
+}
+
 export const TASK_PLAN_DEFINITION: ToolDefinition = {
   name: "update_tasks",
   description: "Create or update the task checklist for substantial work. Send the complete current snapshot.",

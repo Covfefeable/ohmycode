@@ -11,6 +11,7 @@ const MAX_REDIRECTS = 5;
 export type ViewImageArguments = { imageUrl: string; detail?: "low" | "high" };
 
 export type ViewImageResult = {
+  contentKind: "image";
   source: "local" | "remote";
   dataUrl: string;
   mimeType: string;
@@ -132,6 +133,7 @@ async function fetchRemote(url: string, detail?: "low" | "high"): Promise<ViewIm
     if (!mimeType || !SUPPORTED_MIME.has(mimeType)) throw new Error("view_image_not_an_image");
     const dimensions = imageDimensions(buffer, mimeType);
     return {
+      contentKind: "image",
       source: "remote",
       url: currentUrl.toString(),
       dataUrl: dataUrl(mimeType, buffer),
@@ -211,6 +213,7 @@ async function loadLocal(
   if (!mimeType || !SUPPORTED_MIME.has(mimeType)) throw new Error("view_image_not_an_image");
   const dimensions = imageDimensions(buffer, mimeType);
   return {
+    contentKind: "image",
     source: "local",
     path: target,
     dataUrl: dataUrl(mimeType, buffer),

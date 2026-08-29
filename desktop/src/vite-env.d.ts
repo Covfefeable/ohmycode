@@ -134,7 +134,7 @@ type ConversationStreamEvent =
   | { type: "context.usage"; usedTokens: number; contextLength: number; source: "estimated" | "provider" }
   | { type: "context.compaction.started" | "context.compaction.completed"; estimatedTokens: number; contextLength: number }
   | { type: "task.plan.updated"; tasks: AgentTask[] }
-  | { type: "tool.requested"; runId: string; callId: string; tool: "terminal" | "agent_message" | "finish_collaboration" | "view_image" | "read_file" | "search_files" | "list_directory" | "apply_patch" | "update_tasks"; arguments: TerminalAction | { imageUrl: string; detail?: "low" | "high" } | Record<string, unknown>; taskId?: string }
+  | { type: "tool.requested"; runId: string; callId: string; tool: string; arguments: TerminalAction | Record<string, unknown>; taskId?: string }
   | { type: "tool.completed"; callId: string; result: unknown };
 type AgentTask = import("@ohmycode/protocol").AgentTask;
 type RuntimeItem = import("@ohmycode/protocol").RuntimeItem;
@@ -150,7 +150,7 @@ type AgentActivityStep =
   | { id: string; type: "reasoning"; content: string; status: "running" | "completed"; taskId?: string }
   | { id: string; type: "message"; content: string; status: "running" | "completed"; taskId?: string }
   | { id: string; type: "context"; status: "running" | "completed"; taskId?: string }
-  | { id: string; type: "tool"; tool: string; input: string | TerminalAction; result?: unknown; status: "running" | "completed"; taskId?: string };
+  | { id: string; type: "tool"; tool: string; input: unknown; result?: unknown; status: "running" | "completed"; taskId?: string };
 type MessageAttachment = { id: string; name: string; path: string; size: number; mimeType: string };
 type LocalMessage = { id: string; role: "user" | "assistant"; content: string; attachments?: MessageAttachment[]; reasoning?: string | null; activity?: AgentActivityStep[] | null; agentDurationMs?: number | null; agentStartedAt?: string; createdAt: string };
 type LocalConversation = { id: string; title: string; createdAt: string; messages?: LocalMessage[]; contextUsage?: { usedTokens: number; contextLength: number; source: "provider" } | null };

@@ -141,6 +141,23 @@ added to subsequent model requests only after `load_capability` returns its
 tool definitions. Once loaded, that selected MCP remains available to later
 Turns in the same Thread; unrelated MCP servers remain absent.
 
+Built-in Desktop tools live as independent modules under
+`desktop/electron/runtime/tools/`. Each module owns its provider definition,
+argument normalization, execution state, resource cleanup, and any workspace
+locking it requires. `desktop-tool-registry.ts` only selects modules for the
+current context, registers them, applies the common repeated-failure policy,
+and publishes completion events. A normal new tool therefore requires:
+
+1. Create a module with `defineToolPlugin({ id, definitions, execute })`.
+2. Register that module once in `DesktopToolRegistry` (and independently in
+   `MobileToolRegistry` only if the mobile platform can safely support it).
+3. Optionally register a specialized Renderer presentation; otherwise the
+   generic tool activity card is used automatically.
+
+Tools returning model-consumable images declare `contentKind: "image"` in the
+result. Flask handles that result contract rather than checking a specific tool
+name, so future image tools do not require another provider-loop branch.
+
 Complete tool outputs remain persisted in Agent events. When an output is too
 large for the current model context, the tool message contains a bounded prefix
 and a `resultRef` instead of silently preserving only its head and tail. The

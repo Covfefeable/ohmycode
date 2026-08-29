@@ -24,8 +24,6 @@ from .task_plan import active_task_id, latest_task_plan, normalize_task_plan
 from .tool_results import render_tool_result, slice_to_token_budget
 from .tool_snapshot import validate_tool_snapshot
 
-VIEW_IMAGE_TOOL_NAME = "view_image"
-
 
 def _tool_result_content(run: AgentRun, item: dict, token_budget: int) -> str:
     serialized = json.dumps(item["result"], ensure_ascii=False)
@@ -75,15 +73,10 @@ def _tool_history(
     run: AgentRun, after_sequence: int = 0, token_budget: int = TOOL_RESULT_TOKEN_BUDGET
 ) -> list[dict]:
     history = []
-    tool_names: dict[str, str] = {}
     for event in run.events:
         if event.sequence <= after_sequence:
             continue
         if event.event_type == "tool.requested":
-            tool_names = {
-                call["id"]: str(call.get("function", {}).get("name") or "")
-                for call in event.payload["toolCalls"]
-            }
             history.append(
                 {
                     "role": "assistant",
@@ -95,15 +88,14 @@ def _tool_history(
             image_messages = []
             for result in event.payload["results"]:
                 model_result = result["result"]
-                if tool_names.get(result["callId"]) == VIEW_IMAGE_TOOL_NAME:
-                    image_parts = _image_tool_content(result["result"])
-                    if image_parts is not None:
-                        model_result = {
-                            key: value
-                            for key, value in result["result"].items()
-                            if key != "dataUrl"
-                        }
-                        image_messages.append({"role": "user", "content": image_parts})
+                image_parts = _image_tool_content(result["result"])
+                if image_parts is not None:
+                    model_result = {
+                        key: value
+                        for key, value in result["result"].items()
+                        if key != "dataUrl"
+                    }
+                    image_messages.append({"role": "user", "content": image_parts})
                 content = _tool_result_content(
                     run, {**result, "result": model_result}, token_budget
                 )
@@ -121,6 +113,8 @@ def _tool_history(
 def _image_tool_content(result: object) -> list[dict] | None:
     if not isinstance(result, dict):
         return None
+    if result.get("contentKind") != "image":
+        return None
     data_url = result.get("dataUrl")
     if not isinstance(data_url, str) or not data_url.startswith("data:image/"):
         return None
@@ -131,7 +125,7 @@ def _image_tool_content(result: object) -> list[dict] | None:
     return [
         {
             "type": "text",
-            "text": f"Image returned by view_image: {json.dumps(text_payload, ensure_ascii=False)}",
+            "text": f"Image returned by a tool: {json.dumps(text_payload, ensure_ascii=False)}",
         },
         {"type": "image_url", "image_url": image_url},
     ]

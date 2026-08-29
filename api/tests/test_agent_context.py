@@ -19,7 +19,7 @@ from app.models import (
     User,
 )
 from app.services.agent import turn_summaries
-from app.services.agent.chat import _tool_result_content
+from app.services.agent.chat import _image_tool_content, _tool_result_content
 from app.services.agent.context import (
     COMPACTION_RATIO,
     _protected_run_ids,
@@ -35,6 +35,18 @@ def test_context_defaults_and_multilingual_token_estimate():
     assert COMPACTION_RATIO == 0.70
     assert estimate_tokens("a" * 400) == 100
     assert estimate_tokens("你好世界") == 4
+
+
+def test_image_tool_result_uses_declared_content_kind():
+    data_url = "data:image/png;base64,iVBORw0KGgo="
+    assert _image_tool_content({"contentKind": "image", "dataUrl": data_url}) == [
+        {
+            "type": "text",
+            "text": 'Image returned by a tool: {"contentKind": "image"}',
+        },
+        {"type": "image_url", "image_url": {"url": data_url}},
+    ]
+    assert _image_tool_content({"dataUrl": data_url}) is None
 
 
 def test_provider_chunk_uses_sdk_serialization():

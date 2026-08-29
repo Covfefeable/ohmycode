@@ -1,5 +1,6 @@
 import {
   CapabilityPlugin,
+  defineToolPlugin,
   TASK_PLAN_DEFINITION,
   ToolRegistry,
   ToolResultReaderPlugin,
@@ -9,7 +10,6 @@ import type {
   ToolCall,
   ToolDefinition,
   ToolExecutor,
-  ToolPlugin,
   ProviderToolDefinition,
   ToolResult,
 } from "@ohmycode/tool-contracts";
@@ -21,22 +21,6 @@ import {
 } from "@/shared/capabilities/mobile-capabilities";
 import { MobileMcpClient } from "@/shared/capabilities/mobile-mcp";
 import { authenticatedRequest } from "@/shared/api/api-client";
-
-function plugin(
-  id: string,
-  definitions: ToolDefinition[],
-  handles: (toolName: string) => boolean,
-  execute: (call: ToolCall) => Promise<unknown> | unknown,
-  close?: () => Promise<void>,
-): ToolPlugin {
-  return {
-    id,
-    definitions: () => definitions,
-    handles,
-    execute: async (call) => ({ callId: call.callId, result: await execute(call) }),
-    close,
-  };
-}
 
 export class MobileToolRegistry implements ToolExecutor {
   private readonly registry = new ToolRegistry();
@@ -53,12 +37,11 @@ export class MobileToolRegistry implements ToolExecutor {
       this.dynamicDefinitions.set(parsed.name, parsed);
     }
     const mcp = new MobileMcpClient();
-    this.registry.register(plugin(
-      "task-plan",
-      [TASK_PLAN_DEFINITION],
-      (toolName) => toolName === "update_tasks",
-      () => ({ ok: true }),
-    ));
+    this.registry.register(defineToolPlugin({
+      id: "task-plan",
+      definitions: [TASK_PLAN_DEFINITION],
+      execute: () => ({ ok: true }),
+    }));
     this.registry.register(new CapabilityPlugin({
       search: (query) => searchMobileCapabilities(query, signal),
       load: async (id) => {
