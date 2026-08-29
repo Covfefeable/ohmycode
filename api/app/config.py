@@ -9,6 +9,13 @@ def _float_env(name: str, default: float) -> float:
         return default
 
 
+def _int_env(name: str, default: int) -> int:
+    try:
+        return int(os.getenv(name, str(default)))
+    except ValueError:
+        return default
+
+
 class BaseConfig:
     SECRET_KEY = os.getenv("SECRET_KEY", "development-only-secret")
     JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", SECRET_KEY)
@@ -21,6 +28,7 @@ class BaseConfig:
     REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
     CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", REDIS_URL)
     CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", REDIS_URL)
+    AGENT_EVENT_RETENTION_DAYS = max(90, _int_env("AGENT_EVENT_RETENTION_DAYS", 90))
     MINIO_ENDPOINT = os.getenv("MINIO_ENDPOINT", "localhost:9000")
     MINIO_ACCESS_KEY = os.getenv("MINIO_ACCESS_KEY", "ohmycode")
     MINIO_SECRET_KEY = os.getenv("MINIO_SECRET_KEY", "ohmycode-development-secret")

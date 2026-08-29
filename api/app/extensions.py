@@ -1,4 +1,5 @@
 from celery import Celery, Task
+from celery.schedules import crontab
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from flask_migrate import Migrate
@@ -36,9 +37,17 @@ def init_celery(app):
             "reconcile-capability-embeddings": {
                 "task": "app.tasks.capability_embedding.reconcile_capability_embeddings",
                 "schedule": 300.0,
-            }
+            },
+            "cleanup-expired-agent-events": {
+                "task": "app.tasks.event_retention.cleanup_expired_agent_events",
+                "schedule": crontab(hour=3, minute=30),
+            },
         },
-        imports=("app.tasks.capability_embedding", "app.tasks.turn_summary"),
+        imports=(
+            "app.tasks.capability_embedding",
+            "app.tasks.event_retention",
+            "app.tasks.turn_summary",
+        ),
     )
     celery.set_default()
     app.extensions["celery"] = celery

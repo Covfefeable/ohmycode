@@ -244,7 +244,10 @@ uv run celery -A celery_app:celery beat --loglevel=info
 ```
 
 Worker 负责执行异步任务，Beat 负责定时投递存量 Capability Embedding
-补偿任务；两者都依赖前面启动的 Redis。
+补偿和 AgentEvent 清理任务；两者都依赖前面启动的 Redis。AgentEvent 默认至少保留
+90 天，且只会清理已有完整运行摘要、摘要覆盖到最后事件并且没有任何持久化内容引用
+其 `resultRef/runId` 的历史。可通过 `AGENT_EVENT_RETENTION_DAYS` 延长保留期，但不能缩短到
+90 天以下。
 
 启动桌面客户端：
 
