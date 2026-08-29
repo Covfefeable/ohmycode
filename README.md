@@ -370,6 +370,9 @@ curl http://127.0.0.1:${EXPOSE_HTTP_PORT:-8765}/api/health
 
 ## 验证
 
+GitHub Actions 会在推送到 `main` 或创建 Pull Request 时并行执行 API、客户端、空库迁移和
+Compose 校验。正式安装包签名与发布仍使用独立的发布流程，不在普通 CI 中生成。
+
 ```bash
 cd api
 uv run ruff check app tests

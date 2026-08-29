@@ -1,0 +1,109 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  api:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+          enable-cache: true
+          cache-dependency-glob: api/uv.lock
+      - name: Install API dependencies
+        working-directory: api
+        run: uv sync --frozen
+      - name: Ruff
+        working-directory: api
+        run: uv run ruff check app tests
+      - name: Pytest
+        working-directory: api
+        run: uv run pytest
+
+  clients:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.15.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Shared boundaries and typecheck
+        run: pnpm typecheck
+      - name: Runtime tests
+        run: pnpm --dir desktop test:runtime
+      - name: File tool tests
+        run: pnpm --dir desktop test:file-tools
+      - name: Desktop lint
+        run: pnpm --dir desktop lint
+      - name: Desktop build
+        run: pnpm --dir desktop build
+      - name: Mobile lint
+        run: pnpm --dir mobile lint
+      - name: Expo dependency compatibility
+        run: pnpm --dir mobile exec expo install --check
+
+  migrations:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: ohmycode
+          POSTGRES_PASSWORD: ci-password
+          POSTGRES_DB: ohmycode
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ohmycode -d ohmycode"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      APP_ENV: development
+      SECRET_KEY: ci-secret-key-that-is-at-least-32-characters
+      JWT_SECRET_KEY: ci-jwt-secret-that-is-different-and-32-characters
+      DATABASE_URL: postgresql+psycopg://ohmycode:ci-password@127.0.0.1:5432/ohmycode
+      REDIS_URL: redis://127.0.0.1:6379/0
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+          enable-cache: true
+          cache-dependency-glob: api/uv.lock
+      - name: Install API dependencies
+        working-directory: api
+        run: uv sync --frozen
+      - name: Upgrade empty database to head
+        working-directory: api
+        run: uv run flask --app manage:app db upgrade
+      - name: Assert a single migration head
+        working-directory: api
+        run: test "$(uv run flask --app manage:app db heads | grep -c '(head)')" -eq 1
+
+  compose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate production Compose
+        run: docker compose --env-file docker/.env.example -f docker/docker-compose.yml config --quiet
+      - name: Validate development Compose
+        run: docker compose --env-file docker/.env.example -f docker/docker-compose.dev.yml config --quiet
