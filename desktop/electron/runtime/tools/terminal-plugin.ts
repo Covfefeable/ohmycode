@@ -2,7 +2,7 @@ import { defineToolPlugin } from "@ohmycode/agent-runtime";
 import type { ToolDefinition, ToolPlugin } from "@ohmycode/tool-contracts";
 import { acquireWorkspaceWriteLock } from "../../multi-agents/workspace-write-lock.js";
 import { recordWorkspaceChanges, snapshotWorkspace } from "../../multi-agents/workspace-changes.js";
-import { executeTerminalAction } from "../../terminal/terminal-manager.js";
+import { executeTerminalAction, onTerminalExit } from "../../terminal/terminal-manager.js";
 import type { TerminalAction } from "../../terminal/types.js";
 import type { DesktopTurnExecution } from "../desktop-execution-adapter.js";
 import type { DesktopExecutionContext } from "../types.js";
@@ -29,7 +29,6 @@ export function createTerminalPlugin(options: {
   workspaceRoot?: string;
   executionContext?: DesktopExecutionContext;
 }): ToolPlugin {
-  const leasedTerminalIds = new Set<string>();
   return defineToolPlugin({
     id: "terminal",
     definitions: [TERMINAL_DEFINITION],
@@ -79,7 +78,10 @@ export function createTerminalPlugin(options: {
         const running = items.find((item) => item.status === "running");
         if (running) {
           terminalWriteLeases.set(running.terminalId, release);
-          leasedTerminalIds.add(running.terminalId);
+          onTerminalExit(running.terminalId, () => {
+            terminalWriteLeases.get(running.terminalId)?.();
+            terminalWriteLeases.delete(running.terminalId);
+          });
         } else {
           release();
         }
@@ -88,17 +90,9 @@ export function createTerminalPlugin(options: {
         if (item.status !== "running") {
           terminalWriteLeases.get(item.terminalId)?.();
           terminalWriteLeases.delete(item.terminalId);
-          leasedTerminalIds.delete(item.terminalId);
         }
       }
       return result;
-    },
-    close: () => {
-      for (const terminalId of leasedTerminalIds) {
-        terminalWriteLeases.get(terminalId)?.();
-        terminalWriteLeases.delete(terminalId);
-      }
-      leasedTerminalIds.clear();
     },
   });
 }

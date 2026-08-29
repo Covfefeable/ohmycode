@@ -45,7 +45,7 @@ export class DynamicCapabilityPlugins {
     return {
       id: "mcp",
       definitions: () => [...this.definitions.values()],
-      handles: (toolName) => toolName.startsWith("mcp__"),
+      handles: (toolName) => this.definitions.has(toolName),
       execute: async (call) => ({
         callId: call.callId,
         result: await executeMcpCapability(

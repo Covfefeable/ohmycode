@@ -20,6 +20,7 @@ type Session = {
   baseCursor: number;
   cursor: number;
   exitCode?: number;
+  exitHandlers: Set<() => void>;
 };
 
 const sessions = new Map<string, Session>();
@@ -118,13 +119,15 @@ async function start(action: Extract<TerminalAction, { action: "start" }>, signa
   });
   const session: Session = {
     id: randomUUID(), projectId: action.projectId, command, cwd, process: child,
-    status: "running", output: "", baseCursor: 0, cursor: 0,
+    status: "running", output: "", baseCursor: 0, cursor: 0, exitHandlers: new Set(),
   };
   sessions.set(session.id, session);
   child.onData((data) => appendOutput(session, data));
   child.onExit(({ exitCode }) => {
     session.status = session.status === "stopped" ? "stopped" : "exited";
     session.exitCode = exitCode;
+    for (const handler of session.exitHandlers) handler();
+    session.exitHandlers.clear();
   });
   await waitForExitOrTimeout(session, boundedYield(action.yieldMs), signal);
   if (signal?.aborted && session.status === "running") {
@@ -132,6 +135,16 @@ async function start(action: Extract<TerminalAction, { action: "start" }>, signa
     session.process.kill();
   }
   return snapshot(session);
+}
+
+export function onTerminalExit(terminalId: string, handler: () => void): () => void {
+  const session = sessions.get(terminalId);
+  if (!session || session.status !== "running") {
+    handler();
+    return () => undefined;
+  }
+  session.exitHandlers.add(handler);
+  return () => session.exitHandlers.delete(handler);
 }
 
 export async function executeTerminalAction(action: TerminalAction, signal?: AbortSignal, workspaceRoot?: string): Promise<TerminalResult | TerminalResult[]> {
