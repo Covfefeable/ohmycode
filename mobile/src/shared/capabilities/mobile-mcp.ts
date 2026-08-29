@@ -13,13 +13,46 @@ type Session = { client: Client; server: McpServer };
 
 type CompatibleAbortSignal = AbortSignal & { throwIfAborted: () => void };
 
-const mobileMcpFetch: typeof globalThis.fetch = (input, init) => {
+async function jsonResponseFromSse(response: Response): Promise<Response> {
+  const reader = response.body?.getReader();
+  if (!reader) throw new Error("mcp_sse_body_missing");
+  const decoder = new TextDecoder();
+  let buffer = "";
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      buffer += decoder.decode(value, { stream: !done });
+      const events = buffer.split(/\r?\n\r?\n/);
+      buffer = events.pop() ?? "";
+      for (const event of events) {
+        const data = event.split(/\r?\n/)
+          .filter((line) => line.startsWith("data:"))
+          .map((line) => line.slice(5).trimStart())
+          .join("\n");
+        if (!data) continue;
+        JSON.parse(data);
+        const headers = new Headers(response.headers);
+        headers.set("content-type", "application/json");
+        return new Response(data, { status: response.status, headers });
+      }
+      if (done) throw new Error("mcp_sse_response_missing");
+    }
+  } finally {
+    await reader.cancel().catch(() => undefined);
+  }
+}
+
+const mobileMcpFetch: typeof globalThis.fetch = async (input, init) => {
   const url = typeof input === "string"
     ? input
     : input instanceof URL
       ? input.href
       : input.url;
-  return expoFetch(url, init as Parameters<typeof expoFetch>[1]);
+  const response = await expoFetch(url, init as Parameters<typeof expoFetch>[1]);
+  const contentType = response.headers.get("content-type")?.split(";", 1)[0].trim();
+  return init?.method === "POST" && contentType === "text/event-stream"
+    ? jsonResponseFromSse(response)
+    : response;
 };
 
 function compatibleAbortSignal(signal?: AbortSignal): CompatibleAbortSignal | undefined {
