@@ -1,3 +1,6 @@
+import { sha256 } from "@noble/hashes/sha256";
+import { bytesToHex } from "@noble/hashes/utils";
+
 export type ToolCall = {
   runId: string;
   callId: string;
@@ -43,6 +46,25 @@ export function fromProviderTool(definition: ProviderToolDefinition): ToolDefini
     description: definition.function.description,
     inputSchema: definition.function.parameters,
   };
+}
+
+const MCP_TOOL_PATTERN = /^mcp__([a-f0-9]{24})__([a-zA-Z0-9_-]+)_([a-f0-9]{16})$/;
+
+function stableToken(value: string, length: number): string {
+  return bytesToHex(sha256(value)).slice(0, length);
+}
+
+export function createMcpToolName(serverId: string, toolName: string): string {
+  const label = toolName.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 10) || "tool";
+  return `mcp__${stableToken(serverId, 24)}__${label}_${stableToken(toolName, 16)}`;
+}
+
+export function mcpToolServerToken(toolName: string): string | undefined {
+  return MCP_TOOL_PATTERN.exec(toolName)?.[1];
+}
+
+export function matchesMcpServer(serverId: string, token: string): boolean {
+  return stableToken(serverId, 24) === token;
 }
 
 export interface ToolExecutor {

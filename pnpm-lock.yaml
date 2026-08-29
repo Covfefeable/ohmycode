@@ -283,6 +283,10 @@ importers:
         version: 5.9.3
 
   packages/tool-contracts:
+    dependencies:
+      '@noble/hashes':
+        specifier: 1.4.0
+        version: 1.4.0
     devDependencies:
       typescript:
         specifier: 5.9.3

@@ -1,11 +1,11 @@
 import { Client } from "@modelcontextprotocol/sdk/client";
+import { createMcpToolName, matchesMcpServer, mcpToolServerToken } from "@ohmycode/tool-contracts";
 // eslint-disable-next-line import/no-unresolved
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 
 import { authenticatedRequest } from "@/shared/api/api-client";
 
 import { ensureEventGlobals } from "./event-globals";
-import { safeCapabilityName } from "./mobile-capabilities";
 import type { McpServer } from "./types";
 
 type Session = { client: Client; server: McpServer };
@@ -88,11 +88,11 @@ export class MobileMcpClient {
     args: Record<string, unknown>,
     signal?: AbortSignal,
   ): Promise<unknown> {
-    const match = /^mcp__([a-zA-Z0-9_-]+)__(.+)$/.exec(toolName);
-    if (!match) throw new Error("invalid_mcp_tool");
-    const server = (await this.servers(signal)).find((item) => item.identifier === match[1]);
+    const serverToken = mcpToolServerToken(toolName);
+    if (!serverToken) throw new Error("invalid_mcp_tool");
+    const server = (await this.servers(signal)).find((item) => matchesMcpServer(item.id, serverToken));
     if (!server) throw new Error("capability_unavailable_on_mobile");
-    const originalName = server.tools.find((tool) => safeCapabilityName(tool.name) === match[2])?.name;
+    const originalName = server.tools.find((tool) => createMcpToolName(server.id, tool.name) === toolName)?.name;
     if (!originalName) throw new Error("mcp_tool_not_found");
     let session = this.sessions.get(server.id);
     if (!session) session = { client: await this.connect(server, signal), server };

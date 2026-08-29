@@ -1,4 +1,5 @@
 import { unzipSync } from "fflate";
+import { createMcpToolName } from "@ohmycode/tool-contracts";
 
 import { authenticatedFetch, authenticatedRequest } from "@/shared/api/api-client";
 
@@ -7,9 +8,6 @@ import type { CapabilitySearchResult, McpServer, SkillRecord } from "./types";
 const MAX_ARCHIVE_BYTES = 10 * 1024 * 1024;
 const MAX_EXTRACTED_BYTES = 50 * 1024 * 1024;
 const MAX_FILES = 500;
-
-export const safeCapabilityName = (value: string): string =>
-  value.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 48);
 
 async function inventories(signal?: AbortSignal): Promise<{ servers: McpServer[]; skills: SkillRecord[] }> {
   const [mcp, skill] = await Promise.all([
@@ -72,7 +70,7 @@ export async function loadMobileCapability(id: string, signal?: AbortSignal): Pr
       tools: server.tools.map((tool) => ({
         type: "function",
         function: {
-          name: `mcp__${safeCapabilityName(server.identifier)}__${safeCapabilityName(tool.name)}`,
+          name: createMcpToolName(server.id, tool.name),
           description: tool.description || `${server.name}: ${tool.name}`,
           parameters: tool.inputSchema || { type: "object", properties: {} },
         },

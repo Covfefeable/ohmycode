@@ -77,7 +77,7 @@ export class MobileToolRegistry implements ToolExecutor {
     this.registry.register({
       id: "mcp",
       definitions: () => [...this.dynamicDefinitions.values()],
-      handles: (toolName) => toolName.startsWith("mcp__"),
+      handles: (toolName) => this.dynamicDefinitions.has(toolName),
       execute: async (call) => ({
         callId: call.callId,
         result: await mcp.execute(call.tool, call.arguments as Record<string, unknown>, signal),

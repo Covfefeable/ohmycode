@@ -12,6 +12,9 @@
     }
   },
   "files": ["dist"],
+  "dependencies": {
+    "@noble/hashes": "1.4.0"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit"
