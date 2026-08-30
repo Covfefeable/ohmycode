@@ -60,7 +60,20 @@ jobs:
       - name: Build Apple Silicon installer
         run: pnpm --dir desktop dist:mac
       - name: Create checksums
-        run: for file in desktop/release/*.dmg; do shasum -a 256 "$file" | sed "s#  .*/#  #" > "$file.sha256"; done
+        shell: bash
+        run: |
+          shopt -s nullglob
+          files=(desktop/release/*.dmg)
+          if (( ${#files[@]} == 0 )); then
+            echo "No DMG installer found in desktop/release" >&2
+            find desktop/release -maxdepth 2 -type f -print
+            exit 1
+          fi
+          for file in "${files[@]}"; do
+            directory=$(dirname "$file")
+            filename=$(basename "$file")
+            (cd "$directory" && shasum -a 256 "$filename" > "$filename.sha256")
+          done
       - uses: actions/upload-artifact@v4
         with:
           name: desktop-macos-arm64
