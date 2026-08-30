@@ -47,9 +47,8 @@ packages/
   design-tokens/       桌面与移动端共享的语义设计变量
   web-effects/         桌面与移动 Web 共享的 Three.js 视觉效果
   protocol/            Thread / Turn / Item 事件协议
-  runtime-core/        跨平台事件 Journal 与执行状态
   tool-contracts/      平台无关工具定义与执行契约
-  agent-runtime/       平台无关流式解析、Tool Loop 与 Turn 执行
+  agent-runtime/       平台无关事件 Journal、流式解析、Tool Loop 与 Turn 执行
 
 docker/                完整与依赖服务 Compose 配置
 ```

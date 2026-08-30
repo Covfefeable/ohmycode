@@ -49,11 +49,17 @@
 .userMessage header { justify-content: flex-end; }
 .chatMessages strong { color: var(--color-text-soft); font-size: var(--font-xs); }
 .chatMessages time { color: var(--color-text-dim); font-size: 10px; }
+.chatMessages article header > span { color: var(--color-text-dim); font-size: 10px; }
 .bubble { max-width: 100%; overflow: hidden; border: 1px solid var(--color-border); border-radius: 5px var(--radius-lg) var(--radius-lg) var(--radius-lg); background: var(--color-surface-1); padding: 10px 13px; color: var(--color-text-soft); box-shadow: var(--shadow-soft); }
 .userMessage .bubble { border: 0; border-radius: var(--radius-lg) 5px var(--radius-lg) var(--radius-lg); background: var(--color-accent-soft); box-shadow: none; }
 .bubble b { display: inline; margin-right: 7px; color: var(--color-accent); font-size: var(--font-sm); }
 .bubble > div { display: inline; }
 .bubble p { margin: 0; line-height: 1.58; }
+.typingMessage { opacity: .92; }
+.typingBubble { width: fit-content; display: inline-flex; align-items: center; gap: 4px; padding: 12px 14px; }
+.typingBubble i { width: 5px; height: 5px; border-radius: 50%; background: var(--color-accent); animation: typingDot 1.15s ease-in-out infinite; }
+.typingBubble i:nth-child(2) { animation-delay: 140ms; }
+.typingBubble i:nth-child(3) { animation-delay: 280ms; }
 .composer { position: relative; display: grid; grid-template-rows: auto 32px; margin: 0 clamp(20px,5vw,64px) 20px; border: 1px solid var(--color-border-strong); border-radius: var(--radius-lg); background: color-mix(in srgb,var(--color-surface-1) 82%,transparent); padding: 9px 10px 8px; box-shadow: var(--shadow-panel); backdrop-filter: blur(18px) saturate(125%); }
 .composer textarea { width: 100%; max-height: 76px; min-height: 30px; box-sizing: border-box; resize: none; border: 0; outline: 0; background: transparent; color: var(--color-text); padding: 5px 3px; font: inherit; line-height: 20px; }
 .groupPromptEditor {
@@ -97,6 +103,7 @@
 .chatMessages article:hover .messageActions, .messageActions:focus-within { opacity: 1; }
 .messageActions button { width: 25px; height: 25px; display: grid; place-items: center; border: 0; border-radius: var(--radius-sm); background: transparent; padding: 0; color: var(--color-text-muted); cursor: pointer; }
 .messageActions button:hover { color: var(--color-text); }
+.messageActions button:disabled { opacity: .35; cursor: default; }
 .messageActions svg { width: 13px; height: 13px; }
 .runDialog { width: min(780px,calc(100vw - 48px)); max-height: min(780px,calc(100vh - 48px)); display: grid; grid-template-rows: auto auto minmax(0,1fr); overflow: hidden; border: 1px solid var(--color-border-strong); border-radius: var(--radius-lg); background: var(--color-surface-1); box-shadow: var(--shadow-panel); }
 .runDialog > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; border-bottom: 1px solid var(--color-border); padding: 20px 22px; }
@@ -131,4 +138,5 @@
 .directoryPicker span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .spinner { width: 15px; height: 15px; animation: spin 750ms linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
+@keyframes typingDot { 0%,60%,100% { transform: translateY(0); opacity: .4; } 30% { transform: translateY(-3px); opacity: 1; } }
 @media (max-width: 900px) { .roster { display: none; } .chatLayout { grid-template-columns: minmax(0,1fr); } .chatMessages article { width: 86%; } }

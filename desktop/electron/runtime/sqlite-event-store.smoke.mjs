@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { EventJournal } from "@ohmycode/runtime-core";
+import { EventJournal } from "@ohmycode/agent-runtime";
 import { SqliteEventStore } from "../../dist-electron/runtime/sqlite-event-store.js";
 
 const directory = await mkdtemp(join(tmpdir(), "ohmycode-runtime-"));

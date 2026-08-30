@@ -1,4 +1,4 @@
-import { HashRouter, Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
+import { HashRouter, Navigate, Outlet, Route, Routes } from "react-router-dom";
 import { LoginPage } from "../pages/login";
 import { RegisterPage } from "../pages/register";
 import { AgentWorkspacePage } from "../pages/agent-workspace";
@@ -22,17 +22,6 @@ function PublicOnlyRoute() {
   return status === "guest" || status === "unavailable" ? <Outlet /> : <Navigate to="/" replace />;
 }
 
-function ProtectedPages() {
-  const location = useLocation();
-  const settingsVisible = location.pathname.startsWith("/settings");
-  const multiAgentVisible = location.pathname.startsWith("/agents");
-  return <>
-    <div style={{ display: settingsVisible || multiAgentVisible ? "none" : "block", height: "100dvh" }}><AgentWorkspacePage /></div>
-    <div style={{ display: multiAgentVisible ? "block" : "none", height: "100dvh" }}><MultiAgentPage /></div>
-    <div style={{ display: settingsVisible ? "block" : "none", height: "100dvh" }}><SettingsPage /></div>
-  </>;
-}
-
 export default function App() {
   return (
     <HashRouter>
@@ -45,9 +34,9 @@ export default function App() {
             <Route path="/register" element={<RegisterPage />} />
           </Route>
           <Route element={<ProtectedRoute />}>
-            <Route path="/" element={<ProtectedPages />} />
-            <Route path="/settings" element={<ProtectedPages />} />
-            <Route path="/agents" element={<ProtectedPages />} />
+            <Route path="/" element={<AgentWorkspacePage />} />
+            <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/agents" element={<MultiAgentPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

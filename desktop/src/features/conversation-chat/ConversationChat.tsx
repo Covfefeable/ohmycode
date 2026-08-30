@@ -2,66 +2,54 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Check, Copy, Pencil } from "lucide-react";
 import { TaskComposer } from "../task-composer";
-import { useFeedback } from "../feedback";
 import { FullScreenLoading } from "../../shared/ui/full-screen-loading";
 import { LoadError } from "../../shared/ui/load-error";
 import { Tooltip } from "../../shared/ui/tooltip";
 import { MarkdownContent } from "../../shared/ui/markdown-content";
 import { AttachmentList } from "../../shared/ui/attachment-list";
 import { PromptEditor, usePromptCapabilities } from "../../shared/ui/prompt-editor";
-import { classifyRequestError } from "../../shared/lib/request-error";
 import { ActivityTimeline } from "./activity-timeline/ActivityTimeline";
 import { withoutFinalResponse } from "./activity-timeline/updateActivity";
-import { updateActivity } from "./activity-timeline/updateActivity";
+import { useConversationController } from "./useConversationController";
 import styles from "./ConversationChat.module.css";
 
 type ConversationChatProps = { conversationId: string; active: boolean; onUpdated(): void };
 
 export function ConversationChat({ conversationId, active, onUpdated }: ConversationChatProps) {
   const { t, i18n } = useTranslation();
-  const { toast } = useFeedback();
   const capabilityOptions = usePromptCapabilities();
-  const [conversation, setConversation] = useState<LocalConversation | null>(null);
-  const [loadFailed, setLoadFailed] = useState(false);
-  const [reloadToken, setReloadToken] = useState(0);
-  const [sending, setSending] = useState(false);
-  const [models, setModels] = useState<ModelConfiguration[]>([]);
-  const [selectedModelId, setSelectedModelId] = useState("");
   const [editing, setEditing] = useState<{ message: LocalMessage; content: string } | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [attachments, setAttachments] = useState<MessageAttachment[]>([]);
   const [dragActive, setDragActive] = useState(false);
-  const [contextUsage, setContextUsage] = useState(0);
-  const [suggestions, setSuggestions] = useState<string[]>([]);
   const dragDepthRef = useRef(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const composerDockRef = useRef<HTMLDivElement>(null);
   const autoScrollLockedRef = useRef(true);
   const lastScrollTopRef = useRef(0);
   const scrollFrameRef = useRef<number | null>(null);
-  const activeTurnIdRef = useRef<string | null>(null);
-  const suggestionRequestRef = useRef(0);
-  const conversationRef = useRef<LocalConversation | null>(null);
-  const onUpdatedRef = useRef(onUpdated);
-  const requestErrorMessage = useCallback((error: unknown) => {
-    const kind = classifyRequestError(error);
-    if (kind === "model_not_configured") return t("agent.modelRequired");
-    if (kind === "authentication_error") return t("agent.authenticationFailed");
-    if (kind === "permission_error") return t("agent.permissionDenied");
-    if (kind === "rate_limit") return t("agent.rateLimited");
-    if (kind === "provider_error") return t("agent.providerFailed");
-    if (kind === "network_error") return t("common.networkError");
-    return t("agent.sendFailed");
-  }, [t]);
 
-  useEffect(() => { conversationRef.current = conversation; }, [conversation]);
-  useEffect(() => { onUpdatedRef.current = onUpdated; }, [onUpdated]);
-  useEffect(() => window.ohmycode.settings.onModelsChanged((nextModels) => {
-    setModels(nextModels);
-    setSelectedModelId((current) => nextModels.some((model) => model.id === current)
-      ? current
-      : nextModels[0]?.id ?? "");
-  }), []);
+  const forceScrollToBottom = useCallback(() => {
+    autoScrollLockedRef.current = true;
+    if (scrollFrameRef.current !== null) window.cancelAnimationFrame(scrollFrameRef.current);
+    scrollFrameRef.current = window.requestAnimationFrame(() => {
+      const scroller = scrollRef.current;
+      if (scroller) {
+        scroller.scrollTop = scroller.scrollHeight;
+        lastScrollTopRef.current = scroller.scrollTop;
+      }
+      scrollFrameRef.current = null;
+    });
+  }, []);
+
+  const controller = useConversationController({ conversationId, onUpdated, scrollToBottom: forceScrollToBottom });
+  const { conversation, sending } = controller;
+  const conversationLoaded = conversation !== null;
+  const lastUserId = useMemo(
+    () => [...(conversation?.messages ?? [])].reverse().find((message) => message.role === "user")?.id,
+    [conversation],
+  );
+
   useEffect(() => {
     const dock = composerDockRef.current;
     const scroller = scrollRef.current;
@@ -79,113 +67,6 @@ export function ConversationChat({ conversationId, active, onUpdated }: Conversa
     return () => observer.disconnect();
   }, [conversation?.id]);
 
-  useEffect(() => {
-    let disposed = false;
-    let snapshotLoaded = false;
-    const pending: RuntimeEvent[] = [];
-    const handledEvents = new Set<string>();
-    const applyRuntimeEvent = (event: RuntimeEvent) => {
-      const eventKey = `${event.turnId}:${event.sequence}`;
-      if (disposed || handledEvents.has(eventKey)) return;
-      handledEvents.add(eventKey);
-      if (event.type === "turn.started") {
-        activeTurnIdRef.current = event.turnId;
-        setSending(true);
-        setSuggestions([]);
-        suggestionRequestRef.current += 1;
-      }
-      if (event.type === "context.updated") {
-        setContextUsage(event.contextLength > 0 ? event.usedTokens / event.contextLength : 0);
-      }
-      setConversation((current) => {
-        if (!current) return current;
-        const streamId = `stream-${event.turnId}`;
-        const messages = [...(current.messages ?? [])];
-        let index = messages.findIndex((message) => message.id === streamId);
-        if (index < 0 && (event.type === "turn.started" || event.type.startsWith("item."))) {
-          messages.push({ id: streamId, role: "assistant", content: "", createdAt: new Date().toISOString(), agentStartedAt: new Date().toISOString(), activity: [] });
-          index = messages.length - 1;
-        }
-        if (index >= 0) {
-          const message = messages[index];
-          messages[index] = { ...message, activity: updateActivity(message.activity ?? [], event) };
-        }
-        return { ...current, messages };
-      });
-      if (event.type === "turn.failed") toast({ type: "error", message: requestErrorMessage(event.errorCode) });
-      if (event.type === "turn.completed" || event.type === "turn.failed" || event.type === "turn.interrupted") {
-        if (activeTurnIdRef.current === event.turnId) activeTurnIdRef.current = null;
-        void window.ohmycode.conversations.waitTurn(event.turnId)
-          .then((value) => value ?? window.ohmycode.conversations.get(conversationId))
-          .catch(() => window.ohmycode.conversations.get(conversationId))
-          .then((value) => {
-            if (disposed) return;
-            setConversation(value);
-            if (value.contextUsage) {
-              setContextUsage(value.contextUsage.contextLength > 0
-                ? value.contextUsage.usedTokens / value.contextUsage.contextLength
-                : 0);
-            }
-            setSending(false);
-          })
-          .catch(() => {
-            if (!disposed) setSending(false);
-          });
-        onUpdatedRef.current();
-        if (event.type === "turn.completed") {
-          const requestVersion = ++suggestionRequestRef.current;
-          void window.ohmycode.conversations.suggest(conversationId)
-            .then((value) => {
-              if (!disposed && suggestionRequestRef.current === requestVersion
-                && activeTurnIdRef.current === null) {
-                setSuggestions(value);
-                onUpdatedRef.current();
-              }
-            })
-            .catch(() => undefined);
-        }
-      }
-    };
-    const unsubscribe = window.ohmycode.conversations.onThreadEvent(conversationId, (event) => {
-      if (!snapshotLoaded) pending.push(event);
-      else applyRuntimeEvent(event);
-    });
-    void Promise.all([
-      window.ohmycode.conversations.get(conversationId),
-      window.ohmycode.conversations.threadSnapshot(conversationId),
-    ]).then(([loadedConversation, snapshot]) => {
-      if (disposed) return;
-      setConversation(loadedConversation);
-      if (loadedConversation.contextUsage) {
-        setContextUsage(loadedConversation.contextUsage.contextLength > 0
-          ? loadedConversation.contextUsage.usedTokens / loadedConversation.contextUsage.contextLength
-          : 0);
-      } else {
-        setContextUsage(0);
-      }
-      setSuggestions([]);
-      if (snapshot?.status === "in_progress") {
-        activeTurnIdRef.current = snapshot.turnId;
-        setSending(true);
-      }
-      const replay = snapshot?.status === "in_progress" ? snapshot.events : [];
-      for (const event of [...replay, ...pending].sort((left, right) => left.sequence - right.sequence)) applyRuntimeEvent(event);
-      snapshotLoaded = true;
-    }).catch(() => {
-      if (disposed) return;
-      unsubscribe();
-      setLoadFailed(true);
-      toast({ type: "error", message: t("agent.loadFailed") });
-    });
-    void window.ohmycode.settings.get().then((settings) => {
-      setModels(settings.models);
-      setSelectedModelId(settings.models[0]?.id ?? "");
-    });
-    return () => { disposed = true; unsubscribe(); };
-  }, [conversationId, reloadToken, requestErrorMessage, t, toast]);
-
-  const lastUserId = useMemo(() => [...(conversation?.messages ?? [])].reverse().find((message) => message.role === "user")?.id, [conversation]);
-  const conversationLoaded = conversation !== null;
   useEffect(() => {
     const scroller = scrollRef.current;
     if (!scroller || !conversationLoaded) return;
@@ -219,19 +100,6 @@ export function ConversationChat({ conversationId, active, onUpdated }: Conversa
     return () => { if (scrollFrameRef.current !== null) window.cancelAnimationFrame(scrollFrameRef.current); };
   }, [active, conversation?.messages]);
 
-  const forceScrollToBottom = useCallback(() => {
-    autoScrollLockedRef.current = true;
-    if (scrollFrameRef.current !== null) window.cancelAnimationFrame(scrollFrameRef.current);
-    scrollFrameRef.current = window.requestAnimationFrame(() => {
-      const scroller = scrollRef.current;
-      if (scroller) {
-        scroller.scrollTop = scroller.scrollHeight;
-        lastScrollTopRef.current = scroller.scrollTop;
-      }
-      scrollFrameRef.current = null;
-    });
-  }, []);
-
   async function copy(message: LocalMessage) {
     await navigator.clipboard.writeText(message.content);
     setCopiedId(message.id);
@@ -239,47 +107,10 @@ export function ConversationChat({ conversationId, active, onUpdated }: Conversa
   }
 
   async function send(content: string, nextAttachments: MessageAttachment[] = [], editMessageId?: string) {
-    if (!conversation) return;
-    try {
-      const { turnId } = await window.ohmycode.conversations.startTurn(conversationId, content, selectedModelId, editMessageId, nextAttachments);
-      activeTurnIdRef.current = turnId;
-      const now = new Date().toISOString();
-      setConversation((current) => {
-        if (!current) return current;
-        const streamId = `stream-${turnId}`;
-        const existingStream = (current.messages ?? []).find((message) => message.id === streamId);
-        const currentMessages = (current.messages ?? []).filter((message) => message.id !== streamId);
-        const optimisticMessages = editMessageId
-          ? currentMessages.slice(0, currentMessages.findIndex((message) => message.id === editMessageId) + 1).map((message) => message.id === editMessageId ? { ...message, content } : message)
-          : [...currentMessages, { id: `user-${turnId}`, role: "user" as const, content, attachments: nextAttachments, createdAt: now }];
-        return { ...current, messages: [...optimisticMessages, existingStream ?? { id: streamId, role: "assistant", content: "", createdAt: now, agentStartedAt: now, activity: [] }] };
-      });
-      forceScrollToBottom();
-      if (editMessageId) setEditing(null);
-      else setAttachments([]);
-      setSending(true);
-    } catch (error) {
-      toast({ type: "error", message: requestErrorMessage(error) });
-      setConversation(await window.ohmycode.conversations.get(conversationId));
-      setSending(false);
-    }
-  }
-
-  async function stop() {
-    const turnId = activeTurnIdRef.current;
-    if (!turnId) return;
-    const partialMessage = conversationRef.current?.messages?.find((message) => message.id === `stream-${turnId}`);
-    const stoppedMessage = partialMessage ? {
-      ...partialMessage,
-      content: [partialMessage.content, t("agent.stoppedByUser")].filter(Boolean).join("\n\n"),
-      activity: partialMessage.activity?.map((step) => ({ ...step, status: "completed" as const })),
-    } : undefined;
-    setSending(false);
-    setConversation((current) => current ? {
-      ...current,
-      messages: (current.messages ?? []).map((message) => message.id === `stream-${turnId}` && stoppedMessage ? stoppedMessage : message),
-    } : current);
-    await window.ohmycode.conversations.interruptTurn(turnId, stoppedMessage);
+    const sent = await controller.send(content, nextAttachments, editMessageId);
+    if (!sent) return;
+    if (editMessageId) setEditing(null);
+    else setAttachments([]);
   }
 
   function addFiles(files: File[]) {
@@ -291,7 +122,7 @@ export function ConversationChat({ conversationId, active, onUpdated }: Conversa
     });
   }
 
-  if (loadFailed && !conversation) return <LoadError message={t("agent.loadFailed")} onRetry={() => { setLoadFailed(false); setReloadToken((value) => value + 1); }} />;
+  if (controller.loadFailed && !conversation) return <LoadError message={t("agent.loadFailed")} onRetry={controller.retry} />;
   if (!conversation) return <FullScreenLoading />;
   return <section
     className={`${styles.chat} ${dragActive ? styles.dragActive : ""}`}
@@ -343,6 +174,6 @@ export function ConversationChat({ conversationId, active, onUpdated }: Conversa
       {!conversation.messages?.length && <p className={styles.empty}>{t("agent.emptyConversation")}</p>}
       </div>
     </div></div>
-    <div ref={composerDockRef} className={styles.composerDock}><TaskComposer busy={sending} disabled={Boolean(editing)} models={models} selectedModelId={selectedModelId} contextUsage={contextUsage} attachments={attachments} suggestions={suggestions} onRemoveAttachment={(id) => setAttachments((items) => items.filter((item) => item.id !== id))} onModelChange={setSelectedModelId} onSubmit={(content, items) => send(content, items)} onStop={stop} /></div>
+    <div ref={composerDockRef} className={styles.composerDock}><TaskComposer busy={sending} disabled={Boolean(editing)} models={controller.models} selectedModelId={controller.selectedModelId} contextUsage={controller.contextUsage} attachments={attachments} suggestions={controller.suggestions} onRemoveAttachment={(id) => setAttachments((items) => items.filter((item) => item.id !== id))} onModelChange={controller.setSelectedModelId} onSubmit={(content, items) => send(content, items)} onStop={controller.stop} /></div>
   </section>;
 }

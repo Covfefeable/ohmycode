@@ -7,7 +7,6 @@
     "@ohmycode/agent-runtime": "workspace:*",
     "@ohmycode/design-tokens": "workspace:*",
     "@ohmycode/protocol": "workspace:*",
-    "@ohmycode/runtime-core": "workspace:*",
     "@ohmycode/tool-contracts": "workspace:*",
     "@ohmycode/web-effects": "workspace:*",
     "@modelcontextprotocol/sdk": "1.30.0",
@@ -43,7 +42,7 @@
     "typescript": "~5.9.3"
   },
   "scripts": {
-    "build:packages": "pnpm --filter @ohmycode/design-tokens build && pnpm --filter @ohmycode/protocol build && pnpm --filter @ohmycode/tool-contracts build && pnpm --filter @ohmycode/runtime-core build && pnpm --filter @ohmycode/agent-runtime build",
+    "build:packages": "pnpm --filter @ohmycode/design-tokens build && pnpm --filter @ohmycode/protocol build && pnpm --filter @ohmycode/tool-contracts build && pnpm --filter @ohmycode/agent-runtime build",
     "start": "pnpm build:packages && expo start",
     "android": "pnpm build:packages && expo start --android",
     "ios": "pnpm build:packages && expo start --ios",

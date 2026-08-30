@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { EventJournal } from "@ohmycode/runtime-core";
+import { EventJournal } from "@ohmycode/agent-runtime";
 
 const journal = new EventJournal();
 journal.create("thread-1", "turn-1");

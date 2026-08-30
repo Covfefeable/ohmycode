@@ -12,7 +12,11 @@ import { toProviderTool } from "@ohmycode/tool-contracts";
 import { ApiError } from "../api/api-client.js";
 import type { DesktopTurnExecution } from "./desktop-execution-adapter.js";
 import type { DesktopExecutionContext } from "./types.js";
-import { DynamicCapabilityPlugins } from "./tools/capability-plugins.js";
+import {
+  createCapabilityDiscoveryPlugin,
+  createDynamicMcpPlugin,
+  DynamicToolCatalog,
+} from "./tools/capability-plugins.js";
 import { createCollaborationPlugin } from "./tools/collaboration-plugin.js";
 import { createFilePlugin } from "./tools/file-plugin.js";
 import { createImagePlugin } from "./tools/image-plugin.js";
@@ -69,16 +73,16 @@ export class DesktopToolRegistry implements ToolExecutor {
     if (options.supportsVision) {
       this.registry.register(createImagePlugin(options));
     }
-    const capabilities = new DynamicCapabilityPlugins(
+    const dynamicTools = new DynamicToolCatalog(
       options.initialDynamicDefinitions ?? [],
       (name) => this.registry.definitions().some((definition) => definition.name === name),
       options.onDynamicDefinitionsChanged,
     );
-    this.registry.register(capabilities.capabilityPlugin());
+    this.registry.register(createCapabilityDiscoveryPlugin(dynamicTools));
     this.registry.register(createToolResultPlugin());
     this.registry.register(createFilePlugin(options));
     this.registry.register(createTerminalPlugin(options));
-    this.registry.register(capabilities.mcpPlugin());
+    this.registry.register(createDynamicMcpPlugin(dynamicTools));
   }
 
   definitions(): ProviderToolDefinition[] {

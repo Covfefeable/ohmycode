@@ -8,12 +8,11 @@ import styles from "./AgentWorkspacePage.module.css";
 
 export function AgentWorkspacePage() {
   const { t } = useTranslation();
-  const [conversationId, setConversationId] = useState<string | null>(null);
-  const [openedConversationIds, setOpenedConversationIds] = useState<string[]>([]);
+  const [conversationId, setConversationId] = useState<string | null>(() => sessionStorage.getItem("ohmycode.activeConversationId"));
   const [refreshToken, setRefreshToken] = useState(0);
 
   function selectConversation(id: string) {
-    setOpenedConversationIds((items) => items.includes(id) ? items : [...items, id]);
+    sessionStorage.setItem("ohmycode.activeConversationId", id);
     setConversationId(id);
   }
 
@@ -24,16 +23,18 @@ export function AgentWorkspacePage() {
         selectedConversationId={conversationId}
         onConversationSelect={(_project, conversation) => selectConversation(conversation.id)}
         onConversationDelete={(deletedId) => {
-          setOpenedConversationIds((items) => items.filter((id) => id !== deletedId));
-          if (deletedId === conversationId) setConversationId(null);
+          if (deletedId === conversationId) {
+            sessionStorage.removeItem("ohmycode.activeConversationId");
+            setConversationId(null);
+          }
         }}
         refreshToken={refreshToken}
       />}
     >
       <section className={styles.content}>
-        {openedConversationIds.map((id) => <div className={styles.conversationView} hidden={id !== conversationId} key={id}>
-          <ConversationChat active={id === conversationId} conversationId={id} onUpdated={() => setRefreshToken((value) => value + 1)} />
-        </div>)}
+        {conversationId && <div className={styles.conversationView}>
+          <ConversationChat active conversationId={conversationId} onUpdated={() => setRefreshToken((value) => value + 1)} />
+        </div>}
         {!conversationId && <div className={styles.welcome}>
           <div className={styles.promptMark}>›_</div>
           <p className={styles.eyebrow}>{t("agent.eyebrow")}</p>

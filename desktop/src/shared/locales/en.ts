@@ -213,6 +213,8 @@ export const en = {
     details: "Details",
     runDetails: "Agent run details",
     runDetailLoadFailed: "Could not load this agent run.",
+    agentWorking: "Working",
+    viewLiveActivity: "View live activity",
     status: "Status",
     duration: "Duration",
     inputTokens: "Input tokens",

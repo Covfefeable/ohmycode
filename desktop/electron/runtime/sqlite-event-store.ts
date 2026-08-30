@@ -1,5 +1,5 @@
 import { DatabaseSync } from "node:sqlite";
-import type { EventStore, ExecutionStore, RuntimeExecutionState } from "@ohmycode/runtime-core";
+import type { EventStore, ExecutionStore, RuntimeExecutionState } from "@ohmycode/agent-runtime";
 import type { RuntimeEvent, TurnSnapshot, TurnStatus } from "@ohmycode/protocol";
 
 type TurnRow = {

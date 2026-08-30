@@ -1,7 +1,13 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useFeedback } from "../../features/feedback";
+import { updateActivity } from "../../features/conversation-chat/activity-timeline/updateActivity";
 import { multiAgentErrorKey } from "./multi-agent-utils";
+
+export type LiveAgentRun = {
+  nodeId: string;
+  detail: MultiAgentRunDetail;
+};
 
 type Options = {
   models: ModelConfiguration[];
@@ -31,6 +37,7 @@ export function useMultiAgentExecution(options: Options) {
   const [message, setMessage] = useState("");
   const [mentionTargetId, setMentionTargetId] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const [liveAgentRuns, setLiveAgentRuns] = useState<Record<string, LiveAgentRun>>({});
 
   function hasValidMemberModels(target: MultiAgentTask, models: ModelConfiguration[]) {
     const configuredIds = new Set(models.map((model) => model.id));
@@ -53,12 +60,65 @@ export function useMultiAgentExecution(options: Options) {
       toast({ type: "error", message: t("multiAgent.memberModelMissing") });
       return;
     }
-    if (["failed", "stopped"].includes(target.status)) {
-    }
     const requestId = crypto.randomUUID();
+    setLiveAgentRuns({});
     setRunRequestId(requestId);
     const unsubscribe = window.ohmycode.multiAgents.onEvent(requestId, (event) => {
-      if (event.type === "task.updated") options.setTask(event.task);
+      if (event.type === "task.updated") {
+        options.setTask(event.task);
+        setLiveAgentRuns((current) => {
+          let changed = false;
+          const now = new Date().toISOString();
+          const next = Object.fromEntries(Object.entries(current).map(([nodeId, run]) => {
+            const memberStillRunning = event.task.status === "running"
+              && event.task.members.some((member) => member.id === nodeId && member.status === "running");
+            if (run.detail.status !== "running" || memberStillRunning) return [nodeId, run];
+            changed = true;
+            return [nodeId, {
+              ...run,
+              detail: {
+                ...run.detail,
+                status: "completed",
+                completedAt: now,
+                durationMs: new Date(now).getTime() - new Date(run.detail.startedAt).getTime(),
+              },
+            }];
+          }));
+          return changed ? next : current;
+        });
+      }
+      if (event.type === "node.event") {
+        setLiveAgentRuns((current) => {
+          const existing = current[event.nodeId];
+          const startedAt = event.event.type === "turn.started"
+            ? new Date().toISOString()
+            : existing?.detail.startedAt ?? new Date().toISOString();
+          const terminal = event.event.type === "turn.completed"
+            || event.event.type === "turn.failed"
+            || event.event.type === "turn.interrupted";
+          const status = event.event.type === "turn.failed"
+            ? "failed"
+            : event.event.type === "turn.interrupted" ? "interrupted" : terminal ? "completed" : "running";
+          const completedAt = terminal ? new Date().toISOString() : null;
+          return {
+            ...current,
+            [event.nodeId]: {
+              nodeId: event.nodeId,
+              detail: {
+                id: event.event.turnId,
+                status,
+                errorCode: event.event.type === "turn.failed" ? event.event.errorCode : null,
+                startedAt,
+                completedAt,
+                durationMs: completedAt ? new Date(completedAt).getTime() - new Date(startedAt).getTime() : null,
+                inputTokens: null,
+                outputTokens: null,
+                activity: updateActivity(event.event.type === "turn.started" ? [] : existing?.detail.activity ?? [], event.event),
+              },
+            },
+          };
+        });
+      }
     });
     try {
       options.setTask(await window.ohmycode.multiAgents.runTask(target.id, requestId));
@@ -149,7 +209,7 @@ export function useMultiAgentExecution(options: Options) {
 
   return {
     runDialogOpen, runDescription, runWorkspacePath, runExecutionLimit, runRequestId,
-    message, sending, setRunDialogOpen, setRunDescription,
+    message, sending, liveAgentRuns, setRunDialogOpen, setRunDescription,
     setRunWorkspacePath, setRunExecutionLimit, executeTask, runCollaboration, sendGroupMessage,
     changeGroupMessage, stopTask,
   };

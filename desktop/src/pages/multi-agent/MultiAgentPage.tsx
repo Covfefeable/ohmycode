@@ -58,6 +58,7 @@ export function MultiAgentPage() {
             task={task}
             message={execution.message}
             sending={execution.sending}
+            liveAgentRuns={execution.liveAgentRuns}
             onMessageChange={execution.changeGroupMessage}
             onSend={() => void execution.sendGroupMessage()}
           />

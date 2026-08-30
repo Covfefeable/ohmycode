@@ -212,6 +212,8 @@ export const zhCN = {
     details: "详情",
     runDetails: "本次 Agent Run 详情",
     runDetailLoadFailed: "无法加载本次 Agent Run 详情。",
+    agentWorking: "正在处理",
+    viewLiveActivity: "查看实时活动",
     status: "状态",
     duration: "耗时",
     inputTokens: "输入 Token",

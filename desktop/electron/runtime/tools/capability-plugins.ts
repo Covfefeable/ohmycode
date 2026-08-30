@@ -13,7 +13,7 @@ import {
   searchCapabilities,
 } from "../../capabilities/capability-manager.js";
 
-export class DynamicCapabilityPlugins {
+export class DynamicToolCatalog {
   private readonly definitions = new Map<string, ToolDefinition>();
 
   constructor(
@@ -27,36 +27,15 @@ export class DynamicCapabilityPlugins {
     }
   }
 
-  capabilityPlugin(): ToolPlugin {
-    const base = new CapabilityPlugin({ search: searchCapabilities, load: loadCapability });
-    return {
-      id: base.id,
-      definitions: () => base.definitions(),
-      handles: (toolName) => base.handles(toolName),
-      execute: async (call: ToolCall): Promise<ToolResult> => {
-        const output = await base.execute(call);
-        if (call.tool === "load_capability") this.collectDefinitions(output.result);
-        return output;
-      },
-    };
+  all(): readonly ToolDefinition[] {
+    return [...this.definitions.values()];
   }
 
-  mcpPlugin(): ToolPlugin {
-    return {
-      id: "mcp",
-      definitions: () => [...this.definitions.values()],
-      handles: (toolName) => this.definitions.has(toolName),
-      execute: async (call) => ({
-        callId: call.callId,
-        result: await executeMcpCapability(
-          call.tool,
-          call.arguments as Record<string, unknown>,
-        ),
-      }),
-    };
+  has(toolName: string): boolean {
+    return this.definitions.has(toolName);
   }
 
-  private collectDefinitions(result: unknown): void {
+  collect(result: unknown): void {
     const tools = result && typeof result === "object"
       ? (result as { tools?: unknown }).tools
       : undefined;
@@ -73,4 +52,30 @@ export class DynamicCapabilityPlugins {
     }
     this.onDefinitionsChanged?.([...this.definitions.values()].map(toProviderTool));
   }
+}
+
+export function createCapabilityDiscoveryPlugin(catalog: DynamicToolCatalog): ToolPlugin {
+  const discovery = new CapabilityPlugin({ search: searchCapabilities, load: loadCapability });
+  return {
+    id: discovery.id,
+    definitions: () => discovery.definitions(),
+    handles: (toolName) => discovery.handles(toolName),
+    execute: async (call: ToolCall): Promise<ToolResult> => {
+      const output = await discovery.execute(call);
+      if (call.tool === "load_capability") catalog.collect(output.result);
+      return output;
+    },
+  };
+}
+
+export function createDynamicMcpPlugin(catalog: DynamicToolCatalog): ToolPlugin {
+  return {
+    id: "mcp",
+    definitions: () => catalog.all(),
+    handles: (toolName) => catalog.has(toolName),
+    execute: async (call) => ({
+      callId: call.callId,
+      result: await executeMcpCapability(call.tool, call.arguments as Record<string, unknown>),
+    }),
+  };
 }

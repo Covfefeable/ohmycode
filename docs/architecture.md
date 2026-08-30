@@ -125,9 +125,9 @@ truth for active Turn state and supports:
 
 The platform-neutral harness lives in `packages/agent-runtime`. It owns provider
 stream parsing, the model/tool/resume loop, parallel tool dispatch, bounded
-failure recovery, pending-result replay, and Turn execution. Tool definitions
-and execution contracts live separately in `packages/tool-contracts`, while
-`packages/runtime-core` owns the event journal and execution state.
+failure recovery, pending-result replay, the event journal, and Turn execution.
+Tool definitions and execution contracts live separately in
+`packages/tool-contracts`.
 
 Tool definitions and execution are composed from `ToolPlugin` instances in a
 shared `ToolRegistry`. The active Desktop or Mobile Runtime is the sole source

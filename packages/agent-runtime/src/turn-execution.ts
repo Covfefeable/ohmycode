@@ -1,12 +1,10 @@
-import type { ExecutionStore, RuntimeExecutionState } from "@ohmycode/runtime-core";
+import type { ExecutionStore, RuntimeExecutionState } from "./event-journal.js";
 import type { TurnExecutionAdapter } from "./contracts.js";
 
 export class TurnExecution<PartialState = unknown> {
   private readonly controller = new AbortController();
   private readonly resourceIds = new Set<string>();
   private remoteRunId: string;
-  private phase: RuntimeExecutionState["phase"] = "streaming";
-  private readonly pendingToolCallIds = new Set<string>();
 
   constructor(
     private readonly turnId: string,
@@ -25,8 +23,6 @@ export class TurnExecution<PartialState = unknown> {
   ): TurnExecution<PartialState> {
     const execution = new TurnExecution(state.turnId, adapter, store, false);
     execution.remoteRunId = state.remoteRunId;
-    execution.phase = state.phase;
-    for (const callId of state.pendingToolCallIds) execution.pendingToolCallIds.add(callId);
     for (const resourceId of state.resourceIds) execution.resourceIds.add(resourceId);
     execution.persist();
     return execution;
@@ -46,23 +42,11 @@ export class TurnExecution<PartialState = unknown> {
     this.persist();
   }
 
-  setPhase(phase: RuntimeExecutionState["phase"]): void {
-    this.phase = phase;
-    this.persist();
-  }
-
-  setPendingToolCalls(callIds: string[]): void {
-    this.pendingToolCallIds.clear();
-    for (const callId of callIds) this.pendingToolCallIds.add(callId);
-    this.persist();
-  }
-
   complete(): void {
     this.store?.deleteExecution(this.turnId);
   }
 
   async interrupt(partialState?: PartialState): Promise<void> {
-    this.setPhase("interrupting");
     this.controller.abort();
     await Promise.allSettled(
       [...this.resourceIds].map((resourceId) => this.adapter.stopResource(resourceId)),
@@ -89,8 +73,6 @@ export class TurnExecution<PartialState = unknown> {
     this.store?.saveExecution({
       turnId: this.turnId,
       remoteRunId: this.remoteRunId,
-      phase: this.phase,
-      pendingToolCallIds: [...this.pendingToolCallIds],
       resourceIds: [...this.resourceIds],
       updatedAt: Date.now(),
     });

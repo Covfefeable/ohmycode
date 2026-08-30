@@ -4,14 +4,17 @@ import { useTranslation } from "react-i18next";
 import { useFeedback } from "../../features/feedback";
 import { emptyDraft, multiAgentErrorKey, templateTask, type CollaborationDraft, type DeleteTarget } from "./multi-agent-utils";
 
+const ACTIVE_AGENT_KEY = "ohmycode.activeCollaborationId";
+const ACTIVE_TASK_KEY = "ohmycode.activeCollaborationTaskId";
+
 export function useCollaborationWorkspace() {
   const { t } = useTranslation();
   const { toast } = useFeedback();
   const location = useLocation();
   const [agents, setAgents] = useState<MultiAgentSummary[]>([]);
   const [models, setModels] = useState<ModelConfiguration[]>([]);
-  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
-  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(() => sessionStorage.getItem(ACTIVE_AGENT_KEY));
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(() => sessionStorage.getItem(ACTIVE_TASK_KEY));
   const [task, setTask] = useState<MultiAgentTask | null>(null);
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -34,10 +37,27 @@ export function useCollaborationWorkspace() {
   useEffect(() => window.ohmycode.settings.onModelsChanged(setModels), []);
 
   useEffect(() => {
+    if (selectedAgentId) sessionStorage.setItem(ACTIVE_AGENT_KEY, selectedAgentId);
+    else sessionStorage.removeItem(ACTIVE_AGENT_KEY);
+  }, [selectedAgentId]);
+
+  useEffect(() => {
+    if (selectedTaskId) sessionStorage.setItem(ACTIVE_TASK_KEY, selectedTaskId);
+    else sessionStorage.removeItem(ACTIVE_TASK_KEY);
+  }, [selectedTaskId]);
+
+  useEffect(() => {
     if (!location.pathname.startsWith("/agents")) return;
     let active = true;
     void window.ohmycode.multiAgents.list()
-      .then((items) => { if (active) setAgents(items); })
+      .then((items) => {
+        if (!active) return;
+        setAgents(items);
+        if (!sessionStorage.getItem(ACTIVE_TASK_KEY)) {
+          const selected = items.find((item) => item.id === sessionStorage.getItem(ACTIVE_AGENT_KEY));
+          if (selected) setTask(templateTask(selected));
+        }
+      })
       .catch(() => toast({ type: "error", message: t("multiAgent.loadFailed") }));
     void window.ohmycode.settings.get()
       .then((settings) => { if (active) setModels(settings.models); })

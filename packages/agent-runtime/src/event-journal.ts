@@ -1,9 +1,4 @@
-import type {
-  RuntimeEvent,
-  RuntimeEventPayload,
-  TurnSnapshot,
-  TurnStatus,
-} from "@ohmycode/protocol";
+import type { RuntimeEvent, RuntimeEventPayload, TurnSnapshot, TurnStatus } from "@ohmycode/protocol";
 
 type MutableTurn = Omit<TurnSnapshot, "events"> & { events: RuntimeEvent[] };
 
@@ -22,8 +17,6 @@ export interface EventPublisher {
 export type RuntimeExecutionState = {
   turnId: string;
   remoteRunId: string;
-  phase: "streaming" | "executing_tools" | "resuming" | "recovering" | "interrupting";
-  pendingToolCallIds: string[];
   resourceIds: string[];
   updatedAt: number;
 };
@@ -48,13 +41,7 @@ export class EventJournal {
   }
 
   create(threadId: string, turnId: string): void {
-    const turn: MutableTurn = {
-      threadId,
-      turnId,
-      status: "in_progress",
-      lastSequence: 0,
-      events: [],
-    };
+    const turn: MutableTurn = { threadId, turnId, status: "in_progress", lastSequence: 0, events: [] };
     this.store?.create(turn);
     this.turns.set(turnId, turn);
     this.activeByThread.set(threadId, turnId);
@@ -80,11 +67,7 @@ export class EventJournal {
 
   snapshot(turnId: string, afterSequence = 0): TurnSnapshot | null {
     const turn = this.turns.get(turnId);
-    if (!turn) return null;
-    return {
-      ...turn,
-      events: turn.events.filter((event) => event.sequence > afterSequence),
-    };
+    return turn ? { ...turn, events: turn.events.filter((event) => event.sequence > afterSequence) } : null;
   }
 
   snapshots(status?: TurnStatus): TurnSnapshot[] {

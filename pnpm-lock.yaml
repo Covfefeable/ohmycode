@@ -31,9 +31,6 @@ importers:
       '@ohmycode/protocol':
         specifier: workspace:*
         version: link:../packages/protocol
-      '@ohmycode/runtime-core':
-        specifier: workspace:*
-        version: link:../packages/runtime-core
       '@ohmycode/tool-contracts':
         specifier: workspace:*
         version: link:../packages/tool-contracts
@@ -155,9 +152,6 @@ importers:
       '@ohmycode/protocol':
         specifier: workspace:*
         version: link:../packages/protocol
-      '@ohmycode/runtime-core':
-        specifier: workspace:*
-        version: link:../packages/runtime-core
       '@ohmycode/tool-contracts':
         specifier: workspace:*
         version: link:../packages/tool-contracts
@@ -249,9 +243,9 @@ importers:
 
   packages/agent-runtime:
     dependencies:
-      '@ohmycode/runtime-core':
+      '@ohmycode/protocol':
         specifier: workspace:*
-        version: link:../runtime-core
+        version: link:../protocol
       '@ohmycode/tool-contracts':
         specifier: workspace:*
         version: link:../tool-contracts
@@ -267,16 +261,6 @@ importers:
         version: 5.9.3
 
   packages/protocol:
-    devDependencies:
-      typescript:
-        specifier: 5.9.3
-        version: 5.9.3
-
-  packages/runtime-core:
-    dependencies:
-      '@ohmycode/protocol':
-        specifier: workspace:*
-        version: link:../protocol
     devDependencies:
       typescript:
         specifier: 5.9.3

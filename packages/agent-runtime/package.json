@@ -18,7 +18,7 @@
     "test": "pnpm build && node test/server-stream.smoke.mjs && node test/tool-loop.smoke.mjs && node test/tool-registry.smoke.mjs"
   },
   "dependencies": {
-    "@ohmycode/runtime-core": "workspace:*",
+    "@ohmycode/protocol": "workspace:*",
     "@ohmycode/tool-contracts": "workspace:*"
   },
   "devDependencies": {

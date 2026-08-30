@@ -3,8 +3,8 @@
   "private": true,
   "packageManager": "pnpm@10.15.0",
   "scripts": {
-    "build": "pnpm --filter @ohmycode/design-tokens build && pnpm --filter @ohmycode/protocol build && pnpm --filter @ohmycode/tool-contracts build && pnpm --filter @ohmycode/runtime-core build && pnpm --filter @ohmycode/agent-runtime build && pnpm --filter @ohmycode/desktop build && pnpm --filter @ohmycode/mobile typecheck",
-    "typecheck": "pnpm check:boundaries && pnpm --filter @ohmycode/design-tokens build && pnpm --filter @ohmycode/protocol build && pnpm --filter @ohmycode/tool-contracts build && pnpm --filter @ohmycode/runtime-core build && pnpm --filter @ohmycode/agent-runtime typecheck && pnpm --filter @ohmycode/desktop typecheck && pnpm --filter @ohmycode/mobile typecheck",
+    "build": "pnpm --filter @ohmycode/design-tokens build && pnpm --filter @ohmycode/protocol build && pnpm --filter @ohmycode/tool-contracts build && pnpm --filter @ohmycode/agent-runtime build && pnpm --filter @ohmycode/desktop build && pnpm --filter @ohmycode/mobile typecheck",
+    "typecheck": "pnpm check:boundaries && pnpm --filter @ohmycode/design-tokens build && pnpm --filter @ohmycode/protocol build && pnpm --filter @ohmycode/tool-contracts build && pnpm --filter @ohmycode/agent-runtime typecheck && pnpm --filter @ohmycode/desktop typecheck && pnpm --filter @ohmycode/mobile typecheck",
     "check:boundaries": "node scripts/check-package-boundaries.mjs"
   },
   "pnpm": {

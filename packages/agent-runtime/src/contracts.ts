@@ -1,11 +1,7 @@
-import type { ExecutionStore, RuntimeExecutionState } from "@ohmycode/runtime-core";
-import type { ProviderToolDefinition, ToolExecutor, ToolResult } from "@ohmycode/tool-contracts";
+import type { AgentTask } from "@ohmycode/protocol";
+import type { ProviderToolDefinition, ToolResult } from "@ohmycode/tool-contracts";
 
-export type AgentTask = {
-  id: string;
-  content: string;
-  status: "pending" | "in_progress" | "completed";
-};
+export type { AgentTask } from "@ohmycode/protocol";
 
 export type ToolRequestEvent = {
   type: "tool.requested";
@@ -42,13 +38,6 @@ export interface AgentTransport {
 
 export interface TurnController {
   readonly signal: AbortSignal;
-  setPhase(phase: RuntimeExecutionState["phase"]): void;
-  setPendingToolCalls(callIds: string[]): void;
-}
-
-export interface RuntimeLifecycle {
-  onSuspend(listener: () => void): () => void;
-  onResume(listener: () => void): () => void;
 }
 
 export interface TurnExecutionAdapter<PartialState = unknown> {
@@ -57,9 +46,3 @@ export interface TurnExecutionAdapter<PartialState = unknown> {
   isMissingRemoteRunError(error: unknown): boolean;
   reportCancellationFailure?(error: unknown): void;
 }
-
-export type RuntimePorts<PartialState = unknown> = {
-  executionStore?: ExecutionStore;
-  executionAdapter: TurnExecutionAdapter<PartialState>;
-  tools: ToolExecutor;
-};

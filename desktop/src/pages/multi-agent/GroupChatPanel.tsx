@@ -6,12 +6,14 @@ import { MarkdownContent } from "../../shared/ui/markdown-content";
 import { PromptEditor, usePromptCapabilities } from "../../shared/ui/prompt-editor";
 import { Tooltip } from "../../shared/ui/tooltip";
 import { RunDetailDialog } from "./RunDetailDialog";
+import type { LiveAgentRun } from "./useMultiAgentExecution";
 import styles from "./MultiAgentPage.module.css";
 
 type Props = {
   task: MultiAgentTask;
   message: string;
   sending: boolean;
+  liveAgentRuns: Record<string, LiveAgentRun>;
   onMessageChange(value: string): void;
   onSend(): void;
 };
@@ -25,8 +27,16 @@ export function GroupChatPanel(props: Props) {
   const [runDetailOpen, setRunDetailOpen] = useState(false);
   const [runDetailLoading, setRunDetailLoading] = useState(false);
   const [runDetailMessageId, setRunDetailMessageId] = useState<string | null>(null);
+  const [liveDetailNodeId, setLiveDetailNodeId] = useState<string | null>(null);
   const names = useMemo(() => new Map(props.task.members.map((member) => [member.id, member.name])), [props.task.members]);
-  useEffect(() => { endRef.current?.scrollIntoView({ block: "end" }); }, [props.task.messages.length]);
+  const liveRunningNodeId = Object.values(props.liveAgentRuns).find((run) => run.detail.status === "running")?.nodeId;
+  const snapshotRunningMember = props.task.members.find((member) => member.status === "running");
+  const runningMember = props.task.status === "running"
+    ? props.task.members.find((member) => member.id === liveRunningNodeId)
+      ?? (snapshotRunningMember && !props.liveAgentRuns[snapshotRunningMember.id] ? snapshotRunningMember : undefined)
+    : undefined;
+  const liveDetail = liveDetailNodeId ? props.liveAgentRuns[liveDetailNodeId]?.detail ?? null : null;
+  useEffect(() => { endRef.current?.scrollIntoView({ block: "end" }); }, [props.task.messages.length, runningMember?.id]);
   useEffect(() => {
     if (!runDetailOpen || !runDetailMessageId || runDetail?.status !== "running") return;
     const timer = window.setInterval(() => {
@@ -36,6 +46,7 @@ export function GroupChatPanel(props: Props) {
   }, [runDetail?.status, runDetailMessageId, runDetailOpen]);
 
   async function showRunDetail(messageId: string) {
+    setLiveDetailNodeId(null);
     setRunDetailOpen(true);
     setRunDetailMessageId(messageId);
     setRunDetail(null);
@@ -46,6 +57,12 @@ export function GroupChatPanel(props: Props) {
       toast({ type: "error", message: t("multiAgent.runDetailLoadFailed") });
     }
     finally { setRunDetailLoading(false); }
+  }
+
+  function showLiveDetail(nodeId: string) {
+    setRunDetailMessageId(null);
+    setLiveDetailNodeId(nodeId);
+    setRunDetailOpen(true);
   }
 
   return <section className={styles.chatPanel}>
@@ -66,6 +83,18 @@ export function GroupChatPanel(props: Props) {
           </div>
         </article>;
       })}
+      {runningMember && <article className={`${styles.agentMessage} ${styles.typingMessage}`}>
+        <span className={styles.messageAvatar}>{runningMember.name.slice(0, 1)}</span>
+        <div>
+          <header><strong>{runningMember.name}</strong><span>{t("multiAgent.agentWorking")}</span></header>
+          <div className={`${styles.bubble} ${styles.typingBubble}`} aria-label={t("multiAgent.agentWorking")}>
+            <i /><i /><i />
+          </div>
+          <div className={styles.messageActions}>
+            <Tooltip content={t("multiAgent.viewLiveActivity")}><button aria-label={t("multiAgent.viewLiveActivity")} disabled={!props.liveAgentRuns[runningMember.id]} onClick={() => showLiveDetail(runningMember.id)}><Info /></button></Tooltip>
+          </div>
+        </div>
+      </article>}
       <div ref={endRef} />
     </div>
     <div className={styles.composer}>
@@ -74,6 +103,6 @@ export function GroupChatPanel(props: Props) {
         {props.sending ? <LoaderCircle className={styles.spinner} /> : <ArrowUp />}
       </button></div>
     </div>
-    {runDetailOpen && <RunDetailDialog detail={runDetail} loading={runDetailLoading} onClose={() => { setRunDetailOpen(false); setRunDetail(null); setRunDetailMessageId(null); }} />}
+    {runDetailOpen && <RunDetailDialog detail={liveDetailNodeId ? liveDetail : runDetail} loading={liveDetailNodeId ? false : runDetailLoading} onClose={() => { setRunDetailOpen(false); setRunDetail(null); setRunDetailMessageId(null); setLiveDetailNodeId(null); }} />}
   </section>;
 }

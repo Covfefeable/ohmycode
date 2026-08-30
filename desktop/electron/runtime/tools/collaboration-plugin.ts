@@ -16,9 +16,12 @@ export function createCollaborationPlugin(context: DesktopExecutionContext): Too
   return defineToolPlugin({
     id: "collaboration",
     definitions: [AGENT_MESSAGE_DEFINITION],
-    execute: (call: ToolCall) => apiRequest(
-      `/api/multi-agents/nodes/${context.ownerId}/messages`,
-      { method: "POST", body: JSON.stringify(call.arguments) },
-    ),
+    execute: async (call: ToolCall) => {
+      const result = await apiRequest<{ id: string; sourceStatus: string; targetStatus?: string; taskStatus: string }>(
+        `/api/multi-agents/nodes/${context.ownerId}/messages`,
+        { method: "POST", body: JSON.stringify(call.arguments) },
+      );
+      return { messageId: result.id, handedOff: result.sourceStatus === "idle" };
+    },
   });
 }

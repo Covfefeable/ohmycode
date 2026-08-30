@@ -98,11 +98,7 @@ export async function streamMobileMessage(
       response,
       runId: localTurnId,
       workspaceInstructions: "",
-      execution: {
-        signal,
-        setPendingToolCalls: () => undefined,
-        setPhase: () => undefined,
-      },
+      execution: { signal },
       tools,
       toolSnapshot: () => tools.definitions(),
       transport: {

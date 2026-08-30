@@ -1,6 +1,6 @@
 import path from "node:path";
 import { app, BrowserWindow } from "electron";
-import { EventJournal, type EventPublisher } from "@ohmycode/runtime-core";
+import { EventJournal, type EventPublisher } from "@ohmycode/agent-runtime";
 import type { RuntimeEvent, RuntimeEventPayload, RuntimeItem, TurnSnapshot } from "@ohmycode/protocol";
 import type { LocalConversation, LocalMessage, MessageAttachment } from "../projects/types.js";
 import {
