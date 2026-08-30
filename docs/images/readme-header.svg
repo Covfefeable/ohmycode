@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="460" viewBox="0 0 1400 460" role="img" aria-labelledby="title description">
+  <title id="title">OhMyCode</title>
+  <desc id="description">An open workspace for coding agents</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#15181d"/>
+      <stop offset="0.58" stop-color="#0d0f12"/>
+      <stop offset="1" stop-color="#090b0e"/>
+    </linearGradient>
+    <radialGradient id="accentGlow" cx="0" cy="0" r="1" gradientTransform="translate(1110 210) rotate(180) scale(430 330)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#7dff98" stop-opacity="0.19"/>
+      <stop offset="0.48" stop-color="#7dff98" stop-opacity="0.05"/>
+      <stop offset="1" stop-color="#7dff98" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="accent" x1="1020" y1="125" x2="1218" y2="335" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#9dffaf"/>
+      <stop offset="1" stop-color="#58ee79"/>
+    </linearGradient>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M40 0H0V40" fill="none" stroke="#ffffff" stroke-opacity="0.035"/>
+    </pattern>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="12" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <clipPath id="frame">
+      <rect width="1400" height="460" rx="24"/>
+    </clipPath>
+  </defs>
+
+  <g clip-path="url(#frame)">
+    <rect width="1400" height="460" fill="url(#background)"/>
+    <rect width="1400" height="460" fill="url(#grid)"/>
+    <rect width="1400" height="460" fill="url(#accentGlow)"/>
+
+    <path d="M0 88H544" stroke="#2a3038"/>
+    <path d="M856 372H1400" stroke="#2a3038"/>
+    <path d="M104 0V460" stroke="#2a3038" stroke-opacity="0.55"/>
+    <path d="M1296 0V460" stroke="#2a3038" stroke-opacity="0.55"/>
+
+    <g transform="translate(140 122)">
+      <text x="0" y="36" fill="#7dff98" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif" font-size="18" font-weight="650" letter-spacing="3">OPEN SOURCE · DESKTOP FIRST</text>
+      <text x="0" y="122" fill="#f1f3ee" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif" font-size="78" font-weight="760" letter-spacing="-3">OhMyCode</text>
+      <text x="4" y="174" fill="#b1b7bf" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif" font-size="25" font-weight="400">An open workspace for coding agents.</text>
+      <g transform="translate(4 218)" fill="#929aa4" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif" font-size="15" font-weight="520">
+        <text x="0" y="0">DESKTOP RUNTIME</text>
+        <rect x="170" y="-13" width="1" height="17" fill="#424a55"/>
+        <text x="194" y="0">PERSISTENT TOOLS</text>
+        <rect x="352" y="-13" width="1" height="17" fill="#424a55"/>
+        <text x="376" y="0">MULTI-AGENT</text>
+      </g>
+    </g>
+
+    <g transform="translate(968 87)">
+      <path d="M76 43L124 0H250L298 43V105L270 125V58L229 20H145L104 58V242L145 280H168V300H124L76 257Z" fill="#f1f3ee" opacity="0.96"/>
+      <path d="M204 300V280H229L270 242V162L298 142V257L250 300Z" fill="url(#accent)"/>
+      <path d="M126 109L188 167L250 109V217H224V168L188 202L152 168V217H126Z" fill="url(#accent)"/>
+      <rect x="174" y="247" width="28" height="28" fill="url(#accent)"/>
+      <path d="M319 44H356V81" fill="none" stroke="#7dff98" stroke-width="2" stroke-opacity="0.8"/>
+      <path d="M55 256H18V219" fill="none" stroke="#7dff98" stroke-width="2" stroke-opacity="0.45"/>
+      <circle cx="356" cy="44" r="3" fill="#7dff98" filter="url(#glow)"/>
+      <circle cx="18" cy="256" r="3" fill="#7dff98" opacity="0.65"/>
+    </g>
+
+    <rect x="0.5" y="0.5" width="1399" height="459" rx="23.5" fill="none" stroke="#343b44"/>
+  </g>
+</svg>

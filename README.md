@@ -1,4 +1,4 @@
-# OhMyCode
+![OhMyCode · An open workspace for coding agents](docs/images/readme-header.svg)
 
 ![OhMyCode 工作空间与 Agent 对话](docs/images/workspace-chat.png)
 
