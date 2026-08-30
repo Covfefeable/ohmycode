@@ -1,5 +1,7 @@
 ![OhMyCode · An open workspace for coding agents](docs/images/readme-header.svg)
 
+<p align="center"><strong>简体中文</strong> · <a href="./README.en.md">English</a></p>
+
 ![OhMyCode 工作空间与 Agent 对话](docs/images/workspace-chat.png)
 
 OhMyCode 是一个桌面优先的 Code Agent 工作空间，使用 Electron、React、Flask、
