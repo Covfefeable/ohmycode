@@ -1,0 +1,89 @@
+name: Desktop Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: desktop-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.15.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Verify release version
+        shell: bash
+        run: node -e "const version=require('./desktop/package.json').version; if (process.env.GITHUB_REF_NAME !== 'v'+version) throw new Error('Tag '+process.env.GITHUB_REF_NAME+' does not match desktop version '+version)"
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build Windows installer
+        run: pnpm --dir desktop dist:win
+      - name: Create checksums
+        shell: pwsh
+        run: Get-ChildItem desktop/release/*.exe | ForEach-Object { "$(($_ | Get-FileHash -Algorithm SHA256).Hash.ToLower())  $($_.Name)" | Set-Content -NoNewline "$($_.FullName).sha256" }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-windows-x64
+          path: |
+            desktop/release/*.exe
+            desktop/release/*.exe.sha256
+          if-no-files-found: error
+
+  macos:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.15.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Verify release version
+        run: node -e "const version=require('./desktop/package.json').version; if (process.env.GITHUB_REF_NAME !== 'v'+version) throw new Error('Tag '+process.env.GITHUB_REF_NAME+' does not match desktop version '+version)"
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build Apple Silicon installer
+        run: pnpm --dir desktop dist:mac
+      - name: Create checksums
+        run: for file in desktop/release/*.dmg; do shasum -a 256 "$file" | sed "s#  .*/#  #" > "$file.sha256"; done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-macos-arm64
+          path: |
+            desktop/release/*.dmg
+            desktop/release/*.dmg.sha256
+          if-no-files-found: error
+
+  publish:
+    runs-on: ubuntu-latest
+    needs: [windows, macos]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: desktop-*
+          path: artifacts
+      - name: Create or update GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release create "$GITHUB_REF_NAME" --verify-tag --generate-notes --draft
+          fi
+          find artifacts -type f -print0 | xargs -0 gh release upload "$GITHUB_REF_NAME" --clobber
+          gh release edit "$GITHUB_REF_NAME" --draft=false

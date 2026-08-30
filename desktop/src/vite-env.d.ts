@@ -36,6 +36,10 @@ interface Window {
       suggest(conversationId: string): Promise<string[]>;
     };
     apiStatus(): Promise<{ online: boolean; url: string }>;
+    updates: {
+      check(): Promise<UpdateCheckResult>;
+      openDownload(): Promise<void>;
+    };
     debug: {
       getConfig(): Promise<{ apiUrl: string }>;
       setApiUrl(apiUrl: string): Promise<{ apiUrl: string }>;
@@ -117,6 +121,7 @@ type PublicSettings = {
   tokenUsage: TokenUsageEntry[];
 };
 type TokenUsageEntry = { date: string; tokens: number };
+type UpdateCheckResult = { status: "latest" | "available"; currentVersion: string; latestVersion: string; releaseName: string; publishedAt: string | null };
 type BackgroundTaskSettings = { autoSummaryEnabled: boolean; autoSummaryModelId: string | null; contextCompactionThreshold: number; contextCompactionModelId: string | null; suggestionsEnabled: boolean; suggestionsModelId: string | null };
 type MultiAgentTaskSummary = { id: string; title: string; status: string; createdAt: string };
 type MultiAgentTemplateMember = { key: string; name: string; role: string; instructions: string; modelId?: string | null; isHost: boolean; sortOrder: number };

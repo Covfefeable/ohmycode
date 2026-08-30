@@ -51,6 +51,10 @@ contextBridge.exposeInMainWorld("ohmycode", {
     suggest: (conversationId) => ipcRenderer.invoke("conversations:suggest", conversationId),
   },
   apiStatus: () => ipcRenderer.invoke("api:status"),
+  updates: {
+    check: () => ipcRenderer.invoke("updates:check"),
+    openDownload: () => ipcRenderer.invoke("updates:open-download"),
+  },
   debug: {
     getConfig: () => ipcRenderer.invoke("debug:get-config"),
     setApiUrl: (apiUrl) => ipcRenderer.invoke("debug:set-api-url", apiUrl),

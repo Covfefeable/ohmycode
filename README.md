@@ -339,6 +339,19 @@ desktop/release/OhMyCode-Setup-<version>-arm64.dmg
 时可能触发 SmartScreen 或 Gatekeeper 提示。正式公开发布前应配置对应平台的签名证书；
 不要把证书、密码或 Apple 凭据写入仓库。
 
+### GitHub Release
+
+推送与 `desktop/package.json` 版本一致的 Tag 后，`.github/workflows/release.yml` 会使用
+GitHub Actions 自带的 `GITHUB_TOKEN`，分别构建 Windows x64 和 macOS arm64 安装包，
+生成 SHA-256 校验文件并发布到当前仓库的 GitHub Releases：
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+Tag 与客户端版本不一致时，Release workflow 会立即失败，不会发布错误版本。
+
 打包客户端默认连接 `desktop/electron/config.ts` 中的生产 API 地址。安装包不包含 Flask API、
 Celery Worker、Celery Beat、PostgreSQL、Redis 或 MinIO。
 

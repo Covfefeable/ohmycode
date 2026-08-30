@@ -1,0 +1,22 @@
+.section { width: min(900px, 100%); display: grid; gap: var(--space-5); }
+.section button { height: var(--control-height); display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); border: 1px solid var(--color-border-strong); border-radius: var(--radius-md); background: var(--color-surface-2); color: var(--color-text); padding: 0 var(--space-4); font: inherit; white-space: nowrap; cursor: pointer; }
+.section button:hover { background: var(--color-surface-hover); }
+.section button:active { transform: translateY(1px); }
+.section button:disabled { color: var(--color-text-disabled); cursor: default; }
+.section button svg { width: 15px; height: 15px; }
+.statusPanel { min-height: 112px; display: grid; grid-template-columns: 42px minmax(0, 1fr) auto; align-items: center; gap: var(--space-4); border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: var(--color-surface-1); padding: var(--space-5); }
+.statusIcon { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 50%; background: var(--color-accent-soft); color: var(--color-accent); }
+.statusIcon svg { width: 19px; height: 19px; }
+.updateIcon { background: var(--color-surface-control); }
+.errorIcon { background: var(--color-danger-surface); color: var(--color-danger); }
+.statusCopy { min-width: 0; }
+.statusCopy h3 { margin: 0; color: var(--color-text); font-size: var(--font-md); }
+.statusCopy p { margin: 6px 0 0; color: var(--color-text-muted); font-size: var(--font-sm); line-height: 1.55; }
+.downloadButton { border-color: var(--color-accent) !important; background: var(--color-accent) !important; color: var(--color-accent-ink) !important; font-weight: 750 !important; }
+.versionDetails { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-3); margin: 0; }
+.versionDetails > div { display: grid; gap: 5px; border-radius: var(--radius-md); background: var(--color-surface-2); padding: var(--space-4); }
+.versionDetails dt { color: var(--color-text-muted); font-size: var(--font-xs); }
+.versionDetails dd { margin: 0; color: var(--color-text); font-size: var(--font-md); font-weight: 700; }
+.spinning { animation: spin 800ms linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (max-width: 720px) { .statusPanel { grid-template-columns: 42px minmax(0, 1fr); } .downloadButton { grid-column: 1 / -1; } .versionDetails { grid-template-columns: 1fr; } }
