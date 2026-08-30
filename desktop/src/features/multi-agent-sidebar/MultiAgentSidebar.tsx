@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CheckCircle2, ChevronDown, ChevronRight, Circle, CircleAlert, Clock3, LoaderCircle, MoreHorizontal, Plus, Square, Trash2 } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, Circle, CircleAlert, Clock3, LoaderCircle, MoreHorizontal, Plus, Square, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { PopoverMenu } from "../../shared/ui/popover-menu";
 import { Tooltip } from "../../shared/ui/tooltip";
@@ -25,7 +25,7 @@ export function MultiAgentSidebar(props: Props) {
   const statusIcon = (status: string) => {
     const label = t(`multiAgent.${status}`, { defaultValue: status });
     const icon = status === "running" ? <LoaderCircle />
-      : status === "completed" ? <CheckCircle2 />
+      : status === "completed" ? <Check />
         : status === "failed" ? <CircleAlert />
           : status === "stopped" ? <Square />
             : status === "pending" || status === "ready" || status === "queued" ? <Clock3 /> : <Circle />;

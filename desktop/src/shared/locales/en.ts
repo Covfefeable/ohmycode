@@ -178,6 +178,7 @@ export const en = {
     ready: "Ready",
     running: "Running",
     waiting_user: "Waiting for user",
+    completed: "Completed",
     failed: "Failed",
     stopped: "Stopped",
     idle: "Idle",

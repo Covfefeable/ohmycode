@@ -30,7 +30,7 @@
 .taskStatus svg { width: 13px; height: 13px; }
 .status_running { color: var(--color-accent); }
 .status_running svg { animation: spin 800ms linear infinite; }
-.status_completed { color: var(--color-accent); }
+.status_completed svg { width: 15px; height: 15px; box-sizing: border-box; border-radius: 50%; background: var(--color-accent); padding: 2px; color: var(--color-accent-ink); stroke-width: 3; }
 .status_failed { color: var(--color-danger); }
 .status_stopped { color: var(--color-warning); }
 .danger { color: var(--color-danger-text) !important; }

@@ -22,6 +22,27 @@ export function useCollaborationWorkspace() {
   const [creating, setCreating] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
 
+  const applyTaskSnapshot = useCallback((value: MultiAgentTask | null) => {
+    setTask(value);
+    if (!value || value.status === "template") return;
+    setAgents((current) => current.map((agent) => {
+      if (agent.id !== value.agentId) return agent;
+      const summary: MultiAgentTaskSummary = {
+        id: value.id,
+        title: value.title,
+        status: value.status,
+        createdAt: value.createdAt,
+      };
+      const exists = agent.tasks.some((item) => item.id === value.id);
+      return {
+        ...agent,
+        tasks: exists
+          ? agent.tasks.map((item) => item.id === value.id ? summary : item)
+          : [...agent.tasks, summary],
+      };
+    }));
+  }, []);
+
   const reloadAgents = useCallback(async () => {
     const value = await window.ohmycode.multiAgents.list();
     setAgents(value);
@@ -67,9 +88,9 @@ export function useCollaborationWorkspace() {
 
   useEffect(() => {
     if (!selectedTaskId) return;
-    void window.ohmycode.multiAgents.getTask(selectedTaskId).then(setTask)
+    void window.ohmycode.multiAgents.getTask(selectedTaskId).then(applyTaskSnapshot)
       .catch(() => toast({ type: "error", message: t("multiAgent.loadFailed") }));
-  }, [selectedTaskId, t, toast]);
+  }, [applyTaskSnapshot, selectedTaskId, t, toast]);
 
   const selectedAgent = agents.find((item) => item.id === selectedAgentId) ?? null;
   const selectedMember = task?.members.find((item) => item.id === selectedMemberId) ?? null;
@@ -198,7 +219,7 @@ export function useCollaborationWorkspace() {
   return {
     agents, models, selectedAgentId, selectedTaskId, task, selectedMember, selectedMemberId,
     createDialogOpen, draft, creating, deleteTarget, reloadAgents, reloadModels, setSelectedAgentId,
-    setSelectedTaskId, setTask, setSelectedMemberId, setCreateDialogOpen, setDraft,
+    setSelectedTaskId, setTask: applyTaskSnapshot, setSelectedMemberId, setCreateDialogOpen, setDraft,
     setDeleteTarget, selectAgent, selectTask, createCollaboration, saveTeam, updateMember,
     addMember, removeMember, confirmDelete,
   };

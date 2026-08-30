@@ -177,6 +177,7 @@ export const zhCN = {
     ready: "可执行",
     running: "执行中",
     waiting_user: "等待用户回复",
+    completed: "已完成",
     failed: "失败",
     stopped: "已停止",
     idle: "空闲",
