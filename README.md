@@ -1,5 +1,7 @@
 # OhMyCode
 
+![OhMyCode 工作空间与 Agent 对话](docs/images/workspace-chat.png)
+
 OhMyCode 是一个桌面优先的 Code Agent 工作空间，使用 Electron、React、Flask、
 PostgreSQL 和 Redis 构建。它支持 OpenAI-compatible 模型、流式对话、持久终端、
 文件工具、上下文压缩以及主持人调度的 Multi-Agent 协作。
@@ -9,6 +11,28 @@ PostgreSQL 和 Redis 构建。它支持 OpenAI-compatible 模型、流式对话�
 发布安全和端到端测试仍是后续重点。详细边界见
 [`docs/architecture.md`](docs/architecture.md)，当前改进清单见
 [`docs/issues.md`](docs/issues.md)。
+
+## 界面预览
+
+### Multi-Agent 协作
+
+创建可复用的 Agent 团队，为主持人和各成员分别配置职责、模型与提示词。
+
+![Multi-Agent 成员与提示词配置](docs/images/multi-agent-config.png)
+
+运行协作任务时，主持人负责调度成员，所有消息与执行状态在群聊中实时呈现。
+
+![Multi-Agent 群聊](docs/images/multi-agent-chat.png)
+
+每次 Agent Run 均可查看耗时、Token 用量、思考过程以及文件和工具活动。
+
+![Agent Run 运行详情](docs/images/multi-agent-run-detail.png)
+
+### 个人设置
+
+桌面端提供模型、MCP、Skills、后台任务、更新检查以及 Token 使用记录等统一设置。
+
+![个人信息与 Token 使用记录](docs/images/settings-profile.png)
 
 ## 技术栈
 
