@@ -153,11 +153,16 @@ def fail_run(run: AgentRun, error_code: str) -> None:
     db.session.commit()
 
 
-def cancel_run(user_id: UUID, run_id: UUID, partial_message: object = None) -> None:
+def cancel_run(
+    user_id: UUID,
+    run_id: UUID,
+    partial_message: object = None,
+    reason: str = "user_requested",
+) -> None:
     run = get_owned_run(user_id, run_id)
     if run.status in {"completed", "failed", "cancelled"}:
         return
-    append_event(run, "run.cancelled", {"reason": "user_requested"})
+    append_event(run, "run.cancelled", {"reason": reason})
     run.status = "cancelled"
     run.completed_at = datetime.now(UTC)
     if isinstance(partial_message, dict) and not db.session.scalar(

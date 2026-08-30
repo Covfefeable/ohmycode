@@ -503,6 +503,17 @@ def fail_node(user_id: UUID, node_id: UUID, error_code: str) -> MultiAgentTask:
     return node.task
 
 
+def retry_node(user_id: UUID, node_id: UUID) -> MultiAgentTask:
+    node = owned_node(user_id, node_id)
+    if not node or node.status != "running" or node.task.status != "running":
+        raise ServiceError("invalid_node_state", 409)
+    node.status = "idle"
+    _enqueue_front(node.task, node)
+    _activate_next(node.task)
+    db.session.commit()
+    return node.task
+
+
 def stop_task(user_id: UUID, task_id: UUID) -> MultiAgentTask:
     task = get_task(user_id, task_id)
     if not task:

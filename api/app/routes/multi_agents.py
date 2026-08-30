@@ -19,6 +19,7 @@ from ..services.multi_agents import (
     record_changes,
     recover_host,
     replace_team,
+    retry_node,
     serialize_agent,
     serialize_message_run,
     serialize_task,
@@ -201,6 +202,13 @@ def complete_node_route(node_id: UUID):
     require_device_node(node_id)
     task = complete_node(user_id(), node_id, request.get_json(silent=True) or {})
     return jsonify(serialize_task(task))
+
+
+@multi_agents_bp.post("/nodes/<uuid:node_id>/retry")
+@jwt_required()
+def retry_node_route(node_id: UUID):
+    require_device_node(node_id)
+    return jsonify(serialize_task(retry_node(user_id(), node_id)))
 
 
 @multi_agents_bp.post("/nodes/<uuid:node_id>/fail")

@@ -4,6 +4,7 @@ from uuid import UUID
 from app import create_app
 from app.extensions import db
 from app.models import AgentEvent, AgentRun, Message
+from app.services.agent.preparation import completion_mailbox
 from app.services.multi_agents import planner
 
 
@@ -221,6 +222,8 @@ def test_host_driven_group_chat_lifecycle(tmp_path):
         assert resumed["currentSpeakerId"] == writer["id"]
         assert resumed["messages"][-2]["toNodeId"] is None
         assert resumed["messages"][-1]["content"] == "Revise the opening"
+        mailbox = completion_mailbox(UUID(writer["conversationId"]))
+        assert "[Writer @ User]" in mailbox[0]["content"]
 
 
 def test_user_message_queues_target_and_host_recovers(tmp_path):
@@ -416,6 +419,31 @@ def test_agent_pause_preserves_pending_speakers(tmp_path):
         )
         state = client.get(f"/api/multi-agents/tasks/{task['id']}", headers=headers).get_json()
         assert state["currentSpeakerId"] == writer["id"]
+
+
+def test_running_node_can_be_requeued_after_transient_transport_conflict(tmp_path):
+    app = create_app("testing")
+    with app.app_context():
+        db.create_all()
+    with app.test_client() as client:
+        headers = _setup(client)
+        agent = _create_team(client, headers)
+        task = client.post(
+            f"/api/multi-agents/{agent['id']}/tasks",
+            headers=headers,
+            json={"workspacePath": str(tmp_path), "request": "Prepare content"},
+        ).get_json()
+        host = next(member for member in task["members"] if member["isHost"])
+        client.post(f"/api/multi-agents/tasks/{task['id']}/start", headers=headers)
+        client.post(f"/api/multi-agents/nodes/{host['id']}/start", headers=headers)
+
+        retried = client.post(
+            f"/api/multi-agents/nodes/{host['id']}/retry", headers=headers
+        )
+        assert retried.status_code == 200
+        state = retried.get_json()
+        assert state["status"] == "running"
+        assert state["currentSpeakerId"] == host["id"]
 
 
 def test_remote_service_treats_client_workspace_path_as_opaque():

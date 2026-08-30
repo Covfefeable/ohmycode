@@ -368,6 +368,23 @@ def test_project_conversation_and_message_lifecycle(monkeypatch):
         assert recovered_detail["messages"][-1]["content"] == "Partial Hello stream"
         assert recovery_payloads[-1]["messages"][-2]["content"] == "Partial "
 
+        with app.app_context():
+            running_run = AgentRun(
+                conversation_id=uuid.UUID(failed_conversation["id"]), status="running"
+            )
+            db.session.add(running_run)
+            db.session.commit()
+            running_run_id = str(running_run.id)
+        conflicted = client.post(
+            f"/api/agent-runs/{running_run_id}/recover",
+            headers=headers,
+            json={"tools": DESKTOP_TOOLS},
+        )
+        assert conflicted.status_code == 200
+        assert b'"errorCode": "run_recovery_conflict"' in conflicted.data
+        with app.app_context():
+            assert db.session.get(AgentRun, uuid.UUID(running_run_id)).status == "cancelled"
+
         balance_conversation = client.post(
             f"/api/projects/{project_id}/conversations",
             headers=headers,

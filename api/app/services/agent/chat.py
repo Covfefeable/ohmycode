@@ -16,6 +16,7 @@ from .provider_stream import PreparedCompletion, provider_payloads
 from .runs import (
     append_event,
     build_run_activity,
+    cancel_run,
     complete_run,
     fail_run,
     get_owned_run,
@@ -244,7 +245,8 @@ def recover_completion(
     if run.status in {"completed", "cancelled"}:
         return []
     if run.status == "running":
-        raise ServiceError("run_still_running", 409)
+        cancel_run(user_id, run_id, reason="stream_recovery_conflict")
+        return [{"type": "run.failed", "errorCode": "run_recovery_conflict"}]
     if run.status != "failed" or run.error_code != "client_disconnected":
         return [{"type": "run.failed", "errorCode": run.error_code or "runtime_failed"}]
     configuration = db.session.get(ModelConfiguration, run.model_configuration_id)

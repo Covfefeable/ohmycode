@@ -11,7 +11,7 @@ export type MultiAgentRunEvent =
   | { type: "node.event"; nodeId: string; event: RuntimeEvent }
   | { type: "task.failed"; error: string };
 
-type ActiveRun = { taskId: string; nodeTurnId?: string; cancelled: boolean };
+type ActiveRun = { taskId: string; nodeTurnId?: string; cancelled: boolean; transientRetries: Set<string> };
 const activeRuns = new Map<string, ActiveRun>();
 
 export const listMultiAgents = (): Promise<MultiAgentSummary[]> => apiRequest("/api/multi-agents");
@@ -80,19 +80,37 @@ async function runTurn(task: MultiAgentTask, memberId: string, requestId: string
     const latestMember = latest.members.find((item) => item.id === member.id);
     if (latest.status === "running" && latestMember?.status === "running") {
       const message = transportError instanceof Error ? transportError.message : "connection_closed";
-      latest = await apiRequest(`/api/multi-agents/nodes/${member.id}/fail`, {
-        method: "POST",
-        body: JSON.stringify({ errorCode: `stream_transport_${message}`.slice(0, 500) }),
-      });
+      if (message.includes("run_still_running") && active && !active.transientRetries.has(member.id)) {
+        active.transientRetries.add(member.id);
+        try {
+          await apiRequest(`/api/agent-runs/${turnId}/cancel`, { method: "POST", body: "{}" });
+          latest = await apiRequest(`/api/multi-agents/nodes/${member.id}/retry`, { method: "POST" });
+        } catch {
+          latest = await apiRequest(`/api/multi-agents/nodes/${member.id}/fail`, {
+            method: "POST",
+            body: JSON.stringify({ errorCode: `stream_transport_${message}`.slice(0, 500) }),
+          });
+        }
+      } else {
+        latest = await apiRequest(`/api/multi-agents/nodes/${member.id}/fail`, {
+          method: "POST",
+          body: JSON.stringify({ errorCode: `stream_transport_${message}`.slice(0, 500) }),
+        });
+      }
     }
     onEvent({ type: "task.updated", task: latest });
     return latest;
   }
   if (streamError) {
-    latest = await apiRequest(`/api/multi-agents/nodes/${member.id}/fail`, {
-      method: "POST",
-      body: JSON.stringify({ errorCode: streamError }),
-    });
+    if (streamError === "run_recovery_conflict" && active && !active.transientRetries.has(member.id)) {
+      active.transientRetries.add(member.id);
+      latest = await apiRequest(`/api/multi-agents/nodes/${member.id}/retry`, { method: "POST" });
+    } else {
+      latest = await apiRequest(`/api/multi-agents/nodes/${member.id}/fail`, {
+        method: "POST",
+        body: JSON.stringify({ errorCode: streamError }),
+      });
+    }
     onEvent({ type: "task.updated", task: latest });
     return latest;
   }
@@ -119,7 +137,7 @@ async function orchestrate(task: MultiAgentTask, requestId: string, onEvent: (ev
 }
 
 export async function runMultiAgentTask(taskId: string, requestId: string, onEvent: (event: MultiAgentRunEvent) => void): Promise<MultiAgentTask> {
-  activeRuns.set(requestId, { taskId, cancelled: false });
+  activeRuns.set(requestId, { taskId, cancelled: false, transientRetries: new Set() });
   try {
     const current = await getMultiAgentTask(taskId);
     const started = current.status === "running"

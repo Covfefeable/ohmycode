@@ -31,7 +31,7 @@ def completion_mailbox(conversation_id: UUID) -> list[dict]:
     )
     mailbox = "\n\n".join(
         f"[{item.from_node.name if item.from_node else 'User'} "
-        f"@ {item.to_node.name}]\n{item.content}"
+        f"@ {item.to_node.name if item.to_node else 'User'}]\n{item.content}"
         for item in messages
     )
     context = (
@@ -141,7 +141,11 @@ def stream_prepare_completion(
         },
     )
     db.session.commit()
-    mailbox = completion_mailbox(conversation_id)
+    try:
+        mailbox = completion_mailbox(conversation_id)
+    except Exception as error:
+        fail_run(run, "context_preparation_failed")
+        raise ServiceError("context_preparation_failed", 500) from error
     return prepared_completion(
         run,
         configuration,
