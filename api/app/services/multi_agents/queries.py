@@ -1,7 +1,7 @@
 from uuid import UUID
 
 from ...extensions import db
-from ...models import MultiAgent, MultiAgentNode, MultiAgentTask, Project
+from ...models import MultiAgent, MultiAgentMessage, MultiAgentNode, MultiAgentTask, Project
 from ..devices import DeviceContext
 
 
@@ -35,6 +35,15 @@ def owned_node(user_id: UUID, node_id: UUID) -> MultiAgentNode | None:
         .join(MultiAgentTask)
         .join(MultiAgent)
         .where(MultiAgentNode.id == node_id, MultiAgent.user_id == user_id)
+    )
+
+
+def owned_message(user_id: UUID, message_id: UUID) -> MultiAgentMessage | None:
+    return db.session.scalar(
+        db.select(MultiAgentMessage)
+        .join(MultiAgentTask)
+        .join(MultiAgent)
+        .where(MultiAgentMessage.id == message_id, MultiAgent.user_id == user_id)
     )
 
 

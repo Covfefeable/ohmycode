@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useFeedback } from "../../features/feedback";
-import { updateActivity } from "../../features/conversation-chat/activity-timeline/updateActivity";
 import { multiAgentErrorKey } from "./multi-agent-utils";
 
 type Options = {
@@ -29,7 +28,6 @@ export function useMultiAgentExecution(options: Options) {
   const [runWorkspacePath, setRunWorkspacePath] = useState("");
   const [runExecutionLimit, setRunExecutionLimit] = useState(20);
   const [runRequestId, setRunRequestId] = useState<string | null>(null);
-  const [activities, setActivities] = useState<Record<string, AgentActivityStep[]>>({});
   const [message, setMessage] = useState("");
   const [mentionTargetId, setMentionTargetId] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
@@ -56,18 +54,11 @@ export function useMultiAgentExecution(options: Options) {
       return;
     }
     if (["failed", "stopped"].includes(target.status)) {
-      setActivities({});
     }
     const requestId = crypto.randomUUID();
     setRunRequestId(requestId);
     const unsubscribe = window.ohmycode.multiAgents.onEvent(requestId, (event) => {
       if (event.type === "task.updated") options.setTask(event.task);
-      if (event.type === "node.event") {
-        setActivities((current) => ({
-          ...current,
-          [event.nodeId]: updateActivity(current[event.nodeId] ?? [], event.event),
-        }));
-      }
     });
     try {
       options.setTask(await window.ohmycode.multiAgents.runTask(target.id, requestId));
@@ -94,7 +85,6 @@ export function useMultiAgentExecution(options: Options) {
       setRunDialogOpen(false);
       setRunDescription("");
       setRunWorkspacePath("");
-      setActivities({});
       options.setSelectedTaskId(created.id);
       options.setTask(created);
       setMentionTargetId(null);
@@ -158,7 +148,7 @@ export function useMultiAgentExecution(options: Options) {
   }
 
   return {
-    runDialogOpen, runDescription, runWorkspacePath, runExecutionLimit, runRequestId, activities,
+    runDialogOpen, runDescription, runWorkspacePath, runExecutionLimit, runRequestId,
     message, sending, setRunDialogOpen, setRunDescription,
     setRunWorkspacePath, setRunExecutionLimit, executeTask, runCollaboration, sendGroupMessage,
     changeGroupMessage, stopTask,

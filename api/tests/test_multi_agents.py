@@ -180,6 +180,7 @@ def test_host_driven_group_chat_lifecycle(tmp_path):
         )
         run.last_event_sequence = 3
         db.session.commit()
+        run_id = str(run.id)
         client.post(
             f"/api/multi-agents/nodes/{writer['id']}/complete",
             headers=headers,
@@ -195,6 +196,17 @@ def test_host_driven_group_chat_lifecycle(tmp_path):
         assert state["status"] == "waiting_user"
         assert state["currentSpeakerId"] is None
         assert state["messages"][-1]["toNodeId"] is None
+        assert state["messages"][-1]["runId"] == run_id
+        run_detail = client.get(
+            f"/api/multi-agents/messages/{state['messages'][-1]['id']}/run", headers=headers
+        )
+        assert run_detail.status_code == 200
+        assert run_detail.get_json()["id"] == run_id
+        assert [step["type"] for step in run_detail.get_json()["activity"]] == [
+            "run",
+            "reasoning",
+            "message",
+        ]
 
         follow_up = client.post(
             f"/api/multi-agents/nodes/{writer['id']}/user-messages",

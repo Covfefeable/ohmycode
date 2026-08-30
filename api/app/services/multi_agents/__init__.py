@@ -15,8 +15,8 @@ from .commands import (
     stop_task,
     update_agent,
 )
-from .queries import get_task, list_agents
-from .serializers import serialize_agent, serialize_task
+from .queries import get_task, list_agents, owned_message
+from .serializers import serialize_agent, serialize_message_run, serialize_task
 
 __all__ = [
     "create_agent",
@@ -37,5 +37,7 @@ __all__ = [
     "stop_task",
     "update_agent",
     "serialize_agent",
+    "serialize_message_run",
     "serialize_task",
+    "owned_message",
 ]

@@ -18,6 +18,7 @@ interface Window {
       selectWorkspace(): Promise<string | null>;
       createTask(agentId: string, request: string, workspacePath: string, executionLimit: number): Promise<MultiAgentTask>;
       getTask(taskId: string): Promise<MultiAgentTask>;
+      getRunDetail(messageId: string): Promise<MultiAgentRunDetail>;
       deleteTask(taskId: string): Promise<void>;
       runTask(taskId: string, requestId: string): Promise<MultiAgentTask>;
       stopTask(requestId: string | null, taskId?: string): Promise<void>;
@@ -121,7 +122,8 @@ type MultiAgentTaskSummary = { id: string; title: string; status: string; create
 type MultiAgentTemplateMember = { key: string; name: string; role: string; instructions: string; modelId?: string | null; isHost: boolean; sortOrder: number };
 type MultiAgentTemplateTeam = { title: string; members: MultiAgentTemplateMember[] };
 type MultiAgentSummary = { id: string; name: string; description: string; division: string; templateTeam: MultiAgentTemplateTeam; createdAt: string; tasks: MultiAgentTaskSummary[] };
-type MultiAgentMessage = { id: string; fromNodeId: string | null; toNodeId: string | null; type: string; senderType: "user" | "agent"; content: string; createdAt: string };
+type MultiAgentMessage = { id: string; fromNodeId: string | null; toNodeId: string | null; runId: string | null; type: string; senderType: "user" | "agent"; content: string; createdAt: string };
+type MultiAgentRunDetail = { id: string; status: string; errorCode?: string | null; startedAt: string; completedAt?: string | null; durationMs?: number | null; inputTokens?: number | null; outputTokens?: number | null; activity: AgentActivityStep[] };
 type MultiAgentMemberData = MultiAgentTemplateMember & { id: string; status: string; conversationId?: string | null; finalOutput?: Record<string, unknown> | null; agentStartedAt?: string | null; agentDurationMs?: number | null; changedFiles: Array<{ id: string; path: string; operation: string; sequence: number }> };
 type MultiAgentTask = { id: string; agentId: string; title: string; request: string; status: string; workspacePath: string; executionLimit: number; executionCount: number; members: MultiAgentMemberData[]; messages: MultiAgentMessage[]; currentSpeakerId?: string | null; createdAt: string; updatedAt: string };
 type ConversationStreamEvent =

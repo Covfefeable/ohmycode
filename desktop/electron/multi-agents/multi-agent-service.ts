@@ -4,7 +4,7 @@ import { dialog } from "electron";
 import { ApiError, apiRequest } from "../api/api-client.js";
 import { interruptTurn, startTurn, subscribeTurn, waitForTurn } from "../runtime/desktop-runtime-host.js";
 import type { RuntimeEvent } from "@ohmycode/protocol";
-import type { MultiAgentSummary, MultiAgentTask } from "./types.js";
+import type { MultiAgentRunDetail, MultiAgentSummary, MultiAgentTask } from "./types.js";
 
 export type MultiAgentRunEvent =
   | { type: "task.updated"; task: MultiAgentTask }
@@ -34,6 +34,7 @@ export async function createMultiAgentTask(agentId: string, request: string, wor
   });
 }
 export const getMultiAgentTask = (taskId: string): Promise<MultiAgentTask> => apiRequest(`/api/multi-agents/tasks/${taskId}`);
+export const getMultiAgentRunDetail = (messageId: string): Promise<MultiAgentRunDetail> => apiRequest(`/api/multi-agents/messages/${messageId}/run`);
 export const deleteMultiAgentTask = (taskId: string): Promise<void> => apiRequest(`/api/multi-agents/tasks/${taskId}`, { method: "DELETE" });
 
 async function runTurn(task: MultiAgentTask, memberId: string, requestId: string, onEvent: (event: MultiAgentRunEvent) => void): Promise<MultiAgentTask> {

@@ -13,12 +13,14 @@ from ..services.multi_agents import (
     fail_node,
     get_task,
     list_agents,
+    owned_message,
     post_message,
     post_user_message,
     record_changes,
     recover_host,
     replace_team,
     serialize_agent,
+    serialize_message_run,
     serialize_task,
     start_node,
     start_task,
@@ -95,6 +97,18 @@ def get_task_route(task_id: UUID):
     if not task:
         raise ServiceError("not_found", 404)
     return jsonify(serialize_task(task))
+
+
+@multi_agents_bp.get("/messages/<uuid:message_id>/run")
+@jwt_required()
+def get_message_run_route(message_id: UUID):
+    message = owned_message(user_id(), message_id)
+    if not message:
+        raise ServiceError("not_found", 404)
+    require_device_task(message.task_id)
+    if not message.run:
+        raise ServiceError("run_not_found", 404)
+    return jsonify(serialize_message_run(message))
 
 
 @multi_agents_bp.patch("/tasks/<uuid:task_id>/team")

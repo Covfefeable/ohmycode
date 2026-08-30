@@ -20,6 +20,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from ..extensions import db
 
 if TYPE_CHECKING:
+    from .agent_run import AgentRun
     from .conversation import Conversation
     from .project import Project
 
@@ -105,6 +106,9 @@ class MultiAgentMessage(db.Model):
     from_node_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("multi_agent_nodes.id", ondelete="CASCADE"), index=True, nullable=True
     )
+    run_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("agent_runs.id", ondelete="SET NULL"), index=True, nullable=True
+    )
     to_node_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("multi_agent_nodes.id", ondelete="CASCADE"), index=True, nullable=True
     )
@@ -114,6 +118,7 @@ class MultiAgentMessage(db.Model):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     from_node: Mapped[MultiAgentNode | None] = relationship(foreign_keys=[from_node_id])
     to_node: Mapped[MultiAgentNode | None] = relationship(foreign_keys=[to_node_id])
+    run: Mapped[AgentRun | None] = relationship()
 
 
 class WorkspaceChange(db.Model):

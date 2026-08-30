@@ -83,11 +83,33 @@
 .drawerHeader h2 { margin: 0 0 6px; font-size: 20px; }
 .drawerHeader p { margin: 0; color: var(--color-text-muted); font-size: var(--font-sm); line-height: 1.5; }
 .drawerBody { padding: 22px 24px 28px; }
+.memberDetails { display: grid; gap: 22px; padding: 22px 24px 28px; }
+.memberDetails section { display: grid; gap: 7px; }
+.memberDetails section > span { color: var(--color-text-muted); font-size: var(--font-xs); font-weight: 700; }
+.memberDetails strong, .memberDetails p { margin: 0; color: var(--color-text); font-size: var(--font-sm); line-height: 1.6; }
+.instructions { border: 1px solid var(--color-border-subtle); border-radius: var(--radius-md); background: var(--color-surface-input); padding: 12px 14px; color: var(--color-text-soft); font-size: var(--font-sm); line-height: 1.65; }
 .close { position: absolute; top: 18px; right: 18px; width: 30px; height: 30px; display: grid; place-items: center; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--color-text-muted); cursor: pointer; }
 .close:hover { background: var(--color-surface-hover); color: var(--color-text); }
 .close svg { width: 16px; }
 .noActivity { color: var(--color-text-dim); font-size: var(--font-sm); }
 .finalOutput { margin-top: 20px; color: var(--color-text-soft); font-size: var(--font-chat); line-height: 1.65; }
+.messageActions { display: flex; gap: 4px; margin-top: 5px; opacity: 0; transition: opacity 120ms ease; }
+.chatMessages article:hover .messageActions, .messageActions:focus-within { opacity: 1; }
+.messageActions button { width: 25px; height: 25px; display: grid; place-items: center; border: 0; border-radius: var(--radius-sm); background: transparent; padding: 0; color: var(--color-text-muted); cursor: pointer; }
+.messageActions button:hover { color: var(--color-text); }
+.messageActions svg { width: 13px; height: 13px; }
+.runDialog { width: min(780px,calc(100vw - 48px)); max-height: min(780px,calc(100vh - 48px)); display: grid; grid-template-rows: auto auto minmax(0,1fr); overflow: hidden; border: 1px solid var(--color-border-strong); border-radius: var(--radius-lg); background: var(--color-surface-1); box-shadow: var(--shadow-panel); }
+.runDialog > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; border-bottom: 1px solid var(--color-border); padding: 20px 22px; }
+.runDialog h2, .runDialog header p { margin: 0; }
+.runDialog header p { margin-top: 5px; color: var(--color-text-dim); font: var(--font-xs) ui-monospace,SFMono-Regular,Menlo,monospace; }
+.runDialog header button { width: 30px; height: 30px; display: grid; place-items: center; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--color-text-muted); cursor: pointer; }
+.runDialog header svg { width: 16px; }
+.runMetadata { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 12px; border-bottom: 1px solid var(--color-border); padding: 14px 22px; }
+.runMetadata span { display: grid; gap: 4px; color: var(--color-text-muted); font-size: var(--font-xs); }
+.runMetadata strong { color: var(--color-text); font-size: var(--font-sm); }
+.runActivity { min-height: 0; overflow: auto; padding: 20px 22px 28px; }
+.runLoading { min-height: 240px; display: grid; place-items: center; }
+.runError { margin: 14px 22px 0; border-radius: var(--radius-sm); background: var(--color-danger-soft); padding: 10px 12px; color: var(--color-danger); font-size: var(--font-sm); }
 .welcome { grid-row: 1/-1; width: min(840px,100%); align-self: center; justify-self: center; padding: 60px; }
 .promptMark { margin-bottom: 28px; color: var(--color-accent); font: 700 30px ui-monospace,SFMono-Regular,Menlo,monospace; }
 .welcome > p { margin: 0 0 8px; color: var(--color-accent); font-size: var(--font-xs); font-weight: 800; }

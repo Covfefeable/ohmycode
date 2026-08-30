@@ -4,6 +4,7 @@ import {
   deleteMultiAgent,
   deleteMultiAgentTask,
   getMultiAgentTask,
+  getMultiAgentRunDetail,
   listMultiAgents,
   createMultiAgentTask,
   runMultiAgentTask,
@@ -21,6 +22,7 @@ export function registerMultiAgentIpc(): void {
   ipcMain.handle("multi-agents:select-workspace", selectMultiAgentWorkspace);
   ipcMain.handle("multi-agents:create-task", (_event, agentId: string, request: string, workspacePath: string, executionLimit: number) => createMultiAgentTask(agentId, request, workspacePath, executionLimit));
   ipcMain.handle("multi-agents:get-task", (_event, taskId: string) => getMultiAgentTask(taskId));
+  ipcMain.handle("multi-agents:get-run-detail", (_event, messageId: string) => getMultiAgentRunDetail(messageId));
   ipcMain.handle("multi-agents:delete-task", (_event, taskId: string) => deleteMultiAgentTask(taskId));
   ipcMain.handle("multi-agents:run-task", (event, taskId: string, requestId: string) =>
     runMultiAgentTask(taskId, requestId, (runEvent) => event.sender.send(`multi-agent:event:${requestId}`, runEvent)));

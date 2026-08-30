@@ -33,6 +33,7 @@ def serialize_task(task: MultiAgentTask) -> dict:
             "id": str(message.id),
             "fromNodeId": str(message.from_node_id) if message.from_node_id else None,
             "toNodeId": str(message.to_node_id) if message.to_node_id else None,
+            "runId": str(message.run_id) if message.run_id else None,
             "type": message.message_type,
             "senderType": message.sender_type,
             "content": message.content,
@@ -126,3 +127,30 @@ def task_changes(task: MultiAgentTask) -> list[dict]:
             .order_by(WorkspaceChange.sequence)
         )
     ]
+
+
+def serialize_message_run(message: MultiAgentMessage) -> dict:
+    run = message.run
+    if not run:
+        return {}
+    activity = build_run_activity(run, include_run_boundary=True)
+    if run.status != "running":
+        for step in activity:
+            if step.get("status") == "running":
+                step["status"] = "completed"
+    duration_ms = (
+        max(0, round((run.completed_at - run.started_at).total_seconds() * 1000))
+        if run.completed_at
+        else None
+    )
+    return {
+        "id": str(run.id),
+        "status": run.status,
+        "errorCode": run.error_code,
+        "startedAt": run.started_at.isoformat(),
+        "completedAt": run.completed_at.isoformat() if run.completed_at else None,
+        "durationMs": duration_ms,
+        "inputTokens": run.input_tokens,
+        "outputTokens": run.output_tokens,
+        "activity": activity,
+    }

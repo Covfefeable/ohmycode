@@ -71,7 +71,7 @@ export function MultiAgentPage() {
           />
           {workspace.selectedMember && <ActivityDrawer
             member={workspace.selectedMember}
-            liveActivity={execution.activities[workspace.selectedMember.id]}
+            models={workspace.models}
             onClose={() => workspace.setSelectedMemberId(null)}
           />}
         </div>}

@@ -1,28 +1,25 @@
 import { X } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { ActivityTimeline } from "../../features/conversation-chat/activity-timeline/ActivityTimeline";
-import { withoutFinalResponse } from "../../features/conversation-chat/activity-timeline/updateActivity";
 import { MarkdownContent } from "../../shared/ui/markdown-content";
 import styles from "./MultiAgentPage.module.css";
 
-type Props = { member: MultiAgentMemberData; liveActivity?: AgentActivityStep[]; onClose(): void };
+type Props = { member: MultiAgentMemberData; models: ModelConfiguration[]; onClose(): void };
 
-export function ActivityDrawer({ member, liveActivity, onClose }: Props) {
+export function ActivityDrawer({ member, models, onClose }: Props) {
   const { t } = useTranslation();
-  const persisted = (member.finalOutput?.activity as AgentActivityStep[] | undefined) ?? [];
-  const finalText = typeof member.finalOutput?.content === "string" ? member.finalOutput.content : "";
-  const steps = withoutFinalResponse(liveActivity ?? persisted, finalText);
+  const model = models.find((item) => item.id === member.modelId);
   return <aside className={styles.activityDrawer}>
     <header className={styles.drawerHeader}>
       <button className={styles.close} onClick={onClose}><X /></button>
       <h2>{member.name}</h2>
       <p>{member.role}</p>
     </header>
-    <div className={styles.drawerBody}>
-      {steps.length
-        ? <ActivityTimeline steps={steps} active={member.status === "running"} durationMs={member.agentDurationMs} startedAt={member.agentStartedAt ?? undefined} />
-        : <span className={styles.noActivity}>{t("multiAgent.waitingForActivity")}</span>}
-      {finalText && <div className={styles.finalOutput}><MarkdownContent>{finalText}</MarkdownContent></div>}
+    <div className={styles.memberDetails}>
+      <section><span>{t("multiAgent.nodeName")}</span><strong>{member.name}</strong></section>
+      <section><span>{t("multiAgent.nodeRole")}</span><p>{member.role}</p></section>
+      <section><span>{t("multiAgent.nodeModel")}</span><p>{model ? `${model.name} · ${model.model}` : t("multiAgent.defaultModel")}</p></section>
+      <section><span>{t("multiAgent.status")}</span><p>{t(`multiAgent.${member.status}`, { defaultValue: member.status })}</p></section>
+      <section><span>{t("multiAgent.nodeInstructions")}</span><div className={styles.instructions}><MarkdownContent>{member.instructions}</MarkdownContent></div></section>
     </div>
   </aside>;
 }

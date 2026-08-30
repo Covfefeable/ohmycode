@@ -87,6 +87,15 @@ def _next_message_sequence(task_id: UUID) -> int:
     return (current or 0) + 1
 
 
+def _current_run(node: MultiAgentNode) -> AgentRun | None:
+    return db.session.scalar(
+        db.select(AgentRun)
+        .where(AgentRun.conversation_id == node.conversation_id)
+        .order_by(AgentRun.started_at.desc())
+        .limit(1)
+    )
+
+
 def create_agent(user_id: UUID, payload: dict) -> MultiAgent:
     name = str(payload.get("name") or "").strip()[:200]
     description = str(payload.get("description") or "").strip()
@@ -396,6 +405,7 @@ def post_message(user_id: UUID, node_id: UUID, payload: dict) -> MultiAgentMessa
         task_id=source.task_id,
         sequence=_next_message_sequence(source.task_id),
         from_node_id=source.id,
+        run_id=run.id if (run := _current_run(source)) else None,
         to_node_id=target.id if target else None,
         message_type="message",
         sender_type="agent",
@@ -463,6 +473,7 @@ def complete_node(user_id: UUID, node_id: UUID, payload: dict) -> MultiAgentTask
             task_id=node.task_id,
             sequence=_next_message_sequence(node.task_id),
             from_node_id=node.id,
+            run_id=run.id if (run := _current_run(node)) else None,
             to_node_id=None,
             message_type="message",
             sender_type="agent",
