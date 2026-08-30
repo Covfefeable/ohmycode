@@ -6,13 +6,19 @@ export type PromptTokenOption = {
   serializedValue: string;
 };
 
+export type PromptMentionOption = {
+  id: string;
+  label: string;
+  detail?: string;
+};
+
 export type PromptEditorProps = {
   value: string;
   onChange(value: string): void;
   placeholder?: string;
   ariaLabel: string;
   options?: PromptTokenOption[];
-  capabilityTriggers?: Array<"/" | "@">;
+  mentions?: PromptMentionOption[];
   disabled?: boolean;
   autoFocus?: boolean;
   compact?: boolean;

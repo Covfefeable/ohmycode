@@ -19,18 +19,20 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { CapabilityTokenNode } from "./CapabilityTokenNode";
+import { MentionPlugin } from "./MentionPlugin";
+import { MentionTokenNode } from "./MentionTokenNode";
 import { $getPromptValue, $setPromptValue } from "./editor-value";
 import { SlashCapabilityPlugin } from "./SlashCapabilityPlugin";
 import type { PromptEditorProps } from "./types";
 import styles from "./PromptEditor.module.css";
 
-function ValuePlugin({ value, options }: Pick<PromptEditorProps, "value" | "options">) {
+function ValuePlugin({ value, options, mentions }: Pick<PromptEditorProps, "value" | "options" | "mentions">) {
   const [editor] = useLexicalComposerContext();
   useEffect(() => {
     const current = editor.getEditorState().read($getPromptValue);
     if (current === value) return;
-    editor.update(() => $setPromptValue(value, options ?? []), { tag: "external-value" });
-  }, [editor, options, value]);
+    editor.update(() => $setPromptValue(value, options ?? [], mentions ?? []), { tag: "external-value" });
+  }, [editor, mentions, options, value]);
   return null;
 }
 
@@ -151,7 +153,7 @@ function useSuggestionCarousel(suggestions: string[], value: string) {
   return { typed, activeSuggestionRef };
 }
 
-export function PromptEditor({ value, onChange, placeholder, ariaLabel, options = [], capabilityTriggers = ["/"], disabled = false, autoFocus = false, compact = false, submitOnEnter = false, suggestions = [], onSubmit, onEscape, onAtTrigger, className = "" }: PromptEditorProps) {
+export function PromptEditor({ value, onChange, placeholder, ariaLabel, options = [], mentions = [], disabled = false, autoFocus = false, compact = false, submitOnEnter = false, suggestions = [], onSubmit, onEscape, onAtTrigger, className = "" }: PromptEditorProps) {
   const { t } = useTranslation();
   const { typed, activeSuggestionRef } = useSuggestionCarousel(suggestions, value);
   const showSuggestions = suggestions.length > 0 && !value;
@@ -163,9 +165,9 @@ export function PromptEditor({ value, onChange, placeholder, ariaLabel, options 
     : <span className={styles.placeholder}>{placeholder}</span>;
   return <LexicalComposer initialConfig={{
     namespace: "ohmycode-prompt-editor",
-    nodes: [CapabilityTokenNode],
+    nodes: [CapabilityTokenNode, MentionTokenNode],
     editable: !disabled,
-    editorState: () => $setPromptValue(value, options),
+    editorState: () => $setPromptValue(value, options, mentions),
     onError: (error) => { throw error; },
   }}>
     <div className={`${styles.root} ${compact ? styles.compact : ""} ${className}`}>
@@ -181,8 +183,9 @@ export function PromptEditor({ value, onChange, placeholder, ariaLabel, options 
         if (tags.has("external-value")) return;
         state.read(() => onChange($getPromptValue()));
       }} />
-      {capabilityTriggers.map((trigger) => <SlashCapabilityPlugin key={trigger} options={options} triggerCharacter={trigger} />)}
-      <ValuePlugin value={value} options={options} />
+      <SlashCapabilityPlugin options={options} />
+      {mentions.length > 0 && <MentionPlugin mentions={mentions} />}
+      <ValuePlugin value={value} options={options} mentions={mentions} />
       <EditablePlugin disabled={disabled} />
       <SubmitPlugin enabled={submitOnEnter} onSubmit={onSubmit} />
       <EscapePlugin onEscape={onEscape} />

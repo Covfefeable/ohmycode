@@ -166,7 +166,7 @@ export const zhCN = {
     loadFailed: "协作任务加载失败。",
     selectTask: "选择一个任务，或从 Agent 下新建任务",
     nodeInstructions: "提示词",
-    nodeInstructionsPlaceholder: "描述这个 Agent 的职责、工作方式和完成标准。输入 / 或 @ 引用 MCP 工具或 Skill…",
+    nodeInstructionsPlaceholder: "描述职责和完成标准。输入 @ 指定成员，输入 / 引用 MCP 工具或 Skill…",
     nodeMessages: "消息",
     nodeFiles: "文件修改",
     nodeOutput: "节点输出",

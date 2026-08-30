@@ -17,11 +17,11 @@ class CapabilityMenuOption extends MenuOption {
   }
 }
 
-export function SlashCapabilityPlugin({ options, triggerCharacter = "/" }: { options: PromptTokenOption[]; triggerCharacter?: "/" | "@" }) {
+export function SlashCapabilityPlugin({ options }: { options: PromptTokenOption[] }) {
   const { t } = useTranslation();
   const [editor] = useLexicalComposerContext();
   const [query, setQuery] = useState<string | null>(null);
-  const trigger = useBasicTypeaheadTriggerMatch(triggerCharacter, { minLength: 0, maxLength: 80, allowWhitespace: false });
+  const trigger = useBasicTypeaheadTriggerMatch("/", { minLength: 0, maxLength: 80, allowWhitespace: false });
   const menuOptions = useMemo(() => {
     const needle = (query ?? "").trim().toLocaleLowerCase();
     return options.filter((item) => !needle || `${item.label} ${item.detail ?? ""} ${item.kind}`.toLocaleLowerCase().includes(needle))

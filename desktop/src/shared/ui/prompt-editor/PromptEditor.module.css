@@ -67,6 +67,7 @@
   50.01%, 100% { opacity: 0; }
 }
 .tokenHost { display: inline-flex; align-items: center; vertical-align: middle; margin: 0 2px; }
+.mentionToken { display: inline-flex; align-items: center; border-radius: var(--radius-sm); background: color-mix(in srgb,var(--color-accent) 18%,transparent); color: var(--color-accent); padding: 1px 6px; font-weight: 650; }
 .menu {
   width: min(360px, calc(100vw - 32px));
   max-height: 320px;

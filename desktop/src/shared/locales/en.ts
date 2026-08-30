@@ -167,7 +167,7 @@ export const en = {
     loadFailed: "Could not load the collaboration task.",
     selectTask: "Select a task or create one under an agent",
     nodeInstructions: "Instructions",
-    nodeInstructionsPlaceholder: "Describe this agent's responsibilities and completion criteria. Type / or @ to reference an MCP tool or Skill…",
+    nodeInstructionsPlaceholder: "Describe responsibilities and completion criteria. Type @ to mention a member or / to reference an MCP tool or Skill…",
     nodeMessages: "Messages",
     nodeFiles: "File changes",
     nodeOutput: "Node output",
