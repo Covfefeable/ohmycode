@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from "react";
-import { ArrowUp, Bot, LoaderCircle } from "lucide-react";
+import { ArrowUp, LoaderCircle } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { MarkdownContent } from "../../shared/ui/markdown-content";
 import { PromptEditor, usePromptCapabilities } from "../../shared/ui/prompt-editor";
@@ -8,13 +8,8 @@ import styles from "./MultiAgentPage.module.css";
 type Props = {
   task: MultiAgentTask;
   message: string;
-  mentionQuery: string | null;
-  mentionMembers: MultiAgentMemberData[];
   sending: boolean;
   onMessageChange(value: string): void;
-  onOpenMention(): void;
-  onSelectMention(member: MultiAgentMemberData): void;
-  onCloseMention(): void;
   onSend(): void;
 };
 
@@ -42,14 +37,7 @@ export function GroupChatPanel(props: Props) {
       <div ref={endRef} />
     </div>
     <div className={styles.composer}>
-      {props.mentionQuery !== null && <div className={styles.mentionMenu}>{props.mentionMembers.length
-        ? props.mentionMembers.map((member) => <button key={member.id} onMouseDown={(event) => event.preventDefault()} onClick={() => props.onSelectMention(member)}>
-          <span className={styles.avatar}>{member.isHost ? <Bot /> : member.name.slice(0, 1)}</span>
-          <span><strong>{member.name}</strong><small>{member.isHost ? t("multiAgent.host") : member.role}</small></span>
-        </button>)
-        : <span className={styles.noMention}>{t("multiAgent.unknownAgent")}</span>}
-      </div>}
-      <PromptEditor compact submitOnEnter className={styles.groupPromptEditor} value={props.message} options={capabilityOptions} placeholder={t("multiAgent.groupMessagePlaceholder")} ariaLabel={t("multiAgent.groupMessagePlaceholder")} onChange={props.onMessageChange} onAtTrigger={props.onOpenMention} onEscape={props.onCloseMention} onSubmit={() => { if (props.mentionQuery === null) props.onSend(); }} />
+      <PromptEditor compact submitOnEnter singleMention className={styles.groupPromptEditor} value={props.message} options={capabilityOptions} mentions={props.task.members.map((member) => ({ id: member.id, label: member.name, detail: member.isHost ? t("multiAgent.host") : member.role }))} placeholder={t("multiAgent.groupMessagePlaceholder")} ariaLabel={t("multiAgent.groupMessagePlaceholder")} onChange={props.onMessageChange} onSubmit={props.onSend} />
       <div className={styles.composerToolbar}><button aria-label={t("multiAgent.send")} disabled={props.sending || !props.message.trim()} onClick={props.onSend}>
         {props.sending ? <LoaderCircle className={styles.spinner} /> : <ArrowUp />}
       </button></div>

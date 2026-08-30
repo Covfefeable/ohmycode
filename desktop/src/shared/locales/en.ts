@@ -210,6 +210,7 @@ export const en = {
     groupChat: "Group chat",
     groupMessagePlaceholder: "Message the group. Enter to send, Shift+Enter for a new line",
     send: "Send",
+    singleRecipientOnly: "A group message can mention only one agent at a time.",
     youShort: "Me",
     noAgentMessages: "No agent-to-agent messages yet",
     receivedMessages: "Messages received",

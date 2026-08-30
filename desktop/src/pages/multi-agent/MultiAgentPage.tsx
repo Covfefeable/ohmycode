@@ -57,13 +57,8 @@ export function MultiAgentPage() {
           <GroupChatPanel
             task={task}
             message={execution.message}
-            mentionQuery={execution.mentionQuery}
-            mentionMembers={execution.mentionMembers}
             sending={execution.sending}
             onMessageChange={execution.changeGroupMessage}
-            onOpenMention={execution.openMention}
-            onSelectMention={execution.selectMention}
-            onCloseMention={execution.closeMention}
             onSend={() => void execution.sendGroupMessage()}
           />
           <TaskRoster

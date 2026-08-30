@@ -52,6 +52,14 @@ def _enqueue(task: MultiAgentTask, node: MultiAgentNode) -> None:
         node.status = "queued"
 
 
+def _enqueue_front(task: MultiAgentTask, node: MultiAgentNode) -> None:
+    node_id = str(node.id)
+    remaining = [item for item in task.execution_queue or [] if item != node_id]
+    task.execution_queue = [node_id, *remaining]
+    if node.status == "idle":
+        node.status = "queued"
+
+
 def _activate_next(task: MultiAgentTask, fallback: MultiAgentNode | None = None) -> None:
     if any(node.status in {"ready", "running"} for node in task.members):
         return
@@ -259,6 +267,8 @@ def _chat_transcript(task: MultiAgentTask) -> str:
 
 def _execution_prompt(node: MultiAgentNode, force_summary: bool = False) -> str:
     task = node.task
+    names = {str(item.id): item.name for item in task.members}
+    pending = [names[item] for item in task.execution_queue or [] if item in names]
     peers = "\n".join(
         f"- {item.name}: {item.id}{' (主持人)' if item.is_host else ''}" for item in task.members
     )
@@ -288,10 +298,15 @@ Participants (use the UUID as `to`, or use `user` to address the user):
 Latest complete group chat:
 {_chat_transcript(task)}
 
+Pending speakers after this turn: {", ".join(pending) if pending else "none"}
+
 {host_rules}
 Only one agent runs at a time. Every agent sees the latest group chat on its next turn.
 Messages are visible to the entire group even though one recipient is @mentioned. Use tools
 when needed, then explicitly hand off or address the user.
+Only address the user when their input is genuinely required or when providing a host summary.
+If you are responding to an instruction the user injected during collaboration and speakers are
+still pending, complete the instruction and hand off so the pending work can continue.
 Do not send empty acknowledgements or routine status chatter."""
 
 
@@ -390,9 +405,6 @@ def post_message(user_id: UUID, node_id: UUID, payload: dict) -> MultiAgentMessa
     source.status = "idle"
     if target is None:
         source.task.status = "waiting_user"
-        _clear_queue(source.task)
-        for node in source.task.members:
-            node.status = "idle"
     else:
         if source.task.execution_count >= source.task.execution_limit:
             _clear_queue(source.task)
@@ -422,10 +434,7 @@ def post_user_message(user_id: UUID, node_id: UUID, payload: dict) -> MultiAgent
     if target.task.status == "waiting_user":
         target.task.status = "running"
         target.task.execution_count = 0
-        for node in target.task.members:
-            node.status = "idle"
-        _clear_queue(target.task)
-        _enqueue(target.task, target)
+        _enqueue_front(target.task, target)
         _activate_next(target.task)
     elif target.task.status == "running" and any(
         node.status == "running" for node in target.task.members

@@ -342,6 +342,70 @@ def test_user_message_preserves_existing_handoff_order(tmp_path):
         assert state["currentSpeakerId"] == reviewer["id"]
 
 
+def test_agent_pause_preserves_pending_speakers(tmp_path):
+    app = create_app("testing")
+    with app.app_context():
+        db.create_all()
+    with app.test_client() as client:
+        headers = _setup(client)
+        agent = _create_team(client, headers)
+        task = client.post(
+            f"/api/multi-agents/{agent['id']}/tasks",
+            headers=headers,
+            json={"workspacePath": str(tmp_path), "request": "Debate a topic"},
+        ).get_json()
+        host = next(member for member in task["members"] if member["isHost"])
+        writer = next(member for member in task["members"] if member["key"] == "writer")
+
+        client.post(f"/api/multi-agents/tasks/{task['id']}/start", headers=headers)
+        client.post(f"/api/multi-agents/nodes/{host['id']}/start", headers=headers)
+        client.post(
+            f"/api/multi-agents/nodes/{host['id']}/user-messages",
+            headers=headers,
+            json={"content": "Increase the intensity"},
+        )
+        client.post(
+            f"/api/multi-agents/nodes/{host['id']}/messages",
+            headers=headers,
+            json={"to": writer["id"], "content": "Respond next"},
+        )
+        client.post(f"/api/multi-agents/nodes/{host['id']}/start", headers=headers)
+        paused = client.post(
+            f"/api/multi-agents/nodes/{host['id']}/messages",
+            headers=headers,
+            json={"to": "user", "content": "Do you want me to continue?"},
+        )
+        assert paused.status_code == 201
+        state = client.get(f"/api/multi-agents/tasks/{task['id']}", headers=headers).get_json()
+        assert state["status"] == "waiting_user"
+        assert next(item for item in state["members"] if item["id"] == writer["id"])[
+            "status"
+        ] == "queued"
+
+        client.post(
+            f"/api/multi-agents/nodes/{host['id']}/user-messages",
+            headers=headers,
+            json={"content": "Continue"},
+        )
+        state = client.get(f"/api/multi-agents/tasks/{task['id']}", headers=headers).get_json()
+        assert state["currentSpeakerId"] == host["id"]
+        assert next(item for item in state["members"] if item["id"] == writer["id"])[
+            "status"
+        ] == "queued"
+
+        started = client.post(
+            f"/api/multi-agents/nodes/{host['id']}/start", headers=headers
+        ).get_json()
+        assert "Pending speakers after this turn: Writer" in started["prompt"]
+        client.post(
+            f"/api/multi-agents/nodes/{host['id']}/messages",
+            headers=headers,
+            json={"to": writer["id"], "content": "Continue the debate"},
+        )
+        state = client.get(f"/api/multi-agents/tasks/{task['id']}", headers=headers).get_json()
+        assert state["currentSpeakerId"] == writer["id"]
+
+
 def test_remote_service_treats_client_workspace_path_as_opaque():
     app = create_app("testing")
     with app.app_context():

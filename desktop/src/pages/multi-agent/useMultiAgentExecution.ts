@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useFeedback } from "../../features/feedback";
 import { updateActivity } from "../../features/conversation-chat/activity-timeline/updateActivity";
@@ -14,6 +14,13 @@ type Options = {
   reloadModels(): Promise<ModelConfiguration[]>;
 };
 
+function mentionedMembers(value: string, members: MultiAgentMemberData[]) {
+  return members.filter((member) => {
+    const escaped = member.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return new RegExp(`(?:^|\\s)@${escaped}(?=\\s|$|[.,，。])`).test(value);
+  });
+}
+
 export function useMultiAgentExecution(options: Options) {
   const { t } = useTranslation();
   const { toast } = useFeedback();
@@ -25,14 +32,7 @@ export function useMultiAgentExecution(options: Options) {
   const [activities, setActivities] = useState<Record<string, AgentActivityStep[]>>({});
   const [message, setMessage] = useState("");
   const [mentionTargetId, setMentionTargetId] = useState<string | null>(null);
-  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
-
-  const mentionMembers = useMemo(() => {
-    if (!options.task || mentionQuery === null) return [];
-    const query = mentionQuery.trim().toLocaleLowerCase();
-    return options.task.members.filter((member) => !query || member.name.toLocaleLowerCase().includes(query));
-  }, [mentionQuery, options.task]);
 
   function hasValidMemberModels(target: MultiAgentTask, models: ModelConfiguration[]) {
     const configuredIds = new Set(models.map((model) => model.id));
@@ -98,7 +98,6 @@ export function useMultiAgentExecution(options: Options) {
       options.setSelectedTaskId(created.id);
       options.setTask(created);
       setMentionTargetId(null);
-      setMentionQuery(null);
       await options.reloadAgents();
       await executeTask(created);
     } catch (error) {
@@ -108,6 +107,11 @@ export function useMultiAgentExecution(options: Options) {
 
   async function sendGroupMessage() {
     if (!options.task || !message.trim()) return;
+    const recipients = mentionedMembers(message, options.task.members);
+    if (recipients.length > 1) {
+      toast({ type: "error", message: t("multiAgent.singleRecipientOnly") });
+      return;
+    }
     const shouldResume = options.task.status === "waiting_user";
     const target = options.task.members.find((item) => item.id === mentionTargetId);
     const lastAskerId = [...options.task.messages].reverse().find(
@@ -126,7 +130,6 @@ export function useMultiAgentExecution(options: Options) {
       options.setTask(updated);
       setMessage("");
       setMentionTargetId(null);
-      setMentionQuery(null);
       if (shouldResume) await executeTask(updated);
     } catch {
       toast({ type: "error", message: t("multiAgent.adjustFailed") });
@@ -137,27 +140,8 @@ export function useMultiAgentExecution(options: Options) {
 
   function changeGroupMessage(value: string) {
     setMessage(value);
-    if (mentionTargetId) {
-      const target = options.task?.members.find((item) => item.id === mentionTargetId);
-      if (!target || !value.startsWith(`@${target.name}`)) setMentionTargetId(null);
-    }
-    const match = value.match(/(?:^|\s)@([^\s@]*)$/);
-    setMentionQuery(match ? match[1] : null);
-  }
-
-  function selectMention(member: MultiAgentMemberData) {
-    const next = message.replace(/(^|\s)@[^\s@]*$/, (_match, prefix: string) => `${prefix}@${member.name} `);
-    setMessage(next);
-    setMentionTargetId(member.id);
-    setMentionQuery(null);
-  }
-
-  function closeMention() {
-    setMentionQuery(null);
-  }
-
-  function openMention() {
-    setMentionQuery("");
+    const target = options.task ? mentionedMembers(value, options.task.members)[0] : undefined;
+    setMentionTargetId(target?.id ?? null);
   }
 
   async function stopTask() {
@@ -175,8 +159,8 @@ export function useMultiAgentExecution(options: Options) {
 
   return {
     runDialogOpen, runDescription, runWorkspacePath, runExecutionLimit, runRequestId, activities,
-    message, mentionQuery, mentionMembers, sending, setRunDialogOpen, setRunDescription,
+    message, sending, setRunDialogOpen, setRunDescription,
     setRunWorkspacePath, setRunExecutionLimit, executeTask, runCollaboration, sendGroupMessage,
-    changeGroupMessage, selectMention, openMention, closeMention, stopTask,
+    changeGroupMessage, stopTask,
   };
 }

@@ -65,15 +65,6 @@
 .composerToolbar button { width: 32px; height: 32px; display: grid; place-items: center; border: 0; border-radius: 50%; background: var(--color-accent); color: var(--color-accent-ink); cursor: pointer; }
 .composerToolbar button:disabled { background: var(--color-surface-control); color: var(--color-text-disabled); cursor: not-allowed; }
 .composerToolbar svg { width: 16px; }
-.mentionMenu { position: absolute; bottom: calc(100% + 8px); left: 0; z-index: var(--z-header); width: min(300px, 70%); max-height: 260px; overflow: auto; border: 1px solid var(--color-border-strong); border-radius: var(--radius-md); background: var(--color-surface-1); padding: 6px; box-shadow: var(--shadow-panel); }
-.mentionMenu button { width: 100%; display: grid; grid-template-columns: 34px minmax(0,1fr); align-items: center; gap: 9px; border: 0; border-radius: var(--radius-sm); background: transparent; padding: 7px; color: var(--color-text); text-align: left; cursor: pointer; }
-.mentionMenu button:hover { background: var(--color-surface-hover); }
-.mentionMenu .avatar { width: 32px; height: 32px; }
-.mentionMenu button > span:last-child { min-width: 0; display: grid; gap: 2px; }
-.mentionMenu strong, .mentionMenu small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.mentionMenu strong { font-size: var(--font-sm); }
-.mentionMenu small { color: var(--color-text-muted); font-size: var(--font-xs); }
-.noMention { display: block; padding: 10px; color: var(--color-text-muted); font-size: var(--font-sm); }
 .roster { min-height: 0; overflow: auto; border-left: 1px solid var(--color-border); background: var(--color-surface-1); padding: 18px 12px; }
 .rosterHeading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 5px 12px 9px; }
 .roster h2 { margin: 0; font-size: var(--font-sm); }

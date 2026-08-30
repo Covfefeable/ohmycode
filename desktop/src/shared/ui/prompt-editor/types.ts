@@ -19,6 +19,7 @@ export type PromptEditorProps = {
   ariaLabel: string;
   options?: PromptTokenOption[];
   mentions?: PromptMentionOption[];
+  singleMention?: boolean;
   disabled?: boolean;
   autoFocus?: boolean;
   compact?: boolean;
@@ -26,6 +27,5 @@ export type PromptEditorProps = {
   suggestions?: string[];
   onSubmit?(): void;
   onEscape?(): void;
-  onAtTrigger?(): void;
   className?: string;
 };

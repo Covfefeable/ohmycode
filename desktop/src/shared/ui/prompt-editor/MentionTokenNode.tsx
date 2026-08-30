@@ -23,3 +23,7 @@ export class MentionTokenNode extends DecoratorNode<JSX.Element> {
 export function $createMentionTokenNode(label: string) {
   return $applyNodeReplacement(new MentionTokenNode(label));
 }
+
+export function $isMentionTokenNode(node: unknown): node is MentionTokenNode {
+  return node instanceof MentionTokenNode;
+}

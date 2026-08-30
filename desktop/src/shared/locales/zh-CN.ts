@@ -209,6 +209,7 @@ export const zhCN = {
     groupChat: "群聊",
     groupMessagePlaceholder: "发送消息，Enter 发送，Shift+Enter 换行",
     send: "发送",
+    singleRecipientOnly: "群聊消息一次只能 @ 一位 Agent。",
     youShort: "我",
     noAgentMessages: "Agent 之间还没有通讯",
     receivedMessages: "收到的消息",
