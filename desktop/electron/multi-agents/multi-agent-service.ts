@@ -56,8 +56,8 @@ async function runTurn(task: MultiAgentTask, memberId: string, requestId: string
       onEvent({ type: "node.event", nodeId: member.id, event });
       if (event.type === "turn.failed") streamError = event.errorCode;
       if (event.type === "item.completed" && event.item.kind === "tool") {
-        const result = event.item.output as { sourceStatus?: string; status?: string };
-        if (result?.sourceStatus === "idle" || result?.status === "completed") {
+        const result = event.item.output as { sourceStatus?: string };
+        if (result?.sourceStatus === "idle") {
           handedOff = true;
           void interruptTurn(turnId);
         }

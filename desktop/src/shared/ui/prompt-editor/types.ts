@@ -12,6 +12,7 @@ export type PromptEditorProps = {
   placeholder?: string;
   ariaLabel: string;
   options?: PromptTokenOption[];
+  capabilityTriggers?: Array<"/" | "@">;
   disabled?: boolean;
   autoFocus?: boolean;
   compact?: boolean;
@@ -19,5 +20,6 @@ export type PromptEditorProps = {
   suggestions?: string[];
   onSubmit?(): void;
   onEscape?(): void;
+  onAtTrigger?(): void;
   className?: string;
 };

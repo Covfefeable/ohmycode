@@ -151,7 +151,7 @@ function useSuggestionCarousel(suggestions: string[], value: string) {
   return { typed, activeSuggestionRef };
 }
 
-export function PromptEditor({ value, onChange, placeholder, ariaLabel, options = [], disabled = false, autoFocus = false, compact = false, submitOnEnter = false, suggestions = [], onSubmit, onEscape, className = "" }: PromptEditorProps) {
+export function PromptEditor({ value, onChange, placeholder, ariaLabel, options = [], capabilityTriggers = ["/"], disabled = false, autoFocus = false, compact = false, submitOnEnter = false, suggestions = [], onSubmit, onEscape, onAtTrigger, className = "" }: PromptEditorProps) {
   const { t } = useTranslation();
   const { typed, activeSuggestionRef } = useSuggestionCarousel(suggestions, value);
   const showSuggestions = suggestions.length > 0 && !value;
@@ -170,7 +170,9 @@ export function PromptEditor({ value, onChange, placeholder, ariaLabel, options 
   }}>
     <div className={`${styles.root} ${compact ? styles.compact : ""} ${className}`}>
       <RichTextPlugin
-        contentEditable={<ContentEditable className={styles.editor} aria-label={ariaLabel} autoFocus={autoFocus} />}
+        contentEditable={<ContentEditable className={styles.editor} aria-label={ariaLabel} autoFocus={autoFocus} onKeyDown={(event) => {
+          if (event.key === "@" && !event.metaKey && !event.ctrlKey && !event.altKey) onAtTrigger?.();
+        }} />}
         placeholder={placeholderNode}
         ErrorBoundary={LexicalErrorBoundary}
       />
@@ -179,7 +181,7 @@ export function PromptEditor({ value, onChange, placeholder, ariaLabel, options 
         if (tags.has("external-value")) return;
         state.read(() => onChange($getPromptValue()));
       }} />
-      <SlashCapabilityPlugin options={options} />
+      {capabilityTriggers.map((trigger) => <SlashCapabilityPlugin key={trigger} options={options} triggerCharacter={trigger} />)}
       <ValuePlugin value={value} options={options} />
       <EditablePlugin disabled={disabled} />
       <SubmitPlugin enabled={submitOnEnter} onSubmit={onSubmit} />

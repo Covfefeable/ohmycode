@@ -18,7 +18,7 @@ from ..errors import ServiceError
 from .planner import generate_plan, validate_plan
 from .queries import get_task, owned_agent, owned_node
 
-TASK_TERMINAL = {"completed", "failed", "stopped"}
+TASK_RESTARTABLE = {"failed", "stopped"}
 DEFAULT_EXECUTION_LIMIT = 12
 MIN_EXECUTION_LIMIT = 2
 MAX_EXECUTION_LIMIT = 100
@@ -35,9 +35,36 @@ def _host(task: MultiAgentTask) -> MultiAgentNode:
     return host
 
 
+def _clear_queue(task: MultiAgentTask) -> None:
+    task.execution_queue = []
+    for node in task.members:
+        if node.status == "queued":
+            node.status = "idle"
+
+
+def _enqueue(task: MultiAgentTask, node: MultiAgentNode) -> None:
+    node_id = str(node.id)
+    queue = list(task.execution_queue or [])
+    if node.status != "ready" and node_id not in queue:
+        queue.append(node_id)
+        task.execution_queue = queue
+    if node.status == "idle":
+        node.status = "queued"
+
+
 def _activate_next(task: MultiAgentTask, fallback: MultiAgentNode | None = None) -> None:
-    queued = next((node for node in task.members if node.status == "queued"), None)
-    (queued or fallback or _host(task)).status = "ready"
+    if any(node.status in {"ready", "running"} for node in task.members):
+        return
+    members = {str(node.id): node for node in task.members}
+    queue = list(task.execution_queue or [])
+    while queue:
+        node = members.get(queue.pop(0))
+        if node:
+            task.execution_queue = queue
+            node.status = "ready"
+            return
+    task.execution_queue = []
+    (fallback or _host(task)).status = "ready"
 
 
 def _next_message_sequence(task_id: UUID) -> int:
@@ -225,7 +252,7 @@ def _chat_transcript(task: MultiAgentTask) -> str:
         sender = (
             "用户" if message.sender_type == "user" else names.get(message.from_node_id, "Agent")
         )
-        target = names.get(message.to_node_id, "主持人")
+        target = names.get(message.to_node_id, "用户")
         rows.append(f"[{sender} @ {target}]\n{message.content}")
     return "\n\n".join(rows) or "No messages yet."
 
@@ -236,17 +263,17 @@ def _execution_prompt(node: MultiAgentNode, force_summary: bool = False) -> str:
         f"- {item.name}: {item.id}{' (主持人)' if item.is_host else ''}" for item in task.members
     )
     host_rules = (
-        "The collaboration execution limit has been reached. You must now call "
-        "finish_collaboration with the best final answer supported by the work so far. "
-        "Do not delegate or call agent_message. Clearly identify any remaining gaps."
+        "The collaboration execution limit has been reached. You must now call agent_message "
+        "with to='user' and summarize the best answer supported by the work so far. "
+        "Do not delegate to another agent. Clearly identify any remaining gaps."
         if force_summary
         else
         "You are the host. Decide who should speak next. Delegate using agent_message. "
-        "When the user's goal is fully satisfied, call finish_collaboration with the final "
-        "answer. You may not delegate to yourself."
+        "When the user's goal is satisfied or user input is needed, send the answer or question "
+        "with agent_message to='user'. You may not delegate to yourself."
         if node.is_host
-        else "Complete your assigned turn, then use agent_message to hand control to the "
-        "host or another useful role. "
+        else "Complete your assigned turn, then use agent_message to hand control to the host "
+        "or another useful role. If user input is needed, send the question with to='user'. "
         "You may not delegate to yourself. If uncertain, hand control back to the host."
     )
     return f"""You are {node.name} in a single-speaker group collaboration.
@@ -254,8 +281,9 @@ def _execution_prompt(node: MultiAgentNode, force_summary: bool = False) -> str:
 Role: {node.role}
 Instructions: {node.instructions}
 
-Participants (use the UUID as toNodeId):
+Participants (use the UUID as `to`, or use `user` to address the user):
 {peers}
+- 用户: user
 
 Latest complete group chat:
 {_chat_transcript(task)}
@@ -263,7 +291,7 @@ Latest complete group chat:
 {host_rules}
 Only one agent runs at a time. Every agent sees the latest group chat on its next turn.
 Messages are visible to the entire group even though one recipient is @mentioned. Use tools
-when needed, then explicitly hand off or finish.
+when needed, then explicitly hand off or address the user.
 Do not send empty acknowledgements or routine status chatter."""
 
 
@@ -273,14 +301,16 @@ def start_task(user_id: UUID, task_id: UUID) -> MultiAgentTask:
         raise ServiceError("not_found", 404)
     if task.status == "running":
         raise ServiceError("workflow_not_startable", 409)
-    if task.status in TASK_TERMINAL:
+    if task.status in TASK_RESTARTABLE:
         _reset_task(task)
     elif task.status != "draft":
         raise ServiceError("workflow_not_startable", 409)
     task.status = "running"
     for node in task.members:
         node.status = "idle"
-    _host(task).status = "ready"
+    _clear_queue(task)
+    _enqueue(task, _host(task))
+    _activate_next(task)
     db.session.commit()
     return task
 
@@ -293,7 +323,9 @@ def start_node(user_id: UUID, node_id: UUID) -> tuple[MultiAgentNode, str]:
         raise ServiceError("another_agent_is_running", 409)
     if node.task.execution_count >= node.task.execution_limit and not node.is_host:
         node.status = "idle"
-        _host(node.task).status = "ready"
+        _clear_queue(node.task)
+        _enqueue(node.task, _host(node.task))
+        _activate_next(node.task)
         db.session.commit()
         raise ServiceError("collaboration_execution_limit_reached", 409)
     force_summary = node.is_host and node.task.execution_count >= node.task.execution_limit - 1
@@ -310,7 +342,7 @@ def recover_host(user_id: UUID, task_id: UUID) -> MultiAgentTask:
     if task.status == "running" and not any(
         node.status in {"ready", "running"} for node in task.members
     ):
-        _host(task).status = "ready"
+        _activate_next(task)
         db.session.commit()
     return task
 
@@ -319,40 +351,53 @@ def post_message(user_id: UUID, node_id: UUID, payload: dict) -> MultiAgentMessa
     source = owned_node(user_id, node_id)
     if not source or source.status != "running":
         raise ServiceError("agent_not_running", 409)
-    try:
-        target_id = UUID(str(payload.get("toNodeId")))
-    except (TypeError, ValueError) as error:
-        raise ServiceError("validation_error", 422) from error
-    target = owned_node(user_id, target_id)
-    if not target or target.task_id != source.task_id:
-        raise ServiceError("not_found", 404)
-    if target.id == source.id:
-        raise ServiceError("agent_cannot_schedule_itself", 409)
+    recipient = str(payload.get("to") or "").strip()
     content = str(payload.get("content") or "").strip()
     if not content:
         raise ServiceError("validation_error", 422)
-    if target.task.status != "running":
+    if source.task.status != "running":
         raise ServiceError("collaboration_not_running", 409)
-    if source.is_host and source.task.execution_count >= source.task.execution_limit:
+    if (
+        source.is_host
+        and source.task.execution_count >= source.task.execution_limit
+        and recipient != "user"
+    ):
         raise ServiceError("collaboration_host_must_summarize", 409)
-    if source.task.execution_count >= source.task.execution_limit:
-        target = _host(source.task)
+    if recipient == "user":
+        target = None
+    else:
+        try:
+            target_id = UUID(recipient)
+        except (TypeError, ValueError) as error:
+            raise ServiceError("validation_error", 422) from error
+        target = owned_node(user_id, target_id)
+        if not target or target.task_id != source.task_id:
+            raise ServiceError("not_found", 404)
+        if target.id == source.id:
+            raise ServiceError("agent_cannot_schedule_itself", 409)
+        if source.task.execution_count >= source.task.execution_limit:
+            target = _host(source.task)
     message = MultiAgentMessage(
         task_id=source.task_id,
         sequence=_next_message_sequence(source.task_id),
         from_node_id=source.id,
-        to_node_id=target.id,
+        to_node_id=target.id if target else None,
         message_type="message",
         sender_type="agent",
         content=content,
     )
     db.session.add(message)
     source.status = "idle"
-    if any(node.status == "queued" for node in target.task.members):
-        target.status = "queued"
-        _activate_next(target.task)
+    if target is None:
+        source.task.status = "waiting_user"
+        _clear_queue(source.task)
+        for node in source.task.members:
+            node.status = "idle"
     else:
-        target.status = "ready"
+        if source.task.execution_count >= source.task.execution_limit:
+            _clear_queue(source.task)
+        _enqueue(source.task, target)
+        _activate_next(source.task)
     db.session.commit()
     return message
 
@@ -374,51 +419,23 @@ def post_user_message(user_id: UUID, node_id: UUID, payload: dict) -> MultiAgent
         content=content,
     )
     db.session.add(message)
-    if target.task.status == "completed":
+    if target.task.status == "waiting_user":
         target.task.status = "running"
         target.task.execution_count = 0
         for node in target.task.members:
             node.status = "idle"
-        target.status = "ready"
+        _clear_queue(target.task)
+        _enqueue(target.task, target)
+        _activate_next(target.task)
     elif target.task.status == "running" and any(
         node.status == "running" for node in target.task.members
     ):
-        if target.status != "running":
-            target.status = "queued"
+        _enqueue(target.task, target)
     elif target.task.status == "running":
-        for node in target.task.members:
-            if node.status == "ready":
-                node.status = "idle"
-        target.status = "ready"
+        _enqueue(target.task, target)
+        _activate_next(target.task)
     db.session.commit()
     return message
-
-
-def finish_collaboration(user_id: UUID, node_id: UUID, payload: dict) -> MultiAgentTask:
-    node = owned_node(user_id, node_id)
-    if not node or not node.is_host:
-        raise ServiceError("only_host_can_finish_collaboration", 403)
-    if node.status != "running" or node.task.status != "running":
-        raise ServiceError("agent_not_running", 409)
-    content = str(payload.get("content") or "").strip()
-    if not content:
-        raise ServiceError("final_answer_required", 422)
-    node.final_output = {"content": content}
-    node.status = "idle"
-    node.task.status = "completed"
-    db.session.add(
-        MultiAgentMessage(
-            task_id=node.task_id,
-            sequence=_next_message_sequence(node.task_id),
-            from_node_id=node.id,
-            to_node_id=node.id,
-            message_type="final",
-            sender_type="agent",
-            content=content,
-        )
-    )
-    db.session.commit()
-    return node.task
 
 
 def complete_node(user_id: UUID, node_id: UUID, payload: dict) -> MultiAgentTask:
@@ -428,17 +445,23 @@ def complete_node(user_id: UUID, node_id: UUID, payload: dict) -> MultiAgentTask
     output = payload.get("output")
     if isinstance(output, dict):
         node.final_output = output
+    content = str(output.get("content") or "").strip() if isinstance(output, dict) else ""
     node.status = "idle"
-    if node.is_host:
-        if any(member.status == "queued" for member in node.task.members):
-            _activate_next(node.task)
-        else:
-            node.task.status = "failed"
-            node.final_output = {
-                **(node.final_output or {}),
-                "error": "host_must_delegate_or_finish",
-            }
+    if node.task.execution_queue:
+        _activate_next(node.task)
+    elif content:
+        db.session.add(MultiAgentMessage(
+            task_id=node.task_id,
+            sequence=_next_message_sequence(node.task_id),
+            from_node_id=node.id,
+            to_node_id=None,
+            message_type="message",
+            sender_type="agent",
+            content=content,
+        ))
+        node.task.status = "waiting_user"
     else:
+        _enqueue(node.task, _host(node.task))
         _activate_next(node.task)
     db.session.commit()
     return node.task
@@ -452,7 +475,9 @@ def fail_node(user_id: UUID, node_id: UUID, error_code: str) -> MultiAgentTask:
     node.final_output = {"error": error_code[:500]}
     if node.is_host:
         node.task.status = "failed"
+        _clear_queue(node.task)
     else:
+        _enqueue(node.task, _host(node.task))
         _activate_next(node.task)
     db.session.commit()
     return node.task
@@ -462,8 +487,9 @@ def stop_task(user_id: UUID, task_id: UUID) -> MultiAgentTask:
     task = get_task(user_id, task_id)
     if not task:
         raise ServiceError("not_found", 404)
-    if task.status == "running":
+    if task.status in {"running", "waiting_user"}:
         task.status = "stopped"
+        _clear_queue(task)
         for node in task.members:
             node.status = "idle"
         db.session.commit()
@@ -483,6 +509,7 @@ def _reset_task(task: MultiAgentTask) -> None:
     for node in task.members:
         node.status, node.final_output = "idle", None
     task.execution_count = 0
+    _clear_queue(task)
     for message in task_messages(task):
         db.session.delete(message)
     db.session.flush()

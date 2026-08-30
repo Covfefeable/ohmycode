@@ -14,7 +14,7 @@ type Props = {
 
 export function TaskRoster(props: Props) {
   const { t } = useTranslation();
-  const rerunnable = ["completed", "failed", "stopped"].includes(props.task.status);
+  const rerunnable = ["failed", "stopped"].includes(props.task.status);
   return <aside className={styles.roster}>
     <div className={styles.rosterHeading}>
       <h2>{t("multiAgent.teamMembers")}</h2>

@@ -11,7 +11,6 @@ from ..services.multi_agents import (
     delete_agent,
     delete_task,
     fail_node,
-    finish_collaboration,
     get_task,
     list_agents,
     post_message,
@@ -124,7 +123,8 @@ def post_message_route(node_id: UUID):
         {
             "id": str(message.id),
             "sourceStatus": message.from_node.status if message.from_node else None,
-            "targetStatus": message.to_node.status,
+            "targetStatus": message.to_node.status if message.to_node else None,
+            "taskStatus": message.from_node.task.status if message.from_node else None,
         }
     ), 201
 
@@ -178,17 +178,6 @@ def start_node_route(node_id: UUID):
             "modelId": str(node.model_configuration_id) if node.model_configuration_id else None,
             "prompt": prompt,
         }
-    )
-
-
-@multi_agents_bp.post("/nodes/<uuid:node_id>/finish")
-@jwt_required()
-def finish_collaboration_route(node_id: UUID):
-    require_device_node(node_id)
-    return jsonify(
-        serialize_task(
-            finish_collaboration(user_id(), node_id, request.get_json(silent=True) or {})
-        )
     )
 
 

@@ -49,7 +49,7 @@ export function TeamEditor(props: Props) {
         { value: "", label: t("multiAgent.defaultModel") },
         ...props.models.map((model) => ({ value: model.id, label: `${model.name} - ${model.model}` })),
       ]} onChange={(value) => props.onUpdateMember("modelId", value)} /></label>
-      <label>{t("multiAgent.nodeInstructions")}<PromptEditor key={member.id} className={styles.fieldPromptEditor} value={member.instructions} options={capabilityOptions} placeholder={t("multiAgent.nodeInstructionsPlaceholder")} ariaLabel={t("multiAgent.nodeInstructions")} onChange={(value) => props.onUpdateMember("instructions", value)} /></label>
+      <label>{t("multiAgent.nodeInstructions")}<PromptEditor key={member.id} className={styles.fieldPromptEditor} value={member.instructions} options={capabilityOptions} capabilityTriggers={["/", "@"]} placeholder={t("multiAgent.nodeInstructionsPlaceholder")} ariaLabel={t("multiAgent.nodeInstructions")} onChange={(value) => props.onUpdateMember("instructions", value)} /></label>
     </> : <div className={styles.editorEmpty}>{t("multiAgent.selectMember")}</div>}</section>
   </div>;
 }

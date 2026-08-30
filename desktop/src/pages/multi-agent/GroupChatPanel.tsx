@@ -12,6 +12,7 @@ type Props = {
   mentionMembers: MultiAgentMemberData[];
   sending: boolean;
   onMessageChange(value: string): void;
+  onOpenMention(): void;
   onSelectMention(member: MultiAgentMemberData): void;
   onCloseMention(): void;
   onSend(): void;
@@ -29,12 +30,12 @@ export function GroupChatPanel(props: Props) {
       {props.task.messages.map((item) => {
         const mine = item.senderType === "user";
         const sender = mine ? t("multiAgent.user") : names.get(item.fromNodeId ?? "") ?? t("multiAgent.unknownAgent");
-        const target = names.get(item.toNodeId) ?? t("multiAgent.host");
+        const target = item.toNodeId ? names.get(item.toNodeId) ?? t("multiAgent.unknownAgent") : t("multiAgent.user");
         return <article className={mine ? styles.userMessage : styles.agentMessage} key={item.id}>
           <span className={styles.messageAvatar}>{mine ? t("multiAgent.youShort") : sender.slice(0, 1)}</span>
           <div>
             <header><strong>{sender}</strong><time>{new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit" }).format(new Date(item.createdAt))}</time></header>
-            <div className={styles.bubble}>{item.type !== "final" && <b>@{target}</b>}<MarkdownContent>{item.content}</MarkdownContent></div>
+            <div className={styles.bubble}><b>@{target}</b><MarkdownContent>{item.content}</MarkdownContent></div>
           </div>
         </article>;
       })}
@@ -48,7 +49,7 @@ export function GroupChatPanel(props: Props) {
         </button>)
         : <span className={styles.noMention}>{t("multiAgent.unknownAgent")}</span>}
       </div>}
-      <PromptEditor compact submitOnEnter className={styles.groupPromptEditor} value={props.message} options={capabilityOptions} placeholder={t("multiAgent.groupMessagePlaceholder")} ariaLabel={t("multiAgent.groupMessagePlaceholder")} onChange={props.onMessageChange} onEscape={props.onCloseMention} onSubmit={() => { if (props.mentionQuery === null) props.onSend(); }} />
+      <PromptEditor compact submitOnEnter className={styles.groupPromptEditor} value={props.message} options={capabilityOptions} placeholder={t("multiAgent.groupMessagePlaceholder")} ariaLabel={t("multiAgent.groupMessagePlaceholder")} onChange={props.onMessageChange} onAtTrigger={props.onOpenMention} onEscape={props.onCloseMention} onSubmit={() => { if (props.mentionQuery === null) props.onSend(); }} />
       <div className={styles.composerToolbar}><button aria-label={t("multiAgent.send")} disabled={props.sending || !props.message.trim()} onClick={props.onSend}>
         {props.sending ? <LoaderCircle className={styles.spinner} /> : <ArrowUp />}
       </button></div>

@@ -55,7 +55,7 @@ export function useMultiAgentExecution(options: Options) {
       toast({ type: "error", message: t("multiAgent.memberModelMissing") });
       return;
     }
-    if (["completed", "failed", "stopped"].includes(target.status)) {
+    if (["failed", "stopped"].includes(target.status)) {
       setActivities({});
     }
     const requestId = crypto.randomUUID();
@@ -108,13 +108,16 @@ export function useMultiAgentExecution(options: Options) {
 
   async function sendGroupMessage() {
     if (!options.task || !message.trim()) return;
-    const shouldResume = options.task.status === "completed";
+    const shouldResume = options.task.status === "waiting_user";
     const target = options.task.members.find((item) => item.id === mentionTargetId);
-    const targetId = target?.id || options.task.members.find((item) => item.isHost)?.id;
+    const lastAskerId = [...options.task.messages].reverse().find(
+      (item) => item.senderType === "agent" && item.toNodeId === null,
+    )?.fromNodeId;
+    const targetId = target?.id || lastAskerId || options.task.members.find((item) => item.isHost)?.id;
     if (!targetId) return;
     const escapedName = target?.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const content = target
-      ? message.replace(new RegExp(`^@${escapedName}\\s*`), "").trim()
+      ? message.replace(new RegExp(`(?:^|\\s)@${escapedName}(?=\\s|$)`), " ").trim()
       : message.trim();
     if (!content) return;
     setSending(true);
@@ -143,19 +146,18 @@ export function useMultiAgentExecution(options: Options) {
   }
 
   function selectMention(member: MultiAgentMemberData) {
-    const selectedTarget = options.task?.members.find((item) => item.id === mentionTargetId);
-    const escapedName = selectedTarget?.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const withoutSelected = selectedTarget
-      ? message.replace(new RegExp(`^@${escapedName}\\s*`), "")
-      : message;
-    const next = withoutSelected.replace(/(?:^|\s)@[^\s@]*$/, "").trimStart();
-    setMessage(`@${member.name} ${next}`);
+    const next = message.replace(/(^|\s)@[^\s@]*$/, (_match, prefix: string) => `${prefix}@${member.name} `);
+    setMessage(next);
     setMentionTargetId(member.id);
     setMentionQuery(null);
   }
 
   function closeMention() {
     setMentionQuery(null);
+  }
+
+  function openMention() {
+    setMentionQuery("");
   }
 
   async function stopTask() {
@@ -175,6 +177,6 @@ export function useMultiAgentExecution(options: Options) {
     runDialogOpen, runDescription, runWorkspacePath, runExecutionLimit, runRequestId, activities,
     message, mentionQuery, mentionMembers, sending, setRunDialogOpen, setRunDescription,
     setRunWorkspacePath, setRunExecutionLimit, executeTask, runCollaboration, sendGroupMessage,
-    changeGroupMessage, selectMention, closeMention, stopTask,
+    changeGroupMessage, selectMention, openMention, closeMention, stopTask,
   };
 }

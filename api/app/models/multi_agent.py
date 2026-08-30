@@ -56,6 +56,7 @@ class MultiAgentTask(db.Model):
     status: Mapped[str] = mapped_column(String(32), default="draft", index=True)
     execution_limit: Mapped[int] = mapped_column(Integer, default=12)
     execution_count: Mapped[int] = mapped_column(Integer, default=0)
+    execution_queue: Mapped[list[str]] = mapped_column(JSON, default=list)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
@@ -104,15 +105,15 @@ class MultiAgentMessage(db.Model):
     from_node_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("multi_agent_nodes.id", ondelete="CASCADE"), index=True, nullable=True
     )
-    to_node_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("multi_agent_nodes.id", ondelete="CASCADE"), index=True
+    to_node_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("multi_agent_nodes.id", ondelete="CASCADE"), index=True, nullable=True
     )
     message_type: Mapped[str] = mapped_column(String(32), default="update")
     sender_type: Mapped[str] = mapped_column(String(16), default="agent")
     content: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     from_node: Mapped[MultiAgentNode | None] = relationship(foreign_keys=[from_node_id])
-    to_node: Mapped[MultiAgentNode] = relationship(foreign_keys=[to_node_id])
+    to_node: Mapped[MultiAgentNode | None] = relationship(foreign_keys=[to_node_id])
 
 
 class WorkspaceChange(db.Model):

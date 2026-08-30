@@ -61,6 +61,7 @@ export function MultiAgentPage() {
             mentionMembers={execution.mentionMembers}
             sending={execution.sending}
             onMessageChange={execution.changeGroupMessage}
+            onOpenMention={execution.openMention}
             onSelectMention={execution.selectMention}
             onCloseMention={execution.closeMention}
             onSend={() => void execution.sendGroupMessage()}

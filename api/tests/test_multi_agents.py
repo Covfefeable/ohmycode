@@ -137,13 +137,13 @@ def test_host_driven_group_chat_lifecycle(tmp_path):
         self_handoff = client.post(
             f"/api/multi-agents/nodes/{host['id']}/messages",
             headers=headers,
-            json={"toNodeId": host["id"], "content": "Continue"},
+            json={"to": host["id"], "content": "Continue"},
         )
         assert self_handoff.status_code == 409
         handoff = client.post(
             f"/api/multi-agents/nodes/{host['id']}/messages",
             headers=headers,
-            json={"toNodeId": writer["id"], "content": "@Writer draft the launch post"},
+            json={"to": writer["id"], "content": "@Writer draft the launch post"},
         )
         assert handoff.status_code == 201
         state = client.get(f"/api/multi-agents/tasks/{task['id']}", headers=headers).get_json()
@@ -192,15 +192,9 @@ def test_host_driven_group_chat_lifecycle(tmp_path):
             "reasoning",
             "message",
         ]
-        assert state["currentSpeakerId"] == host["id"]
-        client.post(f"/api/multi-agents/nodes/{host['id']}/start", headers=headers)
-        finished = client.post(
-            f"/api/multi-agents/nodes/{host['id']}/finish",
-            headers=headers,
-            json={"content": "Final launch post"},
-        ).get_json()
-        assert finished["status"] == "completed"
-        assert finished["messages"][-1]["type"] == "final"
+        assert state["status"] == "waiting_user"
+        assert state["currentSpeakerId"] is None
+        assert state["messages"][-1]["toNodeId"] is None
 
         follow_up = client.post(
             f"/api/multi-agents/nodes/{writer['id']}/user-messages",
@@ -213,7 +207,7 @@ def test_host_driven_group_chat_lifecycle(tmp_path):
         ).get_json()
         assert resumed["status"] == "running"
         assert resumed["currentSpeakerId"] == writer["id"]
-        assert resumed["messages"][-2]["type"] == "final"
+        assert resumed["messages"][-2]["toNodeId"] is None
         assert resumed["messages"][-1]["content"] == "Revise the opening"
 
 
@@ -292,6 +286,62 @@ def test_user_message_queues_target_and_host_recovers(tmp_path):
         )
 
 
+def test_user_message_preserves_existing_handoff_order(tmp_path):
+    app = create_app("testing")
+    with app.app_context():
+        db.create_all()
+    with app.test_client() as client:
+        headers = _setup(client)
+        agent = _create_team(client, headers)
+        task = client.post(
+            f"/api/multi-agents/{agent['id']}/tasks",
+            headers=headers,
+            json={"workspacePath": str(tmp_path), "request": "Prepare content"},
+        ).get_json()
+        host = next(member for member in task["members"] if member["isHost"])
+        writer = next(member for member in task["members"] if member["key"] == "writer")
+        reviewer = next(member for member in task["members"] if member["key"] == "reviewer")
+
+        client.post(f"/api/multi-agents/tasks/{task['id']}/start", headers=headers)
+        client.post(f"/api/multi-agents/nodes/{host['id']}/start", headers=headers)
+        client.post(
+            f"/api/multi-agents/nodes/{host['id']}/messages",
+            headers=headers,
+            json={"to": writer["id"], "content": "Draft first"},
+        )
+        client.post(
+            f"/api/multi-agents/nodes/{host['id']}/user-messages",
+            headers=headers,
+            json={"content": "Also consider this"},
+        )
+        state = client.get(f"/api/multi-agents/tasks/{task['id']}", headers=headers).get_json()
+        assert state["currentSpeakerId"] == writer["id"]
+        assert next(item for item in state["members"] if item["id"] == host["id"])[
+            "status"
+        ] == "queued"
+
+        client.post(f"/api/multi-agents/nodes/{writer['id']}/start", headers=headers)
+        client.post(
+            f"/api/multi-agents/nodes/{writer['id']}/messages",
+            headers=headers,
+            json={"to": reviewer["id"], "content": "Review after the host"},
+        )
+        state = client.get(f"/api/multi-agents/tasks/{task['id']}", headers=headers).get_json()
+        assert state["currentSpeakerId"] == host["id"]
+        assert next(item for item in state["members"] if item["id"] == reviewer["id"])[
+            "status"
+        ] == "queued"
+
+        client.post(f"/api/multi-agents/nodes/{host['id']}/start", headers=headers)
+        client.post(
+            f"/api/multi-agents/nodes/{host['id']}/messages",
+            headers=headers,
+            json={"to": reviewer["id"], "content": "Continue"},
+        )
+        state = client.get(f"/api/multi-agents/tasks/{task['id']}", headers=headers).get_json()
+        assert state["currentSpeakerId"] == reviewer["id"]
+
+
 def test_remote_service_treats_client_workspace_path_as_opaque():
     app = create_app("testing")
     with app.app_context():
@@ -343,13 +393,13 @@ def test_execution_limit_forces_host_summary(tmp_path):
         client.post(
             f"/api/multi-agents/nodes/{host['id']}/messages",
             headers=headers,
-            json={"toNodeId": writer["id"], "content": "Draft the post"},
+            json={"to": writer["id"], "content": "Draft the post"},
         )
         client.post(f"/api/multi-agents/nodes/{writer['id']}/start", headers=headers)
         forced_handoff = client.post(
             f"/api/multi-agents/nodes/{writer['id']}/messages",
             headers=headers,
-            json={"toNodeId": reviewer["id"], "content": "Review the draft"},
+            json={"to": reviewer["id"], "content": "Review the draft"},
         )
         assert forced_handoff.status_code == 201
         state = client.get(f"/api/multi-agents/tasks/{task['id']}", headers=headers).get_json()
@@ -359,17 +409,21 @@ def test_execution_limit_forces_host_summary(tmp_path):
         forced_start = client.post(
             f"/api/multi-agents/nodes/{host['id']}/start", headers=headers
         )
-        assert "must now call finish_collaboration" in forced_start.get_json()["prompt"]
+        assert "with to='user'" in forced_start.get_json()["prompt"]
         delegation = client.post(
             f"/api/multi-agents/nodes/{host['id']}/messages",
             headers=headers,
-            json={"toNodeId": reviewer["id"], "content": "Continue reviewing"},
+            json={"to": reviewer["id"], "content": "Continue reviewing"},
         )
         assert delegation.status_code == 409
-        finished = client.post(
-            f"/api/multi-agents/nodes/{host['id']}/finish",
+        finished_response = client.post(
+            f"/api/multi-agents/nodes/{host['id']}/messages",
             headers=headers,
-            json={"content": "Best available launch post"},
+            json={"to": "user", "content": "Best available launch post"},
+        )
+        assert finished_response.status_code == 201
+        finished = client.get(
+            f"/api/multi-agents/tasks/{task['id']}", headers=headers
         ).get_json()
-        assert finished["status"] == "completed"
+        assert finished["status"] == "waiting_user"
         assert finished["executionCount"] == 3

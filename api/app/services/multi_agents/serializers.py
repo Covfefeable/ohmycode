@@ -32,7 +32,7 @@ def serialize_task(task: MultiAgentTask) -> dict:
         {
             "id": str(message.id),
             "fromNodeId": str(message.from_node_id) if message.from_node_id else None,
-            "toNodeId": str(message.to_node_id),
+            "toNodeId": str(message.to_node_id) if message.to_node_id else None,
             "type": message.message_type,
             "senderType": message.sender_type,
             "content": message.content,

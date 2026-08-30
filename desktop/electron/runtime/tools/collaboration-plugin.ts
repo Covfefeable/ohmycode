@@ -5,31 +5,19 @@ import type { DesktopExecutionContext } from "../types.js";
 
 const AGENT_MESSAGE_DEFINITION: ToolDefinition = {
   name: "agent_message",
-  description: "Post a group-chat message and hand the active turn to another collaboration member.",
+  description: "Post a group-chat message to another member or the user, handing over or pausing the collaboration.",
   inputSchema: {
-    type: "object", properties: { toNodeId: { type: "string" }, content: { type: "string" } },
-    required: ["toNodeId", "content"],
-  },
-};
-
-const FINISH_COLLABORATION_DEFINITION: ToolDefinition = {
-  name: "finish_collaboration",
-  description: "Host only: end the collaboration and publish the final answer.",
-  inputSchema: {
-    type: "object", properties: { content: { type: "string" } }, required: ["content"],
+    type: "object", properties: { to: { type: "string", description: "A member UUID, or 'user'." }, content: { type: "string" } },
+    required: ["to", "content"],
   },
 };
 
 export function createCollaborationPlugin(context: DesktopExecutionContext): ToolPlugin {
-  const definitions = [
-    AGENT_MESSAGE_DEFINITION,
-    ...(context.isHost ? [FINISH_COLLABORATION_DEFINITION] : []),
-  ];
   return defineToolPlugin({
     id: "collaboration",
-    definitions,
+    definitions: [AGENT_MESSAGE_DEFINITION],
     execute: (call: ToolCall) => apiRequest(
-      `/api/multi-agents/nodes/${context.ownerId}/${call.tool === "agent_message" ? "messages" : "finish"}`,
+      `/api/multi-agents/nodes/${context.ownerId}/messages`,
       { method: "POST", body: JSON.stringify(call.arguments) },
     ),
   });
