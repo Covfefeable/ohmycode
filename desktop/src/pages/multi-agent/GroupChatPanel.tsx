@@ -31,7 +31,7 @@ export function GroupChatPanel(props: Props) {
     if (!runDetailOpen || !runDetailMessageId || runDetail?.status !== "running") return;
     const timer = window.setInterval(() => {
       void window.ohmycode.multiAgents.getRunDetail(runDetailMessageId).then(setRunDetail).catch(() => undefined);
-    }, 1000);
+    }, 5000);
     return () => window.clearInterval(timer);
   }, [runDetail?.status, runDetailMessageId, runDetailOpen]);
 
