@@ -1,4 +1,4 @@
-import { app, shell } from "electron";
+import { app, net, shell } from "electron";
 
 const RELEASES_API_URL = "https://api.github.com/repos/Covfefeable/ohmycode/releases/latest";
 const RELEASES_PAGE_URL = "https://github.com/Covfefeable/ohmycode/releases/latest";
@@ -35,7 +35,10 @@ function isNewer(candidate: string, current: string): boolean {
 
 export async function checkForDesktopUpdate(): Promise<UpdateCheckResult> {
   const currentVersion = app.getVersion();
-  const response = await fetch(RELEASES_API_URL, {
+  // Electron's network stack honors the operating system proxy configuration.
+  // Node's global fetch (Undici) does not, which made update checks fail on
+  // networks where GitHub is only reachable through the configured proxy.
+  const response = await net.fetch(RELEASES_API_URL, {
     headers: {
       Accept: "application/vnd.github+json",
       "User-Agent": `OhMyCode/${currentVersion}`,
