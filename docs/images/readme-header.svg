@@ -43,7 +43,7 @@
 
     <g transform="translate(140 122)">
       <text x="0" y="36" fill="#7dff98" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif" font-size="18" font-weight="650" letter-spacing="3">OPEN SOURCE · DESKTOP FIRST</text>
-      <text x="0" y="122" fill="#f1f3ee" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif" font-size="78" font-weight="760" letter-spacing="-3">OhMyCode</text>
+      <text x="0" y="122" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif" font-size="78" font-weight="760" letter-spacing="-3"><tspan fill="#f1f3ee">Oh</tspan><tspan fill="#7dff98">My</tspan><tspan fill="#f1f3ee">Code</tspan></text>
       <text x="4" y="174" fill="#b1b7bf" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif" font-size="25" font-weight="400">An open workspace for coding agents.</text>
       <g transform="translate(4 218)" fill="#929aa4" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif" font-size="15" font-weight="520">
         <text x="0" y="0">DESKTOP RUNTIME</text>
