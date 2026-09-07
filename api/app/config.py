@@ -16,6 +16,13 @@ def _int_env(name: str, default: int) -> int:
         return default
 
 
+def _bool_env(name: str, default: bool) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.lower() in {"1", "true", "yes", "on"}
+
+
 class BaseConfig:
     SECRET_KEY = os.getenv("SECRET_KEY", "development-only-secret")
     JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", SECRET_KEY)
@@ -25,6 +32,18 @@ class BaseConfig:
         "DATABASE_URL", "postgresql+psycopg://ohmycode:ohmycode@localhost:5432/ohmycode"
     )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    SQLALCHEMY_ECHO = _bool_env("SQLALCHEMY_ECHO", False)
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        "pool_size": _int_env("SQLALCHEMY_POOL_SIZE", 30),
+        "max_overflow": _int_env("SQLALCHEMY_MAX_OVERFLOW", 10),
+        "pool_recycle": _int_env("SQLALCHEMY_POOL_RECYCLE", 3600),
+        "pool_pre_ping": _bool_env("SQLALCHEMY_POOL_PRE_PING", False),
+        "pool_use_lifo": _bool_env("SQLALCHEMY_POOL_USE_LIFO", False),
+        "pool_timeout": _int_env("SQLALCHEMY_POOL_TIMEOUT", 30),
+        "pool_reset_on_return": os.getenv(
+            "SQLALCHEMY_POOL_RESET_ON_RETURN", "rollback"
+        ),
+    }
     REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
     CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", REDIS_URL)
     CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", REDIS_URL)
@@ -60,6 +79,7 @@ class DevelopmentConfig(BaseConfig):
 class TestingConfig(BaseConfig):
     TESTING = True
     SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
+    SQLALCHEMY_ENGINE_OPTIONS = {}
     REDIS_URL = "redis://localhost:6379/15"
     JWT_SECRET_KEY = "testing-jwt-secret-with-at-least-32-bytes"
 
