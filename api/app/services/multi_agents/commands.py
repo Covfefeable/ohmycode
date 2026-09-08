@@ -19,6 +19,7 @@ from .planner import generate_plan, validate_plan
 from .queries import get_task, owned_agent, owned_node
 
 TASK_RESTARTABLE = {"failed", "stopped"}
+TASK_MESSAGE_RESUMABLE = {"waiting_user", "failed"}
 DEFAULT_EXECUTION_LIMIT = 12
 MIN_EXECUTION_LIMIT = 2
 MAX_EXECUTION_LIMIT = 100
@@ -441,9 +442,13 @@ def post_user_message(user_id: UUID, node_id: UUID, payload: dict) -> MultiAgent
         content=content,
     )
     db.session.add(message)
-    if target.task.status == "waiting_user":
+    if target.task.status in TASK_MESSAGE_RESUMABLE:
+        was_failed = target.task.status == "failed"
         target.task.status = "running"
         target.task.execution_count = 0
+        if was_failed:
+            _clear_queue(target.task)
+            target.final_output = None
         _enqueue_front(target.task, target)
         _activate_next(target.task)
     elif target.task.status == "running" and any(

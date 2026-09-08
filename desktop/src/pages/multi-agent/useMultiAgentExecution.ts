@@ -162,7 +162,7 @@ export function useMultiAgentExecution(options: Options) {
       toast({ type: "error", message: t("multiAgent.singleRecipientOnly") });
       return;
     }
-    const shouldResume = options.task.status === "waiting_user";
+    const shouldResume = ["waiting_user", "failed"].includes(options.task.status);
     const target = options.task.members.find((item) => item.id === mentionTargetId);
     const lastAskerId = [...options.task.messages].reverse().find(
       (item) => item.senderType === "agent" && item.toNodeId === null,

@@ -421,6 +421,48 @@ def test_agent_pause_preserves_pending_speakers(tmp_path):
         assert state["currentSpeakerId"] == writer["id"]
 
 
+def test_user_message_resumes_failed_collaboration_without_resetting_history(tmp_path):
+    app = create_app("testing")
+    with app.app_context():
+        db.create_all()
+    with app.test_client() as client:
+        headers = _setup(client)
+        agent = _create_team(client, headers)
+        task = client.post(
+            f"/api/multi-agents/{agent['id']}/tasks",
+            headers=headers,
+            json={"workspacePath": str(tmp_path), "request": "Draft an article"},
+        ).get_json()
+        host = next(member for member in task["members"] if member["isHost"])
+
+        client.post(f"/api/multi-agents/tasks/{task['id']}/start", headers=headers)
+        client.post(f"/api/multi-agents/nodes/{host['id']}/start", headers=headers)
+        failed = client.post(
+            f"/api/multi-agents/nodes/{host['id']}/fail",
+            headers=headers,
+            json={"errorCode": "provider_unavailable"},
+        ).get_json()
+        assert failed["status"] == "failed"
+
+        response = client.post(
+            f"/api/multi-agents/nodes/{host['id']}/user-messages",
+            headers=headers,
+            json={"content": "Try again with the existing context"},
+        )
+        assert response.status_code == 201
+        resumed = client.get(
+            f"/api/multi-agents/tasks/{task['id']}", headers=headers
+        ).get_json()
+        assert resumed["status"] == "running"
+        assert resumed["currentSpeakerId"] == host["id"]
+        assert resumed["executionCount"] == 0
+        assert resumed["messages"][-1]["content"] == "Try again with the existing context"
+        resumed_host = next(
+            member for member in resumed["members"] if member["id"] == host["id"]
+        )
+        assert resumed_host["finalOutput"] is None
+
+
 def test_running_node_can_be_requeued_after_transient_transport_conflict(tmp_path):
     app = create_app("testing")
     with app.app_context():
