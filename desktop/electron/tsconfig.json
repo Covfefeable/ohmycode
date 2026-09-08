@@ -12,5 +12,5 @@
     "rootDir": ".",
     "types": ["node"]
   },
-  "include": ["main.ts"]
+  "include": ["main.ts", "preload.cts", "preload-contract.d.ts"]
 }

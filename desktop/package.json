@@ -76,7 +76,6 @@
     "files": [
       "dist/**/*",
       "dist-electron/**/*",
-      "electron/preload.cjs",
       "build/icon.png",
       "package.json",
       "!**/*.map"

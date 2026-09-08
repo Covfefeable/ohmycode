@@ -22,7 +22,7 @@ export async function createMainWindow(): Promise<BrowserWindow> {
     frame: false,
     autoHideMenuBar: true,
     webPreferences: {
-      preload: path.join(app.getAppPath(), "electron/preload.cjs"),
+      preload: path.join(app.getAppPath(), "dist-electron/preload.cjs"),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,

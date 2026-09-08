@@ -1,6 +1,6 @@
-const { contextBridge, ipcRenderer, webUtils } = require("electron");
+import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from "electron";
 
-contextBridge.exposeInMainWorld("ohmycode", {
+const bridge: DesktopBridge = {
   projects: {
     list: () => ipcRenderer.invoke("projects:list"),
     create: () => ipcRenderer.invoke("projects:create"),
@@ -24,7 +24,7 @@ contextBridge.exposeInMainWorld("ohmycode", {
     sendMessage: (taskId, nodeId, content) => ipcRenderer.invoke("multi-agents:send-message", taskId, nodeId, content),
     onEvent: (requestId, callback) => {
       const channel = `multi-agent:event:${requestId}`;
-      const listener = (_event, streamEvent) => callback(streamEvent);
+      const listener = (_event: IpcRendererEvent, streamEvent: MultiAgentRunEvent) => callback(streamEvent);
       ipcRenderer.on(channel, listener);
       return () => ipcRenderer.removeListener(channel, listener);
     },
@@ -44,7 +44,7 @@ contextBridge.exposeInMainWorld("ohmycode", {
     interruptTurn: (turnId, partialMessage) => ipcRenderer.invoke("conversations:interrupt-turn", turnId, partialMessage),
     onThreadEvent: (conversationId, callback) => {
       const channel = `thread:event:${conversationId}`;
-      const listener = (_event, runtimeEvent) => callback(runtimeEvent);
+      const listener = (_event: IpcRendererEvent, runtimeEvent: RuntimeEvent) => callback(runtimeEvent);
       ipcRenderer.on(channel, listener);
       return () => ipcRenderer.removeListener(channel, listener);
     },
@@ -77,14 +77,14 @@ contextBridge.exposeInMainWorld("ohmycode", {
     saveProfile: (displayName) => ipcRenderer.invoke("settings:save-profile", displayName),
     saveAvatar: (data, contentType) => ipcRenderer.invoke("settings:save-avatar", data, contentType),
     onProfileChanged: (callback) => {
-      const listener = (_event, profile) => callback(profile);
+      const listener = (_event: IpcRendererEvent, profile: PublicSettings["profile"]) => callback(profile);
       ipcRenderer.on("settings:profile-changed", listener);
       return () => ipcRenderer.removeListener("settings:profile-changed", listener);
     },
     saveModels: (models) => ipcRenderer.invoke("settings:save-models", models),
     saveBackgroundTasks: (settings) => ipcRenderer.invoke("settings:save-background-tasks", settings),
     onModelsChanged: (callback) => {
-      const listener = (_event, models) => callback(models);
+      const listener = (_event: IpcRendererEvent, models: ModelConfiguration[]) => callback(models);
       ipcRenderer.on("settings:models-changed", listener);
       return () => ipcRenderer.removeListener("settings:models-changed", listener);
     },
@@ -106,4 +106,6 @@ contextBridge.exposeInMainWorld("ohmycode", {
       return () => ipcRenderer.removeListener("capabilities:changed", listener);
     },
   },
-});
+};
+
+contextBridge.exposeInMainWorld("ohmycode", bridge);
