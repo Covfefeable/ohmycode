@@ -46,15 +46,6 @@ export async function checkForDesktopUpdate(): Promise<UpdateCheckResult> {
     },
     signal: AbortSignal.timeout(10_000),
   });
-  if (response.status === 404) {
-    return {
-      status: "latest",
-      currentVersion,
-      latestVersion: currentVersion,
-      releaseName: `OhMyCode v${currentVersion}`,
-      publishedAt: null,
-    };
-  }
   if (!response.ok) throw new Error(`github_release_${response.status}`);
   const release = await response.json() as GitHubRelease;
   if (typeof release.tag_name !== "string") throw new Error("invalid_release_response");
