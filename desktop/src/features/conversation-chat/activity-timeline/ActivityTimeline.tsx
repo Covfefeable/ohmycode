@@ -4,77 +4,16 @@ import { Check, ChevronDown, Circle, CircleX, FilePenLine, FileSearch, FileText,
 import { useTranslation } from "react-i18next";
 import { MarkdownContent } from "../../../shared/ui/markdown-content";
 import styles from "./ActivityTimeline.module.css";
-import { toolPresentation } from "./tool-presentation";
+import { presentToolActivity } from "./tool-presentation";
 
 const FileDiffViewer = lazy(() => import("./file-diff-viewer/FileDiffViewer").then((module) => ({ default: module.FileDiffViewer })));
 const FileContentViewer = lazy(() => import("./file-diff-viewer/FileDiffViewer").then((module) => ({ default: module.FileContentViewer })));
 
-function formatToolResult(value: unknown): string {
-  if (value && typeof value === "object" && !Array.isArray(value)) {
-    const result = value as Record<string, unknown>;
-    if (typeof result.dataUrl === "string") {
-      const metadata = Object.fromEntries(Object.entries(result).filter(([key]) => key !== "dataUrl"));
-      return JSON.stringify(metadata, null, 2);
-    }
-    if (typeof result.operation === "string" && typeof result.output === "string") return result.output;
-    if (typeof result.output === "string") {
-      const suffix = result.status === "running"
-        ? `\n\n[${String(result.status)} · terminal ${String(result.terminalId || "")}]`
-        : `\n\n[exit ${String(result.exitCode ?? "-")}]`;
-      return `${result.output}${suffix}`.trim();
-    }
-  }
-  return value ? JSON.stringify(value, null, 2) : "";
-}
-
-function parseToolInput(value: unknown): Record<string, unknown> {
-  if (value && typeof value === "object" && !Array.isArray(value)) return value as Record<string, unknown>;
-  if (typeof value !== "string") return {};
-  try {
-    const parsed = JSON.parse(value || "{}");
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed as Record<string, unknown> : {};
-  } catch {
-    return {};
-  }
-}
-
-function pathName(value: string): string {
-  const normalized = value.replace(/[\\/]+$/, "");
-  return normalized.split(/[\\/]/).at(-1) || value;
-}
-
-function patchTarget(value: unknown): string {
-  if (typeof value !== "string") return "";
-  return value.match(/^\*\*\* (?:Add|Update|Delete) File: (.+)$/m)?.[1]?.trim() ?? "";
-}
-
-function toolFailed(value: unknown): boolean {
-  if (Array.isArray(value)) return value.some(toolFailed);
-  if (!value || typeof value !== "object") return false;
-  const result = value as Record<string, unknown>;
-  return typeof result.error === "string"
-    || (typeof result.exitCode === "number" && result.exitCode !== 0);
-}
-
 function ToolStep({ step }: { step: Extract<AgentActivityStep, { type: "tool" }> }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(step.status === "running");
-  const input = parseToolInput(step.input);
-  const action = String(input.action || (input.command ? "start" : step.tool));
-  const command = input.command ? String(input.command) : `${action} ${String(input.terminalId || "")}`.trim();
-  const result = formatToolResult(step.result);
-  const failed = toolFailed(step.result);
-  const metadata = step.result && typeof step.result === "object" && !Array.isArray(step.result)
-    ? step.result as Record<string, unknown>
-    : {};
-  const changes = Array.isArray(metadata.changes) ? metadata.changes.filter((item): item is { path: string; original?: string; modified?: string; diffUnavailable?: "file_too_large" } => Boolean(item && typeof item === "object" && typeof (item as { path?: unknown }).path === "string")) : [];
-  const resolvedFilePath = typeof metadata.path === "string" ? metadata.path : "";
-  const requestedFilePath = typeof input.path === "string" ? input.path : patchTarget(input.patch);
-  const clickableFilePath = resolvedFilePath || requestedFilePath;
-  const imageReference = typeof input.imageUrl === "string" ? input.imageUrl : "";
-  const projectId = typeof input.projectId === "string" ? input.projectId : undefined;
-  const displayedFilePath = pathName(clickableFilePath || imageReference);
-  const presentation = toolPresentation(step.tool);
+  const presentation = presentToolActivity(step.tool, step.input, step.result);
+  const { changes, command, displayResource: displayedFilePath, failed, input, projectId, resource: clickableFilePath, result } = presentation;
   const fileLabelKey = step.status === "running"
     ? presentation.labels?.running
     : failed ? presentation.labels?.failed : presentation.labels?.completed;
@@ -99,7 +38,7 @@ function ToolStep({ step }: { step: Extract<AgentActivityStep, { type: "tool" }>
         ? <button
             className={styles.pathLink}
             type="button"
-            title={resolvedFilePath || requestedFilePath}
+            title={clickableFilePath}
             onClick={(event) => {
               event.preventDefault();
               event.stopPropagation();

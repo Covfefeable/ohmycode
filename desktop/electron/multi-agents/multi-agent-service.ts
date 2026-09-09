@@ -1,7 +1,7 @@
 import path from "node:path";
 import { stat } from "node:fs/promises";
 import { dialog } from "electron";
-import { ApiError, apiRequest } from "../api/api-client.js";
+import { ApiError, apiErrorCode, apiRequest } from "../api/api-client.js";
 import { interruptTurn, startTurn, subscribeTurn, waitForTurn } from "../runtime/desktop-runtime-host.js";
 import type { RuntimeEvent } from "@ohmycode/protocol";
 import type { MultiAgentRunDetail, MultiAgentSummary, MultiAgentTask } from "./types.js";
@@ -79,9 +79,7 @@ async function runTurn(task: MultiAgentTask, memberId: string, requestId: string
   if (transportError) {
     const latestMember = latest.members.find((item) => item.id === member.id);
     if (latest.status === "running" && latestMember?.status === "running") {
-      const code = transportError instanceof ApiError
-        ? transportError.code
-        : transportError instanceof Error ? transportError.message : "connection_closed";
+      const code = apiErrorCode(transportError, "connection_closed");
       latest = await apiRequest(`/api/multi-agents/nodes/${member.id}/fail`, {
         method: "POST",
         body: JSON.stringify({ errorCode: `stream_transport_${code}`.slice(0, 500) }),
@@ -131,7 +129,7 @@ export async function runMultiAgentTask(taskId: string, requestId: string, onEve
     return await orchestrate(started, requestId, onEvent);
   } catch (error) {
     if (activeRuns.get(requestId)?.cancelled) return getMultiAgentTask(taskId);
-    const message = error instanceof Error ? error.message : "collaboration_failed";
+    const message = apiErrorCode(error, "collaboration_failed");
     onEvent({ type: "task.failed", error: message });
     throw error;
   } finally { activeRuns.delete(requestId); }

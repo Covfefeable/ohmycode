@@ -9,7 +9,7 @@ import type {
   ToolResult,
 } from "@ohmycode/tool-contracts";
 import { toProviderTool } from "@ohmycode/tool-contracts";
-import { ApiError } from "../api/api-client.js";
+import { ApiError, apiErrorCode } from "../api/api-client.js";
 import type { DesktopTurnExecution } from "./desktop-execution-adapter.js";
 import type { DesktopExecutionContext } from "./types.js";
 import {
@@ -43,7 +43,8 @@ function toolError(error: unknown): { error: string; code?: string } {
       error: "You cannot hand the collaboration turn to yourself. Choose another member.",
     };
   }
-  return { error: error instanceof Error ? error.message : "tool_failed" };
+  const code = apiErrorCode(error, "tool_failed");
+  return { error: code, ...(error instanceof ApiError ? { code } : {}) };
 }
 
 function toolSignature(request: ToolRequestEvent): string {

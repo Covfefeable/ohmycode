@@ -47,6 +47,16 @@ def owned_message(user_id: UUID, message_id: UUID) -> MultiAgentMessage | None:
     )
 
 
+def task_messages(task: MultiAgentTask) -> list[MultiAgentMessage]:
+    return list(
+        db.session.scalars(
+            db.select(MultiAgentMessage)
+            .where(MultiAgentMessage.task_id == task.id)
+            .order_by(MultiAgentMessage.sequence)
+        )
+    )
+
+
 def device_task(user_id: UUID, device: DeviceContext, task_id: UUID) -> MultiAgentTask | None:
     return db.session.scalar(
         db.select(MultiAgentTask)

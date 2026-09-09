@@ -3,8 +3,48 @@ import type { AuthTokens } from "../auth/types.js";
 import { getApiUrl } from "../config.js";
 import { getDeviceIdentity } from "../device/device-identity.js";
 
+export type ApiErrorCategory = "authentication" | "network" | "permission" | "provider" | "rate_limit" | "request" | "validation";
+
+export type SerializedApiError = {
+  code: string;
+  category: ApiErrorCategory;
+  retryable: boolean;
+  status: number;
+};
+
+export const API_ERROR_PREFIX = "OHMYCODE_API_ERROR:";
+
+function errorCategory(status: number, code: string): ApiErrorCategory {
+  if (status === 401 || code === "authorization_required" || code === "provider_http_401") return "authentication";
+  if (status === 403 || code === "provider_http_403") return "permission";
+  if (status === 429 || code === "provider_http_429") return "rate_limit";
+  if (code.startsWith("provider_http_")) return "provider";
+  if (status === 422 || code === "model_not_configured") return "validation";
+  if (status === 0) return "network";
+  return "request";
+}
+
 export class ApiError extends Error {
-  constructor(public status: number, public code: string) { super(code); }
+  readonly category: ApiErrorCategory;
+  readonly retryable: boolean;
+
+  constructor(public status: number, public code: string) {
+    const category = errorCategory(status, code);
+    const retryable = category === "network" || category === "rate_limit" || status >= 500;
+    const serialized: SerializedApiError = { status, code, category, retryable };
+    super(`${API_ERROR_PREFIX}${JSON.stringify(serialized)}`);
+    this.category = category;
+    this.retryable = retryable;
+  }
+}
+
+function networkApiError(error: unknown): ApiError {
+  if (error instanceof ApiError) return error;
+  return new ApiError(0, "network_error");
+}
+
+export function apiErrorCode(error: unknown, fallback: string): string {
+  return error instanceof ApiError ? error.code : error instanceof Error ? error.message : fallback;
 }
 
 export async function apiErrorFromResponse(response: Response): Promise<ApiError> {
@@ -48,8 +88,17 @@ export async function apiFetch(pathname: string, init: RequestInit = {}): Promis
 }
 
 export async function apiRequest<T>(pathname: string, init: RequestInit = {}): Promise<T> {
-  const response = await apiFetch(pathname, init);
+  let response: Response;
+  try {
+    response = await apiFetch(pathname, init);
+  } catch (error) {
+    throw networkApiError(error);
+  }
   if (!response.ok) throw await apiErrorFromResponse(response);
   if (response.status === 204) return undefined as T;
-  return response.json() as Promise<T>;
+  try {
+    return await response.json() as T;
+  } catch {
+    throw new ApiError(502, "invalid_api_response");
+  }
 }
