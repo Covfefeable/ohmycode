@@ -1,3 +1,4 @@
+from copy import deepcopy
 from uuid import UUID
 
 from ...extensions import db
@@ -46,6 +47,37 @@ def create_conversation(user_id: UUID, project_id: UUID, payload: dict) -> Conve
     db.session.add(conversation)
     db.session.commit()
     return conversation
+
+
+def branch_conversation(
+    user_id: UUID, conversation_id: UUID, message_id: UUID
+) -> Conversation:
+    source = get_conversation(user_id, conversation_id)
+    messages = list(source.messages)
+    branch_index = next(
+        (index for index, message in enumerate(messages) if message.id == message_id), None
+    )
+    if branch_index is None:
+        raise ServiceError("not_found", 404)
+    branch = Conversation(
+        project=source.project,
+        title=f"{source.title[:197]} 分支",
+        kind=source.kind,
+    )
+    branch.messages = [
+        Message(
+            role=message.role,
+            content=message.content,
+            reasoning=message.reasoning,
+            activity=deepcopy(message.activity),
+            attachments=deepcopy(message.attachments),
+            created_at=message.created_at,
+        )
+        for message in messages[: branch_index + 1]
+    ]
+    db.session.add(branch)
+    db.session.commit()
+    return branch
 
 
 def delete_conversation(user_id: UUID, conversation_id: UUID) -> None:

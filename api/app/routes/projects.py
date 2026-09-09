@@ -11,6 +11,7 @@ from ..services.agent import (
 )
 from ..services.conversations import (
     add_message,
+    branch_conversation,
     create_conversation,
     delete_conversation,
     edit_last_user_message,
@@ -80,6 +81,20 @@ def delete_conversation_route(conversation_id: UUID):
         raise ServiceError("not_found", 404)
     delete_conversation(user_id(), conversation_id)
     return "", 204
+
+
+@projects_bp.post("/conversations/<uuid:conversation_id>/branch")
+@jwt_required()
+def branch_conversation_route(conversation_id: UUID):
+    if not device_conversation(user_id(), current_device(), conversation_id):
+        raise ServiceError("not_found", 404)
+    payload = request.get_json(silent=True) or {}
+    try:
+        message_id = UUID(str(payload.get("messageId") or ""))
+    except ValueError as error:
+        raise ServiceError("validation_error", 422) from error
+    conversation = branch_conversation(user_id(), conversation_id, message_id)
+    return jsonify(serialize_conversation(conversation, True)), 201
 
 
 @projects_bp.post("/conversations/<uuid:conversation_id>/messages")

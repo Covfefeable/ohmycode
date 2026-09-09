@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Check, Copy, Pencil } from "lucide-react";
+import { Check, Copy, GitBranch, LoaderCircle, Pencil } from "lucide-react";
 import { TaskComposer } from "../task-composer";
+import { useFeedback } from "../feedback";
 import { FullScreenLoading } from "../../shared/ui/full-screen-loading";
 import { LoadError } from "../../shared/ui/load-error";
 import { Tooltip } from "../../shared/ui/tooltip";
@@ -13,13 +14,15 @@ import { withoutFinalResponse } from "./activity-timeline/updateActivity";
 import { useConversationController } from "./useConversationController";
 import styles from "./ConversationChat.module.css";
 
-type ConversationChatProps = { conversationId: string; active: boolean; onUpdated(): void };
+type ConversationChatProps = { conversationId: string; active: boolean; onUpdated(): void; onBranched(conversation: LocalConversation): void };
 
-export function ConversationChat({ conversationId, active, onUpdated }: ConversationChatProps) {
+export function ConversationChat({ conversationId, active, onUpdated, onBranched }: ConversationChatProps) {
   const { t, i18n } = useTranslation();
+  const { toast } = useFeedback();
   const capabilityOptions = usePromptCapabilities();
   const [editing, setEditing] = useState<{ message: LocalMessage; content: string } | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [branchingId, setBranchingId] = useState<string | null>(null);
   const [attachments, setAttachments] = useState<MessageAttachment[]>([]);
   const [dragActive, setDragActive] = useState(false);
   const dragDepthRef = useRef(0);
@@ -106,6 +109,19 @@ export function ConversationChat({ conversationId, active, onUpdated }: Conversa
     window.setTimeout(() => setCopiedId((id) => id === message.id ? null : id), 1500);
   }
 
+  async function branch(message: LocalMessage) {
+    setBranchingId(message.id);
+    try {
+      const conversation = await window.ohmycode.conversations.branch(conversationId, message.id);
+      onBranched(conversation);
+      toast({ type: "success", message: t("agent.branchCreated") });
+    } catch {
+      toast({ type: "error", message: t("agent.branchFailed") });
+    } finally {
+      setBranchingId(null);
+    }
+  }
+
   async function send(content: string, nextAttachments: MessageAttachment[] = [], editMessageId?: string) {
     const sent = await controller.send(content, nextAttachments, editMessageId);
     if (!sent) return;
@@ -168,6 +184,7 @@ export function ConversationChat({ conversationId, active, onUpdated }: Conversa
         {!editing || editing.message.id !== message.id ? <div className={styles.messageActions}>
           <time>{new Intl.DateTimeFormat(i18n.language, { hour: "2-digit", minute: "2-digit" }).format(new Date(message.createdAt))}</time>
           <Tooltip content={t("agent.copy")}><button aria-label={t("agent.copy")} onClick={() => void copy(message)}>{copiedId === message.id ? <Check /> : <Copy />}</button></Tooltip>
+          {!message.id.startsWith("stream-") && !message.id.startsWith("user-") && <Tooltip content={t("agent.branch")}><button aria-label={t("agent.branch")} disabled={branchingId !== null} onClick={() => void branch(message)}>{branchingId === message.id ? <LoaderCircle className={styles.spin} /> : <GitBranch />}</button></Tooltip>}
           {message.id === lastUserId && !sending && <Tooltip content={t("agent.edit")}><button aria-label={t("agent.edit")} onClick={() => { setEditing({ message, content: message.content }); forceScrollToBottom(); }}><Pencil /></button></Tooltip>}
         </div> : null}
       </article>)}

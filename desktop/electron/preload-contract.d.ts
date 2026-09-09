@@ -24,6 +24,7 @@ interface DesktopBridge {
     };
     conversations: {
       get(conversationId: string): Promise<LocalConversation>;
+      branch(conversationId: string, messageId: string): Promise<LocalConversation>;
       startTurn(conversationId: string, content: string, modelId?: string, editMessageId?: string, attachments?: MessageAttachment[]): Promise<{ turnId: string }>;
       resolveDroppedFiles(files: File[]): MessageAttachment[];
       threadSnapshot(conversationId: string, afterSequence?: number): Promise<TurnSnapshot | null>;

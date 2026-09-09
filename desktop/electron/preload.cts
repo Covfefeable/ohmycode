@@ -31,6 +31,7 @@ const bridge: DesktopBridge = {
   },
   conversations: {
     get: (conversationId) => ipcRenderer.invoke("conversations:get", conversationId),
+    branch: (conversationId, messageId) => ipcRenderer.invoke("conversations:branch", conversationId, messageId),
     startTurn: (conversationId, content, modelId, editMessageId, attachments) => ipcRenderer.invoke("conversations:start-turn", conversationId, content, modelId, editMessageId, attachments),
     resolveDroppedFiles: (files) => files.map((file) => ({
       id: globalThis.crypto.randomUUID(),

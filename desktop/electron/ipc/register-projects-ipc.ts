@@ -1,5 +1,6 @@
 import { ipcMain } from "electron";
 import {
+  branchConversation,
   createConversation,
   createProject,
   deleteConversation,
@@ -20,6 +21,7 @@ export function registerProjectsIpc(): void {
   ipcMain.handle("projects:create-conversation", (_event, projectId: string, title: string) => createConversation(projectId, title));
   ipcMain.handle("projects:delete-conversation", (_event, projectId: string, conversationId: string) => deleteConversation(projectId, conversationId));
   ipcMain.handle("conversations:get", (_event, conversationId: string) => getConversation(conversationId));
+  ipcMain.handle("conversations:branch", (_event, conversationId: string, messageId: string) => branchConversation(conversationId, messageId));
   ipcMain.handle("conversations:suggest", (_event, conversationId: string) => suggestFollowups(conversationId));
   ipcMain.handle("conversations:start-turn", (_event, conversationId: string, content: string, modelId?: string, editMessageId?: string, attachments?: MessageAttachment[]) =>
     startTurn({ threadId: conversationId, content, modelId, editMessageId, attachments }));

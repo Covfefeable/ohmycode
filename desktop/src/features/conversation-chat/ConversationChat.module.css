@@ -28,6 +28,8 @@
 .messageActions button { width: 24px; height: 24px; display: grid; place-items: center; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--color-text-dim); padding: 0; cursor: pointer; }
 .messageActions button:hover { background: var(--color-surface-hover); color: var(--color-text); }
 .messageActions svg { width: 14px; height: 14px; }
+.spin { animation: spin 800ms linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
 .editBubble { width: min(620px, 70vw); background: var(--color-surface-2); }
 .editPromptEditor { min-height: 84px; }
 .editActions { display: flex; justify-content: flex-end; gap: var(--space-2); margin-top: var(--space-2); }

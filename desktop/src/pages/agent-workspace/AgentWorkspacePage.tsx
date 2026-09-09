@@ -33,7 +33,15 @@ export function AgentWorkspacePage() {
     >
       <section className={styles.content}>
         {conversationId && <div className={styles.conversationView}>
-          <ConversationChat active conversationId={conversationId} onUpdated={() => setRefreshToken((value) => value + 1)} />
+          <ConversationChat
+            active
+            conversationId={conversationId}
+            onUpdated={() => setRefreshToken((value) => value + 1)}
+            onBranched={(conversation) => {
+              setRefreshToken((value) => value + 1);
+              selectConversation(conversation.id);
+            }}
+          />
         </div>}
         {!conversationId && <div className={styles.welcome}>
           <div className={styles.promptMark}>›_</div>
