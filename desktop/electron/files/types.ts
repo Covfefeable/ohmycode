@@ -33,5 +33,4 @@ export type FileToolResult = {
     modified?: string;
     diffUnavailable?: "file_too_large";
   }>;
-  agentInstructions?: Array<{ path: string; content: string }>;
 };

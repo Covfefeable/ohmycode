@@ -19,7 +19,7 @@ Desktop Runtime Host 负责运行 Agent、维护终端与本地工具状态；Re
 electron/
   api/              Flask API 客户端
   capabilities/     MCP 与 Skill 的本地加载和执行
-  files/            文件工具、图片查看与 AGENTS.md 加载
+  files/            文件工具与图片查看
   ipc/              Renderer 可访问的窄 IPC 接口
   runtime/          Desktop Runtime Host、事件存储和工具插件
   terminal/         持久 PTY 终端管理

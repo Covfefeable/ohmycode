@@ -55,7 +55,6 @@ const patch = await executeFileTool(
 );
 const value = await readFile(join(root, "demo.txt"), "utf8");
 
-if (!read.agentInstructions?.length) throw new Error("AGENTS.md hierarchy was not loaded");
 if (!search.output.includes("demo.txt:2")) throw new Error("Content search did not return the expected match");
 if (!listing.output.includes("file\tdemo.txt")) throw new Error("Directory listing omitted the test file");
 if (!boundedSearch.truncated || boundedSearch.output.length > 120) throw new Error("Search output character limit was not enforced");

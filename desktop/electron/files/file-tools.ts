@@ -1,7 +1,6 @@
 import path from "node:path";
 import { readdir, readFile, stat, writeFile, mkdir, unlink, realpath } from "node:fs/promises";
 import type { Dirent } from "node:fs";
-import { loadAgentInstructions } from "./agents-instructions.js";
 import type { FileToolName, FileToolRequest, FileToolResult } from "./types.js";
 import { assertInside, safeExistingPath, safeExplicitFile, safeNewPath, workspaceDirectory } from "./workspace.js";
 
@@ -57,7 +56,7 @@ async function readFileTool(root: string, request: FileToolRequest, allowedPaths
   let output = allLines.slice(start - 1, end).map((line, index) => `${start + index}: ${line}`).join("\n");
   const truncated = Buffer.byteLength(output) > maximum || end < allLines.length;
   if (Buffer.byteLength(output) > maximum) output = Buffer.from(output).subarray(0, maximum).toString("utf8");
-  return { operation: "read_file", path: target, pathKind: "file", output, truncated, agentInstructions: await loadAgentInstructions(root, target) };
+  return { operation: "read_file", path: target, pathKind: "file", output, truncated };
 }
 
 async function listDirectory(root: string, request: FileToolRequest): Promise<FileToolResult> {
@@ -88,7 +87,7 @@ async function listDirectory(root: string, request: FileToolRequest): Promise<Fi
   }
   await visit(target, 1);
   const truncated = outputLimited || lines.length >= maximum;
-  return { operation: "list_directory", path: target, pathKind: "directory", output: lines.join("\n"), truncated, truncationHint: truncated ? "Result truncated. Use a narrower path or smaller depth." : undefined, agentInstructions: await loadAgentInstructions(root, target) };
+  return { operation: "list_directory", path: target, pathKind: "directory", output: lines.join("\n"), truncated, truncationHint: truncated ? "Result truncated. Use a narrower path or smaller depth." : undefined };
 }
 
 async function searchFiles(root: string, request: FileToolRequest): Promise<FileToolResult> {
@@ -128,7 +127,7 @@ async function searchFiles(root: string, request: FileToolRequest): Promise<File
       });
     }
   }
-  return { operation: "search_files", path: target, pathKind: "directory", output: results.join("\n"), truncated: outputLimited, totalMatches, returnedMatches: results.length, truncationHint: outputLimited ? "Result truncated. Use a narrower query/path/glob or read_file for an exact range." : undefined, agentInstructions: await loadAgentInstructions(root, target) };
+  return { operation: "search_files", path: target, pathKind: "directory", output: results.join("\n"), truncated: outputLimited, totalMatches, returnedMatches: results.length, truncationHint: outputLimited ? "Result truncated. Use a narrower query/path/glob or read_file for an exact range." : undefined };
 }
 
 type PatchOperation = { kind: "add" | "update" | "delete"; path: string; lines: string[] };
@@ -215,7 +214,7 @@ async function applyPatch(root: string, request: FileToolRequest, inspectedPaths
     }
     return { path: operation.target, original: operation.original, modified };
   });
-  return { operation: "apply_patch", path: affectedPaths[0] ?? root, pathKind: "file", affectedPaths, changes, output: `Updated ${affectedPaths.length} file(s).`, agentInstructions: await loadAgentInstructions(root, affectedPaths[0] ?? root) };
+  return { operation: "apply_patch", path: affectedPaths[0] ?? root, pathKind: "file", affectedPaths, changes, output: `Updated ${affectedPaths.length} file(s).` };
 }
 
 export async function executeFileTool(name: FileToolName, request: FileToolRequest, workspaceRoot?: string, inspectedPaths = new Set<string>(), allowedPaths = new Set<string>()): Promise<FileToolResult> {

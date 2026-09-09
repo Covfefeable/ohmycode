@@ -1,4 +1,3 @@
-import { loadAgentInstructions, renderAgentInstructions } from "../files/agents-instructions.js";
 import { runToolLoop, type AgentStreamEvent, type AgentTask } from "@ohmycode/agent-runtime";
 import { listProjects } from "../projects/projects-service.js";
 import type { LocalConversation, MessageAttachment } from "../projects/types.js";
@@ -40,9 +39,7 @@ export async function streamMessage(
     conversationId,
     executionContext,
   );
-  const workspaceInstructions = workspaceRoot
-    ? renderAgentInstructions(await loadAgentInstructions(workspaceRoot))
-    : "";
+  const workspaceInstructions = "";
   const transport = new ConversationTransport(execution.signal);
   const settings = await getPublicSettings();
   const model = modelId
