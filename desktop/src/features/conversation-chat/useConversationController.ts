@@ -51,65 +51,84 @@ export function useConversationController({ conversationId, onUpdated, scrollToB
     let snapshotLoaded = false;
     const pending: RuntimeEvent[] = [];
     const handledEvents = new Set<string>();
-    const applyRuntimeEvent = (event: RuntimeEvent) => {
-      const eventKey = `${event.turnId}:${event.sequence}`;
-      if (disposed || handledEvents.has(eventKey)) return;
-      handledEvents.add(eventKey);
-      if (event.type === "turn.started") {
-        activeTurnIdRef.current = event.turnId;
-        setSending(true);
-        setSuggestions([]);
-        suggestionRequestRef.current += 1;
-      }
-      if (event.type === "context.updated") {
-        setContextUsage(event.contextLength > 0 ? event.usedTokens / event.contextLength : 0);
+    let eventFrame: number | null = null;
+    let queuedEvents: RuntimeEvent[] = [];
+    const applyRuntimeEvents = (events: RuntimeEvent[]) => {
+      if (disposed || !events.length) return;
+      for (const event of events) {
+        if (event.type === "turn.started") {
+          activeTurnIdRef.current = event.turnId;
+          setSending(true);
+          setSuggestions([]);
+          suggestionRequestRef.current += 1;
+        }
+        if (event.type === "context.updated") {
+          setContextUsage(event.contextLength > 0 ? event.usedTokens / event.contextLength : 0);
+        }
       }
       setConversation((current) => {
         if (!current) return current;
-        const streamId = `stream-${event.turnId}`;
         const messages = [...(current.messages ?? [])];
-        let index = messages.findIndex((message) => message.id === streamId);
-        if (index < 0 && (event.type === "turn.started" || event.type.startsWith("item."))) {
-          messages.push({ id: streamId, role: "assistant", content: "", createdAt: new Date().toISOString(), agentStartedAt: new Date().toISOString(), activity: [] });
-          index = messages.length - 1;
-        }
-        if (index >= 0) {
-          const message = messages[index];
-          messages[index] = { ...message, activity: updateActivity(message.activity ?? [], event) };
+        for (const event of events) {
+          const streamId = `stream-${event.turnId}`;
+          let index = messages.findIndex((message) => message.id === streamId);
+          if (index < 0 && (event.type === "turn.started" || event.type.startsWith("item."))) {
+            messages.push({ id: streamId, role: "assistant", content: "", createdAt: new Date().toISOString(), agentStartedAt: new Date().toISOString(), activity: [] });
+            index = messages.length - 1;
+          }
+          if (index >= 0) {
+            const message = messages[index];
+            messages[index] = { ...message, activity: updateActivity(message.activity ?? [], event) };
+          }
         }
         return { ...current, messages };
       });
-      if (event.type === "turn.failed") toast({ type: "error", message: requestErrorMessage(event.errorCode) });
-      if (event.type !== "turn.completed" && event.type !== "turn.failed" && event.type !== "turn.interrupted") return;
-      if (activeTurnIdRef.current === event.turnId) activeTurnIdRef.current = null;
-      void window.ohmycode.conversations.waitTurn(event.turnId)
-        .then((value) => value ?? window.ohmycode.conversations.get(conversationId))
-        .catch(() => window.ohmycode.conversations.get(conversationId))
-        .then((value) => {
-          if (disposed) return;
-          setConversation(value);
-          setContextUsage(value.contextUsage && value.contextUsage.contextLength > 0
-            ? value.contextUsage.usedTokens / value.contextUsage.contextLength
-            : 0);
-          setSending(false);
-        })
-        .catch(() => { if (!disposed) setSending(false); });
-      onUpdatedRef.current();
-      if (event.type === "turn.completed") {
-        const requestVersion = ++suggestionRequestRef.current;
-        void window.ohmycode.conversations.suggest(conversationId)
+      for (const event of events) {
+        if (event.type === "turn.failed") toast({ type: "error", message: requestErrorMessage(event.errorCode) });
+        if (event.type !== "turn.completed" && event.type !== "turn.failed" && event.type !== "turn.interrupted") continue;
+        if (activeTurnIdRef.current === event.turnId) activeTurnIdRef.current = null;
+        void window.ohmycode.conversations.waitTurn(event.turnId)
+          .then((value) => value ?? window.ohmycode.conversations.get(conversationId))
+          .catch(() => window.ohmycode.conversations.get(conversationId))
           .then((value) => {
-            if (!disposed && suggestionRequestRef.current === requestVersion && activeTurnIdRef.current === null) {
-              setSuggestions(value);
-              onUpdatedRef.current();
-            }
+            if (disposed) return;
+            setConversation(value);
+            setContextUsage(value.contextUsage && value.contextUsage.contextLength > 0
+              ? value.contextUsage.usedTokens / value.contextUsage.contextLength
+              : 0);
+            setSending(false);
           })
-          .catch(() => undefined);
+          .catch(() => { if (!disposed) setSending(false); });
+        onUpdatedRef.current();
+        if (event.type === "turn.completed") {
+          const requestVersion = ++suggestionRequestRef.current;
+          void window.ohmycode.conversations.suggest(conversationId)
+            .then((value) => {
+              if (!disposed && suggestionRequestRef.current === requestVersion && activeTurnIdRef.current === null) {
+                setSuggestions(value);
+                onUpdatedRef.current();
+              }
+            })
+            .catch(() => undefined);
+        }
       }
+    };
+    const flushRuntimeEvents = () => {
+      eventFrame = null;
+      const events = queuedEvents;
+      queuedEvents = [];
+      applyRuntimeEvents(events);
+    };
+    const enqueueRuntimeEvent = (event: RuntimeEvent) => {
+      const eventKey = `${event.turnId}:${event.sequence}`;
+      if (disposed || handledEvents.has(eventKey)) return;
+      handledEvents.add(eventKey);
+      queuedEvents.push(event);
+      if (eventFrame === null) eventFrame = window.requestAnimationFrame(flushRuntimeEvents);
     };
     const unsubscribe = window.ohmycode.conversations.onThreadEvent(conversationId, (event) => {
       if (!snapshotLoaded) pending.push(event);
-      else applyRuntimeEvent(event);
+      else enqueueRuntimeEvent(event);
     });
     void Promise.all([
       window.ohmycode.conversations.get(conversationId),
@@ -126,7 +145,7 @@ export function useConversationController({ conversationId, onUpdated, scrollToB
         setSending(true);
       }
       const replay = snapshot?.status === "in_progress" ? snapshot.events : [];
-      for (const event of [...replay, ...pending].sort((left, right) => left.sequence - right.sequence)) applyRuntimeEvent(event);
+      for (const event of [...replay, ...pending].sort((left, right) => left.sequence - right.sequence)) enqueueRuntimeEvent(event);
       snapshotLoaded = true;
     }).catch(() => {
       if (disposed) return;
@@ -139,7 +158,12 @@ export function useConversationController({ conversationId, onUpdated, scrollToB
       setModels(settings.models);
       setSelectedModelId(settings.models[0]?.id ?? "");
     }).catch(() => undefined);
-    return () => { disposed = true; unsubscribe(); };
+    return () => {
+      disposed = true;
+      unsubscribe();
+      if (eventFrame !== null) window.cancelAnimationFrame(eventFrame);
+      queuedEvents = [];
+    };
   }, [conversationId, reloadToken, requestErrorMessage, t, toast]);
 
   async function send(content: string, attachments: MessageAttachment[] = [], editMessageId?: string): Promise<boolean> {
