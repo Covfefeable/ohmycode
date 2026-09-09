@@ -22,7 +22,9 @@ export function GroupChatPanel(props: Props) {
   const { t } = useTranslation();
   const { toast } = useFeedback();
   const capabilityOptions = usePromptCapabilities();
-  const endRef = useRef<HTMLDivElement>(null);
+  const messagesRef = useRef<HTMLDivElement>(null);
+  const autoScrollLockedRef = useRef(true);
+  const lastScrollTopRef = useRef(0);
   const [runDetail, setRunDetail] = useState<MultiAgentRunDetail | null>(null);
   const [runDetailOpen, setRunDetailOpen] = useState(false);
   const [runDetailLoading, setRunDetailLoading] = useState(false);
@@ -36,7 +38,26 @@ export function GroupChatPanel(props: Props) {
       ?? (snapshotRunningMember && !props.liveAgentRuns[snapshotRunningMember.id] ? snapshotRunningMember : undefined)
     : undefined;
   const liveDetail = liveDetailNodeId ? props.liveAgentRuns[liveDetailNodeId]?.detail ?? null : null;
-  useEffect(() => { endRef.current?.scrollIntoView({ block: "end" }); }, [props.task.messages.length, runningMember?.id]);
+  useEffect(() => {
+    autoScrollLockedRef.current = true;
+    const frame = window.requestAnimationFrame(() => {
+      const scroller = messagesRef.current;
+      if (!scroller) return;
+      scroller.scrollTop = scroller.scrollHeight;
+      lastScrollTopRef.current = scroller.scrollTop;
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [props.task.id]);
+  useEffect(() => {
+    if (!autoScrollLockedRef.current) return;
+    const frame = window.requestAnimationFrame(() => {
+      const scroller = messagesRef.current;
+      if (!scroller) return;
+      scroller.scrollTop = scroller.scrollHeight;
+      lastScrollTopRef.current = scroller.scrollTop;
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [props.task.messages.length, runningMember?.id]);
   useEffect(() => {
     if (!runDetailOpen || !runDetailMessageId || runDetail?.status !== "running") return;
     const timer = window.setInterval(() => {
@@ -66,7 +87,23 @@ export function GroupChatPanel(props: Props) {
   }
 
   return <section className={styles.chatPanel}>
-    <div className={styles.chatMessages}>
+    <div
+      ref={messagesRef}
+      className={styles.chatMessages}
+      onWheel={(event) => {
+        if (event.deltaY < 0) autoScrollLockedRef.current = false;
+      }}
+      onScroll={(event) => {
+        const scroller = event.currentTarget;
+        const distanceFromBottom = scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop;
+        if (scroller.scrollTop < lastScrollTopRef.current - 1 && distanceFromBottom > 40) {
+          autoScrollLockedRef.current = false;
+        } else if (distanceFromBottom <= 40) {
+          autoScrollLockedRef.current = true;
+        }
+        lastScrollTopRef.current = scroller.scrollTop;
+      }}
+    >
       {props.task.messages.map((item) => {
         const mine = item.senderType === "user";
         const sender = mine ? t("multiAgent.user") : names.get(item.fromNodeId ?? "") ?? t("multiAgent.unknownAgent");
@@ -95,7 +132,6 @@ export function GroupChatPanel(props: Props) {
           </div>
         </div>
       </article>}
-      <div ref={endRef} />
     </div>
     <div className={styles.composer}>
       <PromptEditor compact submitOnEnter singleMention className={styles.groupPromptEditor} value={props.message} options={capabilityOptions} mentions={props.task.members.map((member) => ({ id: member.id, label: member.name, detail: member.isHost ? t("multiAgent.host") : member.role }))} placeholder={t("multiAgent.groupMessagePlaceholder")} ariaLabel={t("multiAgent.groupMessagePlaceholder")} onChange={props.onMessageChange} onSubmit={props.onSend} />
