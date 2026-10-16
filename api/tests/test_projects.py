@@ -77,6 +77,86 @@ def test_projects_and_conversations_are_isolated_by_device():
         )
 
 
+def test_conversation_search_and_recent_activity_are_device_scoped():
+    app = create_app("testing")
+    with app.app_context():
+        db.create_all()
+
+    with app.test_client() as client:
+        registration = client.post(
+            "/api/auth/register",
+            json={
+                "email": "search@example.com",
+                "displayName": "Search User",
+                "password": "secret123",
+            },
+        )
+        authorization = f"Bearer {registration.get_json()['tokens']['accessToken']}"
+        first_headers = {
+            "Authorization": authorization,
+            "X-OhMyCode-Device-Id": "device-a",
+            "X-OhMyCode-Device-Name": "Desktop%20A",
+        }
+        second_headers = {
+            "Authorization": authorization,
+            "X-OhMyCode-Device-Id": "device-b",
+            "X-OhMyCode-Device-Name": "Desktop%20B",
+        }
+        first_project = client.post(
+            "/api/projects",
+            headers=first_headers,
+            json={"name": "alpha", "path": "C:/repos/alpha"},
+        ).get_json()
+        second_project = client.post(
+            "/api/projects",
+            headers=second_headers,
+            json={"name": "private", "path": "C:/repos/private"},
+        ).get_json()
+        older = client.post(
+            f"/api/projects/{first_project['id']}/conversations",
+            headers=first_headers,
+            json={"title": "Older chat"},
+        ).get_json()
+        newer = client.post(
+            f"/api/projects/{first_project['id']}/conversations",
+            headers=first_headers,
+            json={"title": "Newer chat"},
+        ).get_json()
+        hidden = client.post(
+            f"/api/projects/{second_project['id']}/conversations",
+            headers=second_headers,
+            json={"title": "Hidden search result"},
+        ).get_json()
+
+        client.post(
+            f"/api/projects/conversations/{newer['id']}/messages",
+            headers=first_headers,
+            json={"role": "user", "content": "Nothing relevant"},
+        )
+        client.post(
+            f"/api/projects/conversations/{older['id']}/messages",
+            headers=first_headers,
+            json={"role": "user", "content": "Implement websocket recovery"},
+        )
+        client.post(
+            f"/api/projects/conversations/{hidden['id']}/messages",
+            headers=second_headers,
+            json={"role": "user", "content": "Implement websocket recovery"},
+        )
+
+        projects = client.get("/api/projects", headers=first_headers).get_json()
+        assert [item["id"] for item in projects[0]["conversations"]] == [
+            older["id"],
+            newer["id"],
+        ]
+        results = client.get(
+            "/api/projects/conversations/search?q=websocket", headers=first_headers
+        ).get_json()
+        assert [item["conversation"]["id"] for item in results] == [older["id"]]
+        assert results[0]["projectName"] == "alpha"
+        assert results[0]["snippet"] == "Implement websocket recovery"
+
+
 def test_hidden_multi_agent_project_is_promoted_to_workspace():
     app = create_app("testing")
     with app.app_context():

@@ -48,6 +48,11 @@ export const zhCN = {
     revealFinder: "在 Finder 打开",
     delete: "删除项目",
     deleteConversation: "删除对话",
+    search: "搜索会话",
+    searchPlaceholder: "搜索标题或消息",
+    searchEmpty: "没有找到相关会话",
+    searchFailed: "搜索失败，请稍后重试。",
+    clearSearch: "清空搜索",
   },
   agent: {
     eyebrow: "本地代码 AGENT",

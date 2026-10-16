@@ -3,6 +3,7 @@ import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from "ele
 const bridge: DesktopBridge = {
   projects: {
     list: () => ipcRenderer.invoke("projects:list"),
+    searchConversations: (query) => ipcRenderer.invoke("projects:search-conversations", query),
     create: () => ipcRenderer.invoke("projects:create"),
     open: (projectId) => ipcRenderer.invoke("projects:open", projectId),
     delete: (projectId) => ipcRenderer.invoke("projects:delete", projectId),

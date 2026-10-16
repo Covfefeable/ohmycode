@@ -1,10 +1,15 @@
 from copy import deepcopy
+from datetime import UTC, datetime
 from uuid import UUID
 
 from ...extensions import db
 from ...models import Conversation, Message
 from ..errors import ServiceError
 from ..projects.queries import owned_conversation, owned_project
+
+
+def touch_conversation(conversation: Conversation) -> None:
+    conversation.updated_at = datetime.now(UTC)
 
 
 def normalize_attachments(value: object) -> list[dict]:
@@ -96,6 +101,7 @@ def add_message(user_id: UUID, conversation_id: UUID, payload: dict) -> Message:
         conversation.title = content.replace("\n", " ")[:60]
     message = Message(conversation=conversation, role=role, content=content)
     db.session.add(message)
+    touch_conversation(conversation)
     db.session.commit()
     return message
 
@@ -115,6 +121,7 @@ def edit_last_user_message(
         db.session.delete(message)
     if target is next((message for message in messages if message.role == "user"), None):
         conversation.title = content.replace("\n", " ")[:60]
+    touch_conversation(conversation)
     db.session.commit()
     return conversation
 
@@ -146,6 +153,7 @@ def prepare_user_prompt(
             attachments=normalized_attachments or None,
         )
     )
+    touch_conversation(conversation)
     if not any(message.role == "user" for message in messages):
         conversation.title = (content.replace("\n", " ") or normalized_attachments[0]["name"])[:60]
     db.session.commit()

@@ -184,6 +184,7 @@ export function useConversationController({ conversationId, onUpdated, scrollToB
       });
       scrollToBottom();
       setSending(true);
+      onUpdatedRef.current();
       return true;
     } catch (error) {
       toast({ type: "error", message: requestErrorMessage(error) });

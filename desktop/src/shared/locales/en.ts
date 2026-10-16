@@ -48,6 +48,11 @@ export const en = {
     revealFinder: "Open in Finder",
     delete: "Delete project",
     deleteConversation: "Delete conversation",
+    search: "Search conversations",
+    searchPlaceholder: "Search titles or messages",
+    searchEmpty: "No matching conversations",
+    searchFailed: "Search failed. Try again later.",
+    clearSearch: "Clear search",
   },
   agent: {
     eyebrow: "LOCAL CODE AGENT",

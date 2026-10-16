@@ -2,8 +2,16 @@ export type LocalConversation = {
   id: string;
   title: string;
   createdAt: string;
+  updatedAt: string;
   messages?: LocalMessage[];
   contextUsage?: { usedTokens: number; contextLength: number; source: "provider" } | null;
+};
+
+export type ConversationSearchResult = {
+  projectId: string;
+  projectName: string;
+  conversation: LocalConversation;
+  snippet: string | null;
 };
 
 export type MessageAttachment = { id: string; name: string; path: string; size: number; mimeType: string };

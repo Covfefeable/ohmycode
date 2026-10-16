@@ -7,6 +7,7 @@ from .commands import (
     get_conversation,
     prepare_user_prompt,
 )
+from .search import search_conversations
 
 __all__ = [
     "add_message",
@@ -16,4 +17,5 @@ __all__ = [
     "edit_last_user_message",
     "get_conversation",
     "prepare_user_prompt",
+    "search_conversations",
 ]

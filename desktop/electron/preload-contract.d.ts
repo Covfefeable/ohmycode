@@ -1,6 +1,7 @@
 interface DesktopBridge {
     projects: {
       list(): Promise<LocalProject[]>;
+      searchConversations(query: string): Promise<ConversationSearchResult[]>;
       create(): Promise<{ ok: true; project: LocalProject } | { ok: false; reason: "canceled" | "exists" }>;
       open(projectId: string): Promise<void>;
       delete(projectId: string): Promise<void>;
@@ -161,7 +162,8 @@ type AgentActivityStep =
   | { id: string; type: "tool"; tool: string; input: unknown; result?: unknown; status: "running" | "completed"; taskId?: string };
 type MessageAttachment = { id: string; name: string; path: string; size: number; mimeType: string };
 type LocalMessage = { id: string; role: "user" | "assistant"; content: string; attachments?: MessageAttachment[]; reasoning?: string | null; activity?: AgentActivityStep[] | null; agentDurationMs?: number | null; agentStartedAt?: string; createdAt: string };
-type LocalConversation = { id: string; title: string; createdAt: string; messages?: LocalMessage[]; contextUsage?: { usedTokens: number; contextLength: number; source: "provider" } | null };
+type LocalConversation = { id: string; title: string; createdAt: string; updatedAt: string; messages?: LocalMessage[]; contextUsage?: { usedTokens: number; contextLength: number; source: "provider" } | null };
+type ConversationSearchResult = { projectId: string; projectName: string; conversation: LocalConversation; snippet: string | null };
 type LocalProject = { id: string; name: string; path: string; deviceId: string; deviceName: string; conversations: LocalConversation[] };
 type TerminalStatus = "running" | "exited" | "stopped";
 type TerminalAction =

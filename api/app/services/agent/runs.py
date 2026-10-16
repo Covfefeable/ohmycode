@@ -139,6 +139,9 @@ def complete_run(run: AgentRun, message_id: UUID) -> None:
     append_event(run, "run.completed")
     run.status = "completed"
     run.completed_at = datetime.now(UTC)
+    conversation = db.session.get(Conversation, run.conversation_id)
+    if conversation:
+        conversation.updated_at = run.completed_at
     db.session.commit()
     from .turn_summaries import enqueue_turn_summaries
 
@@ -179,6 +182,9 @@ def cancel_run(
                 activity=activity if isinstance(activity, list) else None,
             )
         )
+        conversation = db.session.get(Conversation, run.conversation_id)
+        if conversation:
+            conversation.updated_at = run.completed_at
     db.session.commit()
 
 

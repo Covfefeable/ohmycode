@@ -16,11 +16,16 @@ from ..services.conversations import (
     delete_conversation,
     edit_last_user_message,
     get_conversation,
+    search_conversations,
 )
 from ..services.errors import ServiceError
 from ..services.projects import create_project, delete_project, list_projects, serialize_project
 from ..services.projects.queries import device_conversation, device_project
-from ..services.projects.serializers import serialize_conversation, serialize_message
+from ..services.projects.serializers import (
+    serialize_conversation,
+    serialize_conversation_search_result,
+    serialize_message,
+)
 from .device import current_device
 
 projects_bp = Blueprint("projects", __name__)
@@ -35,6 +40,23 @@ def user_id() -> UUID:
 def list_projects_route():
     return jsonify(
         [serialize_project(project) for project in list_projects(user_id(), current_device())]
+    )
+
+
+@projects_bp.get("/conversations/search")
+@jwt_required()
+def search_conversations_route():
+    query = str(request.args.get("q") or "")
+    try:
+        limit = int(request.args.get("limit", 30))
+    except (TypeError, ValueError) as error:
+        raise ServiceError("validation_error", 422) from error
+    results = search_conversations(user_id(), current_device(), query, limit)
+    return jsonify(
+        [
+            serialize_conversation_search_result(conversation, snippet)
+            for conversation, snippet in results
+        ]
     )
 
 

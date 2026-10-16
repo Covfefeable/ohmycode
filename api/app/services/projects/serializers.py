@@ -46,6 +46,7 @@ def serialize_conversation(conversation: Conversation, include_messages: bool = 
         "id": str(conversation.id),
         "title": conversation.title,
         "createdAt": conversation.created_at.isoformat() if conversation.created_at else None,
+        "updatedAt": conversation.updated_at.isoformat() if conversation.updated_at else None,
     }
     if include_messages:
         result["messages"] = [serialize_message(message) for message in conversation.messages]
@@ -61,6 +62,26 @@ def serialize_project(project: Project) -> dict:
         "deviceId": project.device_id,
         "deviceName": project.device_name,
         "conversations": [
-            serialize_conversation(item) for item in project.conversations if item.kind == "chat"
+            serialize_conversation(item)
+            for item in sorted(
+                (
+                    conversation
+                    for conversation in project.conversations
+                    if conversation.kind == "chat"
+                ),
+                key=lambda conversation: conversation.updated_at or conversation.created_at,
+                reverse=True,
+            )
         ],
+    }
+
+
+def serialize_conversation_search_result(
+    conversation: Conversation, snippet: str | None
+) -> dict:
+    return {
+        "projectId": str(conversation.project_id),
+        "projectName": conversation.project.name,
+        "conversation": serialize_conversation(conversation),
+        "snippet": snippet,
     }

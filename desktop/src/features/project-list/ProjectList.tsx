@@ -1,6 +1,6 @@
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ChevronDown, ChevronRight, FolderOpen, MoreHorizontal, Plus, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, FolderOpen, LoaderCircle, MoreHorizontal, Plus, Search, Trash2, X } from "lucide-react";
 import { useFeedback } from "../feedback";
 import { PopoverMenu } from "../../shared/ui/popover-menu";
 import { Tooltip } from "../../shared/ui/tooltip";
@@ -17,11 +17,15 @@ type ProjectListProps = {
 };
 
 export function ProjectList({ selectedConversationId, onConversationSelect, onConversationDelete, refreshToken, heading }: ProjectListProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { toast } = useFeedback();
   const [projects, setProjects] = useState<LocalProject[]>([]);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [deleteTarget, setDeleteTarget] = useState<{ type: "project"; project: LocalProject } | { type: "conversation"; projectId: string; conversationId: string } | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<ConversationSearchResult[]>([]);
+  const [searching, setSearching] = useState(false);
+  const searchRequestRef = useRef(0);
   const revealLabel = navigator.userAgent.includes("Mac") ? t("projects.revealFinder") : t("projects.revealExplorer");
 
   useEffect(() => {
@@ -39,6 +43,28 @@ export function ProjectList({ selectedConversationId, onConversationSelect, onCo
     load();
     return () => { cancelled = true; if (timer) window.clearTimeout(timer); };
   }, [refreshToken]);
+
+  useEffect(() => {
+    const query = searchQuery.trim();
+    const requestId = ++searchRequestRef.current;
+    if (!query) return;
+    const timer = window.setTimeout(() => {
+      void window.ohmycode.projects.searchConversations(query)
+        .then((items) => {
+          if (searchRequestRef.current === requestId) setSearchResults(items);
+        })
+        .catch(() => {
+          if (searchRequestRef.current === requestId) {
+            setSearchResults([]);
+            toast({ type: "error", message: t("projects.searchFailed") });
+          }
+        })
+        .finally(() => {
+          if (searchRequestRef.current === requestId) setSearching(false);
+        });
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [refreshToken, searchQuery, t, toast]);
 
   function toggle(project: LocalProject) {
     setExpanded((current) => {
@@ -77,13 +103,40 @@ export function ProjectList({ selectedConversationId, onConversationSelect, onCo
     onConversationDelete(conversationId);
   }
 
+  function selectSearchResult(result: ConversationSearchResult) {
+    const project = projects.find((item) => item.id === result.projectId);
+    if (!project) return;
+    setExpanded((current) => new Set(current).add(project.id));
+    onConversationSelect(project, result.conversation);
+  }
+
+  function changeSearchQuery(value: string) {
+    searchRequestRef.current += 1;
+    setSearchQuery(value);
+    setSearchResults([]);
+    setSearching(Boolean(value.trim()));
+  }
+
   return <section className={styles.root}>
     <div className={styles.sticky}>
       {heading}
       <button className={styles.create} onClick={() => void createProject()}><Plus />{t("projects.create")}</button>
+      <div className={styles.searchBox}>
+        <Search />
+        <input aria-label={t("projects.search")} placeholder={t("projects.searchPlaceholder")} value={searchQuery} onChange={(event) => changeSearchQuery(event.target.value)} />
+        {searching && <LoaderCircle className={styles.searchSpinner} />}
+        {!searching && searchQuery && <Tooltip content={t("projects.clearSearch")}><button aria-label={t("projects.clearSearch")} onClick={() => changeSearchQuery("")}><X /></button></Tooltip>}
+      </div>
       <p className={styles.label}>{t("projects.title")}</p>
     </div>
     <div className={styles.list}>
+      {searchQuery.trim() && searchResults.map((result) => <button className={styles.searchResult} key={result.conversation.id} onClick={() => selectSearchResult(result)}>
+        <span className={styles.searchResultTitle}>{result.conversation.title}</span>
+        <span className={styles.searchResultMeta}>{result.projectName}<time>{new Intl.DateTimeFormat(i18n.language, { month: "short", day: "numeric" }).format(new Date(result.conversation.updatedAt))}</time></span>
+        {result.snippet && <span className={styles.searchResultSnippet}>{result.snippet}</span>}
+      </button>)}
+      {searchQuery.trim() && !searching && searchResults.length === 0 && <EmptyState compact icon={<Search />} title={t("projects.searchEmpty")} />}
+      {!searchQuery.trim() && <>
       {projects.map((project) => <article key={project.id} className={styles.project}>
         <div className={styles.projectRow}>
           <button className={styles.projectMain} onClick={() => toggle(project)}>
@@ -107,6 +160,7 @@ export function ProjectList({ selectedConversationId, onConversationSelect, onCo
         </div>}
       </article>)}
       {projects.length === 0 && <EmptyState icon={<FolderOpen />} title={t("projects.empty")} description={t("projects.emptyDescription")} />}
+      </>}
     </div>
     <ConfirmDialog open={Boolean(deleteTarget)} title={t("common.confirmDelete")} description={t("common.deleteWarning")} onCancel={() => setDeleteTarget(null)} onConfirm={() => {
       const target = deleteTarget; setDeleteTarget(null);

@@ -8,6 +8,7 @@ import {
   listProjects,
   openProject,
   getConversation,
+  searchConversations,
   suggestFollowups,
 } from "../projects/projects-service.js";
 import { getThreadSnapshot, interruptTurn, startTurn, waitForTurn } from "../runtime/desktop-runtime-host.js";
@@ -15,6 +16,7 @@ import type { MessageAttachment } from "../projects/types.js";
 
 export function registerProjectsIpc(): void {
   ipcMain.handle("projects:list", listProjects);
+  ipcMain.handle("projects:search-conversations", (_event, query: string) => searchConversations(query));
   ipcMain.handle("projects:create", createProject);
   ipcMain.handle("projects:open", (_event, projectId: string) => openProject(projectId));
   ipcMain.handle("projects:delete", (_event, projectId: string) => deleteProject(projectId));

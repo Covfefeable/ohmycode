@@ -1,9 +1,12 @@
 import path from "node:path";
 import { dialog, shell } from "electron";
 import { ApiError, apiRequest } from "../api/api-client.js";
-import type { LocalConversation, LocalProject } from "./types.js";
+import type { ConversationSearchResult, LocalConversation, LocalProject } from "./types.js";
 
 export function listProjects(): Promise<LocalProject[]> { return apiRequest("/api/projects"); }
+export function searchConversations(query: string): Promise<ConversationSearchResult[]> {
+  return apiRequest(`/api/projects/conversations/search?q=${encodeURIComponent(query)}&limit=30`);
+}
 
 export async function createProject() {
   const result = await dialog.showOpenDialog({ properties: ["openDirectory"] });
