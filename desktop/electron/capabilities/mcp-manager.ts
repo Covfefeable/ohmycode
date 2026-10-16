@@ -2,6 +2,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import { app } from "electron";
 import { apiRequest } from "../api/api-client.js";
 import type { McpServerInput, McpServerRecord, McpTool } from "./types.js";
 
@@ -56,7 +57,7 @@ async function runtimeServer(id: string): Promise<McpServerRecord> {
 
 async function connect(server: McpServerRecord): Promise<Client> {
   await sessions.get(server.id)?.client.close();
-  const client = new Client({ name: "ohmycode", version: "0.1.0" }, { capabilities: {} });
+  const client = new Client({ name: "ohmycode", version: app.getVersion() }, { capabilities: {} });
   const configuration = server.configuration;
   let transport;
   if (server.transport === "stdio") {

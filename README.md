@@ -9,7 +9,7 @@ PostgreSQL 和 Redis 构建。它支持 OpenAI-compatible 模型、流式对话�
 文件工具、上下文压缩以及主持人调度的 Multi-Agent 协作。
 
 当前仓库同时包含可运行的桌面端、Expo 移动端、独立 API 服务和生产 Compose。
-项目仍处于 `0.1.0` 阶段；核心执行链路已经落地，但高风险写入审批、后台任务韧性、
+项目仍处于 `0.2.0` 阶段；核心执行链路已经落地，但高风险写入审批、后台任务韧性、
 发布安全和端到端测试仍是后续重点。详细边界见
 [`docs/architecture.md`](docs/architecture.md)，当前改进清单见
 [`docs/issues.md`](docs/issues.md)。
@@ -372,8 +372,8 @@ GitHub Actions 自带的 `GITHUB_TOKEN`，分别构建 Windows x64 和 macOS arm
 生成 SHA-256 校验文件并发布到当前仓库的 GitHub Releases：
 
 ```bash
-git tag v0.1.0
-git push origin v0.1.0
+git tag v0.2.0
+git push origin v0.2.0
 ```
 
 Tag 与客户端版本不一致时，Release workflow 会立即失败，不会发布错误版本。
