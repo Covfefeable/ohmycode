@@ -5,7 +5,7 @@ from flask import Blueprint, Response, jsonify, request, stream_with_context
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
 from ..services.agent import stream_completion
-from ..services.agent.provider_stream import PreparedCompletion
+from ..services.agent.preparation import CompletionPreparation
 from ..services.agent.tool_results import read_tool_result, search_tool_result
 from ..services.errors import ServiceError
 from ..services.mobile_chats import (
@@ -28,14 +28,10 @@ def user_id() -> UUID:
     return UUID(get_jwt_identity())
 
 
-def stream_prepared(prepared: PreparedCompletion | list[dict]):
+def stream_prepared(prepared: CompletionPreparation | list[dict]):
     @stream_with_context
     def events():
-        source = (
-            stream_completion(prepared)
-            if isinstance(prepared, PreparedCompletion)
-            else prepared
-        )
+        source = prepared if isinstance(prepared, list) else stream_completion(prepared)
         try:
             for event in source:
                 yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"

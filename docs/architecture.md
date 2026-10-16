@@ -259,25 +259,42 @@ Flow:
    reasoning/message/tool-call deltas, and yields Runtime events.
 4. If tool calls are requested, the run moves to `waiting_tool`. The Runtime
    executes them and calls `resume_completion()`.
-5. `resume_completion()` replays the current Turn's complete tool history,
-   rebuilds the model payload, and re-enters the stream.
+5. Initial requests, `resume_completion()`, and recovery use the same streaming
+   preparation path. It budgets the complete request, compacts covered history,
+   and replays only the current Turn's uncovered complete tool-call batches.
 
 Context compression in `api/app/services/agent/context.py`:
 
-- `estimate_tokens()` gives a fast, provider-agnostic token estimate.
+- `tokens.py` estimates the complete request, including system and workspace
+  instructions, task state, group chat, tool schemas, history, tool results, and
+  any recovery continuation. The latest provider-reported input usage for the
+  configured model calibrates underestimation. Usage from a different model is
+  not reused.
 - A completed Turn contributes its user message, AgentEvent history, and final
   assistant answer in chronological order.
-- The latest two completed Turns always use complete AgentEvents. Older Turns
-  use a completed `AgentRunSummary` when available and otherwise continue to
-  use their complete events.
+- The latest completed Turns normally use complete AgentEvents. Older Turns
+  use a completed `AgentRunSummary` when available. Completed history remains
+  eligible for checkpoint compaction when required by the request budget.
 - Completed Runs whose serialized AgentEvents exceed 32 KiB are summarized by
   a Celery worker after they leave the latest-two protection window. Original
   events remain authoritative and are never deleted.
-- `prepare_context()` creates a `ContextCheckpoint` only when the assembled
-  context reaches the user's configured compaction threshold (70% by default).
-  The checkpoint uses the configured compaction model, covers an explicit
-  message, Run, and event-sequence cursor and never covers the latest two Turns
-  or the current user message.
+- `iter_prepare_context()` creates a `ContextCheckpoint` when the complete
+  request reaches the user's configured threshold (70% by default). The space
+  beyond the threshold is reserved when allocating input previews and summaries.
+  The current user request, latest tool-call batch, latest group message, and
+  recovery continuation remain available. Earlier complete tool-call batches can
+  be compacted within the same Turn, without splitting calls from their results.
+- Checkpoints reuse the existing message, Run, and event-sequence cursors and
+  store a group-message cursor in their state. Subsequent requests exclude the
+  covered prefixes, including when an in-Turn checkpoint becomes historical.
+  Compaction source records include their cursors so summaries can preserve
+  exact Run/call references. Original events remain available through resultRef.
+- Summary input is paged to fit the configured summary model. Empty or truncated
+  summaries fail preparation without publishing a new checkpoint. An oversized
+  noncompactable request returns `context_budget_exceeded` instead of silently
+  dropping user input, instructions, or tool schemas.
+- Initial requests, tool resume, and recovery stream the same compaction lifecycle
+  events before invoking the next model request. Desktop and Mobile reuse this path.
 - There is no 55% pre-compaction path and no legacy checkpoint reader.
 
 The model payload includes:
@@ -287,11 +304,12 @@ The model payload includes:
 - A summary of any previously cancelled run, to avoid retry loops.
 - The Multi-Agent mailbox when the conversation is a collaboration node.
 - A checkpoint summary followed by uncovered historical Turns.
-- Complete AgentEvents for the latest two completed Turns and the current Turn.
+- Uncovered history and complete recent tool-call batches for the current Turn.
 
-Context usage shown by clients is the provider-reported `usage.total_tokens`
-from the latest model request. It is not estimated or derived from alternate
-usage fields.
+Context usage shown by clients is the latest provider-reported input token count
+(`prompt_tokens` / `input_tokens`). Cumulative input and output consumption remain
+separate Run accounting fields; output consumption is not presented as input
+context occupancy.
 
 ## Local tools
 

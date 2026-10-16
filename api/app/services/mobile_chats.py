@@ -9,7 +9,7 @@ from .agent import (
     stream_completion,
     stream_prepare_completion,
 )
-from .agent.provider_stream import PreparedCompletion
+from .agent.preparation import CompletionPreparation
 from .agent.runs import cancel_run
 from .conversations import create_conversation, delete_conversation, get_conversation
 from .errors import ServiceError
@@ -25,6 +25,8 @@ capability. When a long tool response contains resultRef, search or page through
 result instead of assuming its middle is unavailable. Never claim that you executed commands or
 changed local files. If a request requires local code execution, explain that it should be
 continued in the OhMyCode desktop application."""
+
+
 def _mobile_project(user_id: UUID) -> Project:
     project = db.session.scalar(
         db.select(Project).where(
@@ -122,7 +124,7 @@ def get_owned_mobile_run(user_id: UUID, run_id: UUID) -> AgentRun:
 
 def resume_mobile_run(
     user_id: UUID, run_id: UUID, results: list[dict], tool_snapshot: object
-) -> PreparedCompletion | list[dict]:
+) -> CompletionPreparation:
     get_owned_mobile_run(user_id, run_id)
     return resume_completion(
         user_id,
@@ -140,7 +142,7 @@ def recover_mobile_run(
     partial_reasoning: str,
     results: list[dict],
     tool_snapshot: object,
-) -> PreparedCompletion | list[dict]:
+) -> CompletionPreparation | list[dict]:
     get_owned_mobile_run(user_id, run_id)
     return recover_completion(
         user_id,

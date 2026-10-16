@@ -11,11 +11,11 @@ from ..settings.background_tasks import (
     configured_model,
     conversation_user_id,
 )
+from .config import RECENT_FULL_TURNS
 from .context import _summary_request
 from .prompts import TURN_SUMMARY_INSTRUCTIONS
 
 TURN_SUMMARY_SOURCE_BYTES = 32 * 1024
-RECENT_FULL_TURNS = 2
 
 
 def serialized_run_events(run: AgentRun) -> str:

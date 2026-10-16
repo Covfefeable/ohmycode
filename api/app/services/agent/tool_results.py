@@ -1,9 +1,10 @@
 import json
+from collections.abc import Callable
 from uuid import UUID
 
 from ..errors import ServiceError
-from .context import estimate_tokens
 from .runs import get_owned_run
+from .tokens import estimate_tokens
 
 DEFAULT_PAGE_TOKENS = 2000
 MAX_PAGE_TOKENS = 3000
@@ -48,7 +49,13 @@ def _bounded_tokens(value: object) -> int:
     return max(128, min(requested, MAX_PAGE_TOKENS))
 
 
-def slice_to_token_budget(content: str, start: int, token_budget: int) -> tuple[str, int]:
+def slice_to_token_budget(
+    content: str,
+    start: int,
+    token_budget: int,
+    *,
+    measure: Callable[[str], int] = estimate_tokens,
+) -> tuple[str, int]:
     start = max(0, min(start, len(content)))
     if start == len(content):
         return "", start
@@ -56,7 +63,7 @@ def slice_to_token_budget(content: str, start: int, token_budget: int) -> tuple[
     best = start
     while low <= high:
         end = (low + high) // 2
-        if estimate_tokens(content[start:end]) <= token_budget:
+        if measure(content[start:end]) <= token_budget:
             best = end
             low = end + 1
         else:

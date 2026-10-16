@@ -4,7 +4,7 @@ from uuid import UUID
 from app import create_app
 from app.extensions import db
 from app.models import AgentEvent, AgentRun, Message
-from app.services.agent.preparation import completion_mailbox
+from app.services.agent.context_history import mailbox_blocks
 from app.services.multi_agents import planner
 
 
@@ -222,8 +222,8 @@ def test_host_driven_group_chat_lifecycle(tmp_path):
         assert resumed["currentSpeakerId"] == writer["id"]
         assert resumed["messages"][-2]["toNodeId"] is None
         assert resumed["messages"][-1]["content"] == "Revise the opening"
-        mailbox = completion_mailbox(UUID(writer["conversationId"]))
-        assert "[Writer @ User]" in mailbox[0]["content"]
+        mailbox = mailbox_blocks(UUID(writer["conversationId"]))
+        assert any("[Writer @ User]" in block.messages[0]["content"] for block in mailbox)
 
 
 def test_user_message_queues_target_and_host_recovers(tmp_path):

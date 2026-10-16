@@ -1,15 +1,14 @@
 import json
+from collections.abc import Generator
 from dataclasses import replace
 from uuid import UUID
 
 from flask import current_app
 
 from ...extensions import db
-from ...models import AgentRun, Conversation, Message, ModelConfiguration
+from ...models import AgentRun, Conversation, Message
 from ..errors import ServiceError
-from .config import TOOL_RESULT_TOKEN_BUDGET
-from .context import COMPACTION_RATIO, estimate_tokens, prepare_context
-from .preparation import completion_mailbox, prepared_completion
+from .preparation import CompletionPreparation, iter_prepare_completion
 from .prompts import AGENT_SYSTEM_INSTRUCTIONS
 from .provider_errors import provider_error_code
 from .provider_stream import PreparedCompletion, provider_payloads
@@ -22,114 +21,7 @@ from .runs import (
     get_owned_run,
 )
 from .task_plan import active_task_id, latest_task_plan, normalize_task_plan
-from .tool_results import render_tool_result, slice_to_token_budget
 from .tool_snapshot import validate_tool_snapshot
-
-
-def _tool_result_content(run: AgentRun, item: dict, token_budget: int) -> str:
-    serialized = json.dumps(item["result"], ensure_ascii=False)
-    if estimate_tokens(serialized) <= token_budget:
-        return serialized
-    rendered = render_tool_result(item["result"])
-    manifest = {
-        "contextTruncated": True,
-        "sourceMayBeTruncated": (
-            isinstance(item["result"], dict) and bool(item["result"].get("truncated"))
-        )
-        or "[...]" in rendered,
-        "resultRef": {"runId": str(run.id), "callId": item["callId"]},
-        "totalCharacters": len(rendered),
-        "estimatedTokens": estimate_tokens(rendered),
-        "preview": "",
-        "nextCursor": 0,
-        "instructions": (
-            "Use search_tool_result to find a passage or read_tool_result with nextCursor "
-            "to read the complete result without losing the middle."
-        ),
-    }
-    base_tokens = estimate_tokens(json.dumps(manifest, ensure_ascii=False))
-    preview, next_cursor = slice_to_token_budget(
-        rendered, 0, max(1, token_budget - base_tokens - 16)
-    )
-    manifest["preview"] = preview
-    manifest["nextCursor"] = next_cursor if next_cursor < len(rendered) else None
-    encoded = json.dumps(manifest, ensure_ascii=False)
-    while preview and estimate_tokens(encoded) > token_budget:
-        preview = preview[: max(0, len(preview) * 3 // 4)]
-        manifest["preview"] = preview
-        manifest["nextCursor"] = len(preview)
-        encoded = json.dumps(manifest, ensure_ascii=False)
-    return encoded
-
-
-def _tool_result_count(run: AgentRun, after_sequence: int) -> int:
-    return sum(
-        len(event.payload.get("results", []))
-        for event in run.events
-        if event.sequence > after_sequence and event.event_type == "tool.output"
-    )
-
-
-def _tool_history(
-    run: AgentRun, after_sequence: int = 0, token_budget: int = TOOL_RESULT_TOKEN_BUDGET
-) -> list[dict]:
-    history = []
-    for event in run.events:
-        if event.sequence <= after_sequence:
-            continue
-        if event.event_type == "tool.requested":
-            history.append(
-                {
-                    "role": "assistant",
-                    "content": event.payload.get("content"),
-                    "tool_calls": event.payload["toolCalls"],
-                }
-            )
-        elif event.event_type == "tool.output":
-            image_messages = []
-            for result in event.payload["results"]:
-                model_result = result["result"]
-                image_parts = _image_tool_content(result["result"])
-                if image_parts is not None:
-                    model_result = {
-                        key: value
-                        for key, value in result["result"].items()
-                        if key != "dataUrl"
-                    }
-                    image_messages.append({"role": "user", "content": image_parts})
-                content = _tool_result_content(
-                    run, {**result, "result": model_result}, token_budget
-                )
-                history.append(
-                    {
-                        "role": "tool",
-                        "tool_call_id": result["callId"],
-                        "content": content,
-                    }
-                )
-            history.extend(image_messages)
-    return history
-
-
-def _image_tool_content(result: object) -> list[dict] | None:
-    if not isinstance(result, dict):
-        return None
-    if result.get("contentKind") != "image":
-        return None
-    data_url = result.get("dataUrl")
-    if not isinstance(data_url, str) or not data_url.startswith("data:image/"):
-        return None
-    text_payload = {key: value for key, value in result.items() if key != "dataUrl"}
-    image_url = {"url": data_url}
-    if result.get("detail") in {"low", "high"}:
-        image_url["detail"] = result["detail"]
-    return [
-        {
-            "type": "text",
-            "text": f"Image returned by a tool: {json.dumps(text_payload, ensure_ascii=False)}",
-        },
-        {"type": "image_url", "image_url": image_url},
-    ]
 
 
 def resume_completion(
@@ -139,7 +31,7 @@ def resume_completion(
     workspace_instructions: str = "",
     tool_snapshot: object = None,
     system_instructions: str = AGENT_SYSTEM_INSTRUCTIONS,
-) -> PreparedCompletion:
+) -> CompletionPreparation:
     run = get_owned_run(user_id, run_id)
     if run.status != "waiting_tool" or not results:
         raise ServiceError("invalid_run_state", 409)
@@ -151,42 +43,13 @@ def resume_completion(
         raise ServiceError("invalid_tool_results", 422)
     tools = validate_tool_snapshot(tool_snapshot)
     run.tool_snapshot = tools
-    configuration = db.session.get(ModelConfiguration, run.model_configuration_id)
-    if not configuration:
-        raise ServiceError("model_not_configured", 422)
     append_event(run, "tool.output", {"results": results})
     run.status = "running"
     db.session.commit()
-    conversation = db.session.get(Conversation, run.conversation_id)
-    if not conversation:
-        raise ServiceError("not_found", 404)
-    context = prepare_context(
-        run,
-        configuration,
-        list(conversation.messages),
-        "\n\n".join(
-            part for part in (system_instructions, workspace_instructions) if part.strip()
-        ),
-    )
-    result_count = max(1, _tool_result_count(run, 0))
-    available_tool_tokens = max(
-        512,
-        int(configuration.context_length * COMPACTION_RATIO) - context.estimated_tokens,
-    )
-    tool_result_budget = max(
-        512,
-        min(TOOL_RESULT_TOKEN_BUDGET * 2, available_tool_tokens // result_count),
-    )
-    tool_history = _tool_history(run, 0, tool_result_budget)
-    model_messages = [*context.messages, *tool_history]
-    mailbox = completion_mailbox(run.conversation_id)
-    return prepared_completion(
-        run,
-        configuration,
-        model_messages,
+    return iter_prepare_completion(
+        run.id,
         workspace_instructions,
         tools,
-        mailbox,
         system_instructions,
     )
 
@@ -227,7 +90,7 @@ def recover_completion(
     results: list[dict] | None = None,
     tool_snapshot: object = None,
     system_instructions: str = AGENT_SYSTEM_INSTRUCTIONS,
-) -> PreparedCompletion | list[dict]:
+) -> CompletionPreparation | list[dict]:
     run = get_owned_run(user_id, run_id)
     if run.status == "waiting_tool":
         if results:
@@ -249,23 +112,11 @@ def recover_completion(
         return [{"type": "run.failed", "errorCode": "run_recovery_conflict"}]
     if run.status != "failed" or run.error_code != "client_disconnected":
         return [{"type": "run.failed", "errorCode": run.error_code or "runtime_failed"}]
-    configuration = db.session.get(ModelConfiguration, run.model_configuration_id)
-    conversation = db.session.get(Conversation, run.conversation_id)
-    if not configuration or not conversation:
-        raise ServiceError("not_found", 404)
-    context = prepare_context(
-        run,
-        configuration,
-        list(conversation.messages),
-        "\n\n".join(
-            part for part in (system_instructions, workspace_instructions) if part.strip()
-        ),
-    )
-    model_messages = [*context.messages, *_tool_history(run)]
+    continuation = []
     partial_content = partial_content[:200_000]
     partial_reasoning = partial_reasoning[:200_000]
     if partial_content.strip():
-        model_messages.extend(
+        continuation.extend(
             [
                 {"role": "assistant", "content": partial_content},
                 {
@@ -284,33 +135,37 @@ def recover_completion(
     run.tool_snapshot = tools
     append_event(run, "run.recovered", {"partialContentLength": len(partial_content)})
     db.session.commit()
-    mailbox = completion_mailbox(run.conversation_id)
-    prepared = prepared_completion(
-        run,
-        configuration,
-        model_messages,
-        workspace_instructions,
-        tools,
-        mailbox,
-        system_instructions,
-    )
-    return replace(
-        prepared,
-        initial_answer=partial_content,
-        initial_reasoning=partial_reasoning,
-    )
+    prepared_run_id = run.id
+
+    def preparation() -> CompletionPreparation:
+        prepared = yield from iter_prepare_completion(
+            prepared_run_id,
+            workspace_instructions,
+            tools,
+            system_instructions,
+            continuation,
+        )
+        return replace(
+            prepared, initial_answer=partial_content, initial_reasoning=partial_reasoning
+        )
+
+    return preparation()
 
 
-def stream_completion(prepared: PreparedCompletion):
+def stream_completion(prepared: PreparedCompletion | CompletionPreparation):
+    if isinstance(prepared, Generator):
+        try:
+            prepared = yield from prepared
+        except ServiceError as error:
+            yield {"type": "run.failed", "errorCode": error.code}
+            return
     answer = prepared.initial_answer
     reasoning = prepared.initial_reasoning
     tool_calls: dict[int, dict] = {}
     input_tokens_total = 0
     output_tokens_total = 0
-    context_tokens_total = 0
     has_input_usage = False
     has_output_usage = False
-    has_context_usage = False
     reasoning_started = False
     message_started = False
     run = db.session.get(AgentRun, prepared.run_id)
@@ -319,16 +174,12 @@ def stream_completion(prepared: PreparedCompletion):
             usage = payload.get("usage") or {}
             input_tokens = usage.get("prompt_tokens", usage.get("input_tokens"))
             output_tokens = usage.get("completion_tokens", usage.get("output_tokens"))
-            context_tokens = usage.get("total_tokens")
             if input_tokens is not None:
                 input_tokens_total = int(input_tokens)
                 has_input_usage = True
             if output_tokens is not None:
                 output_tokens_total = int(output_tokens)
                 has_output_usage = True
-            if context_tokens is not None:
-                context_tokens_total = int(context_tokens)
-                has_context_usage = True
             choice = (payload.get("choices") or [{}])[0]
             delta = choice.get("delta") or {}
             for tool_delta in delta.get("tool_calls") or []:
@@ -372,11 +223,13 @@ def stream_completion(prepared: PreparedCompletion):
             run.input_tokens = (run.input_tokens or 0) + input_tokens_total
         if has_output_usage:
             run.output_tokens = (run.output_tokens or 0) + output_tokens_total
-        if has_context_usage:
+        if has_input_usage:
             context_usage = {
-                "usedTokens": context_tokens_total,
+                "usedTokens": input_tokens_total,
                 "contextLength": prepared.context_length,
                 "source": "provider",
+                "estimatedTokens": prepared.estimated_input_tokens,
+                "model": prepared.payload["model"],
             }
             append_event(run, "context.usage", context_usage)
             yield {"type": "context.usage", **context_usage}
@@ -388,8 +241,7 @@ def stream_completion(prepared: PreparedCompletion):
                 for tool in prepared.payload.get("tools", [])
             }
             if not conversation or any(
-                call["function"]["name"] not in allowed_tool_names
-                for call in calls
+                call["function"]["name"] not in allowed_tool_names for call in calls
             ):
                 fail_run(run, "unsupported_tool")
                 return
@@ -430,9 +282,7 @@ def stream_completion(prepared: PreparedCompletion):
                     "toolCalls": calls,
                     "content": answer or None,
                     "taskAssignments": {
-                        item["callId"]: item["taskId"]
-                        for item in requests
-                        if item.get("taskId")
+                        item["callId"]: item["taskId"] for item in requests if item.get("taskId")
                     },
                 },
             )

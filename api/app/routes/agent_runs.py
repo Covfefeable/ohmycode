@@ -5,7 +5,7 @@ from flask import Blueprint, Response, request, stream_with_context
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
 from ..services.agent import recover_completion, resume_completion, stream_completion
-from ..services.agent.provider_stream import PreparedCompletion
+from ..services.agent.preparation import CompletionPreparation
 from ..services.agent.runs import cancel_run
 from ..services.agent.tool_results import read_tool_result, search_tool_result
 from ..services.errors import ServiceError
@@ -15,14 +15,10 @@ from .device import current_device
 agent_runs_bp = Blueprint("agent_runs", __name__)
 
 
-def stream_response(prepared: PreparedCompletion | list[dict]):
+def stream_response(prepared: CompletionPreparation | list[dict]):
     @stream_with_context
     def events():
-        source = (
-            stream_completion(prepared)
-            if isinstance(prepared, PreparedCompletion)
-            else prepared
-        )
+        source = prepared if isinstance(prepared, list) else stream_completion(prepared)
         for event in source:
             yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
         yield "data: [DONE]\n\n"

@@ -19,16 +19,13 @@ from app.models import (
     User,
 )
 from app.services.agent import turn_summaries
-from app.services.agent.chat import _image_tool_content, _tool_result_content
-from app.services.agent.context import (
-    COMPACTION_RATIO,
-    _protected_run_ids,
-    _render_messages,
-    estimate_tokens,
-)
+from app.services.agent.context import COMPACTION_RATIO
+from app.services.agent.context_history import _protected_run_ids, _render_messages
 from app.services.agent.prompts import AGENT_SYSTEM_INSTRUCTIONS
 from app.services.agent.provider_stream import PreparedCompletion, _payload, provider_payloads
 from app.services.agent.task_plan import active_task_id, normalize_task_plan
+from app.services.agent.tokens import estimate_tokens
+from app.services.agent.tool_history import image_tool_content, tool_result_content
 
 
 def test_context_defaults_and_multilingual_token_estimate():
@@ -39,14 +36,14 @@ def test_context_defaults_and_multilingual_token_estimate():
 
 def test_image_tool_result_uses_declared_content_kind():
     data_url = "data:image/png;base64,iVBORw0KGgo="
-    assert _image_tool_content({"contentKind": "image", "dataUrl": data_url}) == [
+    assert image_tool_content({"contentKind": "image", "dataUrl": data_url}) == [
         {
             "type": "text",
             "text": 'Image returned by a tool: {"contentKind": "image"}',
         },
         {"type": "image_url", "image_url": {"url": data_url}},
     ]
-    assert _image_tool_content({"dataUrl": data_url}) is None
+    assert image_tool_content({"dataUrl": data_url}) is None
 
 
 def test_provider_chunk_uses_sdk_serialization():
@@ -224,7 +221,7 @@ def test_provider_automatically_retries_without_unsupported_stream_options(monke
 def test_large_tool_results_return_a_pageable_reference_without_dropping_silently():
     content = "prefix\n" + ("large-result " * 2000) + "\nsuffix"
     run = AgentRun(id=uuid.uuid4())
-    rendered = _tool_result_content(
+    rendered = tool_result_content(
         run,
         {"callId": "call-long", "result": {"content": content}},
         300,

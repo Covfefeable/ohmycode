@@ -1,9 +1,10 @@
+from collections.abc import Generator
 from uuid import UUID
 
 import httpx
 
 from ...extensions import db
-from ...models import AgentRun, ModelConfiguration, MultiAgentMessage, MultiAgentNode
+from ...models import AgentRun, Conversation, ModelConfiguration
 from ..conversations import prepare_user_prompt
 from ..errors import ServiceError
 from ..model_credentials import decrypt_api_key
@@ -15,77 +16,68 @@ from .runs import append_event, cancelled_run_context, fail_run, start_run
 from .task_plan import task_plan_context
 from .tool_snapshot import validate_tool_snapshot
 
-
-def completion_mailbox(conversation_id: UUID) -> list[dict]:
-    node = db.session.scalar(
-        db.select(MultiAgentNode).where(MultiAgentNode.conversation_id == conversation_id)
-    )
-    if not node:
-        return []
-    messages = list(
-        db.session.scalars(
-            db.select(MultiAgentMessage)
-            .where(MultiAgentMessage.task_id == node.task_id)
-            .order_by(MultiAgentMessage.sequence)
-        )
-    )
-    mailbox = "\n\n".join(
-        f"[{item.from_node.name if item.from_node else 'User'} "
-        f"@ {item.to_node.name if item.to_node else 'User'}]\n{item.content}"
-        for item in messages
-    )
-    context = (
-        [{"role": "system", "content": f"Latest collaboration group chat:\n{mailbox}"}]
-        if mailbox
-        else []
-    )
-    return context
+CompletionPreparation = Generator[dict, None, PreparedCompletion]
 
 
-def completion_payload(
-    run: AgentRun,
-    configuration: ModelConfiguration,
-    messages: list[dict],
+def iter_prepare_completion(
+    run_id: UUID,
     workspace_instructions: str,
-    mailbox: list[dict],
+    tools: list[dict],
     system_instructions: str = AGENT_SYSTEM_INSTRUCTIONS,
-) -> dict:
-    return {
+    continuation: list[dict] | None = None,
+) -> CompletionPreparation:
+    run = db.session.get(AgentRun, run_id)
+    if not run:
+        raise ServiceError("not_found", 404)
+    try:
+        configuration = db.session.get(ModelConfiguration, run.model_configuration_id)
+        if not configuration:
+            raise ServiceError("model_not_configured", 422)
+        conversation = db.session.get(Conversation, run.conversation_id)
+        context = yield from iter_prepare_context(
+            run,
+            configuration,
+            list(conversation.messages),
+            [
+                {"role": "system", "content": system_instructions},
+                *(
+                    [
+                        {
+                            "role": "system",
+                            "content": f"Workspace instructions:\n{workspace_instructions}",
+                        }
+                    ]
+                    if workspace_instructions.strip()
+                    else []
+                ),
+                *cancelled_run_context(run.conversation_id, run.id),
+                *task_plan_context(run),
+            ],
+            tools,
+            continuation or [],
+        )
+    except ServiceError as error:
+        fail_run(run, error.code)
+        raise
+    except (httpx.HTTPError, KeyError, IndexError, TypeError, ValueError) as error:
+        fail_run(run, "context_compaction_failed")
+        raise ServiceError("context_compaction_failed", 502) from error
+    append_event(
+        run,
+        "context.prepared",
+        {
+            "estimatedTokens": context.estimated_tokens,
+            "contextLength": configuration.context_length,
+            "compacted": context.compacted,
+        },
+    )
+    db.session.commit()
+    payload = {
         "model": configuration.model,
         "stream": True,
         "stream_options": {"include_usage": True},
-        "messages": [
-            {"role": "system", "content": system_instructions},
-            *(
-                [
-                    {
-                        "role": "system",
-                        "content": f"Workspace instructions:\n{workspace_instructions}",
-                    }
-                ]
-                if workspace_instructions.strip()
-                else []
-            ),
-            *cancelled_run_context(run.conversation_id, run.id),
-            *task_plan_context(run),
-            *mailbox,
-            *messages,
-        ],
+        "messages": context.messages,
     }
-
-
-def prepared_completion(
-    run: AgentRun,
-    configuration: ModelConfiguration,
-    messages: list[dict],
-    workspace_instructions: str,
-    tools: list[dict],
-    mailbox: list[dict],
-    system_instructions: str = AGENT_SYSTEM_INSTRUCTIONS,
-) -> PreparedCompletion:
-    payload = completion_payload(
-        run, configuration, messages, workspace_instructions, mailbox, system_instructions
-    )
     if tools:
         payload["tools"] = tools
     return PreparedCompletion(
@@ -95,6 +87,7 @@ def prepared_completion(
         api_key=decrypt_api_key(configuration.api_key_encrypted),
         context_length=configuration.context_length,
         payload=payload,
+        estimated_input_tokens=context.estimated_tokens,
     )
 
 
@@ -111,7 +104,7 @@ def stream_prepare_completion(
     system_instructions: str = AGENT_SYSTEM_INSTRUCTIONS,
 ):
     tools = validate_tool_snapshot(tool_snapshot)
-    conversation = prepare_user_prompt(
+    prepare_user_prompt(
         user_id, conversation_id, content, edit_message_id, attachments
     )
     configuration = get_model_configuration(user_id, model_id)
@@ -119,39 +112,11 @@ def stream_prepare_completion(
         raise ServiceError("model_not_configured", 422)
     run = start_run(conversation_id, configuration, turn_id, tools)
     yield {"type": "run.started", "runId": str(run.id)}
-    try:
-        context = yield from iter_prepare_context(
-            run,
-            configuration,
-            list(conversation.messages),
-            "\n\n".join(
-                part for part in (system_instructions, workspace_instructions) if part.strip()
-            ),
+    return (
+        yield from iter_prepare_completion(
+            run.id,
+            workspace_instructions,
+            tools,
+            system_instructions,
         )
-    except (httpx.HTTPError, KeyError, IndexError, TypeError, ValueError) as error:
-        fail_run(run, "context_compaction_failed")
-        raise ServiceError("context_compaction_failed", 502) from error
-    append_event(
-        run,
-        "context.prepared",
-        {
-            "estimatedTokens": context.estimated_tokens,
-            "contextLength": configuration.context_length,
-            "compacted": context.compacted,
-        },
-    )
-    db.session.commit()
-    try:
-        mailbox = completion_mailbox(conversation_id)
-    except Exception as error:
-        fail_run(run, "context_preparation_failed")
-        raise ServiceError("context_preparation_failed", 500) from error
-    return prepared_completion(
-        run,
-        configuration,
-        context.messages,
-        workspace_instructions,
-        tools,
-        mailbox,
-        system_instructions,
     )

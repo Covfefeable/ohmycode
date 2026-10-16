@@ -382,7 +382,7 @@ def test_project_conversation_and_message_lifecycle(monkeypatch):
         assert final_detail["messages"][-1]["reasoning"] == "Checking context"
         assert final_detail["messages"][-1]["agentDurationMs"] is not None
         assert final_detail["contextUsage"] == {
-            "usedTokens": 150,
+            "usedTokens": 120,
             "contextLength": 262_144,
             "source": "provider",
         }
