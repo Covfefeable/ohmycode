@@ -17,6 +17,7 @@ app/
 
 migrations/          Flask-Migrate / Alembic 数据库迁移
 tests/               pytest 测试
+evals/               固定 Harness 任务、运行记录评分与版本对比
 manage.py            Flask 开发与迁移入口
 celery_app.py        Celery Worker / Beat 入口
 wsgi.py              生产 WSGI 入口
@@ -120,12 +121,16 @@ uv run flask --app manage:app db upgrade
 
 ```bash
 cd api
-uv run ruff check app tests
+uv run ruff check app tests evals
 uv run pytest
 ```
 
 涉及认证、持久化、流式协议、迁移或后台任务的改动，应补充并运行对应专项测试。模型供应商
 失败时也必须保持 SSE 正常终止，让客户端收到明确错误，而不是无效 EOF。
+
+Harness 评测读取实际 Run / Event，统计调用、重复读取、耗时及真实 token 用量。
+用 `uv run python -m evals list` 查看固定任务。评分、独立测试工作区与前后对比方法见
+[Harness 评测说明](../docs/harness-evals.md)。CI 检查评分器本身，真实模型完成率需要实际运行任务。
 
 生产 Compose、Nginx 和部署说明见根目录 [README](../README.md) 与
 [`docker/README.md`](../docker/README.md)。

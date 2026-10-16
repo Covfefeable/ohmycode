@@ -24,6 +24,8 @@ desktop/dist/
 desktop/dist-electron/
 desktop/release/
 coverage/
+api/eval-results/
+api/test-results/
 
 # Generated compatibility files
 desktop/vite.config.js

@@ -27,10 +27,16 @@ jobs:
         run: uv sync --frozen
       - name: Ruff
         working-directory: api
-        run: uv run ruff check app tests
+        run: uv run ruff check app tests evals
       - name: Pytest
         working-directory: api
-        run: uv run pytest
+        run: uv run pytest --junitxml=test-results/pytest.xml
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-test-results
+          path: api/test-results/pytest.xml
 
   clients:
     runs-on: ubuntu-latest

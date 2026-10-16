@@ -416,7 +416,7 @@ Compose 校验。正式安装包签名与发布仍使用独立的发布流程，
 
 ```bash
 cd api
-uv run ruff check app tests
+uv run ruff check app tests evals
 uv run pytest
 
 cd ..
@@ -434,6 +434,9 @@ docker compose --env-file docker/.env.example -f docker/docker-compose.dev.yml c
 
 根目录 `pnpm typecheck` 已覆盖共享 packages、Desktop 和 Mobile 的类型检查；涉及运行时、
 持久化、IPC、认证、迁移或文件工具的变更，还应执行相应专项测试和受影响应用的完整检查。
+
+固定任务、真实运行记录评分和版本对比见 [Harness 评测](./docs/harness-evals.md)。
+CI 会保存 API 测试报告；评分器测试通过不等同于真实模型任务通过。
 
 ## 开发约束
 
