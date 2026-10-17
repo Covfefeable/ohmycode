@@ -60,6 +60,23 @@ Runtime 使用 Node 内置 test runner，不引入另一套测试框架。测试
 `[DONE]` 是协议终点，不能继续等待 HTTP 连接关闭，也不能再交付后续内容。
 已有 EventJournal、SQLite 恢复和文件工具 smoke 测试继续执行。
 
+## 界面组件回归
+
+```bash
+pnpm --dir desktop test:ui
+pnpm test:clients
+```
+
+Vitest + Testing Library 在 jsdom 中运行真实 React 组件，复用应用的 Vite 配置和多语言资源。
+测试环境使用 Node.js 22.12 及以上版本。
+覆盖编辑器提交、输入法、外部清空、禁用状态，选择框、确认弹窗、图标按钮、tooltip 和 Markdown
+代码保真。优先通过角色、可见文案和用户操作断言，不给组件增加测试专用属性，不使用大量快照。
+JUnit 输出在 `desktop/test-results/ui.xml`。`pnpm test` 是全部客户端测试入口，后端可执行
+`pnpm test:api` 或直接使用上述 uv 命令。
+
+jsdom 不验证真实布局、Electron 标题栏拖拽区域、GPU 动效或手机原生键盘；这些仍需要对应设备的
+冒烟验证，不能把组件测试通过等同于整机行为已经验证。
+
 ## CI 与测试约束
 
 - 每个 PR 和 main 推送运行后端回归、客户端检查、迁移及 Compose 配置校验。

@@ -74,12 +74,15 @@ pnpm --dir desktop dev
 ```bash
 pnpm --dir desktop test:runtime
 pnpm --dir desktop test:file-tools
+pnpm --dir desktop test:ui
 pnpm --dir desktop typecheck
 pnpm --dir desktop lint
 pnpm --dir desktop build
 ```
 
 涉及 Runtime、IPC、终端或文件工具的修改，应运行对应专项测试和完整构建。
+组件测试覆盖输入、禁用状态、弹层交互与 Markdown 原文保真；测试边界和 CI 说明见
+[自动化测试](../docs/testing.md)。
 
 ## 打包
 

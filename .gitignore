@@ -28,6 +28,8 @@ coverage/
 .coverage.*
 api/eval-results/
 api/test-results/
+desktop/test-results/
+.vitest/
 
 # Generated compatibility files
 desktop/vite.config.js

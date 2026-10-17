@@ -4,6 +4,7 @@ import ReactMarkdown from "react-markdown";
 import { useTranslation } from "react-i18next";
 import remarkGfm from "remark-gfm";
 import { CapabilityToken } from "../capability-token";
+import { CAPABILITY_LINK_PREFIX, remarkCapabilityTokens } from "./capability-tokens";
 import styles from "./MarkdownContent.module.css";
 
 function codeText(children: ReactNode): string {
@@ -38,19 +39,10 @@ function CodeBlock({ children, ...props }: ComponentPropsWithoutRef<"pre">) {
   </div>;
 }
 
-const CAPABILITY_LINK_PREFIX = "#ohmycode-capability-";
-
-function renderCapabilityTokens(markdown: string) {
-  return markdown.replace(/\[\[(mcp|skill):([^\]]+)\]\]/g, (_match, kind: string, value: string) => {
-    const label = value.replaceAll("[", "\\[").replaceAll("]", "\\]");
-    return `[${label}](${CAPABILITY_LINK_PREFIX}${kind}-${encodeURIComponent(value)})`;
-  });
-}
-
 export function MarkdownContent({ children, className = "" }: { children: string; className?: string }) {
   return <div className={`${styles.root} ${className}`.trim()}>
     <ReactMarkdown
-      remarkPlugins={[remarkGfm]}
+      remarkPlugins={[remarkGfm, remarkCapabilityTokens]}
       components={{
         pre: CodeBlock,
         a: ({ children: label, href, ...props }) => href?.startsWith(CAPABILITY_LINK_PREFIX)
@@ -58,6 +50,6 @@ export function MarkdownContent({ children, className = "" }: { children: string
           : <a {...props} href={href} target="_blank" rel="noreferrer">{label}</a>,
         table: ({ children: rows, ...props }) => <div className={styles.tableScroll}><table {...props}>{rows}</table></div>,
       }}
-    >{renderCapabilityTokens(children)}</ReactMarkdown>
+    >{children}</ReactMarkdown>
   </div>;
 }

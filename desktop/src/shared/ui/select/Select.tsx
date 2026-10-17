@@ -23,6 +23,8 @@ export function Select({ value, options, ariaLabel, disabled = false, compact = 
   const selected = options.find((option) => option.value === value);
   const label = selected?.label || emptyLabel;
 
+  if (open && (disabled || options.length === 0)) setOpen(false);
+
   useLayoutEffect(() => {
     if (!open) return;
     const rect = triggerRef.current?.getBoundingClientRect();
@@ -44,11 +46,20 @@ export function Select({ value, options, ariaLabel, disabled = false, compact = 
       if (!triggerRef.current?.contains(target) && !(target as Element).closest?.("[data-select-menu]")) setOpen(false);
     };
     const close = () => setOpen(false);
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      event.stopPropagation();
+      setOpen(false);
+      triggerRef.current?.focus();
+    };
     document.addEventListener("pointerdown", closeOnPointer);
+    document.addEventListener("keydown", onKeyDown, true);
     window.addEventListener("resize", close);
     window.addEventListener("scroll", close, true);
     return () => {
       document.removeEventListener("pointerdown", closeOnPointer);
+      document.removeEventListener("keydown", onKeyDown, true);
       window.removeEventListener("resize", close);
       window.removeEventListener("scroll", close, true);
     };

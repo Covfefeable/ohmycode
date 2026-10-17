@@ -80,6 +80,7 @@ Client:
 ```bash
 cd desktop
 pnpm test:runtime
+pnpm test:ui
 pnpm typecheck
 pnpm lint
 pnpm build

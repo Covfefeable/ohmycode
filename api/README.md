@@ -126,9 +126,12 @@ uv run flask --app manage:app db upgrade
 
 ```bash
 cd api
-uv run ruff check app tests evals
+uv run ruff check app tests evals integration
 uv run pytest
 ```
+
+PostgreSQL 并发回归独立运行 `uv run pytest integration`，需配置 `TEST_DATABASE_URL`；
+隔离方式、迁移差异检查和报告说明见 [自动化测试](../docs/testing.md)。
 
 涉及认证、持久化、流式协议、迁移或后台任务的改动，应补充并运行对应专项测试。模型供应商
 失败时也必须保持 SSE 正常终止，让客户端收到明确错误，而不是无效 EOF。

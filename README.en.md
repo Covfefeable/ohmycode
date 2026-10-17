@@ -438,7 +438,7 @@ pushes to `main` and Pull Requests. Installer signing and publishing use a separ
 
 ```bash
 cd api
-uv run ruff check app tests
+uv run ruff check app tests evals integration
 uv run pytest
 
 cd ..
@@ -446,6 +446,7 @@ pnpm check:boundaries
 pnpm typecheck
 pnpm --dir desktop test:runtime
 pnpm --dir desktop test:file-tools
+pnpm --dir desktop test:ui
 pnpm --dir desktop lint
 pnpm --dir desktop build
 pnpm --dir mobile lint
@@ -457,6 +458,9 @@ docker compose --env-file docker/.env.example -f docker/docker-compose.dev.yml c
 Root `pnpm typecheck` covers shared packages, Desktop, and Mobile. Changes involving runtime,
 persistence, IPC, authentication, migrations, or file tools should also run the relevant focused tests
 and the complete checks for the affected application.
+
+See [automated testing](./docs/testing.md) for test layers, isolated PostgreSQL schemas, commands,
+and device-level limitations. CI also runs Runtime and file-tool regression on Windows and macOS.
 
 ## Development Rules
 

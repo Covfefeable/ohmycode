@@ -5,7 +5,10 @@
   "scripts": {
     "build": "pnpm --filter @ohmycode/design-tokens build && pnpm --filter @ohmycode/protocol build && pnpm --filter @ohmycode/tool-contracts build && pnpm --filter @ohmycode/agent-runtime build && pnpm --filter @ohmycode/desktop build && pnpm --filter @ohmycode/mobile typecheck",
     "typecheck": "pnpm check:boundaries && pnpm --filter @ohmycode/design-tokens build && pnpm --filter @ohmycode/protocol build && pnpm --filter @ohmycode/tool-contracts build && pnpm --filter @ohmycode/agent-runtime typecheck && pnpm --filter @ohmycode/desktop typecheck && pnpm --filter @ohmycode/mobile typecheck",
-    "check:boundaries": "node scripts/check-package-boundaries.mjs"
+    "check:boundaries": "node scripts/check-package-boundaries.mjs",
+    "test": "pnpm test:clients",
+    "test:clients": "pnpm --dir desktop test:runtime && pnpm --dir desktop test:file-tools && pnpm --dir desktop test:ui",
+    "test:api": "uv run --directory api pytest"
   },
   "pnpm": {
     "onlyBuiltDependencies": ["electron", "node-pty"]

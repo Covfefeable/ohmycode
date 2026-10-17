@@ -7,6 +7,6 @@ type IconButtonProps = PropsWithChildren<
 
 export function IconButton({ active = false, className = "", ...props }: IconButtonProps) {
   const classes = [styles.button, active ? styles.active : "", className].filter(Boolean).join(" ");
-  return <button className={classes} {...props} />;
+  return <button type="button" className={classes} {...props} />;
 }
 

@@ -55,6 +55,8 @@ jobs:
         run: pnpm typecheck
       - name: Runtime tests
         run: pnpm --dir desktop test:runtime
+      - name: Renderer component regression
+        run: pnpm --dir desktop test:ui
       - name: File tool tests
         run: pnpm --dir desktop test:file-tools
       - name: Desktop lint
@@ -65,6 +67,34 @@ jobs:
         run: pnpm --dir mobile lint
       - name: Expo dependency compatibility
         run: pnpm --dir mobile exec expo install --check
+      - name: Upload renderer test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-ui-test-results
+          path: desktop/test-results/ui.xml
+
+  runtime-platforms:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.15.0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install desktop workspace dependencies
+        run: pnpm install --frozen-lockfile --filter @ohmycode/desktop...
+      - name: Runtime regression
+        run: pnpm --dir desktop test:runtime
+      - name: Native path and file tool regression
+        run: pnpm --dir desktop test:file-tools
 
   migrations:
     runs-on: ubuntu-latest

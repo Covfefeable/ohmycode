@@ -421,7 +421,7 @@ Compose 校验。正式安装包签名与发布仍使用独立的发布流程，
 
 ```bash
 cd api
-uv run ruff check app tests evals
+uv run ruff check app tests evals integration
 uv run pytest
 
 cd ..
@@ -429,6 +429,7 @@ pnpm check:boundaries
 pnpm typecheck
 pnpm --dir desktop test:runtime
 pnpm --dir desktop test:file-tools
+pnpm --dir desktop test:ui
 pnpm --dir desktop lint
 pnpm --dir desktop build
 pnpm --dir mobile lint
@@ -442,6 +443,9 @@ docker compose --env-file docker/.env.example -f docker/docker-compose.dev.yml c
 
 固定任务、真实运行记录评分和版本对比见 [Harness 评测](./docs/harness-evals.md)。
 CI 会保存 API 测试报告；评分器测试通过不等同于真实模型任务通过。
+
+测试分层、临时 PostgreSQL schema、统一命令和未覆盖的整机边界见
+[自动化测试说明](./docs/testing.md)。CI 还会在 Windows、macOS 上执行 Runtime 与文件工具回归。
 
 ## 开发约束
 
