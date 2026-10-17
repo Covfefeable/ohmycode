@@ -34,6 +34,10 @@ def init_celery(app):
         accept_content=["json"],
         timezone="Asia/Shanghai",
         beat_schedule={
+            "reconcile-model-executions": {
+                "task": "app.tasks.agent_execution.reconcile_model_requests",
+                "schedule": 30.0,
+            },
             "reconcile-capability-embeddings": {
                 "task": "app.tasks.capability_embedding.reconcile_capability_embeddings",
                 "schedule": 300.0,
@@ -44,6 +48,7 @@ def init_celery(app):
             },
         },
         imports=(
+            "app.tasks.agent_execution",
             "app.tasks.capability_embedding",
             "app.tasks.event_retention",
             "app.tasks.turn_summary",

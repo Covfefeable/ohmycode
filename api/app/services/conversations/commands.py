@@ -107,7 +107,7 @@ def add_message(user_id: UUID, conversation_id: UUID, payload: dict) -> Message:
 
 
 def edit_last_user_message(
-    user_id: UUID, conversation_id: UUID, message_id: UUID, content: str
+    user_id: UUID, conversation_id: UUID, message_id: UUID, content: str, *, commit: bool = True
 ) -> Conversation:
     conversation = get_conversation(user_id, conversation_id)
     content = content.strip()
@@ -122,7 +122,10 @@ def edit_last_user_message(
     if target is next((message for message in messages if message.role == "user"), None):
         conversation.title = content.replace("\n", " ")[:60]
     touch_conversation(conversation)
-    db.session.commit()
+    if commit:
+        db.session.commit()
+    else:
+        db.session.flush()
     return conversation
 
 
@@ -141,7 +144,7 @@ def prepare_user_prompt(
             message_id = UUID(str(edit_message_id))
         except ValueError as error:
             raise ServiceError("validation_error", 422) from error
-        return edit_last_user_message(user_id, conversation_id, message_id, content)
+        return edit_last_user_message(user_id, conversation_id, message_id, content, commit=False)
     normalized_attachments = normalize_attachments(attachments or [])
     if not content and not normalized_attachments:
         raise ServiceError("validation_error", 422)
@@ -156,5 +159,5 @@ def prepare_user_prompt(
     touch_conversation(conversation)
     if not any(message.role == "user" for message in messages):
         conversation.title = (content.replace("\n", " ") or normalized_attachments[0]["name"])[:60]
-    db.session.commit()
+    db.session.flush()
     return conversation

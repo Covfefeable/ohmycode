@@ -49,8 +49,6 @@ export class ConversationTransport implements AgentTransport {
   recover(
     runId: string,
     workspaceInstructions: string,
-    partialContent: string,
-    partialReasoning: string,
     results: ToolResult[],
     tools: ProviderToolDefinition[],
   ): Promise<Response> {
@@ -58,8 +56,6 @@ export class ConversationTransport implements AgentTransport {
       method: "POST",
       body: JSON.stringify({
         workspaceInstructions,
-        partialContent,
-        partialReasoning,
         results,
         tools,
       }),

@@ -91,7 +91,7 @@ flowchart LR
     RT[Desktop Runtime Host<br/>Shared Thread / Turn / Item Runtime]
     JOURNAL[Event Journal<br/>Ordering, subscriptions, and replay]
     TOOLS[Local tools<br/>PTY Terminal / File Tools]
-    API[Flask API<br/>Agent Loop and application services]
+    API[Flask API<br/>Application services and SSE subscriptions]
     MODEL[OpenAI-compatible LLM]
     DB[(PostgreSQL)]
     CACHE[(Redis)]
@@ -104,7 +104,7 @@ flowchart LR
     RT <--> JOURNAL
     RT <--> TOOLS
     RT <-->|HTTP + SSE| API
-    API <-->|Streaming| MODEL
+    WORKER <-->|Streaming| MODEL
     API <--> DB
     API <--> CACHE
     API <--> OBJECT
@@ -122,8 +122,9 @@ Responsibility boundaries:
   Flask validates, persists, and forwards the tool snapshot for each Run.
 - Event Journal assigns monotonically increasing sequence numbers per Turn and supports resubscription
   and incremental replay.
-- Flask owns authentication, configuration, project data, message persistence, context construction,
-  and model-facing Agent Loop services.
+- Flask owns authentication, configuration, project data, model request submission and SSE subscriptions.
+  Workers construct context, execute individual model requests and persist output; the client Runtime
+  continues to own the tool loop.
 - PostgreSQL stores users, projects, conversations, messages, runs, and collaboration data.
 - Redis provides health checks, Celery broker and result transport, and distributed locks for
   Capability Embedding reconciliation.
@@ -168,6 +169,7 @@ sequenceDiagram
     participant UI as React Renderer
     participant R as Agent Runtime
     participant A as Flask Agent Service
+    participant W as Celery Worker
     participant L as LLM Provider
     participant T as Local Tools
 
@@ -175,15 +177,17 @@ sequenceDiagram
     UI->>R: startTurn(threadId, content)
     R-->>UI: turnId
     R->>A: Create AgentRun with the same ID
-    A->>L: Start streaming model request
-    L-->>A: reasoning / content / tool call
+    A->>W: Submit durable model request
+    W->>L: Start streaming model request
+    L-->>W: reasoning / content / tool call
+    W-->>A: Persist stream events for subscription and replay
     A-->>R: SSE events
     R-->>UI: Item events
     alt Model requests a tool
         R->>T: Execute command or file operation
         T-->>R: Tool result
         R->>A: resume(turnId, results)
-        A->>L: Continue with tool results
+        A->>W: Submit next model request with tool results
     else Model returns a final answer
         A-->>R: Complete and persist message
         R-->>UI: turn.completed
@@ -277,8 +281,10 @@ cd api
 uv run celery -A celery_app:celery beat --loglevel=info
 ```
 
-Worker executes asynchronous tasks. Beat periodically schedules Capability Embedding reconciliation
-and AgentEvent cleanup. Both require Redis. AgentEvents are retained for at least 90 days and are
+Worker executes model requests and other asynchronous tasks; chat requires a running Worker.
+HTTP disconnects do not stop inference. Reconnection replays the current request with client-side
+event-ID deduplication. Beat republishes queued model requests, checks execution leases, and schedules
+Capability Embedding reconciliation and AgentEvent cleanup. Both require Redis. AgentEvents are retained for at least 90 days and are
 removed only when a complete run summary covers the final event and no persisted content references
 their `resultRef/runId`. `AGENT_EVENT_RETENTION_DAYS` may extend retention but cannot reduce it below
 90 days.

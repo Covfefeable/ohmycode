@@ -2,7 +2,16 @@ from datetime import UTC, datetime, timedelta
 
 from app import create_app
 from app.extensions import db
-from app.models import AgentEvent, AgentRun, AgentRunSummary, Conversation, Project, User
+from app.models import (
+    AgentEvent,
+    AgentRun,
+    AgentRunSummary,
+    Conversation,
+    ModelExecution,
+    ModelStreamEvent,
+    Project,
+    User,
+)
 from app.services.agent.event_retention import cleanup_expired_agent_events
 
 
@@ -79,6 +88,21 @@ def test_cleanup_only_removes_expired_summarized_unreferenced_events():
 
         stale_summary = _completed_run(conversation, now - timedelta(days=91))
         _summary(stale_summary, "Stale summary", source_sequence=1)
+        executions = []
+        for run in (referenced, removable, recent, stale_summary):
+            execution = ModelExecution(
+                run_id=run.id, request_key="initial", parameters={}, status="completed"
+            )
+            db.session.add(execution)
+            db.session.flush()
+            db.session.add(
+                ModelStreamEvent(
+                    execution_id=execution.id,
+                    sequence=1,
+                    payload={"type": "message.delta", "content": "stored"},
+                )
+            )
+            executions.append(execution.id)
         db.session.commit()
 
         result = cleanup_expired_agent_events(now=now, retention_days=90, batch_size=1)
@@ -89,17 +113,28 @@ def test_cleanup_only_removes_expired_summarized_unreferenced_events():
             "deletedEvents": 2,
             "retainedReferences": 1,
         }
-        assert db.session.scalar(
-            db.select(db.func.count())
-            .select_from(AgentEvent)
-            .where(AgentEvent.run_id == removable.id)
-        ) == 0
-        for run in (referenced, recent, stale_summary):
-            assert db.session.scalar(
+        assert (
+            db.session.scalar(
                 db.select(db.func.count())
                 .select_from(AgentEvent)
-                .where(AgentEvent.run_id == run.id)
-            ) == 2
+                .where(AgentEvent.run_id == removable.id)
+            )
+            == 0
+        )
+        assert db.session.get(ModelExecution, executions[1]) is None
+        assert db.session.get(ModelStreamEvent, (executions[1], 1)) is None
+        for execution_id in (executions[0], executions[2], executions[3]):
+            assert db.session.get(ModelExecution, execution_id) is not None
+            assert db.session.get(ModelStreamEvent, (execution_id, 1)) is not None
+        for run in (referenced, recent, stale_summary):
+            assert (
+                db.session.scalar(
+                    db.select(db.func.count())
+                    .select_from(AgentEvent)
+                    .where(AgentEvent.run_id == run.id)
+                )
+                == 2
+            )
 
 
 def test_retention_period_cannot_be_configured_below_ninety_days():
@@ -129,6 +164,11 @@ def test_retention_period_cannot_be_configured_below_ninety_days():
         result = cleanup_expired_agent_events(now=now, retention_days=1)
 
         assert result["candidates"] == 0
-        assert db.session.scalar(
-            db.select(db.func.count()).select_from(AgentEvent).where(AgentEvent.run_id == run.id)
-        ) == 2
+        assert (
+            db.session.scalar(
+                db.select(db.func.count())
+                .select_from(AgentEvent)
+                .where(AgentEvent.run_id == run.id)
+            )
+            == 2
+        )

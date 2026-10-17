@@ -42,7 +42,7 @@ await runToolLoop({
   toolSnapshot,
 });
 assert.equal(recovered.length, 1);
-assert.equal(recovered[0][2], "partial");
+assert.deepEqual(recovered[0][2], []);
 assert.deepEqual(recoveryEvents.map((event) => event.type), ["message.started", "message.delta"]);
 
 let active = 0;
@@ -96,7 +96,7 @@ await runToolLoop({
   workspaceInstructions: "",
   transport: {
     resume: async () => { throw new TypeError("connection closed before response"); },
-    recover: async (_runId, _instructions, _content, _reasoning, results) => {
+    recover: async (_runId, _instructions, results) => {
       recoveredResults.push(results);
       return complete();
     },

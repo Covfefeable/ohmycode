@@ -15,8 +15,6 @@ class PreparedCompletion:
     context_length: int
     payload: dict
     estimated_input_tokens: int = 0
-    initial_answer: str = ""
-    initial_reasoning: str = ""
 
 
 def _base_url(endpoint: str) -> str:

@@ -1,13 +1,9 @@
-import json
 from uuid import UUID
 
-from flask import Blueprint, Response, jsonify, request, stream_with_context
+from flask import Blueprint, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
-from ..services.agent import stream_completion
-from ..services.agent.preparation import CompletionPreparation
 from ..services.agent.tool_results import read_tool_result, search_tool_result
-from ..services.errors import ServiceError
 from ..services.mobile_chats import (
     cancel_mobile_run,
     create_mobile_conversation,
@@ -17,9 +13,10 @@ from ..services.mobile_chats import (
     list_mobile_conversations,
     recover_mobile_run,
     resume_mobile_run,
-    stream_mobile_chat,
+    start_mobile_chat,
 )
 from ..services.projects.serializers import serialize_conversation
+from .streaming import execution_response
 
 mobile_chats_bp = Blueprint("mobile_chats", __name__)
 
@@ -28,30 +25,10 @@ def user_id() -> UUID:
     return UUID(get_jwt_identity())
 
 
-def stream_prepared(prepared: CompletionPreparation | list[dict]):
-    @stream_with_context
-    def events():
-        source = prepared if isinstance(prepared, list) else stream_completion(prepared)
-        try:
-            for event in source:
-                yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
-        except ServiceError as error:
-            yield f"data: {json.dumps({'type': 'run.failed', 'errorCode': error.code})}\n\n"
-        yield "data: [DONE]\n\n"
-
-    return Response(
-        events(),
-        mimetype="text/event-stream",
-        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
-    )
-
-
 @mobile_chats_bp.get("")
 @jwt_required()
 def list_mobile_conversations_route():
-    return jsonify(
-        [serialize_conversation(item) for item in list_mobile_conversations(user_id())]
-    )
+    return jsonify([serialize_conversation(item) for item in list_mobile_conversations(user_id())])
 
 
 @mobile_chats_bp.post("")
@@ -93,7 +70,7 @@ def cancel_mobile_run_route(run_id: UUID):
 def resume_mobile_run_route(run_id: UUID):
     payload = request.get_json(silent=True) or {}
     results = payload.get("results") if isinstance(payload.get("results"), list) else []
-    return stream_prepared(resume_mobile_run(user_id(), run_id, results, payload.get("tools")))
+    return execution_response(resume_mobile_run(user_id(), run_id, results, payload.get("tools")))
 
 
 @mobile_chats_bp.post("/runs/<uuid:run_id>/recover")
@@ -101,14 +78,14 @@ def resume_mobile_run_route(run_id: UUID):
 def recover_mobile_run_route(run_id: UUID):
     payload = request.get_json(silent=True) or {}
     results = payload.get("results") if isinstance(payload.get("results"), list) else []
-    return stream_prepared(recover_mobile_run(
-        user_id(),
-        run_id,
-        str(payload.get("partialContent") or ""),
-        str(payload.get("partialReasoning") or ""),
-        results,
-        payload.get("tools"),
-    ))
+    return execution_response(
+        recover_mobile_run(
+            user_id(),
+            run_id,
+            results,
+            payload.get("tools"),
+        )
+    )
 
 
 @mobile_chats_bp.post("/runs/<uuid:run_id>/tool-results/<call_id>/read")
@@ -150,24 +127,13 @@ def stream_mobile_conversation_route(conversation_id: UUID):
     except ValueError:
         return jsonify({"error": {"code": "invalid_turn_id"}}), 422
 
-    @stream_with_context
-    def events():
-        try:
-            for event in stream_mobile_chat(
-                user_id(),
-                conversation_id,
-                str(payload.get("content") or ""),
-                payload.get("modelId"),
-                turn_id,
-                payload.get("tools"),
-            ):
-                yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
-        except ServiceError as error:
-            yield f"data: {json.dumps({'type': 'run.failed', 'errorCode': error.code})}\n\n"
-        yield "data: [DONE]\n\n"
-
-    return Response(
-        events(),
-        mimetype="text/event-stream",
-        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    return execution_response(
+        start_mobile_chat(
+            user_id(),
+            conversation_id,
+            str(payload.get("content") or ""),
+            payload.get("modelId"),
+            turn_id,
+            payload.get("tools"),
+        )
     )

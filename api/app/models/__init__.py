@@ -8,6 +8,7 @@ from .conversation import Conversation
 from .mcp_server import McpServer, SkillPackage
 from .message import Message
 from .model_configuration import ModelConfiguration
+from .model_execution import ModelExecution, ModelStreamEvent
 from .multi_agent import (
     MultiAgent,
     MultiAgentMessage,
@@ -30,6 +31,8 @@ __all__ = [
     "Message",
     "McpServer",
     "ModelConfiguration",
+    "ModelExecution",
+    "ModelStreamEvent",
     "MultiAgent",
     "MultiAgentMessage",
     "MultiAgentNode",

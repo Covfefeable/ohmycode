@@ -33,8 +33,6 @@ function wait(delay: number, signal: AbortSignal): Promise<void> {
 async function recover(
   options: ToolLoopOptions,
   originalError: unknown,
-  partialContent: string,
-  partialReasoning: string,
   results: ToolResult[],
 ): Promise<Response> {
   let lastError = originalError;
@@ -45,8 +43,6 @@ async function recover(
       return await options.transport.recover(
         options.runId,
         options.workspaceInstructions,
-        partialContent,
-        partialReasoning,
         results,
         options.toolSnapshot(),
       );
@@ -63,28 +59,20 @@ async function recover(
 
 export async function runToolLoop(options: ToolLoopOptions): Promise<void> {
   let response = options.response;
-  let partialContent = "";
-  let partialReasoning = "";
   let pendingResults: ToolResult[] = [];
-  const consume = (event: AgentStreamEvent) => {
-    if (event.type === "message.delta") partialContent += event.content;
-    if (event.type === "reasoning.delta") partialReasoning += event.content;
-    options.onEvent(event);
-  };
+  const seenEvents = new Set<string>();
   while (!options.execution.signal.aborted) {
     let requests;
     try {
-      requests = await forwardServerStream(response, consume);
+      requests = await forwardServerStream(response, options.onEvent, seenEvents);
     } catch (error) {
-      response = await recover(options, error, partialContent, partialReasoning, pendingResults);
+      response = await recover(options, error, pendingResults);
       pendingResults = [];
       continue;
     }
     if (!requests.length || options.execution.signal.aborted) return;
     const results = await Promise.all(requests.map((request) => options.tools.execute(request)));
     pendingResults = results;
-    partialContent = "";
-    partialReasoning = "";
     if (options.execution.signal.aborted) return;
     try {
       response = await options.transport.resume(
@@ -95,7 +83,7 @@ export async function runToolLoop(options: ToolLoopOptions): Promise<void> {
       );
       pendingResults = [];
     } catch (error) {
-      response = await recover(options, error, partialContent, partialReasoning, pendingResults);
+      response = await recover(options, error, pendingResults);
       pendingResults = [];
     }
   }

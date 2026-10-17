@@ -34,3 +34,19 @@ await forwardServerStream(
   (event) => trailingEvents.push(event),
 );
 assert.equal(trailingEvents[0]?.type, "run.failed");
+
+const replayed = [];
+const seen = new Set();
+const firstFrames = 'id: execution:1\ndata: {"type":"message.delta","content":"partial"}\n\n'
+  + 'id: execution:2\ndata: {"type":"tool.requested","runId":"turn","callId":"read","tool":"read_file","arguments":{}}\n\n';
+await assert.rejects(
+  forwardServerStream(response(firstFrames), (event) => replayed.push(event), seen),
+  /unexpected_stream_eof/,
+);
+const recoveredRequests = await forwardServerStream(
+  response(firstFrames + 'id: execution:3\ndata: {"type":"context.usage","usedTokens":10,"contextLength":100,"source":"provider"}\n\ndata: [DONE]\n\n'),
+  (event) => replayed.push(event),
+  seen,
+);
+assert.deepEqual(replayed.map((event) => event.type), ["message.delta", "tool.requested", "context.usage"]);
+assert.equal(recoveredRequests.length, 1, "Incomplete tool batches must be replayed for execution");

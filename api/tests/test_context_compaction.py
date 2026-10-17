@@ -19,8 +19,9 @@ from app.models import (
     Project,
     User,
 )
-from app.services.agent.chat import recover_completion, resume_completion, stream_completion
+from app.services.agent.chat import stream_completion
 from app.services.agent.context import _token_calibration, latest_checkpoint
+from app.services.agent.executions import resume_execution
 from app.services.agent.preparation import iter_prepare_completion
 from app.services.agent.prompts import COMPACTION_INSTRUCTIONS
 from app.services.agent.runs import append_event, start_run
@@ -275,45 +276,33 @@ def test_usage_uses_input_tokens_and_calibrates_estimates(workspace, monkeypatch
     assert _token_calibration(other) == 1
 
 
-@pytest.mark.parametrize("path", ["resume", "recover"])
-def test_resume_and_recovery_stream_compaction_status(workspace, monkeypatch, path):
+def test_resume_stream_compaction_status(workspace, monkeypatch):
     w = workspace
     for index in range(5):
         add_batch(w.run, f"batch-{index}", "evidence " * 1000)
-    if path == "resume":
-        append_event(
-            w.run,
-            "tool.requested",
-            {
-                "toolCalls": [
-                    {
-                        "id": "last",
-                        "type": "function",
-                        "function": {"name": "inspect", "arguments": "{}"},
-                    }
-                ]
-            },
-        )
-        w.run.status = "waiting_tool"
-        db.session.commit()
-        preparation = resume_completion(
-            w.user.id,
-            w.run.id,
-            [{"callId": "last", "result": "ok"}],
-            tool_snapshot=TOOLS,
-            system_instructions="Rules",
-        )
-    else:
-        w.run.status = "failed"
-        w.run.error_code = "client_disconnected"
-        db.session.commit()
-        preparation = recover_completion(
-            w.user.id,
-            w.run.id,
-            partial_content="Partial response",
-            tool_snapshot=TOOLS,
-            system_instructions="Rules",
-        )
+    append_event(
+        w.run,
+        "tool.requested",
+        {
+            "toolCalls": [
+                {
+                    "id": "last",
+                    "type": "function",
+                    "function": {"name": "inspect", "arguments": "{}"},
+                }
+            ]
+        },
+    )
+    w.run.status = "waiting_tool"
+    db.session.commit()
+    monkeypatch.setattr("app.services.agent.executions.dispatch_execution", lambda _: None)
+    resume_execution(
+        w.user.id,
+        w.run.id,
+        [{"callId": "last", "result": "ok"}],
+        tool_snapshot=TOOLS,
+        system_instructions="Rules",
+    )
     seen = []
 
     def provider(prepared):
@@ -321,13 +310,12 @@ def test_resume_and_recovery_stream_compaction_status(workspace, monkeypatch, pa
         yield {"choices": [{"delta": {"content": "Done"}}]}
 
     monkeypatch.setattr("app.services.agent.chat.provider_payloads", provider)
+    preparation = iter_prepare_completion(w.run.id, "", TOOLS, system_instructions="Rules")
     stream = stream_completion(preparation)
     assert next(stream)["type"] == "context.compaction.started"
     assert seen == []
     events = list(stream)
     assert any(event["type"] == "context.compaction.completed" for event in events)
-    if path == "recover":
-        assert "Partial response" in json.dumps(seen[0]["messages"])
 
 
 def test_compaction_failure_preserves_events_and_does_not_publish_a_checkpoint(

@@ -88,7 +88,7 @@ flowchart LR
     RT[Desktop Runtime Host<br/>共享 Thread / Turn / Item Runtime]
     JOURNAL[Event Journal<br/>顺序、订阅与重放]
     TOOLS[本地工具<br/>PTY Terminal / File Tools]
-    API[Flask API<br/>Agent Loop 与业务服务]
+    API[Flask API<br/>业务服务与 SSE 订阅]
     MODEL[OpenAI-compatible LLM]
     DB[(PostgreSQL)]
     CACHE[(Redis)]
@@ -101,7 +101,7 @@ flowchart LR
     RT <--> JOURNAL
     RT <--> TOOLS
     RT <-->|HTTP + SSE| API
-    API <-->|Streaming| MODEL
+    WORKER <-->|Streaming| MODEL
     API <--> DB
     API <--> CACHE
     API <--> OBJECT
@@ -117,7 +117,8 @@ flowchart LR
 - Desktop/Mobile Runtime Registry 是工具能力和 Schema 的唯一来源；Flask 仅校验、
   持久化并转发每个 Run 的工具快照。
 - Event Journal 为每个 Turn 分配单调递增序号，支持重新订阅和增量重放。
-- Flask 负责认证、配置、项目数据、消息持久化、上下文构造和模型 Agent Loop。
+- Flask 负责认证、配置、项目数据、模型请求入队与 SSE 订阅；Worker 负责上下文构造、
+  单次模型请求和输出持久化，客户端 Runtime 继续掌管工具循环。
 - PostgreSQL 保存用户、项目、会话、消息、运行记录和协作数据。
 - Redis 提供健康检查、Celery broker/result transport，以及 Capability Embedding
   补偿任务的分布式锁。
@@ -161,6 +162,7 @@ sequenceDiagram
     participant UI as React Renderer
     participant R as Agent Runtime
     participant A as Flask Agent Service
+    participant W as Celery Worker
     participant L as LLM Provider
     participant T as Local Tools
 
@@ -168,15 +170,17 @@ sequenceDiagram
     UI->>R: startTurn(threadId, content)
     R-->>UI: turnId
     R->>A: 创建同 ID 的 AgentRun
-    A->>L: 流式模型请求
-    L-->>A: reasoning / content / tool call
+    A->>W: 提交持久化的模型请求
+    W->>L: 流式模型请求
+    L-->>W: reasoning / content / tool call
+    W-->>A: 持久化流事件，供订阅与重放
     A-->>R: SSE 事件
     R-->>UI: Item 事件
     alt 模型请求工具
         R->>T: 执行命令或文件操作
         T-->>R: 工具结果
         R->>A: resume(turnId, results)
-        A->>L: 携带工具结果继续推理
+        A->>W: 携带工具结果提交下一次模型请求
     else 模型给出最终回答
         A-->>R: 完成并持久化消息
         R-->>UI: turn.completed
@@ -268,8 +272,9 @@ cd api
 uv run celery -A celery_app:celery beat --loglevel=info
 ```
 
-Worker 负责执行异步任务，Beat 负责定时投递存量 Capability Embedding
-补偿和 AgentEvent 清理任务；两者都依赖前面启动的 Redis。AgentEvent 默认至少保留
+Worker 负责模型请求和其他异步任务，聊天也必须启动 Worker。HTTP 断线不会终止推理，
+重连会重放当前请求，客户端按事件 ID 去重。Beat 负责模型任务补发、租约检查、存量
+Capability Embedding 补偿和 AgentEvent 清理；两者都依赖前面启动的 Redis。AgentEvent 默认至少保留
 90 天，且只会清理已有完整运行摘要、摘要覆盖到最后事件并且没有任何持久化内容引用
 其 `resultRef/runId` 的历史。可通过 `AGENT_EVENT_RETENTION_DAYS` 延长保留期，但不能缩短到
 90 天以下。

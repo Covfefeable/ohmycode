@@ -375,6 +375,12 @@ def test_project_conversation_and_message_lifecycle(monkeypatch):
         assert b'"type": "reasoning.delta"' in streamed.data
         assert b'"content": "Hello "' in streamed.data
         assert b'"content": "stream"' in streamed.data
+        provider_count = len(provider_payloads)
+        replay = client.post(
+            f"/api/agent-runs/{requested_turn_id}/recover", headers=headers, json={}
+        )
+        assert replay.data == streamed.data
+        assert len(provider_payloads) == provider_count
         final_detail = client.get(
             f"/api/projects/conversations/{conversation_id}", headers=headers
         ).get_json()
@@ -421,8 +427,6 @@ def test_project_conversation_and_message_lifecycle(monkeypatch):
                 .where(AgentRun.conversation_id == uuid.UUID(failed_conversation["id"]))
                 .order_by(AgentRun.started_at.desc())
             )
-            disconnected_run.error_code = "client_disconnected"
-            db.session.commit()
             disconnected_run_id = str(disconnected_run.id)
 
         recovery_payloads = []
@@ -436,17 +440,15 @@ def test_project_conversation_and_message_lifecycle(monkeypatch):
             f"/api/agent-runs/{disconnected_run_id}/recover",
             headers=headers,
             json={
-                "partialContent": "Partial ",
-                "partialReasoning": "Initial thought",
                 "tools": DESKTOP_TOOLS,
             },
         )
-        assert b'"content": "Hello "' in recovered.data
+        assert b'"errorCode": "FileNotFoundError"' in recovered.data
         recovered_detail = client.get(
             f"/api/projects/conversations/{failed_conversation['id']}", headers=headers
         ).get_json()
-        assert recovered_detail["messages"][-1]["content"] == "Partial Hello stream"
-        assert recovery_payloads[-1]["messages"][-2]["content"] == "Partial "
+        assert recovered_detail["messages"][-1]["role"] == "user"
+        assert recovery_payloads == []
 
         with app.app_context():
             running_run = AgentRun(
@@ -460,10 +462,9 @@ def test_project_conversation_and_message_lifecycle(monkeypatch):
             headers=headers,
             json={"tools": DESKTOP_TOOLS},
         )
-        assert conflicted.status_code == 200
-        assert b'"errorCode": "run_recovery_conflict"' in conflicted.data
+        assert conflicted.status_code == 409
         with app.app_context():
-            assert db.session.get(AgentRun, uuid.UUID(running_run_id)).status == "cancelled"
+            assert db.session.get(AgentRun, uuid.UUID(running_run_id)).status == "running"
 
         balance_conversation = client.post(
             f"/api/projects/{project_id}/conversations",

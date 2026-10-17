@@ -91,32 +91,19 @@ def iter_prepare_completion(
     )
 
 
-def stream_prepare_completion(
+def create_completion_run(
     user_id: UUID,
     conversation_id: UUID,
     content: str,
     model_id: str | None,
     edit_message_id: str | None,
-    workspace_instructions: str = "",
     turn_id: UUID | None = None,
     attachments: object = None,
     tool_snapshot: object = None,
-    system_instructions: str = AGENT_SYSTEM_INSTRUCTIONS,
 ):
     tools = validate_tool_snapshot(tool_snapshot)
-    prepare_user_prompt(
-        user_id, conversation_id, content, edit_message_id, attachments
-    )
+    prepare_user_prompt(user_id, conversation_id, content, edit_message_id, attachments)
     configuration = get_model_configuration(user_id, model_id)
     if not configuration:
         raise ServiceError("model_not_configured", 422)
-    run = start_run(conversation_id, configuration, turn_id, tools)
-    yield {"type": "run.started", "runId": str(run.id)}
-    return (
-        yield from iter_prepare_completion(
-            run.id,
-            workspace_instructions,
-            tools,
-            system_instructions,
-        )
-    )
+    return start_run(conversation_id, configuration, turn_id, tools)

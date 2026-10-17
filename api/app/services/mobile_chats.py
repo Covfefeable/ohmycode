@@ -1,15 +1,8 @@
-from collections.abc import Iterator
 from uuid import UUID
 
 from ..extensions import db
 from ..models import AgentRun, Conversation, Project
-from .agent import (
-    recover_completion,
-    resume_completion,
-    stream_completion,
-    stream_prepare_completion,
-)
-from .agent.preparation import CompletionPreparation
+from .agent.executions import recover_execution, resume_execution, start_execution
 from .agent.runs import cancel_run
 from .conversations import create_conversation, delete_conversation, get_conversation
 from .errors import ServiceError
@@ -124,9 +117,9 @@ def get_owned_mobile_run(user_id: UUID, run_id: UUID) -> AgentRun:
 
 def resume_mobile_run(
     user_id: UUID, run_id: UUID, results: list[dict], tool_snapshot: object
-) -> CompletionPreparation:
+) -> UUID:
     get_owned_mobile_run(user_id, run_id)
-    return resume_completion(
+    return resume_execution(
         user_id,
         run_id,
         results,
@@ -138,33 +131,29 @@ def resume_mobile_run(
 def recover_mobile_run(
     user_id: UUID,
     run_id: UUID,
-    partial_content: str,
-    partial_reasoning: str,
     results: list[dict],
     tool_snapshot: object,
-) -> CompletionPreparation | list[dict]:
+) -> UUID:
     get_owned_mobile_run(user_id, run_id)
-    return recover_completion(
+    return recover_execution(
         user_id,
         run_id,
-        partial_content=partial_content,
-        partial_reasoning=partial_reasoning,
         results=results,
         tool_snapshot=tool_snapshot,
         system_instructions=MOBILE_SYSTEM_INSTRUCTIONS,
     )
 
 
-def stream_mobile_chat(
+def start_mobile_chat(
     user_id: UUID,
     conversation_id: UUID,
     content: str,
     model_id: str | None,
     turn_id: UUID | None,
     tool_snapshot: object,
-) -> Iterator[dict]:
+) -> UUID:
     _owned_mobile_conversation(user_id, conversation_id)
-    preparation = stream_prepare_completion(
+    return start_execution(
         user_id,
         conversation_id,
         content,
@@ -174,10 +163,3 @@ def stream_mobile_chat(
         tool_snapshot=tool_snapshot,
         system_instructions=MOBILE_SYSTEM_INSTRUCTIONS,
     )
-    while True:
-        try:
-            yield next(preparation)
-        except StopIteration as completed:
-            prepared = completed.value
-            break
-    yield from stream_completion(prepared)

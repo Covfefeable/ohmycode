@@ -11,6 +11,8 @@ from ...models import (
     AgentRunSummary,
     ContextCheckpoint,
     Message,
+    ModelExecution,
+    ModelStreamEvent,
     MultiAgentMessage,
     MultiAgentNode,
 )
@@ -25,6 +27,20 @@ def _contains_reference(column, run_id: UUID):
 def _is_referenced(run: AgentRun) -> bool:
     """Conservatively retain a run if durable content mentions its resultRef runId."""
     references = (
+        exists(
+            db.select(ModelStreamEvent.execution_id)
+            .join(ModelExecution, ModelStreamEvent.execution_id == ModelExecution.id)
+            .where(
+                ModelExecution.run_id != run.id,
+                _contains_reference(ModelStreamEvent.payload, run.id),
+            )
+        ),
+        exists(
+            db.select(ModelExecution.id).where(
+                ModelExecution.run_id != run.id,
+                _contains_reference(ModelExecution.parameters, run.id),
+            )
+        ),
         exists(
             db.select(AgentEvent.id).where(
                 AgentEvent.run_id != run.id,
@@ -111,9 +127,7 @@ def cleanup_expired_agent_events(
                 )
             )
         candidates = list(
-            db.session.scalars(
-                query.order_by(AgentRun.completed_at, AgentRun.id).limit(page_size)
-            )
+            db.session.scalars(query.order_by(AgentRun.completed_at, AgentRun.id).limit(page_size))
         )
         if not candidates:
             break
@@ -122,10 +136,13 @@ def cleanup_expired_agent_events(
             if _is_referenced(run):
                 retained_references += 1
                 continue
-            result = db.session.execute(
-                db.delete(AgentEvent).where(AgentEvent.run_id == run.id)
-            )
+            result = db.session.execute(db.delete(AgentEvent).where(AgentEvent.run_id == run.id))
             deleted_events += result.rowcount or 0
+            execution_ids = db.select(ModelExecution.id).where(ModelExecution.run_id == run.id)
+            db.session.execute(
+                db.delete(ModelStreamEvent).where(ModelStreamEvent.execution_id.in_(execution_ids))
+            )
+            db.session.execute(db.delete(ModelExecution).where(ModelExecution.run_id == run.id))
             cleaned_runs += 1
             if cleaned_runs >= page_size:
                 break

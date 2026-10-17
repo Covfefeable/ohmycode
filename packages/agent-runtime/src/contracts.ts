@@ -29,8 +29,6 @@ export interface AgentTransport {
   recover(
     runId: string,
     workspaceInstructions: string,
-    partialContent: string,
-    partialReasoning: string,
     results: ToolResult[],
     tools: ProviderToolDefinition[],
   ): Promise<Response>;

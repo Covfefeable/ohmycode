@@ -2,7 +2,15 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 from ...extensions import db
-from ...models import AgentEvent, AgentRun, Conversation, Message, ModelConfiguration, Project
+from ...models import (
+    AgentEvent,
+    AgentRun,
+    Conversation,
+    Message,
+    ModelConfiguration,
+    ModelExecution,
+    Project,
+)
 from ..errors import ServiceError
 from .config import CANCEL_SUMMARY_TOKEN_BUDGET
 from .prompts import STOPPED_RUN_CONTEXT
@@ -25,12 +33,17 @@ def start_run(
     db.session.add(run)
     db.session.flush()
     append_event(run, "run.started", {"modelId": str(model.id)})
-    db.session.commit()
+    db.session.flush()
     return run
 
 
 def append_event(run: AgentRun, event_type: str, payload: dict | None = None) -> AgentEvent:
-    run.last_event_sequence += 1
+    run.last_event_sequence = db.session.scalar(
+        db.update(AgentRun)
+        .where(AgentRun.id == run.id)
+        .values(last_event_sequence=AgentRun.last_event_sequence + 1)
+        .returning(AgentRun.last_event_sequence)
+    )
     event = AgentEvent(
         run=run, sequence=run.last_event_sequence, event_type=event_type, payload=payload or {}
     )
@@ -57,30 +70,26 @@ def build_run_activity(
         elif event.event_type == "task.plan.updated":
             latest_plan = list(event.payload.get("tasks", []))
             current_task_id = next(
-                (
-                    str(item["id"])
-                    for item in latest_plan
-                    if item.get("status") == "in_progress"
-                ),
+                (str(item["id"]) for item in latest_plan if item.get("status") == "in_progress"),
                 None,
             )
         elif event.event_type == "reasoning.completed" and event.payload.get("content"):
             step = {
-                    "id": f"reasoning-{run.id}-{event.sequence}",
-                    "type": "reasoning",
-                    "content": event.payload["content"],
-                    "status": "completed",
-                }
+                "id": f"reasoning-{run.id}-{event.sequence}",
+                "type": "reasoning",
+                "content": event.payload["content"],
+                "status": "completed",
+            }
             if current_task_id:
                 step["taskId"] = current_task_id
             activity.append(step)
         elif event.event_type == "message.progress" and event.payload.get("content"):
             step = {
-                    "id": f"message-{run.id}-{event.sequence}",
-                    "type": "message",
-                    "content": event.payload["content"],
-                    "status": "completed",
-                }
+                "id": f"message-{run.id}-{event.sequence}",
+                "type": "message",
+                "content": event.payload["content"],
+                "status": "completed",
+            }
             if current_task_id:
                 step["taskId"] = current_task_id
             activity.append(step)
@@ -142,18 +151,23 @@ def complete_run(run: AgentRun, message_id: UUID) -> None:
     conversation = db.session.get(Conversation, run.conversation_id)
     if conversation:
         conversation.updated_at = run.completed_at
-    db.session.commit()
-    from .turn_summaries import enqueue_turn_summaries
-
-    enqueue_turn_summaries(run.conversation_id)
+    db.session.flush()
 
 
 def fail_run(run: AgentRun, error_code: str) -> None:
+    run = db.session.scalar(
+        db.select(AgentRun)
+        .where(AgentRun.id == run.id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    if run.status in {"completed", "cancelled", "failed"}:
+        return
     append_event(run, "run.failed", {"errorCode": error_code})
     run.status = "failed"
     run.error_code = error_code[:1000]
     run.completed_at = datetime.now(UTC)
-    db.session.commit()
+    db.session.flush()
 
 
 def cancel_run(
@@ -163,11 +177,25 @@ def cancel_run(
     reason: str = "user_requested",
 ) -> None:
     run = get_owned_run(user_id, run_id)
+    run = db.session.scalar(
+        db.select(AgentRun)
+        .where(AgentRun.id == run_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
     if run.status in {"completed", "failed", "cancelled"}:
         return
     append_event(run, "run.cancelled", {"reason": reason})
     run.status = "cancelled"
     run.completed_at = datetime.now(UTC)
+    db.session.execute(
+        db.update(ModelExecution)
+        .where(
+            ModelExecution.run_id == run_id,
+            ModelExecution.status.in_(["queued", "running"]),
+        )
+        .values(status="cancelled", parameters={})
+    )
     if isinstance(partial_message, dict) and not db.session.scalar(
         db.select(Message.id).where(Message.agent_run_id == run.id)
     ):

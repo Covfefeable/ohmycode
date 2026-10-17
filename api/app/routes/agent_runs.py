@@ -1,33 +1,17 @@
-import json
 from uuid import UUID
 
-from flask import Blueprint, Response, request, stream_with_context
+from flask import Blueprint, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
-from ..services.agent import recover_completion, resume_completion, stream_completion
-from ..services.agent.preparation import CompletionPreparation
+from ..services.agent.executions import recover_execution, resume_execution
 from ..services.agent.runs import cancel_run
 from ..services.agent.tool_results import read_tool_result, search_tool_result
 from ..services.errors import ServiceError
 from ..services.projects.queries import device_run
 from .device import current_device
+from .streaming import execution_response
 
 agent_runs_bp = Blueprint("agent_runs", __name__)
-
-
-def stream_response(prepared: CompletionPreparation | list[dict]):
-    @stream_with_context
-    def events():
-        source = prepared if isinstance(prepared, list) else stream_completion(prepared)
-        for event in source:
-            yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
-        yield "data: [DONE]\n\n"
-
-    return Response(
-        events(),
-        mimetype="text/event-stream",
-        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
-    )
 
 
 @agent_runs_bp.post("/<uuid:run_id>/cancel")
@@ -46,7 +30,7 @@ def resume_run_route(run_id: UUID):
     if not device_run(UUID(get_jwt_identity()), current_device(), run_id):
         raise ServiceError("not_found", 404)
     payload = request.get_json(silent=True) or {}
-    prepared = resume_completion(
+    execution_id = resume_execution(
         UUID(get_jwt_identity()),
         run_id,
         payload.get("results") if isinstance(payload.get("results"), list) else [],
@@ -54,7 +38,7 @@ def resume_run_route(run_id: UUID):
         payload.get("tools"),
     )
 
-    return stream_response(prepared)
+    return execution_response(execution_id)
 
 
 @agent_runs_bp.post("/<uuid:run_id>/recover")
@@ -63,16 +47,14 @@ def recover_run_route(run_id: UUID):
     if not device_run(UUID(get_jwt_identity()), current_device(), run_id):
         raise ServiceError("not_found", 404)
     payload = request.get_json(silent=True) or {}
-    prepared = recover_completion(
+    execution_id = recover_execution(
         UUID(get_jwt_identity()),
         run_id,
         str(payload.get("workspaceInstructions") or ""),
-        str(payload.get("partialContent") or ""),
-        str(payload.get("partialReasoning") or ""),
         payload.get("results") if isinstance(payload.get("results"), list) else [],
         payload.get("tools"),
     )
-    return stream_response(prepared)
+    return execution_response(execution_id)
 
 
 @agent_runs_bp.post("/<uuid:run_id>/tool-results/<call_id>/read")

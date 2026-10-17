@@ -102,7 +102,7 @@ export async function streamMobileMessage(
       tools,
       toolSnapshot: () => tools.definitions(),
       transport: {
-        recover: (runId, _workspaceInstructions, partialContent, partialReasoning, results, toolSnapshot) => postRun(runId, "recover", { partialContent, partialReasoning, results, tools: toolSnapshot }),
+        recover: (runId, _workspaceInstructions, results, toolSnapshot) => postRun(runId, "recover", { results, tools: toolSnapshot }),
         resume: (runId, results, _workspaceInstructions, toolSnapshot) => postRun(runId, "resume", { results, tools: toolSnapshot }),
       },
       onEvent: (event) => {

@@ -46,7 +46,9 @@ Flask HTTP API
      +--> Redis
      +--> MinIO
      +--> Celery Worker / Beat
-     +--> OpenAI-compatible LLM
+                 |
+                 +--> OpenAI-compatible LLM
+                 +--> PostgreSQL (stream events + run state)
 ```
 
 Key boundaries:
@@ -68,8 +70,11 @@ A normal chat turn flows like this:
    to start the transport and Tool Loop.
 4. `conversation-service.ts` exports the Runtime's current tool definitions and
    POSTs them to `/api/projects/conversations/{id}/stream`. Flask validates and
-   persists this Run tool snapshot, then forwards it to the model unchanged.
-5. The model may stream reasoning, message content, or tool calls. Flask emits
+   persists this Run tool snapshot and a queued `ModelExecution`. Celery receives
+   only its ID; the Worker loads credentials and builds context inside its Flask
+   application context. It performs exactly one model request, not the tool loop.
+5. The model may stream reasoning, message content, or tool calls. The Worker
+   persists ordered `ModelStreamEvent` frames. Flask subscribes/replays them as
    SSE events, which the Runtime translates into `Thread/Turn/Item` Runtime
    events and publishes to Renderer listeners.
 6. If the model requests tools, the Tool Loop executes independent calls in
@@ -78,15 +83,24 @@ A normal chat turn flows like this:
    tool snapshot. This repeats until the run finishes. Loading an MCP updates
    the client Registry before resume, so its definitions are available to the
    next model request without Flask reconstructing capability state.
-7. When the model returns a final answer, Flask persists an `assistant` Message,
+7. When the model returns a final answer, the Worker persists an `assistant` Message,
    and the Runtime emits `turn.completed`.
 
-If an HTTP/SSE connection ends unexpectedly, the Runtime retains the partial
-message, reasoning, pending tool-call IDs, and already-produced tool results.
-It reconnects through `/api/agent-runs/{id}/recover` with bounded backoff. Flask
-then continues a disconnected model stream, replays pending tool requests, or
-accepts an already-produced result batch without executing local side effects a
-second time.
+If an HTTP/SSE connection ends unexpectedly, inference continues in the Worker.
+The Runtime reconnects through `/api/agent-runs/{id}/recover` with bounded backoff.
+Flask replays the current model execution with stable SSE IDs; the shared Runtime
+suppresses already-delivered frames while retaining complete tool batches. It no
+longer sends partial assistant text back to a new model request. Tool-result
+submissions are keyed by their call-ID batch so a lost HTTP acknowledgement does
+not create a second model execution.
+
+Explicit cancellation fences queued and active executions in PostgreSQL. Workers
+check cancellation while reading provider chunks and before committing final output;
+a blocked upstream read may remain until its provider timeout, but cannot overwrite
+the cancelled state. Beat republishes queued jobs and marks expired execution leases
+as `model_worker_lost` rather than silently repeating an ambiguous model request.
+API, Worker and Beat are all required for chat. Completed stream histories follow
+the same 90-day, summarized-and-unreferenced retention policy as AgentEvents.
 
 Switching React pages or closing a window does **not** cancel a Turn. The
 Runtime keeps running in Electron main; when the user re-enters the Thread,
