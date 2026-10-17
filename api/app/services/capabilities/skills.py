@@ -1,7 +1,9 @@
 import base64
 import binascii
 import hashlib
+from io import BytesIO
 from uuid import UUID, uuid4
+from zipfile import is_zipfile
 
 from ...extensions import db
 from ...models import SkillPackage
@@ -45,7 +47,7 @@ def save_skill(user_id: UUID, payload: dict) -> dict:
         not name
         or not content
         or len(content) > MAX_SKILL_ARCHIVE_BYTES
-        or not content.startswith(b"PK")
+        or not is_zipfile(BytesIO(content))
     ):
         raise ServiceError("invalid_skill_archive", 422)
     digest = hashlib.sha256(content).hexdigest()

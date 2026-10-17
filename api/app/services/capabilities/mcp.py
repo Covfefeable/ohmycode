@@ -1,5 +1,6 @@
 import json
 import re
+from urllib.parse import urlsplit
 from uuid import UUID
 
 from ...extensions import db
@@ -78,7 +79,7 @@ def runtime_mcp_servers(user_id: UUID) -> list[dict]:
 
 def save_mcp_server(user_id: UUID, payload: dict, server_id: UUID | None = None) -> dict:
     server = db.session.get(McpServer, server_id) if server_id else None
-    if server and server.user_id != user_id:
+    if server_id is not None and (server is None or server.user_id != user_id):
         raise ServiceError("not_found", 404)
     name = str(payload.get("name") or "").strip()[:100]
     identifier = str(payload.get("identifier") or "").strip().lower()[:64]
@@ -95,7 +96,12 @@ def save_mcp_server(user_id: UUID, payload: dict, server_id: UUID | None = None)
     previous = _decrypt(server) if server else {}
     if transport == "http":
         url = str(configuration.get("url") or "").strip()
-        if not url.startswith(("http://", "https://")):
+        try:
+            endpoint = urlsplit(url)
+            _ = endpoint.port  # Validate the port as well as the authority syntax.
+        except ValueError as error:
+            raise ServiceError("validation_error", 422) from error
+        if endpoint.scheme not in {"http", "https"} or not endpoint.hostname:
             raise ServiceError("validation_error", 422)
         headers = configuration.get("headers")
         normalized = {
