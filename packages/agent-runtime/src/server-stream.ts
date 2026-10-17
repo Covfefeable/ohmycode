@@ -26,21 +26,28 @@ export async function forwardServerStream(
     }
     const event = JSON.parse(data) as AgentStreamEvent;
     if (event.type === "tool.requested") toolRequests.push(event);
-    if (eventId) {
-      if (seenEvents.has(eventId)) return;
-      seenEvents.add(eventId);
-    }
+    if (eventId && seenEvents.has(eventId)) return;
     onEvent(event);
+    if (eventId) seenEvents.add(eventId);
   };
-  while (true) {
-    const { done, value } = await reader.read();
-    buffer += decoder.decode(value, { stream: !done });
-    const lines = buffer.split(/\r?\n/);
-    buffer = lines.pop() ?? "";
-    for (const line of lines) processLine(line);
-    if (done) break;
+  try {
+    while (!completed) {
+      const { done, value } = await reader.read();
+      buffer += decoder.decode(value, { stream: !done });
+      const lines = buffer.split(/\r?\n/);
+      buffer = lines.pop() ?? "";
+      for (const line of lines) {
+        processLine(line);
+        if (completed) break;
+      }
+      if (done) break;
+    }
+    if (!completed && buffer) processLine(buffer);
+    if (!completed) throw new Error("unexpected_stream_eof");
+    return toolRequests;
+  } finally {
+    // Cancellation is cleanup: preserve the original stream/consumer error if it also fails.
+    await reader.cancel().catch(() => undefined);
+    reader.releaseLock();
   }
-  if (buffer) processLine(buffer);
-  if (!completed) throw new Error("unexpected_stream_eof");
-  return toolRequests;
 }

@@ -48,6 +48,18 @@ uv run flask --app manage:app db check
 CI 从空库升级到最新版本，并检查 SQLAlchemy metadata 与迁移结果一致；不能只用
 `db.create_all()` 证明迁移正确。生产数据迁移不属于测试命令的职责。
 
+## 共享 Runtime 与本地工具
+
+```bash
+pnpm --dir desktop test:runtime
+pnpm --dir desktop test:file-tools
+```
+
+Runtime 使用 Node 内置 test runner，不引入另一套测试框架。测试覆盖 SSE 任意字节分包、
+中文解码、重放去重、完整工具批次、工具结果回执丢失，以及协议结束、异常时的连接释放。
+`[DONE]` 是协议终点，不能继续等待 HTTP 连接关闭，也不能再交付后续内容。
+已有 EventJournal、SQLite 恢复和文件工具 smoke 测试继续执行。
+
 ## CI 与测试约束
 
 - 每个 PR 和 main 推送运行后端回归、客户端检查、迁移及 Compose 配置校验。

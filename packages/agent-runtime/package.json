@@ -15,7 +15,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "pnpm build && node test/server-stream.smoke.mjs && node test/tool-loop.smoke.mjs && node test/tool-registry.smoke.mjs"
+    "test": "pnpm build && node --test test/*.mjs"
   },
   "dependencies": {
     "@ohmycode/protocol": "workspace:*",
