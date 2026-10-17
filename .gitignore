@@ -24,6 +24,8 @@ desktop/dist/
 desktop/dist-electron/
 desktop/release/
 coverage/
+.coverage
+.coverage.*
 api/eval-results/
 api/test-results/
 

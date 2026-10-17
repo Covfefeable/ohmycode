@@ -27,16 +27,16 @@ jobs:
         run: uv sync --frozen
       - name: Ruff
         working-directory: api
-        run: uv run ruff check app tests evals
+        run: uv run ruff check app tests evals integration
       - name: Pytest
         working-directory: api
-        run: uv run pytest --junitxml=test-results/pytest.xml
+        run: uv run pytest --junitxml=test-results/pytest.xml --cov=app --cov-report=xml:test-results/coverage.xml --cov-report=term
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: api-test-results
-          path: api/test-results/pytest.xml
+          path: api/test-results/
 
   clients:
     runs-on: ubuntu-latest
@@ -104,6 +104,20 @@ jobs:
       - name: Assert a single migration head
         working-directory: api
         run: test "$(uv run flask --app manage:app db heads | grep -c '(head)')" -eq 1
+      - name: Check migrations match persistence models
+        working-directory: api
+        run: uv run flask --app manage:app db check
+      - name: PostgreSQL concurrency and migration regression
+        working-directory: api
+        env:
+          TEST_DATABASE_URL: ${{ env.DATABASE_URL }}
+        run: uv run pytest integration --junitxml=test-results/postgres.xml
+      - name: Upload integration test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: postgres-test-results
+          path: api/test-results/postgres.xml
 
   compose:
     runs-on: ubuntu-latest

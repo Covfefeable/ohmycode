@@ -2,11 +2,14 @@ import json
 import uuid
 
 import httpx
+import pytest
 from openai import APIStatusError
 
 from app import create_app
 from app.extensions import db
 from app.models import AgentRun, Project, User
+
+pytestmark = pytest.mark.usefixtures("model_worker_dispatch")
 
 DESKTOP_TOOLS = [
     {
