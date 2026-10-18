@@ -115,7 +115,10 @@ export function useConversationController({ conversationId, onUpdated, scrollToB
       for (const event of events) {
         if (event.type === "turn.failed") toast({ type: "error", message: requestErrorMessage(event.errorCode) });
         if (event.type !== "turn.completed" && event.type !== "turn.failed" && event.type !== "turn.interrupted") continue;
-        if (activeTurnIdRef.current === event.turnId) activeTurnIdRef.current = null;
+        if (activeTurnIdRef.current === event.turnId) {
+          activeTurnIdRef.current = null;
+          setSending(false);
+        }
         void window.ohmycode.conversations.waitTurn(event.turnId)
           .then((value) => value ?? window.ohmycode.conversations.history(conversationId, { turnId: event.turnId }))
           .catch(() => window.ohmycode.conversations.history(conversationId, { turnId: event.turnId }))
@@ -175,10 +178,8 @@ export function useConversationController({ conversationId, onUpdated, scrollToB
         ? loadedConversation.contextUsage.usedTokens / loadedConversation.contextUsage.contextLength
         : 0);
       setSuggestions([]);
-      if (snapshot?.status === "in_progress") {
-        activeTurnIdRef.current = snapshot.turnId;
-        setSending(true);
-      }
+      activeTurnIdRef.current = snapshot?.status === "in_progress" ? snapshot.turnId : null;
+      setSending(activeTurnIdRef.current !== null);
       const replay = snapshot?.status === "in_progress" ? snapshot.events : [];
       for (const event of [...replay, ...pending].sort((left, right) => left.sequence - right.sequence)) enqueueRuntimeEvent(event);
       snapshotLoaded = true;
@@ -204,8 +205,10 @@ export function useConversationController({ conversationId, onUpdated, scrollToB
 
   async function send(content: string, attachments: MessageAttachment[] = [], editMessageId?: string): Promise<boolean> {
     if (!conversation) return false;
+    const generation = historyGenerationRef.current;
     try {
       const result = await window.ohmycode.conversations.startTurn(conversationId, content, selectedModelId, editMessageId, attachments);
+      if (generation !== historyGenerationRef.current) return true;
       if ("queued" in result) return true;
       const { turnId } = result;
       const observed = observedTurnsRef.current.get(turnId);
@@ -229,8 +232,9 @@ export function useConversationController({ conversationId, onUpdated, scrollToB
       onUpdatedRef.current();
       return true;
     } catch (error) {
+      if (generation !== historyGenerationRef.current) return false;
       toast({ type: "error", message: requestErrorMessage(error) });
-      setSending(false);
+      setSending(activeTurnIdRef.current !== null);
       return false;
     }
   }
@@ -244,12 +248,20 @@ export function useConversationController({ conversationId, onUpdated, scrollToB
       content: [partialMessage.content, t("agent.stoppedByUser")].filter(Boolean).join("\n\n"),
       activity: partialMessage.activity?.map((step) => ({ ...step, status: "completed" as const })),
     } : undefined;
-    setSending(false);
+    try {
+      await window.ohmycode.conversations.interruptTurn(turnId, stoppedMessage);
+    } catch {
+      toast({ type: "error", message: t("agent.stopFailed") });
+      return;
+    }
+    if (activeTurnIdRef.current === turnId) {
+      activeTurnIdRef.current = null;
+      setSending(false);
+    }
     setConversation((current) => current ? {
       ...current,
       messages: (current.messages ?? []).map((message) => message.id === `stream-${turnId}` && stoppedMessage ? stoppedMessage : message),
     } : current);
-    await window.ohmycode.conversations.interruptTurn(turnId, stoppedMessage);
   }
 
   async function loadOlder(): Promise<void> {

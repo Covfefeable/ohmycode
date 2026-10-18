@@ -127,6 +127,7 @@ export const en = {
     commandFailed: "Command failed",
     stop: "Stop",
     stoppedByUser: "You stopped this task",
+    stopFailed: "Unable to stop the task. Please try again.",
     loadFailed: "The conversation could not be loaded.",
     sendFailed: "The message could not be sent. Try again later.", authenticationFailed: "Model provider authentication failed. Check the API key.", permissionDenied: "The model provider denied access. Check the account permissions.", rateLimited: "The model provider rate limit was reached. Try again later.", providerFailed: "The model provider returned an error. Check the model configuration.",
     copy: "Copy",
