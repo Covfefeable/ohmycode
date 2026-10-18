@@ -107,6 +107,27 @@ Runtime keeps running in Electron main; when the user re-enters the Thread,
 the Renderer re-subscribes, reads the current snapshot, and replays events by
 `sequence` so nothing is lost.
 
+## Queued follow-ups and steering
+
+Ordinary Desktop chats keep a per-thread queue in the Electron Runtime, persisted
+in SQLite and scoped by API URL and account. Sending during a Turn queues the
+message above the composer. Successful completion dispatches one queued message
+as a new Turn; interruption or failure pauses the queue. Withdrawal restores the
+message and attachments to the draft without overwriting existing draft text.
+
+Steering moves an individual queued input into the active Turn. Flask records
+`input.queued` under the Run lock. The Worker receives inputs before preparing its
+next model request, persists user Messages and `input.received`, and includes them
+after complete tool-result batches in context. If guidance arrives at the final
+answer boundary, `run.continue` keeps the same Turn alive for another model request.
+The Runtime follows that boundary through the idempotent continuation endpoint.
+Existing tools are not interrupted or rolled back. Queue dispatch, steering and
+withdrawal are mutually exclusive for each input.
+
+Restored queues remain paused. Uncertain deliveries are checked against the API
+before resending; a network failure does not imply that the input was rejected.
+Multi-Agent queue UI and Mobile queue UI are not part of this feature.
+
 ## Thread / Turn / Item event model
 
 The system uses one event model for ordinary chat and Multi-Agent execution.
@@ -403,6 +424,9 @@ Core tables:
   Each Run also persists the latest Runtime-supplied tool snapshot for auditing
   and recovery consistency.
 - `agent_events`: events inside a run, ordered by `(run_id, sequence)`.
+- `model_executions`: queued/background model requests, idempotency keys, status,
+  and execution leases.
+- `model_stream_events`: ordered, replayable SSE frames for each model execution.
 - `agent_run_summaries`: asynchronous summaries for older, event-heavy Turns.
 - `background_task_settings`: per-user switches, model selections, and the
   ContextCheckpoint threshold for summaries, compaction, and suggestions.
@@ -440,13 +464,16 @@ are tracked in [`issues.md`](issues.md):
 1. **Diff review and approval**: `apply_patch` currently writes immediately
    after inspection. High-risk changes need a pending-patch model, review UI,
    and explicit approve/reject actions before mutation.
-2. **Durable execution coordination**: a live Electron host can recover bounded
-   transport failures, but long-running model execution still depends on the
-   Flask request/process lifecycle. A persistent queue or execution service
-   should own leases, retries, cancellation, and idempotent resume.
+2. **Stop/recovery verification (deferred)**: model execution already runs in
+   Celery with persistent execution records, leases, cancellation, idempotent
+   resume, and SSE replay. Further cancellation/recovery edge-case audits and
+   cross-process fault tests are deferred, not missing architectural layers.
 3. **Release security**: production HTTPS, desktop code signing/notarization,
    secret rotation, dependency scanning, and backup/restore procedures need a
    documented release gate.
 4. **Cross-host end-to-end coverage**: add automated Desktop/API and Mobile/API
    flows for streaming, tool resume, interruption/recovery, capability loading,
-   and migrations. Current coverage is strongest at unit and smoke-test level.
+   and migrations. Unit, renderer interaction, Runtime, PostgreSQL concurrency,
+   and migration regression tests are implemented; real cross-process and
+   client lifecycle end-to-end coverage is still incomplete. See
+   [`testing.md`](testing.md) for the current test layers.
