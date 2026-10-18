@@ -1,0 +1,6 @@
+:global(body) { margin: 0; }
+.shell { height: 100vh; display: grid; grid-template-rows: 44px minmax(0, 1fr); color: var(--color-text); background: var(--color-surface-1); }
+.header { padding: 12px 24px; }
+.main { min-height: 0; position: relative; }
+.dock { position: absolute; bottom: 24px; left: 24px; right: 24px; background: var(--color-surface-control); border-radius: var(--radius-lg); }
+.message { line-height: 24px; padding: 12px; }

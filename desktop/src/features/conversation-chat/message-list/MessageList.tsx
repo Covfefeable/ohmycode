@@ -65,7 +65,6 @@ export function MessageList({ messages, prependedCount, clearance, loading, fail
       if (scroller.scrollTop > lastScrollTop.current && distance <= 36) followRef.current = true;
       lastScrollTop.current = scroller.scrollTop;
     }}
-    followOutput={() => followRef.current ? "auto" : false}
     totalListHeightChanged={stickToBottom}
     startReached={() => { if (!loading && !failed) void loadOlder(); }}
     components={components}

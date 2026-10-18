@@ -80,6 +80,8 @@ pnpm --dir desktop dev
 pnpm --dir desktop test:runtime
 pnpm --dir desktop test:file-tools
 pnpm --dir desktop test:ui
+pnpm --dir desktop exec playwright install chromium
+pnpm --dir desktop test:browser
 pnpm --dir desktop typecheck
 pnpm --dir desktop lint
 pnpm --dir desktop build
