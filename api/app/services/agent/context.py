@@ -30,6 +30,7 @@ from .context_history import (
     _protected_run_ids,
     mailbox_blocks,
 )
+from .image_context import text_only_images
 from .prompts import COMPACTION_INSTRUCTIONS
 from .runs import append_event
 from .tokens import estimate_tokens, request_tokens
@@ -242,7 +243,9 @@ def _compact_blocks(
     input_ratio: float,
 ) -> str:
     content = json.dumps(
-        [{"cursor": block.cursor, "messages": block.messages} for block in blocks],
+        text_only_images(
+            [{"cursor": block.cursor, "messages": block.messages} for block in blocks]
+        ),
         ensure_ascii=False,
         default=str,
     )

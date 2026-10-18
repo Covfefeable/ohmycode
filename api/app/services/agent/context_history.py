@@ -5,6 +5,7 @@ from uuid import UUID
 from ...extensions import db
 from ...models import AgentRun, ContextCheckpoint, Message, MultiAgentMessage, MultiAgentNode
 from .config import RECENT_FULL_TURNS
+from .image_context import text_only_images
 
 
 @dataclass(frozen=True)
@@ -42,7 +43,7 @@ def _run_context_message(run: AgentRun, protected: bool, after_sequence: int = 0
         {
             "sequence": event.sequence,
             "type": event.event_type,
-            "payload": event.payload,
+            "payload": text_only_images(event.payload),
         }
         for event in run.events
         if event.sequence > after_sequence

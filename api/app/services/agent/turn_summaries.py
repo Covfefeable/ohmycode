@@ -13,6 +13,7 @@ from ..settings.background_tasks import (
 )
 from .config import RECENT_FULL_TURNS
 from .context import _summary_request
+from .image_context import text_only_images
 from .prompts import TURN_SUMMARY_INSTRUCTIONS
 
 TURN_SUMMARY_SOURCE_BYTES = 32 * 1024
@@ -131,7 +132,8 @@ def summarize_agent_run(run_id: UUID) -> bool:
     summary.status = "running"
     db.session.commit()
     try:
-        result = _summary_request(model, rendered, TURN_SUMMARY_INSTRUCTIONS)
+        summary_source = json.dumps(text_only_images(json.loads(rendered)), ensure_ascii=False)
+        result = _summary_request(model, summary_source, TURN_SUMMARY_INSTRUCTIONS)
     except Exception as error:
         db.session.rollback()
         summary = db.session.get(AgentRunSummary, summary.id)

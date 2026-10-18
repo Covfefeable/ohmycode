@@ -450,3 +450,50 @@ def test_summary_pages_fit_a_smaller_configured_summary_model(workspace, monkeyp
     events, _ = prepare(w)
     assert len(calls) > 1
     assert events[-1]["type"] == "context.compaction.completed"
+
+
+def test_large_image_results_remain_multimodal_without_base64_token_inflation(workspace):
+    w = workspace
+    w.model.context_length = 262144
+    add_batch(w.run, "image", "placeholder", calls=2)
+    output = next(event for event in w.run.events if event.event_type == "tool.output")
+    data_url = "data:image/png;base64," + "AAAA" * 250000
+    output.payload = {
+        "results": [
+            {
+                "callId": f"image-{index}",
+                "result": {
+                    "contentKind": "image",
+                    "dataUrl": data_url,
+                    "source": f"/photos/{index}.png",
+                    "width": 1024,
+                    "height": 1024,
+                },
+            }
+            for index in range(2)
+        ]
+    }
+    db.session.commit()
+    events, prepared = prepare(w)
+    assert events == []
+    assert prepared.estimated_input_tokens < 10000
+    assert (
+        sum(
+            part.get("type") == "image_url"
+            for message in prepared.payload["messages"]
+            if isinstance(message.get("content"), list)
+            for part in message["content"]
+        )
+        == 2
+    )
+    assert data_url in json.dumps(prepared.payload)
+
+    for index in range(5):
+        add_batch(w.run, f"later-{index}", "evidence " * 2000)
+    w.model.context_length = 4096
+    db.session.commit()
+    prepare(w)
+    assert w.summaries
+    assert all("data:image/" not in content for content, _ in w.summaries)
+    assert any("/photos/0.png" in content for content, _ in w.summaries)
+    assert output.payload["results"][0]["result"]["dataUrl"] == data_url
