@@ -8,6 +8,7 @@ type Anchor = { centerX: number; top: number; bottom: number };
 export function Tooltip({ children, content, className = "" }: TooltipProps) {
   const id = useId();
   const tooltipRef = useRef<HTMLSpanElement>(null);
+  const triggerRef = useRef<HTMLSpanElement>(null);
   const [anchor, setAnchor] = useState<Anchor | null>(null);
   const [position, setPosition] = useState<{ left: number; top: number } | null>(null);
 
@@ -37,17 +38,22 @@ export function Tooltip({ children, content, className = "" }: TooltipProps) {
   useEffect(() => {
     if (!anchor) return;
     const close = () => { setAnchor(null); setPosition(null); };
+    const onScroll = (event: Event) => {
+      const target = event.target;
+      if (target === event.currentTarget || target === triggerRef.current?.ownerDocument || target instanceof Element && target.contains(triggerRef.current)) close();
+    };
     window.addEventListener("resize", close);
-    window.addEventListener("scroll", close, true);
+    window.addEventListener("scroll", onScroll, true);
     return () => {
       window.removeEventListener("resize", close);
-      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("scroll", onScroll, true);
     };
   }, [anchor]);
 
   const hide = () => { setAnchor(null); setPosition(null); };
 
   return <span
+    ref={triggerRef}
     className={`${styles.trigger} ${className}`}
     aria-describedby={anchor ? id : undefined}
     onMouseEnter={(event) => show(event.currentTarget)}

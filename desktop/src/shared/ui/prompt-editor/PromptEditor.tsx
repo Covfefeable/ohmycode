@@ -28,7 +28,12 @@ import styles from "./PromptEditor.module.css";
 
 function ValuePlugin({ value, options, mentions }: Pick<PromptEditorProps, "value" | "options" | "mentions">) {
   const [editor] = useLexicalComposerContext();
+  const previousValue = useRef(value);
   useEffect(() => {
+    // Metadata and parent streaming renders must not rebuild a locally edited document.
+    if (previousValue.current === value) return;
+    previousValue.current = value;
+    if (editor.isComposing()) return;
     const current = editor.getEditorState().read($getPromptValue);
     if (current === value) return;
     editor.update(() => $setPromptValue(value, options ?? [], mentions ?? []), { tag: "external-value" });
@@ -47,7 +52,7 @@ function SubmitPlugin({ enabled, onSubmit }: { enabled: boolean; onSubmit?: () =
   useEffect(() => {
     if (!enabled || !onSubmit) return;
     return editor.registerCommand(KEY_ENTER_COMMAND, (event) => {
-      if (!event || event.shiftKey || event.isComposing) return false;
+      if (!event || event.shiftKey || event.isComposing || editor.isComposing() || event.keyCode === 229) return false;
       event.preventDefault();
       onSubmit();
       return true;
@@ -178,7 +183,7 @@ export function PromptEditor({ value, onChange, placeholder, ariaLabel, options 
       />
       <HistoryPlugin />
       <OnChangePlugin ignoreSelectionChange onChange={(state, editor, tags) => {
-        if (tags.has("external-value")) return;
+        if (tags.has("external-value") || editor.isComposing()) return;
         state.read(() => onChange($getPromptValue()));
       }} />
       <SlashCapabilityPlugin options={options} />

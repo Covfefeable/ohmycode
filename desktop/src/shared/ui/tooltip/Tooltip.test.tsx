@@ -14,3 +14,13 @@ test("左边缘的 tooltip 保持视口内，滚动后关闭", () => {
   fireEvent.scroll(window);
   expect(screen.queryByRole("tooltip")).toBeNull();
 });
+
+test("聊天内容自动滚动不关闭输入框按钮的 tooltip，所在容器滚动才关闭", () => {
+  render(<><div data-testid="messages" /><div data-testid="queue"><Tooltip content="Steer"><button>Guide</button></Tooltip></div></>);
+  fireEvent.mouseEnter(screen.getByRole("button", { name: "Guide" }));
+  expect(screen.getByRole("tooltip").textContent).toBe("Steer");
+  fireEvent.scroll(screen.getByTestId("messages"));
+  expect(screen.getByRole("tooltip").textContent).toBe("Steer");
+  fireEvent.scroll(screen.getByTestId("queue"));
+  expect(screen.queryByRole("tooltip")).toBeNull();
+});
