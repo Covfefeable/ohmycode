@@ -14,8 +14,11 @@ import {
   restoreDesktopTurnExecution,
   type DesktopTurnExecution,
 } from "./desktop-execution-adapter.js";
+import { initializeFollowups, finishFollowups, followupReceived } from "./followup-host.js";
 
 type StartTurnInput = {
+  turnId?: string;
+  followupId?: string;
   threadId: string;
   content: string;
   modelId?: string;
@@ -28,6 +31,8 @@ let journal: EventJournal | null = null;
 let runtimeStore: SqliteEventStore | null = null;
 const completion = new Map<string, Promise<LocalConversation>>();
 const executions = new Map<string, DesktopTurnExecution>();
+const activeThreads = new Map<string, string>();
+export const activeThreadTurn = (threadId: string): string | undefined => activeThreads.get(threadId);
 const itemState = new Map<string, RuntimeItem>();
 const listeners = new Map<string, Set<(event: RuntimeEvent) => void>>();
 const interrupting = new Set<string>();
@@ -60,6 +65,10 @@ export function initializeAgentRuntime(): void {
     path.join(app.getPath("userData"), "runtime-events.sqlite"),
   );
   journal = new EventJournal(runtimeStore);
+  initializeFollowups(runtimeStore, {
+    active: activeThreadTurn,
+    start: (threadId, input) => { startTurn({ threadId, turnId: input.turnId, content: input.content, modelId: input.modelId, attachments: input.attachments, followupId: input.id }); },
+  });
   const persistedExecutions = new Map(
     runtimeStore.loadExecutions().map((state) => [state.turnId, state]),
   );
@@ -89,6 +98,19 @@ export function closeAgentRuntime(): void {
 function translate(threadId: string, turnId: string, event: ConversationStreamEvent): void {
   if (interrupting.has(turnId)) return;
   if (event.type === "run.started") return;
+  if (event.type === "run.continue" || event.type === "input.received") {
+    for (const item of itemState.values()) {
+      if (item.turnId === turnId && item.status === "in_progress" && item.kind !== "tool") {
+        item.status = "completed";
+        append(turnId, { type: "item.completed", threadId, turnId, item: { ...item } });
+      }
+    }
+    if (event.type === "input.received") {
+      publishUserMessage(threadId, turnId, event.messageId, event.content, event.attachments);
+      void followupReceived(threadId, event.inputId).catch(console.error);
+    }
+    return;
+  }
   if (event.type === "context.usage") {
     append(turnId, { type: "context.updated", threadId, turnId, usedTokens: event.usedTokens, contextLength: event.contextLength, source: event.source });
     return;
@@ -161,12 +183,18 @@ function translate(threadId: string, turnId: string, event: ConversationStreamEv
   if (event.type === "run.failed") append(turnId, { type: "turn.failed", threadId, turnId, errorCode: event.errorCode });
 }
 
+function publishUserMessage(threadId: string, turnId: string, id: string, content: string, attachments: MessageAttachment[] = [], initial = false): void {
+  append(turnId, { type: "item.completed", threadId, turnId, item: { id, threadId, turnId, kind: "user_message", status: "completed", content, input: { attachments, initial } } });
+}
+
 export function startTurn(input: StartTurnInput): { turnId: string } {
-  const turnId = crypto.randomUUID();
+  if (activeThreads.has(input.threadId)) throw new Error("turn_already_running");
+  const turnId = input.turnId ?? crypto.randomUUID();
   requireJournal().create(input.threadId, turnId);
   if (!runtimeStore) throw new Error("runtime_not_initialized");
   const execution = createDesktopTurnExecution(turnId, runtimeStore);
   executions.set(turnId, execution);
+  activeThreads.set(input.threadId, turnId);
   append(turnId, { type: "turn.started", threadId: input.threadId, turnId });
   const running = streamMessage(
     input.threadId,
@@ -174,7 +202,13 @@ export function startTurn(input: StartTurnInput): { turnId: string } {
     input.modelId,
     input.editMessageId,
     input.attachments,
-    (event) => translate(input.threadId, turnId, event),
+    (event) => {
+      if (event.type === "run.started") {
+        if (!input.editMessageId) publishUserMessage(input.threadId, turnId, event.messageId ?? `user-${turnId}`, input.content, input.attachments, true);
+        if (input.followupId) void followupReceived(input.threadId, input.followupId).catch(console.error);
+      }
+      translate(input.threadId, turnId, event);
+    },
     execution,
     input.executionContext,
     turnId,
@@ -195,11 +229,14 @@ export function startTurn(input: StartTurnInput): { turnId: string } {
     if (snapshot?.status === "in_progress" && !interrupting.has(turnId)) append(turnId, { type: "turn.failed", threadId: input.threadId, turnId, errorCode: error instanceof Error ? error.message : "runtime_failed" });
     throw error;
   }).finally(() => {
+    const completed = requireJournal().snapshot(turnId)?.status === "completed";
     completion.delete(turnId);
     executions.delete(turnId);
     execution.complete();
     for (const key of itemState.keys()) if (key.startsWith(`${turnId}:`)) itemState.delete(key);
     activeTaskByTurn.delete(turnId);
+    activeThreads.delete(input.threadId);
+    if (!input.executionContext) void finishFollowups(input.threadId, completed).catch(console.error);
   });
   completion.set(turnId, running);
   void running.catch(() => undefined);

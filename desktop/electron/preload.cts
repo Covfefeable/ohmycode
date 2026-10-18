@@ -34,6 +34,16 @@ const bridge: DesktopBridge = {
     get: (conversationId) => ipcRenderer.invoke("conversations:get", conversationId),
     branch: (conversationId, messageId) => ipcRenderer.invoke("conversations:branch", conversationId, messageId),
     startTurn: (conversationId, content, modelId, editMessageId, attachments) => ipcRenderer.invoke("conversations:start-turn", conversationId, content, modelId, editMessageId, attachments),
+    followups: (id) => ipcRenderer.invoke("conversations:followups", id),
+    steer: (id, inputId) => ipcRenderer.invoke("conversations:steer", id, inputId),
+    withdraw: (id, inputId) => ipcRenderer.invoke("conversations:withdraw", id, inputId),
+    resumeQueue: (id) => ipcRenderer.invoke("conversations:resume-queue", id),
+    onFollowups: (id, callback) => {
+      const channel = `thread:followups:${id}`;
+      const listener = (_event: Electron.IpcRendererEvent, state: import("@ohmycode/protocol").FollowupState) => callback(state);
+      ipcRenderer.on(channel, listener);
+      return () => { ipcRenderer.removeListener(channel, listener); };
+    },
     resolveDroppedFiles: (files) => files.map((file) => ({
       id: globalThis.crypto.randomUUID(),
       name: file.name,

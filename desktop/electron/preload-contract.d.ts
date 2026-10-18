@@ -26,7 +26,12 @@ interface DesktopBridge {
     conversations: {
       get(conversationId: string): Promise<LocalConversation>;
       branch(conversationId: string, messageId: string): Promise<LocalConversation>;
-      startTurn(conversationId: string, content: string, modelId?: string, editMessageId?: string, attachments?: MessageAttachment[]): Promise<{ turnId: string }>;
+      startTurn(conversationId: string, content: string, modelId?: string, editMessageId?: string, attachments?: MessageAttachment[]): Promise<{ turnId: string } | { queued: true }>;
+      followups(conversationId: string): Promise<import("@ohmycode/protocol").FollowupState>;
+      steer(conversationId: string, inputId: string): Promise<void>;
+      withdraw(conversationId: string, inputId: string): Promise<import("@ohmycode/protocol").FollowupInput>;
+      resumeQueue(conversationId: string): Promise<void>;
+      onFollowups(conversationId: string, callback: (state: import("@ohmycode/protocol").FollowupState) => void): () => void;
       resolveDroppedFiles(files: File[]): MessageAttachment[];
       threadSnapshot(conversationId: string, afterSequence?: number): Promise<TurnSnapshot | null>;
       waitTurn(turnId: string): Promise<LocalConversation | null>;

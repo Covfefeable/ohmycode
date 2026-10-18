@@ -11,7 +11,8 @@ import {
   searchConversations,
   suggestFollowups,
 } from "../projects/projects-service.js";
-import { getThreadSnapshot, interruptTurn, startTurn, waitForTurn } from "../runtime/desktop-runtime-host.js";
+import { activeThreadTurn, getThreadSnapshot, interruptTurn, startTurn, waitForTurn } from "../runtime/desktop-runtime-host.js";
+import { enqueueFollowup, followupSnapshot, resumeFollowups, steerFollowup, withdrawFollowup } from "../runtime/followup-host.js";
 import type { MessageAttachment } from "../projects/types.js";
 
 export function registerProjectsIpc(): void {
@@ -25,8 +26,18 @@ export function registerProjectsIpc(): void {
   ipcMain.handle("conversations:get", (_event, conversationId: string) => getConversation(conversationId));
   ipcMain.handle("conversations:branch", (_event, conversationId: string, messageId: string) => branchConversation(conversationId, messageId));
   ipcMain.handle("conversations:suggest", (_event, conversationId: string) => suggestFollowups(conversationId));
-  ipcMain.handle("conversations:start-turn", (_event, conversationId: string, content: string, modelId?: string, editMessageId?: string, attachments?: MessageAttachment[]) =>
-    startTurn({ threadId: conversationId, content, modelId, editMessageId, attachments }));
+  ipcMain.handle("conversations:start-turn", async (_event, conversationId: string, content: string, modelId?: string, editMessageId?: string, attachments: MessageAttachment[] = []) => {
+    const state = await followupSnapshot(conversationId);
+    if (!editMessageId && (activeThreadTurn(conversationId) || state.inputs.length)) {
+      await enqueueFollowup(conversationId, { id: crypto.randomUUID(), content, modelId, attachments, status: "queued" });
+      return { queued: true };
+    }
+    return startTurn({ threadId: conversationId, content, modelId, editMessageId, attachments });
+  });
+  ipcMain.handle("conversations:followups", (_event, id: string) => followupSnapshot(id));
+  ipcMain.handle("conversations:steer", (_event, id: string, inputId: string) => steerFollowup(id, inputId));
+  ipcMain.handle("conversations:withdraw", (_event, id: string, inputId: string) => withdrawFollowup(id, inputId));
+  ipcMain.handle("conversations:resume-queue", (_event, id: string) => resumeFollowups(id));
   ipcMain.handle("conversations:thread-snapshot", (_event, conversationId: string, afterSequence?: number) =>
     getThreadSnapshot(conversationId, afterSequence));
   ipcMain.handle("conversations:wait-turn", async (_event, turnId: string) => {

@@ -45,6 +45,7 @@ export async function streamMessage(
   const model = modelId
     ? settings.models.find((item) => item.id === modelId)
     : settings.models[0];
+  const attachmentPaths = new Set((attachments ?? []).map((item) => item.path));
   const registry = new DesktopToolRegistry({
     execution,
     executionContext,
@@ -53,7 +54,7 @@ export async function streamMessage(
     supportsVision: Boolean(model?.supportsVision),
     initialDynamicDefinitions: threadDynamicTools.get(conversationId),
     onDynamicDefinitionsChanged: (definitions) => threadDynamicTools.set(conversationId, definitions),
-    attachmentPaths: new Set((attachments ?? []).map((item) => item.path)),
+    attachmentPaths,
     onEvent,
   });
   try {
@@ -77,6 +78,7 @@ export async function streamMessage(
       toolSnapshot: () => registry.definitions(),
       execution,
       onEvent: (event) => {
+        if (event.type === "input.received") for (const item of event.attachments) attachmentPaths.add(item.path);
         if (event.type === "run.started") execution.setRemoteRunId(event.runId);
         onEvent(event);
       },

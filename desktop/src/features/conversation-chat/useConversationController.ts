@@ -70,6 +70,18 @@ export function useConversationController({ conversationId, onUpdated, scrollToB
         if (!current) return current;
         const messages = [...(current.messages ?? [])];
         for (const event of events) {
+          if (event.type === "item.completed" && event.item.kind === "user_message") {
+            const item = event.item;
+            const input = item.input as { attachments: MessageAttachment[]; initial?: boolean };
+            const existing = messages.findIndex((message) => message.id === item.id || input.initial && message.id === `user-${event.turnId}`);
+            const userMessage: LocalMessage = { id: item.id, role: "user", content: item.content ?? "", attachments: input.attachments, createdAt: new Date().toISOString() };
+            if (existing >= 0) messages[existing] = userMessage;
+            else {
+              const streamIndex = messages.findIndex((message) => message.id === `stream-${event.turnId}`);
+              messages.splice(streamIndex < 0 ? messages.length : streamIndex, 0, userMessage);
+            }
+            continue;
+          }
           const streamId = `stream-${event.turnId}`;
           let index = messages.findIndex((message) => message.id === streamId);
           if (index < 0 && (event.type === "turn.started" || event.type.startsWith("item."))) {
@@ -92,13 +104,22 @@ export function useConversationController({ conversationId, onUpdated, scrollToB
           .catch(() => window.ohmycode.conversations.get(conversationId))
           .then((value) => {
             if (disposed) return;
+            // A queued Turn can already be streaming when the previous snapshot returns.
+            if (activeTurnIdRef.current && activeTurnIdRef.current !== event.turnId) {
+              const activeId = activeTurnIdRef.current;
+              setConversation((current) => ({ ...value, messages: [
+                ...(value.messages ?? []),
+                ...(current?.messages ?? []).filter((message) => message.id !== `stream-${event.turnId}` && !(value.messages ?? []).some((saved) => saved.id === message.id)),
+              ].filter((message) => !message.id.startsWith("stream-") || message.id === `stream-${activeId}`) }));
+              return;
+            }
             setConversation(value);
             setContextUsage(value.contextUsage && value.contextUsage.contextLength > 0
               ? value.contextUsage.usedTokens / value.contextUsage.contextLength
               : 0);
             setSending(false);
           })
-          .catch(() => { if (!disposed) setSending(false); });
+          .catch(() => { if (!disposed && !activeTurnIdRef.current) setSending(false); });
         onUpdatedRef.current();
         if (event.type === "turn.completed") {
           const requestVersion = ++suggestionRequestRef.current;
@@ -169,7 +190,9 @@ export function useConversationController({ conversationId, onUpdated, scrollToB
   async function send(content: string, attachments: MessageAttachment[] = [], editMessageId?: string): Promise<boolean> {
     if (!conversation) return false;
     try {
-      const { turnId } = await window.ohmycode.conversations.startTurn(conversationId, content, selectedModelId, editMessageId, attachments);
+      const result = await window.ohmycode.conversations.startTurn(conversationId, content, selectedModelId, editMessageId, attachments);
+      if ("queued" in result) return true;
+      const { turnId } = result;
       activeTurnIdRef.current = turnId;
       const now = new Date().toISOString();
       setConversation((current) => {

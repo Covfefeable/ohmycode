@@ -55,6 +55,15 @@ export const en = {
     clearSearch: "Clear search",
   },
   agent: {
+    queuedMessages: "Queued messages",
+    queuePaused: "Queue paused",
+    resumeQueue: "Continue sending",
+    queuedAttachments: "{{count}} attachment(s)",
+    steer: "Steer current task",
+    withdraw: "Withdraw to draft",
+    steerWaiting: "Waiting to be received",
+    queueSending: "Sending",
+    queueActionFailed: "Could not update the queued message. Please try again.",
     eyebrow: "LOCAL CODE AGENT",
     heading: "What do you want to build?",
     description:

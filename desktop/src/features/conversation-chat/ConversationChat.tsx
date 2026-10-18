@@ -12,6 +12,10 @@ import { PromptEditor, usePromptCapabilities } from "../../shared/ui/prompt-edit
 import { ActivityTimeline } from "./activity-timeline/ActivityTimeline";
 import { withoutFinalResponse } from "./activity-timeline/updateActivity";
 import { useConversationController } from "./useConversationController";
+import type { FollowupInput } from "@ohmycode/protocol";
+import { useFollowupQueue } from "./useFollowupQueue";
+import { FollowupStrip } from "./followup-strip/FollowupStrip";
+import { classifyRequestError } from "../../shared/lib/request-error";
 import styles from "./ConversationChat.module.css";
 
 type ConversationChatProps = { conversationId: string; active: boolean; onUpdated(): void; onBranched(conversation: LocalConversation): void };
@@ -25,6 +29,8 @@ export function ConversationChat({ conversationId, active, onUpdated, onBranched
   const [branchingId, setBranchingId] = useState<string | null>(null);
   const [attachments, setAttachments] = useState<MessageAttachment[]>([]);
   const [dragActive, setDragActive] = useState(false);
+  const [restoredInput, setRestoredInput] = useState<FollowupInput>();
+  const followups = useFollowupQueue(conversationId);
   const dragDepthRef = useRef(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const composerDockRef = useRef<HTMLDivElement>(null);
@@ -124,9 +130,23 @@ export function ConversationChat({ conversationId, active, onUpdated, onBranched
 
   async function send(content: string, nextAttachments: MessageAttachment[] = [], editMessageId?: string) {
     const sent = await controller.send(content, nextAttachments, editMessageId);
-    if (!sent) return;
+    if (!sent) return false;
     if (editMessageId) setEditing(null);
     else setAttachments([]);
+    return true;
+  }
+
+  async function queueAction(action: () => Promise<unknown>) {
+    try { await action(); }
+    catch (error) { toast({ type: "error", message: t(classifyRequestError(error) === "network_error" ? "common.networkError" : "agent.queueActionFailed") }); }
+  }
+
+  async function withdraw(inputId: string) {
+    await queueAction(async () => {
+      const input = await window.ohmycode.conversations.withdraw(conversationId, inputId);
+      setRestoredInput(input);
+      setAttachments((current) => [...current, ...input.attachments.filter((item) => !current.some((existing) => existing.path === item.path))]);
+    });
   }
 
   function addFiles(files: File[]) {
@@ -191,6 +211,9 @@ export function ConversationChat({ conversationId, active, onUpdated, onBranched
       {!conversation.messages?.length && <p className={styles.empty}>{t("agent.emptyConversation")}</p>}
       </div>
     </div></div>
-    <div ref={composerDockRef} className={styles.composerDock}><TaskComposer busy={sending} disabled={Boolean(editing)} models={controller.models} selectedModelId={controller.selectedModelId} contextUsage={controller.contextUsage} attachments={attachments} suggestions={controller.suggestions} onRemoveAttachment={(id) => setAttachments((items) => items.filter((item) => item.id !== id))} onModelChange={controller.setSelectedModelId} onSubmit={(content, items) => send(content, items)} onStop={controller.stop} /></div>
+    <div ref={composerDockRef} className={styles.composerDock}>
+      <FollowupStrip state={followups} running={sending} onSteer={(id) => void queueAction(() => window.ohmycode.conversations.steer(conversationId, id))} onWithdraw={(id) => void withdraw(id)} onResume={() => void queueAction(() => window.ohmycode.conversations.resumeQueue(conversationId))} />
+      <TaskComposer busy={sending} disabled={Boolean(editing)} models={controller.models} selectedModelId={controller.selectedModelId} contextUsage={controller.contextUsage} attachments={attachments} suggestions={controller.suggestions} restoredInput={restoredInput} onRemoveAttachment={(id) => setAttachments((items) => items.filter((item) => item.id !== id))} onModelChange={controller.setSelectedModelId} onSubmit={(content, items) => send(content, items)} onStop={controller.stop} />
+    </div>
   </section>;
 }

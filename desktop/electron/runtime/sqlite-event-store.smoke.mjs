@@ -21,10 +21,13 @@ try {
     resourceIds: ["terminal-1"],
     updatedAt: Date.now(),
   });
+  firstStore.saveFollowups("account-a", "thread-1", { inputs: [{ id: "queued-1", content: "Next", attachments: [], status: "queued" }], paused: true });
   first.close();
 
   const restoredStore = new SqliteEventStore(databasePath);
   const restored = new EventJournal(restoredStore);
+  assert.equal(restoredStore.loadFollowups("account-a", "thread-1").inputs[0].content, "Next");
+  assert.equal(restoredStore.loadFollowups("account-b", "thread-1"), null);
   assert.equal(restored.snapshotForThread("thread-1")?.status, "in_progress");
   assert.equal(restored.snapshot("turn-1")?.events.length, 1);
   assert.deepEqual(restoredStore.loadExecutions()[0]?.pendingToolCallIds, ["call-1"]);

@@ -1,6 +1,6 @@
 import { DatabaseSync } from "node:sqlite";
 import type { EventStore, ExecutionStore, RuntimeExecutionState } from "@ohmycode/agent-runtime";
-import type { RuntimeEvent, TurnSnapshot, TurnStatus } from "@ohmycode/protocol";
+import type { FollowupState, RuntimeEvent, TurnSnapshot, TurnStatus } from "@ohmycode/protocol";
 
 type TurnRow = {
   turn_id: string;
@@ -40,6 +40,12 @@ export class SqliteEventStore implements EventStore, ExecutionStore {
         turn_id TEXT PRIMARY KEY,
         state_json TEXT NOT NULL,
         updated_at INTEGER NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS runtime_followups (
+        scope TEXT NOT NULL,
+        thread_id TEXT NOT NULL,
+        state_json TEXT NOT NULL,
+        PRIMARY KEY (scope, thread_id)
       );
     `);
   }
@@ -134,5 +140,14 @@ export class SqliteEventStore implements EventStore, ExecutionStore {
 
   close(): void {
     this.database.close();
+  }
+
+  loadFollowups(scope: string, threadId: string): FollowupState | null {
+    const row = this.database.prepare("SELECT state_json FROM runtime_followups WHERE scope = ? AND thread_id = ?").get(scope, threadId) as { state_json: string } | undefined;
+    return row ? JSON.parse(row.state_json) as FollowupState : null;
+  }
+
+  saveFollowups(scope: string, threadId: string, state: FollowupState): void {
+    this.database.prepare("INSERT INTO runtime_followups (scope, thread_id, state_json) VALUES (?, ?, ?) ON CONFLICT(scope, thread_id) DO UPDATE SET state_json = excluded.state_json").run(scope, threadId, JSON.stringify(state));
   }
 }
