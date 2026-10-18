@@ -13,9 +13,11 @@ export type ToolRequestEvent = {
 };
 
 export type AgentStreamEvent =
+  | { type: "run.continue"; runId: string; executionId: string }
+  | { type: "input.received"; inputId: string; messageId: string; content: string; attachments: import("@ohmycode/protocol").FollowupInput["attachments"]; createdAt: string }
   | { type: "reasoning.delta" | "message.delta"; content: string }
   | { type: "reasoning.started"; stepId: string }
-  | { type: "run.started"; runId: string }
+  | { type: "run.started"; runId: string; messageId?: string }
   | { type: "run.failed"; errorCode: string }
   | { type: "message.started" }
   | { type: "context.usage"; usedTokens: number; contextLength: number; source: "estimated" | "provider" }
@@ -25,6 +27,7 @@ export type AgentStreamEvent =
   | { type: "tool.completed"; callId: string; result: unknown };
 
 export interface AgentTransport {
+  continue?(runId: string, executionId: string, workspaceInstructions: string, tools: ProviderToolDefinition[]): Promise<Response>;
   resume(runId: string, results: ToolResult[], workspaceInstructions: string, tools: ProviderToolDefinition[]): Promise<Response>;
   recover(
     runId: string,

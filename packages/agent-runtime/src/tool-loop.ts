@@ -63,14 +63,25 @@ export async function runToolLoop(options: ToolLoopOptions): Promise<void> {
   const seenEvents = new Set<string>();
   while (!options.execution.signal.aborted) {
     let requests;
+    let continuationId: string | undefined;
     try {
-      requests = await forwardServerStream(response, options.onEvent, seenEvents);
+      requests = await forwardServerStream(response, options.onEvent, seenEvents, (id) => { continuationId = id; });
     } catch (error) {
       response = await recover(options, error, pendingResults);
       pendingResults = [];
       continue;
     }
-    if (!requests.length || options.execution.signal.aborted) return;
+    if (options.execution.signal.aborted) return;
+    if (continuationId) {
+      if (!options.transport.continue) throw new Error("continuation_not_supported");
+      try {
+        response = await options.transport.continue(options.runId, continuationId, options.workspaceInstructions, options.toolSnapshot());
+      } catch (error) {
+        response = await recover(options, error, []);
+      }
+      continue;
+    }
+    if (!requests.length) return;
     const results = await Promise.all(requests.map((request) => options.tools.execute(request)));
     pendingResults = results;
     if (options.execution.signal.aborted) return;

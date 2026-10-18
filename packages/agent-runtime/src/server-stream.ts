@@ -4,6 +4,7 @@ export async function forwardServerStream(
   response: Response,
   onEvent: (event: AgentStreamEvent) => void,
   seenEvents: Set<string> = new Set(),
+  onContinuation?: (executionId: string) => void,
 ): Promise<ToolRequestEvent[]> {
   if (!response.body) throw new Error("missing_server_stream");
   const reader = response.body.getReader();
@@ -25,6 +26,7 @@ export async function forwardServerStream(
       return;
     }
     const event = JSON.parse(data) as AgentStreamEvent;
+    if (event.type === "run.continue") onContinuation?.(event.executionId);
     if (event.type === "tool.requested") toolRequests.push(event);
     if (eventId && seenEvents.has(eventId)) return;
     onEvent(event);

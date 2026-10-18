@@ -1,4 +1,14 @@
-export type ItemKind = "reasoning" | "agent_message" | "tool" | "context";
+export type ItemKind = "reasoning" | "agent_message" | "user_message" | "tool" | "context";
+
+export type FollowupInput = {
+  id: string;
+  turnId?: string;
+  content: string;
+  modelId?: string;
+  attachments: { id: string; name: string; path: string; size: number; mimeType: string }[];
+  status: "queued" | "steering" | "sending";
+};
+export type FollowupState = { inputs: FollowupInput[]; paused: boolean };
 export type ItemStatus = "in_progress" | "completed" | "failed" | "interrupted";
 export type TurnStatus = "in_progress" | "completed" | "failed" | "interrupted";
 

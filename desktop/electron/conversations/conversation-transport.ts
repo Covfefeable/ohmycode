@@ -22,6 +22,12 @@ async function checked(response: Response): Promise<Response> {
 export class ConversationTransport implements AgentTransport {
   constructor(private readonly signal: AbortSignal) {}
 
+  continue(runId: string, executionId: string, workspaceInstructions: string, tools: ProviderToolDefinition[]): Promise<Response> {
+    return apiFetch(`/api/agent-runs/${runId}/continue/${executionId}`, {
+      method: "POST", body: JSON.stringify({ workspaceInstructions, tools }), signal: this.signal,
+    }).then(checked);
+  }
+
   start(input: StartStreamInput): Promise<Response> {
     return apiFetch(`/api/projects/conversations/${input.conversationId}/stream`, {
       method: "POST",

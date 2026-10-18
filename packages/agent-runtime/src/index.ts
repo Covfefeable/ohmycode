@@ -1,4 +1,5 @@
 export * from "./contracts.js";
+export * from "./followup-queue.js";
 export * from "./event-journal.js";
 export * from "./server-stream.js";
 export * from "./tool-loop.js";
