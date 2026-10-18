@@ -16,6 +16,7 @@ from ...models import (
     MultiAgentMessage,
     MultiAgentNode,
 )
+from .result_references import lock_result_history
 
 DEFAULT_BATCH_SIZE = 100
 
@@ -134,8 +135,10 @@ def cleanup_expired_agent_events(
             break
         candidate_count += len(candidates)
         for run in candidates:
+            lock_result_history(db.session, run.id)
             if _is_referenced(run):
                 retained_references += 1
+                db.session.commit()
                 continue
             result = db.session.execute(db.delete(AgentEvent).where(AgentEvent.run_id == run.id))
             deleted_events += result.rowcount or 0
@@ -144,6 +147,9 @@ def cleanup_expired_agent_events(
                 db.delete(ModelStreamEvent).where(ModelStreamEvent.execution_id.in_(execution_ids))
             )
             db.session.execute(db.delete(ModelExecution).where(ModelExecution.run_id == run.id))
+            # Release this run's lock before considering another; writers may reference
+            # multiple runs, so retaining locks across the batch can deadlock them.
+            db.session.commit()
             cleaned_runs += 1
             if cleaned_runs >= page_size:
                 break

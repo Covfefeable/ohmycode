@@ -21,6 +21,7 @@ def create_app(config_name: str | None = None) -> Flask:
     init_celery(app)
 
     from . import models  # noqa: F401
+    from .services.agent import result_references  # noqa: F401
 
     register_routes(app)
     register_jwt_handlers(app)

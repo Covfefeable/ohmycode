@@ -1,5 +1,7 @@
 from datetime import UTC, datetime, timedelta
 
+import pytest
+
 from app import create_app
 from app.extensions import db
 from app.models import (
@@ -7,12 +9,15 @@ from app.models import (
     AgentRun,
     AgentRunSummary,
     Conversation,
+    Message,
     ModelExecution,
     ModelStreamEvent,
     Project,
     User,
 )
 from app.services.agent.event_retention import cleanup_expired_agent_events
+from app.services.agent.result_references import referenced_runs
+from app.services.errors import ServiceError
 
 
 def _completed_run(conversation: Conversation, completed_at: datetime) -> AgentRun:
@@ -123,6 +128,17 @@ def test_cleanup_only_removes_expired_summarized_unreferenced_events():
         )
         assert db.session.get(ModelExecution, executions[1]) is None
         assert db.session.get(ModelStreamEvent, (executions[1], 1)) is None
+        db.session.add(
+            Message(
+                conversation_id=conversation.id,
+                role="assistant",
+                content="late reference",
+                activity=[{"resultRef": {"runId": str(removable.id), "callId": "call-1"}}],
+            )
+        )
+        with pytest.raises(ServiceError, match="tool_result_expired"):
+            db.session.flush()
+        db.session.rollback()
         for execution_id in (executions[0], executions[2], executions[3]):
             assert db.session.get(ModelExecution, execution_id) is not None
             assert db.session.get(ModelStreamEvent, (execution_id, 1)) is not None
@@ -135,6 +151,16 @@ def test_cleanup_only_removes_expired_summarized_unreferenced_events():
                 )
                 == 2
             )
+
+
+def test_reference_parser_handles_nested_objects_and_summary_text():
+    from uuid import uuid4
+
+    run_id = uuid4()
+    reference = {"resultRef": {"runId": str(run_id), "callId": "call-1"}}
+    assert referenced_runs([{"output": reference}]) == {run_id}
+    assert referenced_runs(f'Keep {{"resultRef":{{"runId":"{run_id}"}}}}') == {run_id}
+    assert referenced_runs({"resultRef": {"runId": "not-a-uuid"}}) == set()
 
 
 def test_retention_period_cannot_be_configured_below_ninety_days():
