@@ -77,8 +77,9 @@ async function refresh(refreshToken: string): Promise<AuthTokens | null> {
     });
     await storeTokens(result.tokens);
     return result.tokens;
-  } catch {
-    return null;
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) return null;
+    throw error;
   }
 }
 
@@ -100,7 +101,8 @@ export async function bootstrapUser(): Promise<User | null> {
   }
   try {
     return (await loadUser(tokens.accessToken)).user;
-  } catch {
+  } catch (error) {
+    if (!(error instanceof ApiError) || error.status !== 401) throw error;
     await clearTokens();
     return null;
   }
