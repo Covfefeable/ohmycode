@@ -37,7 +37,11 @@ def iter_prepare_completion(
         context = yield from iter_prepare_context(
             run,
             configuration,
-            list(conversation.messages),
+            [
+                message
+                for message in conversation.messages
+                if not (message.role == "user" and message.agent_run_id == run.id)
+            ],
             [
                 {"role": "system", "content": system_instructions},
                 *(

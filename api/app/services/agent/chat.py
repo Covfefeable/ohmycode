@@ -15,6 +15,7 @@ from .runs import (
     complete_run,
     fail_run,
 )
+from .steering import pending_inputs
 from .task_plan import active_task_id, latest_task_plan, normalize_task_plan
 
 
@@ -191,6 +192,12 @@ def stream_completion(
                 .execution_options(populate_existing=True)
             )
             if run.status != "running":
+                return
+            if pending_inputs(run):
+                if reasoning:
+                    append_event(run, "reasoning.completed", {"content": reasoning})
+                append_event(run, "message.progress", {"content": answer, "continuation": True})
+                yield {"type": "run.continue", "runId": str(run.id)}
                 return
             prior_reasoning = "\n\n".join(
                 event.payload.get("content", "")

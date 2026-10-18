@@ -50,6 +50,70 @@ def test_concurrent_turn_submission_is_one_message_and_one_execution(workspace):
     assert w.queued == [results[0]]
 
 
+def test_concurrent_guidance_submission_is_received_once(workspace, monkeypatch):
+    from app.services.agent.steering import queue_input
+
+    w = workspace
+    with w.app.app_context():
+        execution_id = submit(w)
+        run_id = db.session.get(ModelExecution, execution_id).run_id
+    input_id = uuid4()
+    concurrent(w.app, lambda: queue_input(w.user, run_id, input_id, "Guidance", []))
+    monkeypatch.setattr(
+        "app.services.agent.chat.provider_payloads",
+        lambda _: iter([{"choices": [{"delta": {"content": "Done"}}]}]),
+    )
+    with w.app.app_context():
+        execute_execution(execution_id)
+        events = list(
+            db.session.scalars(
+                db.select(AgentEvent).where(
+                    AgentEvent.run_id == run_id, AgentEvent.event_type == "input.received"
+                )
+            )
+        )
+        assert len(events) == 1
+        assert (
+            db.session.scalar(db.select(db.func.count(Message.id)).where(Message.role == "user"))
+            == 2
+        )
+
+
+def test_guidance_racing_completion_is_received_or_explicitly_rejected(workspace, monkeypatch):
+    from app.services.agent.steering import queue_input
+    from app.services.errors import ServiceError
+
+    w = workspace
+    boundary = threading.Barrier(2)
+    with w.app.app_context():
+        execution_id = submit(w)
+        run_id = db.session.get(ModelExecution, execution_id).run_id
+
+    def provider(_):
+        boundary.wait(timeout=5)
+        yield {"choices": [{"delta": {"content": "Done"}}]}
+
+    monkeypatch.setattr("app.services.agent.chat.provider_payloads", provider)
+
+    def work():
+        with w.app.app_context():
+            execute_execution(execution_id)
+
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        future = pool.submit(work)
+        boundary.wait(timeout=5)
+        with w.app.app_context():
+            try:
+                queue_input(w.user, run_id, uuid4(), "New direction", [])
+                accepted = True
+            except ServiceError as error:
+                assert error.code == "turn_finished"
+                accepted = False
+        future.result(timeout=15)
+    with w.app.app_context():
+        assert db.session.get(AgentRun, run_id).status == ("running" if accepted else "completed")
+
+
 def test_concurrent_tool_ack_creates_one_output_and_one_next_step(workspace):
     w = workspace
     with w.app.app_context():

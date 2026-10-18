@@ -124,11 +124,15 @@ def iter_prepare_context(
         max(0, int(threshold / factor) - retained_tokens) // (result_count + 1),
     )
     batches = tool_batches(run, after_sequence, result_budget)
+    latest_input_sequence = next(
+        (event.sequence for event in reversed(run.events) if event.event_type == "input.received"),
+        0,
+    )
     blocks.extend(
         ContextBlock(
             batch.messages,
             {"covered_run_id": run.id, "covered_event_sequence": batch.sequence},
-            keep=index == len(batches) - 1,
+            keep=index == len(batches) - 1 or batch.sequence == latest_input_sequence,
         )
         for index, batch in enumerate(batches)
     )

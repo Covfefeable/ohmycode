@@ -322,3 +322,141 @@ def test_failed_submission_does_not_leave_a_user_message_or_run(workspace):
     db.session.rollback()
     assert db.session.scalar(db.select(db.func.count(Message.id))) == 0
     assert db.session.scalar(db.select(db.func.count(AgentRun.id))) == 0
+
+
+def test_steering_at_final_boundary_continues_same_run_once(workspace, monkeypatch):
+    from uuid import uuid4
+
+    from app.services.agent.executions import continue_execution
+    from app.services.agent.steering import queue_input
+
+    w = workspace
+    execution_id, run_id = submit(w)
+    input_id = uuid4()
+
+    def first(prepared):
+        yield {"choices": [{"delta": {"content": "Initial analysis"}}]}
+        queue_input(w.user, run_id, input_id, "Only analyze, do not edit", [])
+        queue_input(w.user, run_id, input_id, "Only analyze, do not edit", [])
+
+    monkeypatch.setattr("app.services.agent.chat.provider_payloads", first)
+    execute_execution(execution_id)
+    run = db.session.get(AgentRun, run_id)
+    assert run.status == "running"
+    assert not db.session.scalar(db.select(Message).where(Message.role == "assistant"))
+    assert '"type": "run.continue"' in "".join(subscribe_execution(execution_id))
+    next_id = continue_execution(w.user, run_id, execution_id, "", TOOLS)
+    assert continue_execution(w.user, run_id, execution_id, "", TOOLS) == next_id
+    captured = []
+
+    def second(prepared):
+        captured.extend(prepared.payload["messages"])
+        yield {"choices": [{"delta": {"content": "Analysis only"}}]}
+
+    monkeypatch.setattr("app.services.agent.chat.provider_payloads", second)
+    execute_execution(next_id)
+    assert db.session.get(AgentRun, run_id).status == "completed"
+    guidance = [item for item in captured if item.get("content") == "Only analyze, do not edit"]
+    assert guidance == [{"role": "user", "content": "Only analyze, do not edit"}]
+    assert any(item.get("content") == "Initial analysis" for item in captured)
+    assert (
+        db.session.scalar(db.select(db.func.count(Message.id)).where(Message.role == "user")) == 2
+    )
+    assert '"type": "input.received"' in "".join(subscribe_execution(next_id))
+
+
+def test_steering_after_tools_keeps_tool_results_before_user_input(workspace, monkeypatch):
+    from uuid import uuid4
+
+    from app.services.agent.steering import queue_input
+
+    w = workspace
+    execution_id, run_id = submit(w)
+    monkeypatch.setattr("app.services.agent.chat.provider_payloads", tool_provider)
+    execute_execution(execution_id)
+    queue_input(w.user, run_id, uuid4(), "Use this new requirement", [])
+    next_id = resume_execution(
+        w.user, run_id, [{"callId": "read-1", "result": "file content"}], tool_snapshot=TOOLS
+    )
+    captured = []
+
+    def provider(prepared):
+        captured.extend(prepared.payload["messages"])
+        yield {"choices": [{"delta": {"content": "Done"}}]}
+
+    monkeypatch.setattr("app.services.agent.chat.provider_payloads", provider)
+    execute_execution(next_id)
+    tool_index = next(index for index, item in enumerate(captured) if item["role"] == "tool")
+    guidance_index = next(
+        index
+        for index, item in enumerate(captured)
+        if item.get("content") == "Use this new requirement"
+    )
+    assert captured[tool_index - 1]["tool_calls"][0]["id"] == "read-1"
+    assert guidance_index > tool_index
+
+
+def test_finished_and_foreign_runs_reject_steering(workspace, monkeypatch):
+    from uuid import uuid4
+
+    from app.services.agent.steering import queue_input
+
+    w = workspace
+    execution_id, run_id = submit(w)
+    with pytest.raises(ServiceError, match="not_found"):
+        queue_input(uuid4(), run_id, uuid4(), "Foreign", [])
+    db.session.rollback()
+    monkeypatch.setattr("app.services.agent.chat.provider_payloads", text_provider)
+    execute_execution(execution_id)
+    with pytest.raises(ServiceError, match="turn_finished"):
+        queue_input(w.user, run_id, uuid4(), "Too late", [])
+
+
+def test_stopped_run_does_not_receive_pending_guidance(workspace, monkeypatch):
+    from uuid import uuid4
+
+    from app.services.agent.steering import queue_input
+
+    w = workspace
+    execution_id, run_id = submit(w)
+    queue_input(w.user, run_id, uuid4(), "Pending guidance", [])
+    cancel_run(w.user, run_id)
+    monkeypatch.setattr(
+        "app.services.agent.chat.provider_payloads",
+        lambda _: pytest.fail("Cancelled run called provider"),
+    )
+    execute_execution(execution_id)
+    assert (
+        db.session.scalar(db.select(db.func.count(Message.id)).where(Message.role == "user")) == 1
+    )
+
+
+def test_guidance_endpoint_checks_device_and_persists_delivery_status(workspace, monkeypatch):
+    from uuid import uuid4
+
+    from flask_jwt_extended import create_access_token
+
+    w = workspace
+    execution_id, run_id = submit(w)
+    input_id = uuid4()
+    token = create_access_token(identity=str(w.user))
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "X-OhMyCode-Device-Id": "test",
+        "X-OhMyCode-Device-Name": "Test",
+    }
+    url = f"/api/agent-runs/{run_id}/inputs/{input_id}"
+    client = w.app.test_client()
+    assert (
+        client.post(
+            url,
+            json={"content": "New requirement"},
+            headers={**headers, "X-OhMyCode-Device-Id": "other"},
+        ).status_code
+        == 404
+    )
+    assert client.post(url, json={"content": "New requirement"}, headers=headers).status_code == 204
+    assert client.get(url, headers=headers).json == {"status": "waiting"}
+    monkeypatch.setattr("app.services.agent.chat.provider_payloads", text_provider)
+    execute_execution(execution_id)
+    assert client.get(url, headers=headers).json == {"status": "received"}

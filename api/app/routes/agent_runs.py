@@ -3,8 +3,9 @@ from uuid import UUID
 from flask import Blueprint, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
-from ..services.agent.executions import recover_execution, resume_execution
+from ..services.agent.executions import continue_execution, recover_execution, resume_execution
 from ..services.agent.runs import cancel_run
+from ..services.agent.steering import input_status, queue_input
 from ..services.agent.tool_results import read_tool_result, search_tool_result
 from ..services.errors import ServiceError
 from ..services.projects.queries import device_run
@@ -12,6 +13,46 @@ from .device import current_device
 from .streaming import execution_response
 
 agent_runs_bp = Blueprint("agent_runs", __name__)
+
+
+@agent_runs_bp.post("/<uuid:run_id>/inputs/<uuid:input_id>")
+@jwt_required()
+def steer_run_route(run_id: UUID, input_id: UUID):
+    identity = UUID(get_jwt_identity())
+    if not device_run(identity, current_device(), run_id):
+        raise ServiceError("not_found", 404)
+    payload = request.get_json(silent=True) or {}
+    queue_input(
+        identity, run_id, input_id, str(payload.get("content") or ""), payload.get("attachments")
+    )
+    return "", 204
+
+
+@agent_runs_bp.get("/<uuid:run_id>/inputs/<uuid:input_id>")
+@jwt_required()
+def input_status_route(run_id: UUID, input_id: UUID):
+    identity = UUID(get_jwt_identity())
+    if not device_run(identity, current_device(), run_id):
+        raise ServiceError("not_found", 404)
+    return input_status(identity, run_id, input_id, request.args.get("initial") == "1")
+
+
+@agent_runs_bp.post("/<uuid:run_id>/continue/<uuid:execution_id>")
+@jwt_required()
+def continue_run_route(run_id: UUID, execution_id: UUID):
+    identity = UUID(get_jwt_identity())
+    if not device_run(identity, current_device(), run_id):
+        raise ServiceError("not_found", 404)
+    payload = request.get_json(silent=True) or {}
+    return execution_response(
+        continue_execution(
+            identity,
+            run_id,
+            execution_id,
+            str(payload.get("workspaceInstructions") or ""),
+            payload.get("tools"),
+        )
+    )
 
 
 @agent_runs_bp.post("/<uuid:run_id>/cancel")

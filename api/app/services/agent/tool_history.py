@@ -98,4 +98,16 @@ def tool_batches(
                 )
             batches.append(ToolBatch(event.sequence, [*pending, *images]))
             pending = []
+        elif event.event_type == "input.received":
+            batches.append(
+                ToolBatch(
+                    event.sequence, [{"role": "user", "content": event.payload["contextContent"]}]
+                )
+            )
+        elif event.event_type == "message.progress" and event.payload.get("continuation"):
+            batches.append(
+                ToolBatch(
+                    event.sequence, [{"role": "assistant", "content": event.payload["content"]}]
+                )
+            )
     return batches

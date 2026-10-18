@@ -14,6 +14,7 @@ from .config import MODEL_REQUEST_TIMEOUT_SECONDS, MODEL_STREAM_ATTEMPTS
 from .executions import dispatch_execution
 from .preparation import iter_prepare_completion
 from .runs import fail_run
+from .steering import receive_inputs
 
 LEASE_DURATION = timedelta(seconds=2 * MODEL_REQUEST_TIMEOUT_SECONDS * MODEL_STREAM_ATTEMPTS + 60)
 
@@ -78,7 +79,10 @@ def execute_execution(execution_id: UUID) -> None:
             execution.status = "cancelled"
             db.session.commit()
             return
-        db.session.commit()
+        for event in receive_inputs(run):
+            pending.append(event)
+        _write(execution, pending)
+        pending.clear()
         preparation = iter_prepare_completion(
             run_id,
             parameters["workspace_instructions"],
@@ -87,6 +91,8 @@ def execute_execution(execution_id: UUID) -> None:
         )
         source = stream_completion(preparation, is_active=active)
         for event in source:
+            if event["type"] == "run.continue":
+                event = {**event, "executionId": str(execution.id)}
             pending.append(event)
             # Commit the complete tool batch together with its waiting_tool transition.
             if event["type"] == "tool.requested":

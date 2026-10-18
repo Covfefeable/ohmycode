@@ -8,7 +8,7 @@ from uuid import UUID
 from flask import current_app
 
 from ...extensions import db
-from ...models import AgentRun, Conversation, ModelExecution, ModelStreamEvent
+from ...models import AgentRun, Conversation, Message, ModelExecution, ModelStreamEvent
 from ..conversations import get_conversation
 from ..errors import ServiceError
 from .preparation import create_completion_run
@@ -47,12 +47,22 @@ def _submit(run: AgentRun, key: str, parameters: dict) -> UUID:
     db.session.add(execution)
     db.session.flush()
     if key == "initial":
+        user_message = db.session.scalar(
+            db.select(Message)
+            .where(Message.conversation_id == run.conversation_id, Message.role == "user")
+            .order_by(Message.created_at.desc())
+            .limit(1)
+        )
         execution.last_sequence = 1
         db.session.add(
             ModelStreamEvent(
                 execution_id=execution.id,
                 sequence=1,
-                payload={"type": "run.started", "runId": str(run.id)},
+                payload={
+                    "type": "run.started",
+                    "runId": str(run.id),
+                    "messageId": str(user_message.id),
+                },
             )
         )
     db.session.commit()
@@ -174,6 +184,47 @@ def recover_execution(
     if not execution:
         raise ServiceError("invalid_run_state", 409)
     return execution.id
+
+
+def continue_execution(
+    user_id: UUID,
+    run_id: UUID,
+    execution_id: UUID,
+    workspace_instructions: str,
+    tool_snapshot: object,
+) -> UUID:
+    get_owned_run(user_id, run_id)
+    run = db.session.scalar(
+        db.select(AgentRun)
+        .where(AgentRun.id == run_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    key = f"steer:{execution_id}"
+    existing = db.session.scalar(
+        db.select(ModelExecution).where(
+            ModelExecution.run_id == run_id, ModelExecution.request_key == key
+        )
+    )
+    if existing:
+        return existing.id
+    previous = latest_execution(run_id)
+    if (
+        run.status != "running"
+        or not previous
+        or previous.id != execution_id
+        or previous.status != "completed"
+    ):
+        raise ServiceError("invalid_run_state", 409)
+    return _submit(
+        run,
+        key,
+        {
+            "workspace_instructions": workspace_instructions,
+            "system_instructions": AGENT_SYSTEM_INSTRUCTIONS,
+            "tools": validate_tool_snapshot(tool_snapshot),
+        },
+    )
 
 
 def subscribe_execution(execution_id: UUID):
