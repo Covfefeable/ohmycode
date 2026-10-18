@@ -66,6 +66,7 @@ def _is_referenced(run: AgentRun) -> bool:
                     _contains_reference(Message.content, run.id),
                     _contains_reference(Message.reasoning, run.id),
                     _contains_reference(Message.activity, run.id),
+                    _contains_reference(Message.context_snapshot, run.id),
                 )
             )
         ),

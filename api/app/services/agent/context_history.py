@@ -66,6 +66,16 @@ def _message_index(messages: list[Message], message_id: UUID | None) -> int:
     return 0
 
 
+def branch_context_snapshot(message: Message) -> list[dict] | None:
+    if message.context_snapshot is not None:
+        return message.context_snapshot
+    if message.role == "assistant" and message.agent_run_id:
+        run = db.session.get(AgentRun, message.agent_run_id)
+        if run:
+            return [_run_context_message(run, protected=True)]
+    return None
+
+
 def _protected_run_ids(messages: list[Message]) -> set[UUID]:
     completed = [
         message.agent_run_id
@@ -85,6 +95,8 @@ def _render_messages(
 ) -> list[dict]:
     rendered: list[dict] = []
     for message in messages:
+        if message.context_snapshot:
+            rendered.extend(message.context_snapshot)
         if message.role == "assistant" and message.agent_run_id:
             run = db.session.get(AgentRun, message.agent_run_id)
             if run and run.status == "completed":

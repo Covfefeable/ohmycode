@@ -4,6 +4,7 @@ from uuid import UUID
 
 from ...extensions import db
 from ...models import Conversation, Message
+from ..agent.context_history import branch_context_snapshot
 from ..errors import ServiceError
 from ..projects.queries import owned_conversation, owned_project
 
@@ -69,6 +70,7 @@ def branch_conversation(
         title=f"{source.title[:197]} 分支",
         kind=source.kind,
     )
+    db.session.add(branch)
     branch.messages = [
         Message(
             role=message.role,
@@ -76,11 +78,11 @@ def branch_conversation(
             reasoning=message.reasoning,
             activity=deepcopy(message.activity),
             attachments=deepcopy(message.attachments),
+            context_snapshot=deepcopy(branch_context_snapshot(message)),
             created_at=message.created_at,
         )
         for message in messages[: branch_index + 1]
     ]
-    db.session.add(branch)
     db.session.commit()
     return branch
 
