@@ -86,8 +86,8 @@ interface DesktopBridge {
       listSkills(): Promise<SkillRecord[]>;
       installSkill(): Promise<SkillRecord | null>;
       downloadSkill(id: string): Promise<SkillRecord>;
-      removeLocalSkill(name: string): Promise<void>;
-      deleteSkill(id: string, name: string): Promise<void>;
+      removeLocalSkill(id: string): Promise<void>;
+      deleteSkill(id: string): Promise<void>;
       onChanged(callback: () => void): () => void;
     };
 }

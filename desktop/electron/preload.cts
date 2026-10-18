@@ -114,8 +114,8 @@ const bridge: DesktopBridge = {
     listSkills: () => ipcRenderer.invoke("capabilities:skills-list"),
     installSkill: () => ipcRenderer.invoke("capabilities:skills-install"),
     downloadSkill: (id) => ipcRenderer.invoke("capabilities:skills-download", id),
-    removeLocalSkill: (name) => ipcRenderer.invoke("capabilities:skills-remove-local", name),
-    deleteSkill: (id, name) => ipcRenderer.invoke("capabilities:skills-delete", id, name),
+    removeLocalSkill: (id) => ipcRenderer.invoke("capabilities:skills-remove-local", id),
+    deleteSkill: (id) => ipcRenderer.invoke("capabilities:skills-delete", id),
     onChanged: (callback) => {
       const listener = () => callback();
       ipcRenderer.on("capabilities:changed", listener);

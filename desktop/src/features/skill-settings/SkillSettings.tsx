@@ -51,10 +51,10 @@ export function SkillSettings() {
     if (!target) return;
     try {
       if (target.scope === "local") {
-        await window.ohmycode.capabilities.removeLocalSkill(target.skill.name);
+        await window.ohmycode.capabilities.removeLocalSkill(target.skill.id);
         setSkills((items) => items.map((item) => item.id === target.skill.id ? { ...item, installed: false } : item));
       } else {
-        await window.ohmycode.capabilities.deleteSkill(target.skill.id, target.skill.name);
+        await window.ohmycode.capabilities.deleteSkill(target.skill.id);
         setSkills((items) => items.filter((item) => item.id !== target.skill.id));
       }
       toast({ type: "success", message: t(target.scope === "local" ? "settings.skillRemovedLocally" : "settings.skillDeleted") });

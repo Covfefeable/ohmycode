@@ -16,7 +16,7 @@ export async function loadCapability(id: string): Promise<unknown> {
     const skill = (await listSkills()).find((item) => item.name === name && item.enabled);
     if (!skill) throw new Error("skill_not_found");
     if (!skill.installed) await downloadSkill(skill.id);
-    return { id, type: "skill", name, instructions: await loadSkillInstructions(name) };
+    return { id, type: "skill", name, instructions: await loadSkillInstructions(skill.id) };
   }
   if (id.startsWith("mcp:")) {
     const serverId = id.slice(4);

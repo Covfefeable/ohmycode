@@ -42,12 +42,12 @@ export function registerCapabilitiesIpc(): void {
     publishChanged();
     return result;
   });
-  ipcMain.handle("capabilities:skills-remove-local", async (_event, name: string) => {
-    await removeLocalSkill(name);
+  ipcMain.handle("capabilities:skills-remove-local", async (_event, id: string) => {
+    await removeLocalSkill(id);
     publishChanged();
   });
-  ipcMain.handle("capabilities:skills-delete", async (_event, id: string, name: string) => {
-    await deleteSkill(id, name);
+  ipcMain.handle("capabilities:skills-delete", async (_event, id: string) => {
+    await deleteSkill(id);
     publishChanged();
   });
 }
