@@ -18,6 +18,8 @@ export type RuntimeExecutionState = {
   turnId: string;
   remoteRunId: string;
   resourceIds: string[];
+  cancellationPending?: boolean;
+  partialState?: unknown;
   updatedAt: number;
 };
 

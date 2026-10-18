@@ -5,6 +5,8 @@ export class TurnExecution<PartialState = unknown> {
   private readonly controller = new AbortController();
   private readonly resourceIds = new Set<string>();
   private remoteRunId: string;
+  private cancellationPending = false;
+  private partialState?: PartialState;
 
   constructor(
     private readonly turnId: string,
@@ -23,6 +25,8 @@ export class TurnExecution<PartialState = unknown> {
   ): TurnExecution<PartialState> {
     const execution = new TurnExecution(state.turnId, adapter, store, false);
     execution.remoteRunId = state.remoteRunId;
+    execution.cancellationPending = state.cancellationPending ?? false;
+    execution.partialState = state.partialState as PartialState | undefined;
     for (const resourceId of state.resourceIds) execution.resourceIds.add(resourceId);
     execution.persist();
     return execution;
@@ -43,15 +47,20 @@ export class TurnExecution<PartialState = unknown> {
   }
 
   complete(): void {
+    if (this.cancellationPending) return;
     this.store?.deleteExecution(this.turnId);
   }
 
   async interrupt(partialState?: PartialState): Promise<void> {
+    this.cancellationPending = true;
+    if (partialState !== undefined) this.partialState = partialState;
+    this.persist();
     this.controller.abort();
     await Promise.allSettled(
       [...this.resourceIds].map((resourceId) => this.adapter.stopResource(resourceId)),
     );
-    if (this.remoteRunId) await this.cancelRemoteRun(partialState);
+    if (this.remoteRunId) await this.cancelRemoteRun(this.partialState);
+    this.cancellationPending = false;
     this.complete();
   }
 
@@ -63,10 +72,12 @@ export class TurnExecution<PartialState = unknown> {
         await this.adapter.cancelRemoteRun(this.remoteRunId, partialState);
         return;
       } catch (error) {
-        lastError = this.adapter.isMissingRemoteRunError(error) ? undefined : error;
+        if (this.adapter.isMissingRemoteRunError(error)) return;
+        lastError = error;
       }
     }
     if (lastError) this.adapter.reportCancellationFailure?.(lastError);
+    throw new Error("remote_cancellation_pending", { cause: lastError });
   }
 
   private persist(): void {
@@ -74,6 +85,8 @@ export class TurnExecution<PartialState = unknown> {
       turnId: this.turnId,
       remoteRunId: this.remoteRunId,
       resourceIds: [...this.resourceIds],
+      cancellationPending: this.cancellationPending,
+      partialState: this.partialState,
       updatedAt: Date.now(),
     });
   }

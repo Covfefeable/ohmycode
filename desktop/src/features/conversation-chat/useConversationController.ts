@@ -250,9 +250,12 @@ export function useConversationController({ conversationId, onUpdated, scrollToB
     } : undefined;
     try {
       await window.ohmycode.conversations.interruptTurn(turnId, stoppedMessage);
-    } catch {
-      toast({ type: "error", message: t("agent.stopFailed") });
-      return;
+    } catch (error) {
+      if (!(error instanceof Error) || !error.message.includes("remote_cancellation_pending")) {
+        toast({ type: "error", message: t("agent.stopFailed") });
+        return;
+      }
+      toast({ type: "error", message: t("agent.stopPending") });
     }
     if (activeTurnIdRef.current === turnId) {
       activeTurnIdRef.current = null;

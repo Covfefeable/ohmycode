@@ -10,6 +10,7 @@ const adapter: TurnExecutionAdapter<LocalMessage> = {
   async cancelRemoteRun(runId, partialMessage) {
     await apiRequest(`/api/agent-runs/${runId}/cancel`, {
       method: "POST",
+      signal: AbortSignal.timeout(8_000),
       body: JSON.stringify({ partialMessage }),
     });
   },

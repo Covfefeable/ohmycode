@@ -62,6 +62,22 @@ test("停止 IPC 失败有明确提示，不能假装任务已经停止", async 
   expect(messageText(result.current.conversation?.messages)).not.toContain("stopped");
 });
 
+test("本机已停止但远端取消待同步时，保留输出并明确提示", async () => {
+  const bridge = controllerBridge();
+  bridge.conversations.interruptTurn.mockRejectedValue(new Error("remote_cancellation_pending"));
+  const { result } = renderHook(() => useConversationController(options));
+  await waitFor(() => expect(result.current.conversation).not.toBeNull());
+  streamingEvents().forEach(bridge.emit); bridge.flush();
+  toast.mockClear();
+  await act(() => result.current.stop());
+  expect(result.current.sending).toBe(false);
+  expect(messageText(result.current.conversation?.messages)).toContain("已经收到的内容");
+  expect(messageText(result.current.conversation?.messages)).toContain("stopped");
+  expect(toast).toHaveBeenCalledWith(expect.objectContaining({
+    message: expect.stringContaining("Remote cancellation will sync"),
+  }));
+});
+
 test("完成回显不能覆盖已经切换到的会话", async () => {
   const bridge = controllerBridge();
   const previous = deferred<LocalConversation>();

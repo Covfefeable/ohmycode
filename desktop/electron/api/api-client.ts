@@ -58,8 +58,8 @@ export async function apiErrorFromResponse(response: Response): Promise<ApiError
   return new ApiError(response.status, code);
 }
 
-async function refreshAccessToken(refreshToken: string): Promise<AuthTokens | null> {
-  const response = await fetch(`${getApiUrl()}/api/auth/refresh`, { method: "POST", headers: { Authorization: `Bearer ${refreshToken}` } });
+async function refreshAccessToken(refreshToken: string, signal?: AbortSignal | null): Promise<AuthTokens | null> {
+  const response = await fetch(`${getApiUrl()}/api/auth/refresh`, { method: "POST", signal, headers: { Authorization: `Bearer ${refreshToken}` } });
   if (!response.ok) return null;
   const payload = await response.json() as { tokens: AuthTokens };
   await storeTokens(payload.tokens);
@@ -80,7 +80,7 @@ export async function apiFetch(pathname: string, init: RequestInit = {}): Promis
   };
   let response = await execute(tokens.accessToken);
   if (response.status === 401) {
-    tokens = await refreshAccessToken(tokens.refreshToken);
+    tokens = await refreshAccessToken(tokens.refreshToken, init.signal);
     if (!tokens) throw new ApiError(401, "authorization_required");
     response = await execute(tokens.accessToken);
   }

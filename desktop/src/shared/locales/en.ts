@@ -134,6 +134,7 @@ export const en = {
     stop: "Stop",
     stoppedByUser: "You stopped this task",
     stopFailed: "Unable to stop the task. Please try again.",
+    stopPending: "The local task has stopped. Remote cancellation will sync when the connection recovers.",
     loadFailed: "The conversation could not be loaded.",
     sendFailed: "The message could not be sent. Try again later.", authenticationFailed: "Model provider authentication failed. Check the API key.", permissionDenied: "The model provider denied access. Check the account permissions.", rateLimited: "The model provider rate limit was reached. Try again later.", providerFailed: "The model provider returned an error. Check the model configuration.",
     copy: "Copy",

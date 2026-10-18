@@ -133,6 +133,7 @@ export const zhCN = {
     stop: "停止",
     stoppedByUser: "你主动停止了这次任务",
     stopFailed: "停止任务失败，请重试。",
+    stopPending: "本机任务已停止，远端停止状态将在网络恢复后同步。",
     loadFailed: "对话加载失败。",
     sendFailed: "消息发送失败，请稍后重试。", authenticationFailed: "模型服务身份验证失败，请检查 API Key。", permissionDenied: "模型服务拒绝访问，请检查账户权限。", rateLimited: "模型服务请求频率超限，请稍后重试。", providerFailed: "模型服务返回错误，请检查模型配置。",
     copy: "复制",

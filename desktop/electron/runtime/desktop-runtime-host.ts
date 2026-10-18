@@ -11,10 +11,10 @@ import { SqliteEventStore } from "./sqlite-event-store.js";
 import type { DesktopExecutionContext } from "./types.js";
 import {
   createDesktopTurnExecution,
-  restoreDesktopTurnExecution,
   type DesktopTurnExecution,
 } from "./desktop-execution-adapter.js";
 import { initializeFollowups, finishFollowups, followupReceived } from "./followup-host.js";
+import { startCancellationRecovery } from "./cancellation-recovery.js";
 
 type StartTurnInput = {
   turnId?: string;
@@ -31,6 +31,7 @@ let journal: EventJournal | null = null;
 let runtimeStore: SqliteEventStore | null = null;
 const completion = new Map<string, Promise<LocalConversation>>();
 const executions = new Map<string, DesktopTurnExecution>();
+let stopCancellationRecovery: (() => void) | undefined;
 const activeThreads = new Map<string, string>();
 export const activeThreadTurn = (threadId: string): string | undefined => activeThreads.get(threadId);
 const itemState = new Map<string, RuntimeItem>();
@@ -80,16 +81,20 @@ export function initializeAgentRuntime(): void {
       reason: "runtime_restarted",
     });
     const executionState = persistedExecutions.get(stale.turnId);
-    const execution = executionState
-      ? restoreDesktopTurnExecution(executionState, runtimeStore)
-      : createDesktopTurnExecution(stale.turnId, runtimeStore);
-    void execution.interrupt().catch((error) => {
-      console.error("[runtime] failed to reconcile interrupted turn", error);
+    runtimeStore.saveExecution({
+      turnId: stale.turnId,
+      remoteRunId: executionState?.remoteRunId ?? stale.turnId,
+      resourceIds: executionState?.resourceIds ?? [],
+      partialState: executionState?.partialState,
+      cancellationPending: true,
+      updatedAt: Date.now(),
     });
   }
+  stopCancellationRecovery = startCancellationRecovery(runtimeStore, (turnId) => executions.has(turnId) || interrupting.has(turnId));
 }
 
 export function closeAgentRuntime(): void {
+  stopCancellationRecovery?.();
   journal?.close();
   journal = null;
   runtimeStore = null;
@@ -261,8 +266,8 @@ export async function interruptTurn(turnId: string, partialMessage?: LocalMessag
   interrupting.add(turnId);
   try {
     await executions.get(turnId)?.interrupt(partialMessage);
-    append(turnId, { type: "turn.interrupted", threadId: snapshot.threadId, turnId, reason: "user_requested" });
   } finally {
+    append(turnId, { type: "turn.interrupted", threadId: snapshot.threadId, turnId, reason: "user_requested" });
     interrupting.delete(turnId);
   }
 }
