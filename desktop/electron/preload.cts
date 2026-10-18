@@ -33,6 +33,7 @@ const bridge: DesktopBridge = {
   conversations: {
     get: (conversationId) => ipcRenderer.invoke("conversations:get", conversationId),
     history: (conversationId, options) => ipcRenderer.invoke("conversations:history", conversationId, options),
+    searchMessages: (conversationId, options) => ipcRenderer.invoke("conversations:search-messages", conversationId, options),
     branch: (conversationId, messageId) => ipcRenderer.invoke("conversations:branch", conversationId, messageId),
     startTurn: (conversationId, content, modelId, editMessageId, attachments) => ipcRenderer.invoke("conversations:start-turn", conversationId, content, modelId, editMessageId, attachments),
     followups: (id) => ipcRenderer.invoke("conversations:followups", id),

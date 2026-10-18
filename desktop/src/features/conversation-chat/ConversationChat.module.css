@@ -9,6 +9,12 @@
 .scrollLayer { width: 100%; flex: 1; min-height: 0; }
 .chatHeader { flex-shrink: 0; width: min(960px, calc(100% - 48px)); margin: 0 auto; z-index: var(--z-sticky); border-bottom: 1px solid var(--color-border); background: var(--color-canvas); padding-top: 18px; }
 .chat h1 { margin: 0 0 var(--space-3); overflow: hidden; font-size: var(--font-title-panel); text-overflow: ellipsis; white-space: nowrap; }
+.heading { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); }
+.heading h1 { min-width: 0; }
+.headerActions { display: flex; flex: 0 0 auto; align-items: center; gap: var(--space-2); }
+.returnLatest { display: flex; align-items: center; gap: var(--space-1); border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--color-text-muted); font: inherit; font-size: var(--font-xs); padding: 5px 8px; cursor: pointer; }
+.returnLatest:hover { background: var(--color-surface-hover); color: var(--color-text); }
+.returnLatest svg { width: 13px; height: 13px; }
 .scrollLayer article { position: relative; min-width: 0; max-width: 82%; display: grid; }
 .bubble, .response { min-width: 0; color: var(--color-text-soft); font-size: var(--font-chat); line-height: 1.65; overflow-wrap: anywhere; }
 .bubble { border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: 11px 14px; }

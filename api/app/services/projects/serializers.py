@@ -77,11 +77,17 @@ def serialize_project(project: Project) -> dict:
 
 
 def serialize_conversation_search_result(
-    conversation: Conversation, snippet: str | None
+    conversation: Conversation, message: Message | None, query: str
 ) -> dict:
+    snippet = None
+    if message:
+        content = message.content.strip().replace("\n", " ")
+        start = max(0, content.casefold().find(query.strip().casefold()) - 60)
+        snippet = ("…" if start else "") + content[start : start + 180]
     return {
         "projectId": str(conversation.project_id),
         "projectName": conversation.project.name,
         "conversation": serialize_conversation(conversation),
         "snippet": snippet,
+        "messageId": str(message.id) if message else None,
     }

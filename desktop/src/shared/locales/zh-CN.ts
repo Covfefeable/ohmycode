@@ -55,6 +55,12 @@ export const zhCN = {
     clearSearch: "清空搜索",
   },
   agent: {
+    searchConversation: "搜索当前会话",
+    previousMatch: "上一条匹配消息",
+    nextMatch: "下一条匹配消息",
+    searchFailed: "搜索失败",
+    returnLatest: "返回最新消息",
+    loadNewer: "加载较新消息",
     queuedMessages: "待发送消息",
     queuePaused: "队列已暂停",
     resumeQueue: "继续发送",

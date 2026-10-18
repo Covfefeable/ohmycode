@@ -117,3 +117,80 @@ def test_turn_result_does_not_return_prior_turns(history_client):
     ).get_json()
     assert [message["content"] for message in page["messages"]] == ["100", "101"]
     assert page["olderCursor"] is None
+
+
+def test_history_around_message_is_bounded_and_pages_both_directions(history_client):
+    client, headers, (conversation_id, _, foreign_id) = history_client
+    url = f"/api/projects/conversations/{conversation_id}/history"
+    page = client.get(url, headers=headers, query_string={"around": str(UUID(int=51))}).get_json()
+    assert [int(item["content"]) for item in page["messages"]] == list(range(31, 72))
+    older = client.get(
+        url, headers=headers, query_string={"before": page["olderCursor"]}
+    ).get_json()
+    newer = client.get(url, headers=headers, query_string={"after": page["newerCursor"]}).get_json()
+    assert [int(item["content"]) for item in older["messages"]] == list(range(1, 31))
+    assert [int(item["content"]) for item in newer["messages"]] == list(range(72, 102))
+    assert newer["newerCursor"] is None
+    for options in [
+        {"around": str(foreign_id)},
+        {"after": "invalid"},
+        {"around": str(UUID(int=51)), "before": str(UUID(int=50))},
+    ]:
+        assert client.get(url, headers=headers, query_string=options).status_code == 422
+
+
+def test_message_search_finds_unloaded_history_and_wraps_in_both_directions(history_client):
+    client, headers, (conversation_id, _, foreign_id) = history_client
+    url = f"/api/projects/conversations/{conversation_id}/search"
+    matches = [index for index in range(1, 102) if "1" in str(index)]
+    first = client.get(url, headers=headers, query_string={"q": "1"}).get_json()
+    assert first == {"messageId": str(UUID(int=matches[0])), "position": 1, "total": len(matches)}
+    next_match = client.get(
+        url, headers=headers, query_string={"q": "1", "at": first["messageId"], "direction": "next"}
+    ).get_json()
+    assert next_match["messageId"] == str(UUID(int=matches[1]))
+    assert next_match["position"] == 2
+    previous = client.get(
+        url,
+        headers=headers,
+        query_string={"q": "1", "at": first["messageId"], "direction": "previous"},
+    ).get_json()
+    assert previous["position"] == len(matches)
+    assert previous["messageId"] == str(UUID(int=matches[-1]))
+    exact = client.get(
+        url, headers=headers, query_string={"q": "1", "at": str(UUID(int=51))}
+    ).get_json()
+    assert exact["messageId"] == str(UUID(int=51))
+    assert client.get(url, headers=headers, query_string={"q": " "}).get_json()["total"] == 0
+    assert (
+        client.get(url, headers=headers, query_string={"q": "unmatched"}).get_json()["messageId"]
+        is None
+    )
+    for options in [{"q": "1", "at": str(foreign_id)}, {"q": "1", "direction": "invalid"}]:
+        assert client.get(url, headers=headers, query_string=options).status_code == 422
+    assert (
+        client.get(
+            url, headers={**headers, "X-OhMyCode-Device-Id": "other"}, query_string={"q": "1"}
+        ).status_code
+        == 404
+    )
+
+
+def test_global_search_returns_latest_matching_message_not_only_conversation(history_client):
+    client, headers, (conversation_id, _, _) = history_client
+    results = client.get(
+        "/api/projects/conversations/search", headers=headers, query_string={"q": "1"}
+    ).get_json()
+    assert results[0]["conversation"]["id"] == str(conversation_id)
+    assert results[0]["messageId"] == str(UUID(int=101))
+    title = client.get(
+        "/api/projects/conversations/search", headers=headers, query_string={"q": "History"}
+    ).get_json()
+    assert title[0]["messageId"] is None
+    assert title[0]["snippet"] is None
+    assert (
+        client.get(
+            "/api/projects/conversations/search", headers=headers, query_string={"q": "%"}
+        ).get_json()
+        == []
+    )

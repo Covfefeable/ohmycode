@@ -5,15 +5,18 @@ import { NavigationRail } from "../../widgets/navigation-rail";
 import { TaskSidebar } from "../../widgets/task-sidebar";
 import { ConversationChat } from "../../features/conversation-chat";
 import styles from "./AgentWorkspacePage.module.css";
+import type { MessageLocation } from "../../entities/conversation/types";
 
 export function AgentWorkspacePage() {
   const { t } = useTranslation();
   const [conversationId, setConversationId] = useState<string | null>(() => sessionStorage.getItem("ohmycode.activeConversationId"));
   const [refreshToken, setRefreshToken] = useState(0);
+  const [searchLocation, setSearchLocation] = useState<MessageLocation>();
 
-  function selectConversation(id: string) {
+  function selectConversation(id: string, location?: MessageLocation) {
     sessionStorage.setItem("ohmycode.activeConversationId", id);
     setConversationId(id);
+    setSearchLocation(location);
   }
 
   return (
@@ -21,7 +24,7 @@ export function AgentWorkspacePage() {
       navigation={<NavigationRail />}
       sidebar={<TaskSidebar
         selectedConversationId={conversationId}
-        onConversationSelect={(_project, conversation) => selectConversation(conversation.id)}
+        onConversationSelect={(_project, conversation, location) => selectConversation(conversation.id, location)}
         onConversationDelete={(deletedId) => {
           if (deletedId === conversationId) {
             sessionStorage.removeItem("ohmycode.activeConversationId");
@@ -37,6 +40,7 @@ export function AgentWorkspacePage() {
             key={conversationId}
             active
             conversationId={conversationId}
+            searchLocation={searchLocation}
             onUpdated={() => setRefreshToken((value) => value + 1)}
             onBranched={(conversation) => {
               setRefreshToken((value) => value + 1);

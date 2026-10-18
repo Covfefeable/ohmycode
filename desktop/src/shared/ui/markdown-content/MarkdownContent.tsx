@@ -1,4 +1,4 @@
-import { Children, isValidElement, type ComponentPropsWithoutRef, type ReactNode, useState } from "react";
+import { Children, createContext, isValidElement, type ComponentPropsWithoutRef, type ReactNode, useContext, useState } from "react";
 import { Check, Copy } from "lucide-react";
 import ReactMarkdown, { defaultUrlTransform, type Components, type UrlTransform } from "react-markdown";
 import { useTranslation } from "react-i18next";
@@ -8,6 +8,15 @@ import { CAPABILITY_LINK_PREFIX, remarkCapabilityTokens } from "./capability-tok
 import styles from "./MarkdownContent.module.css";
 import { MarkdownImage } from "../image-preview/MarkdownImage";
 import { isLocalImageLink } from "../image-preview/image-reference";
+import { remarkSearchHighlights, searchParts } from "./search-highlights";
+
+const SearchQueryContext = createContext("");
+function SearchCode({ children, className }: { children?: ReactNode; className?: string }) {
+  const query = useContext(SearchQueryContext);
+  return <code className={className}>{typeof children === "string" && query
+    ? searchParts(children, query).map((part, index) => part.matched ? <mark key={index}>{part.text}</mark> : part.text)
+    : children}</code>;
+}
 
 const markdownUrlTransform: UrlTransform = (url, key, node) => {
   const image = key === "src" && node.tagName === "img";
@@ -51,6 +60,7 @@ function CodeBlock({ children, ...props }: ComponentPropsWithoutRef<"pre">) {
 
 const markdownComponents: Components = {
   pre: CodeBlock,
+  code: SearchCode,
   img: ({ src, alt }) => <MarkdownImage src={typeof src === "string" ? src : ""} name={alt ?? ""} />,
   a: ({ children: label, href, ...props }) => href?.startsWith(CAPABILITY_LINK_PREFIX)
     ? <CapabilityToken kind={href.startsWith(`${CAPABILITY_LINK_PREFIX}mcp-`) ? "mcp" : "skill"} label={label} />
@@ -60,12 +70,12 @@ const markdownComponents: Components = {
   table: ({ children: rows, ...props }) => <div className={styles.tableScroll}><table {...props}>{rows}</table></div>,
 };
 
-export function MarkdownContent({ children, className = "" }: { children: string; className?: string }) {
-  return <div className={`${styles.root} ${className}`.trim()}>
+export function MarkdownContent({ children, className = "", highlightQuery = "" }: { children: string; className?: string; highlightQuery?: string }) {
+  return <SearchQueryContext.Provider value={highlightQuery}><div className={`${styles.root} ${className}`.trim()}>
     <ReactMarkdown
-      remarkPlugins={[remarkGfm, remarkCapabilityTokens]}
+      remarkPlugins={[remarkGfm, remarkCapabilityTokens, [remarkSearchHighlights, { query: highlightQuery }]]}
       urlTransform={markdownUrlTransform}
       components={markdownComponents}
     >{children}</ReactMarkdown>
-  </div>;
+  </div></SearchQueryContext.Provider>;
 }

@@ -37,4 +37,5 @@
 .root tr:last-child td { border-bottom: 0; }
 .root th:last-child, .root td:last-child { border-right: 0; }
 .root input[type="checkbox"] { margin: 0 .45em 0 0; accent-color: var(--color-accent); }
+.root mark { background: color-mix(in srgb, var(--color-accent) 28%, transparent); color: var(--color-text); border-radius: 2px; padding: 0; }
 @media (prefers-reduced-motion: reduce) { .root a, .codeToolbar button { transition: none; } }

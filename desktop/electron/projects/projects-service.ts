@@ -1,7 +1,7 @@
 import path from "node:path";
 import { dialog, shell } from "electron";
 import { ApiError, apiRequest } from "../api/api-client.js";
-import type { ConversationHistoryQuery, ConversationSearchResult, LocalConversation, LocalProject } from "./types.js";
+import type { ConversationHistoryQuery, ConversationSearchResult, LocalConversation, LocalProject, MessageSearchQuery, MessageSearchResult } from "./types.js";
 
 export function listProjects(): Promise<LocalProject[]> { return apiRequest("/api/projects"); }
 export function searchConversations(query: string): Promise<ConversationSearchResult[]> {
@@ -35,8 +35,16 @@ export function getConversation(conversationId: string): Promise<LocalConversati
 export function getConversationHistory(conversationId: string, options: ConversationHistoryQuery = {}): Promise<LocalConversation> {
   const query = new URLSearchParams();
   if (options.before) query.set("before", options.before);
+  if (options.after) query.set("after", options.after);
+  if (options.around) query.set("around", options.around);
   if (options.turnId) query.set("turnId", options.turnId);
   return apiRequest(`/api/projects/conversations/${conversationId}/history?${query}`);
+}
+export function searchMessages(conversationId: string, options: MessageSearchQuery): Promise<MessageSearchResult> {
+  const query = new URLSearchParams({ q: options.query });
+  if (options.at) query.set("at", options.at);
+  if (options.direction) query.set("direction", options.direction);
+  return apiRequest(`/api/projects/conversations/${conversationId}/search?${query}`);
 }
 export function branchConversation(conversationId: string, messageId: string): Promise<LocalConversation> { return apiRequest(`/api/projects/conversations/${conversationId}/branch`, { method: "POST", body: JSON.stringify({ messageId }) }); }
 export async function suggestFollowups(conversationId: string): Promise<string[]> {

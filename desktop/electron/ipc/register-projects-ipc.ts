@@ -10,17 +10,19 @@ import {
   getConversation,
   getConversationHistory,
   searchConversations,
+  searchMessages,
   suggestFollowups,
 } from "../projects/projects-service.js";
 import { activeThreadTurn, getThreadSnapshot, interruptTurn, startTurn, waitForTurn } from "../runtime/desktop-runtime-host.js";
 import { enqueueFollowup, followupSnapshot, resumeFollowups, steerFollowup, withdrawFollowup } from "../runtime/followup-host.js";
-import type { ConversationHistoryQuery, MessageAttachment } from "../projects/types.js";
+import type { ConversationHistoryQuery, MessageAttachment, MessageSearchQuery } from "../projects/types.js";
 import { savePastedImage } from "../files/pasted-image.js";
 
 export function registerProjectsIpc(): void {
   ipcMain.handle("conversations:save-pasted-image", (_event, data: Uint8Array) => savePastedImage(data));
   ipcMain.handle("projects:list", listProjects);
   ipcMain.handle("projects:search-conversations", (_event, query: string) => searchConversations(query));
+  ipcMain.handle("conversations:search-messages", (_event, conversationId: string, options: MessageSearchQuery) => searchMessages(conversationId, options));
   ipcMain.handle("projects:create", createProject);
   ipcMain.handle("projects:open", (_event, projectId: string) => openProject(projectId));
   ipcMain.handle("projects:delete", (_event, projectId: string) => deleteProject(projectId));

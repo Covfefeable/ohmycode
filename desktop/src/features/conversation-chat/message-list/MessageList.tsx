@@ -2,8 +2,9 @@ import { useCallback, useEffect, useRef, type ReactNode, type RefObject } from "
 import { useTranslation } from "react-i18next";
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 import styles from "./MessageList.module.css";
+import type { MessageLocation } from "../../../entities/conversation/types";
 
-type ListContext = { clearance: number; loading: boolean; failed: boolean; retry(): void };
+type ListContext = { clearance: number; loading: boolean; failed: boolean; retry(): void; loadNewer?: () => Promise<void> };
 function HistoryStatus({ context }: { context?: ListContext }) {
   const { t } = useTranslation();
   return <div className={styles.history}>
@@ -12,7 +13,8 @@ function HistoryStatus({ context }: { context?: ListContext }) {
   </div>;
 }
 function ComposerClearance({ context }: { context?: ListContext }) {
-  return <div style={{ height: context?.clearance ?? 0 }} />;
+  const { t } = useTranslation();
+  return <>{context?.loadNewer && <div className={styles.history}><button disabled={context.loading} onClick={() => void context.loadNewer?.()}>{t(context.loading ? "agent.loadingHistory" : "agent.loadNewer")}</button></div>}<div style={{ height: context?.clearance ?? 0 }} /></>;
 }
 const components = { Header: HistoryStatus, Footer: ComposerClearance };
 // Virtuoso requires positive indices when prepending; this is an index origin, not a message limit.
@@ -29,9 +31,11 @@ type Props = {
   listRef: RefObject<VirtuosoHandle | null>;
   followRef: RefObject<boolean>;
   renderMessage(message: LocalMessage): ReactNode;
+  location?: MessageLocation;
+  loadNewer?: () => Promise<void>;
 };
 
-export function MessageList({ messages, prependedCount, clearance, loading, failed, loadOlder, active, listRef, followRef, renderMessage }: Props) {
+export function MessageList({ messages, prependedCount, clearance, loading, failed, loadOlder, active, listRef, followRef, renderMessage, location, loadNewer }: Props) {
   const frame = useRef<number | null>(null);
   const lastScrollTop = useRef(0);
   const stickToBottom = useCallback(() => {
@@ -50,7 +54,7 @@ export function MessageList({ messages, prependedCount, clearance, loading, fail
     className={styles.viewport}
     data={messages}
     firstItemIndex={HISTORY_INDEX_ORIGIN - prependedCount}
-    initialTopMostItemIndex={{ index: "LAST", align: "end", offset: clearance }}
+    initialTopMostItemIndex={location ? { index: Math.max(0, messages.findIndex((message) => message.id === location.messageId)), align: "center", offset: -clearance / 2 } : { index: "LAST", align: "end", offset: clearance }}
     computeItemKey={(_index, message) => message.id}
     increaseViewportBy={{ top: 500, bottom: 300 }}
     atBottomThreshold={36}
@@ -68,8 +72,8 @@ export function MessageList({ messages, prependedCount, clearance, loading, fail
     totalListHeightChanged={stickToBottom}
     startReached={() => { if (!loading && !failed) void loadOlder(); }}
     components={components}
-    context={{ clearance, loading, failed, retry: () => void loadOlder() }}
-    itemContent={(_index, message) => <div className={styles.row}>{renderMessage(message)}</div>}
+    context={{ clearance, loading, failed, retry: () => void loadOlder(), loadNewer }}
+    itemContent={(_index, message) => <div className={`${styles.row} ${message.id === location?.messageId ? styles.located : ""}`}>{renderMessage(message)}</div>}
     style={{ height: "100%" }}
   />;
 }

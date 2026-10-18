@@ -2,10 +2,11 @@ import { useTranslation } from "react-i18next";
 import { ApiStatus } from "../../features/api-status";
 import { ProjectList } from "../../features/project-list";
 import styles from "./TaskSidebar.module.css";
+import type { MessageLocation } from "../../entities/conversation/types";
 
 type TaskSidebarProps = {
   selectedConversationId: string | null;
-  onConversationSelect(project: LocalProject, conversation: LocalConversation): void;
+  onConversationSelect(project: LocalProject, conversation: LocalConversation, location?: MessageLocation): void;
   onConversationDelete(conversationId: string): void;
   refreshToken: number;
 };

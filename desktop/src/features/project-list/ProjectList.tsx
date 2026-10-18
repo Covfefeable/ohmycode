@@ -7,10 +7,11 @@ import { Tooltip } from "../../shared/ui/tooltip";
 import { EmptyState } from "../../shared/ui/empty-state";
 import { ConfirmDialog } from "../../shared/ui/confirm-dialog";
 import styles from "./ProjectList.module.css";
+import type { MessageLocation } from "../../entities/conversation/types";
 
 type ProjectListProps = {
   selectedConversationId: string | null;
-  onConversationSelect(project: LocalProject, conversation: LocalConversation): void;
+  onConversationSelect(project: LocalProject, conversation: LocalConversation, location?: MessageLocation): void;
   onConversationDelete(conversationId: string): void;
   refreshToken: number;
   heading: ReactNode;
@@ -107,7 +108,7 @@ export function ProjectList({ selectedConversationId, onConversationSelect, onCo
     const project = projects.find((item) => item.id === result.projectId);
     if (!project) return;
     setExpanded((current) => new Set(current).add(project.id));
-    onConversationSelect(project, result.conversation);
+    onConversationSelect(project, result.conversation, result.messageId ? { messageId: result.messageId, query: searchQuery.trim() } : undefined);
   }
 
   function changeSearchQuery(value: string) {

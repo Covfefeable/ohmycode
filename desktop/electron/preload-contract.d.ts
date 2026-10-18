@@ -26,6 +26,7 @@ interface DesktopBridge {
     conversations: {
       get(conversationId: string): Promise<LocalConversation>;
       history(conversationId: string, options?: import("./projects/types").ConversationHistoryQuery): Promise<LocalConversation>;
+      searchMessages(conversationId: string, options: import("./projects/types").MessageSearchQuery): Promise<MessageSearchResult>;
       branch(conversationId: string, messageId: string): Promise<LocalConversation>;
       startTurn(conversationId: string, content: string, modelId?: string, editMessageId?: string, attachments?: MessageAttachment[]): Promise<{ turnId: string } | { queued: true }>;
       followups(conversationId: string): Promise<import("@ohmycode/protocol").FollowupState>;
@@ -170,8 +171,9 @@ type AgentActivityStep =
   | { id: string; type: "tool"; tool: string; input: unknown; result?: unknown; status: "running" | "completed"; taskId?: string };
 type MessageAttachment = { id: string; name: string; path: string; size: number; mimeType: string };
 type LocalMessage = { id: string; role: "user" | "assistant"; content: string; attachments?: MessageAttachment[]; reasoning?: string | null; activity?: AgentActivityStep[] | null; agentDurationMs?: number | null; agentStartedAt?: string; createdAt: string };
-type LocalConversation = { id: string; title: string; createdAt: string; updatedAt: string; messages?: LocalMessage[]; olderCursor?: string | null; contextUsage?: { usedTokens: number; contextLength: number; source: "provider" } | null };
-type ConversationSearchResult = { projectId: string; projectName: string; conversation: LocalConversation; snippet: string | null };
+type LocalConversation = { id: string; title: string; createdAt: string; updatedAt: string; messages?: LocalMessage[]; olderCursor?: string | null; newerCursor?: string | null; contextUsage?: { usedTokens: number; contextLength: number; source: "provider" } | null };
+type MessageSearchResult = import("./projects/types").MessageSearchResult;
+type ConversationSearchResult = { projectId: string; projectName: string; conversation: LocalConversation; snippet: string | null; messageId: string | null };
 type LocalProject = { id: string; name: string; path: string; deviceId: string; deviceName: string; conversations: LocalConversation[] };
 type TerminalStatus = "running" | "exited" | "stopped";
 type TerminalAction =

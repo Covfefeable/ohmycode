@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import { ImageScopeContext } from "../image-preview/image-scope";
 import { MarkdownContent } from "./MarkdownContent";
@@ -44,4 +44,30 @@ test("链接中的强调文本不会被改成嵌套链接", () => {
   expect(screen.getByRole("link").textContent).toBe("[[mcp:bing/search]]");
   expect(container.querySelectorAll("a")).toHaveLength(1);
   expect(container.querySelectorAll("[data-kind]")).toHaveLength(0);
+});
+
+test("搜索高亮正文、行内代码和代码块，但保持原文与链接不变", () => {
+  const source = "Find **Hello** [hello](https://example.com) `HELLO`\n\n```js\nconst hello = 1;\n```";
+  const { container, rerender } = render(<MarkdownContent highlightQuery="hello">{source}</MarkdownContent>);
+  expect(container.querySelectorAll("mark")).toHaveLength(4);
+  expect(container.querySelector("pre")?.textContent).toBe("const hello = 1;\n");
+  expect(screen.getByRole("link").getAttribute("href")).toBe("https://example.com");
+  const text = container.textContent;
+  rerender(<MarkdownContent>{source}</MarkdownContent>);
+  expect(container.querySelectorAll("mark")).toHaveLength(0);
+  expect(container.textContent).toBe(text);
+});
+
+test("搜索按字面匹配正则特殊字符，不解释为表达式", () => {
+  const { container } = render(<MarkdownContent highlightQuery="a.b">{"a.b axb"}</MarkdownContent>);
+  expect(container.querySelectorAll("mark")).toHaveLength(1);
+  expect(container.querySelector("mark")?.textContent).toBe("a.b");
+});
+
+test("带搜索高亮的代码块复制时不带标记或丢失字符", async () => {
+  const writeText = vi.fn(async () => {});
+  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+  render(<MarkdownContent highlightQuery="needle">{"```ts\nconst needle = '<mark>';\n```"}</MarkdownContent>);
+  await act(async () => fireEvent.click(screen.getByRole("button", { name: "Copy" })));
+  expect(writeText).toHaveBeenCalledExactlyOnceWith("const needle = '<mark>';");
 });

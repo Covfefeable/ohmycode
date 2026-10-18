@@ -127,6 +127,18 @@ endpoint's `turnId` filter, then merges them by ID in place of its streaming
 placeholder. Already loaded history and newer active Turns are not replaced.
 Scrolling upward releases bottom-follow; returning to the bottom restores it.
 
+Global conversation search also returns the latest matching `messageId`; title-only
+matches have no message target. In-conversation `GET /api/projects/conversations/{id}/search`
+queries persisted message bodies, counts matching messages in SQL, and navigates by
+`(created_at, id)` with wraparound. Both APIs enforce account and device ownership.
+
+Message navigation uses the history endpoint's `around` cursor to fetch at most 20
+messages on each side of the target, then `before` / `after` cursors for browsing.
+The search presentation window is separate from the controller's live conversation;
+it never replaces Runtime state or interrupts streaming. Returning to the latest
+view reveals all events received while browsing search results. Only visible rows
+are mounted, and Markdown highlights do not change source text or code copying.
+
 ## Queued follow-ups and steering
 
 Ordinary Desktop chats keep a per-thread queue in the Electron Runtime, persisted

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Check, Copy, GitBranch, LoaderCircle, Pencil } from "lucide-react";
+import { ArrowDown, Check, Copy, GitBranch, LoaderCircle, Pencil, Search } from "lucide-react";
 import { TaskComposer } from "../task-composer";
 import { useFeedback } from "../feedback";
 import { FullScreenLoading } from "../../shared/ui/full-screen-loading";
@@ -21,10 +21,14 @@ import type { VirtuosoHandle } from "react-virtuoso";
 import { MessageList } from "./message-list/MessageList";
 import { ActivityExpansionProvider } from "./activity-timeline/ActivityExpansionProvider";
 import { ImageScopeContext } from "../../shared/ui/image-preview/image-scope";
+import { IconButton } from "../../shared/ui/icon-button";
+import { ConversationSearchBar } from "./message-search/ConversationSearchBar";
+import { useConversationSearch } from "./message-search/useConversationSearch";
+import type { MessageLocation } from "../../entities/conversation/types";
 
-type ConversationChatProps = { conversationId: string; active: boolean; onUpdated(): void; onBranched(conversation: LocalConversation): void };
+type ConversationChatProps = { conversationId: string; active: boolean; searchLocation?: MessageLocation; onUpdated(): void; onBranched(conversation: LocalConversation): void };
 
-export function ConversationChat({ conversationId, active, onUpdated, onBranched }: ConversationChatProps) {
+export function ConversationChat({ conversationId, active, searchLocation, onUpdated, onBranched }: ConversationChatProps) {
   const { t, i18n } = useTranslation();
   const { toast } = useFeedback();
   const capabilityOptions = usePromptCapabilities();
@@ -40,17 +44,39 @@ export function ConversationChat({ conversationId, active, onUpdated, onBranched
   const [composerClearance, setComposerClearance] = useState(150);
   const composerDockRef = useRef<HTMLDivElement>(null);
   const autoScrollLockedRef = useRef(true);
+  const search = useConversationSearch(conversationId, searchLocation);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const returnLatest = search.returnLatest;
 
   const forceScrollToBottom = useCallback(() => {
+    returnLatest();
     autoScrollLockedRef.current = true;
     listRef.current?.scrollToIndex({ index: "LAST", align: "end", offset: composerClearance });
-  }, [composerClearance]);
+  }, [composerClearance, returnLatest]);
 
   const controller = useConversationController({ conversationId, onUpdated, scrollToBottom: forceScrollToBottom });
-  const { conversation, sending } = controller;
+  const conversation = search.view?.page ?? controller.conversation;
+  const { sending } = controller;
+  const openSearch = search.open;
+
+  useEffect(() => {
+    autoScrollLockedRef.current = !searchLocation;
+  }, [searchLocation]);
+  useEffect(() => {
+    if (!active) return;
+    const keydown = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "f") {
+        event.preventDefault();
+        openSearch();
+        window.requestAnimationFrame(() => { searchInputRef.current?.focus(); searchInputRef.current?.select(); });
+      }
+    };
+    document.addEventListener("keydown", keydown);
+    return () => document.removeEventListener("keydown", keydown);
+  }, [active, openSearch]);
   const lastUserId = useMemo(
-    () => [...(conversation?.messages ?? [])].reverse().find((message) => message.role === "user")?.id,
-    [conversation],
+    () => [...(controller.conversation?.messages ?? [])].reverse().find((message) => message.role === "user")?.id,
+    [controller.conversation],
   );
 
   useEffect(() => {
@@ -153,17 +179,26 @@ export function ConversationChat({ conversationId, active, onUpdated, onBranched
     }}
   >
     {dragActive && <div className={styles.dropOverlay}><div><span>＋</span><strong>{t("agent.dropFiles")}</strong><small>{t("agent.dropFilesHint")}</small></div></div>}
-    <header className={styles.chatHeader}><h1>{conversation.title}</h1></header>
+    <header className={styles.chatHeader}>
+      <div className={styles.heading}><h1>{conversation.title}</h1><div className={styles.headerActions}>
+        {search.view && <button className={styles.returnLatest} onClick={forceScrollToBottom}><ArrowDown />{t("agent.returnLatest")}</button>}
+        <Tooltip content={t("agent.searchConversation")}><IconButton aria-label={t("agent.searchConversation")} onClick={() => { openSearch(); searchInputRef.current?.focus(); }}><Search /></IconButton></Tooltip>
+      </div></div>
+      {search.opened && <ConversationSearchBar inputRef={searchInputRef} query={search.query} result={search.result} loading={search.loading} failed={search.failed} onChange={(value) => { autoScrollLockedRef.current = false; search.changeQuery(value); }} onMove={(direction) => { autoScrollLockedRef.current = false; search.move(direction); }} onClose={search.close} onRetry={search.retry} />}
+    </header>
     <div className={styles.scrollLayer}>
       <ActivityExpansionProvider>
-      {conversation.messages?.length ? <MessageList
+      {searchLocation && search.loading && !search.view ? <FullScreenLoading /> : conversation.messages?.length ? <MessageList
+        key={search.view ? `search-${search.view.revision}` : "live"}
         messages={conversation.messages}
-        prependedCount={controller.prependedCount}
-        loading={controller.historyLoading}
-        failed={controller.historyFailed}
-        loadOlder={controller.loadOlder}
+        prependedCount={search.view?.prepended ?? controller.prependedCount}
+        loading={search.view ? search.loading : controller.historyLoading}
+        failed={search.view ? search.failed : controller.historyFailed}
+        loadOlder={search.view ? search.loadOlder : controller.loadOlder}
+        loadNewer={search.view?.page.newerCursor ? search.loadNewer : undefined}
+        location={search.view?.location}
         clearance={composerClearance}
-        active={active}
+        active={active && !search.view}
         listRef={listRef}
         followRef={autoScrollLockedRef}
         renderMessage={(message) => <article className={message.role === "user" ? styles.user : styles.assistant}>
@@ -176,7 +211,7 @@ export function ConversationChat({ conversationId, active, onUpdated, onBranched
         </div> : <>
           {message.role === "assistant" && <ActivityTimeline active={sending && message.id.startsWith("stream-")} durationMs={message.agentDurationMs} startedAt={message.agentStartedAt} steps={message.activity?.length ? withoutFinalResponse(message.activity, message.content) : message.reasoning ? [{ id: `reasoning-${message.id}`, type: "reasoning", content: message.reasoning, status: "completed" }] : []} />}
           {message.attachments?.length ? <div className={styles.messageAttachments}><AttachmentList attachments={message.attachments} /></div> : null}
-          {(message.content || (message.role === "assistant" && !message.activity?.some((step) => step.type === "message"))) && <div className={message.role === "assistant" ? styles.response : styles.bubble}><MarkdownContent>{message.content || "▍"}</MarkdownContent></div>}
+          {(message.content || (message.role === "assistant" && !message.activity?.some((step) => step.type === "message"))) && <div className={message.role === "assistant" ? styles.response : styles.bubble}><MarkdownContent highlightQuery={search.opened ? search.query : ""}>{message.content || "▍"}</MarkdownContent></div>}
         </>}
         {!editing || editing.message.id !== message.id ? <div className={styles.messageActions}>
           <time>{new Intl.DateTimeFormat(i18n.language, { hour: "2-digit", minute: "2-digit" }).format(new Date(message.createdAt))}</time>

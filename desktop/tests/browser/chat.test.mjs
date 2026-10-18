@@ -103,3 +103,36 @@ test("前插历史保持可见消息位置，虚拟行卸载后保留展开状�
   await row.waitFor();
   assert.equal(await row.getByRole("button").getAttribute("aria-expanded"), "true");
 });
+
+test("全局搜索定位未加载的命中消息，后台输出继续且不抢回最新位置", async () => {
+  await page.goto(`${baseUrl}/tests/browser/search.html`);
+  await page.getByText("Live output", { exact: true }).waitFor();
+  await page.getByRole("textbox", { name: "Search conversations", exact: true }).fill("needle");
+  await page.getByRole("button", { name: /Fixture conversation.*needle evidence 55/ }).click();
+  const hit = page.locator("article p").filter({ hasText: /^needle evidence 55$/ });
+  await hit.waitFor(); await settle();
+  const before = await hit.boundingBox();
+  assert.ok(before.y > 0 && before.y < 600);
+  assert.ok(await hit.locator("mark").count() > 0);
+  await page.evaluate(() => window.searchFixture.emitDelta()); await settle();
+  assert.ok(Math.abs((await hit.boundingBox()).y - before.y) < 2);
+  await page.getByRole("button", { name: "Back to latest" }).click();
+  await page.getByText("Live output background continues", { exact: true }).waitFor();
+});
+
+test("Ctrl+F 搜索完整会话，Enter 与 Shift+Enter 跳转，Escape 退出搜索", async () => {
+  await page.goto(`${baseUrl}/tests/browser/search.html`);
+  await page.getByText("Live output", { exact: true }).waitFor();
+  await page.keyboard.press("Control+f");
+  const input = page.getByRole("textbox", { name: "Search this conversation", exact: true });
+  await input.fill("needle");
+  await page.locator("article p").filter({ hasText: /^needle evidence 5$/ }).waitFor();
+  assert.equal(await page.getByRole("search").getByRole("status").textContent(), "1 / 2");
+  await input.press("Enter");
+  await page.locator("article p").filter({ hasText: /^needle evidence 55$/ }).waitFor();
+  await input.press("Shift+Enter");
+  await page.locator("article p").filter({ hasText: /^needle evidence 5$/ }).waitFor();
+  await input.press("Escape");
+  assert.equal(await page.getByRole("search").count(), 0);
+  assert.ok(await page.getByRole("button", { name: "Back to latest" }).isVisible());
+});

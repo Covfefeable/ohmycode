@@ -15,6 +15,7 @@ from ..services.conversations import (
     search_conversations,
 )
 from ..services.conversations.history import conversation_history
+from ..services.conversations.search import search_messages
 from ..services.errors import ServiceError
 from ..services.projects import create_project, delete_project, list_projects, serialize_project
 from ..services.projects.queries import device_conversation, device_project
@@ -52,8 +53,8 @@ def search_conversations_route():
     results = search_conversations(user_id(), current_device(), query, limit)
     return jsonify(
         [
-            serialize_conversation_search_result(conversation, snippet)
-            for conversation, snippet in results
+            serialize_conversation_search_result(conversation, message, query)
+            for conversation, message in results
         ]
     )
 
@@ -109,10 +110,39 @@ def conversation_history_route(conversation_id: UUID):
     try:
         before = UUID(request.args["before"]) if request.args.get("before") else None
         turn_id = UUID(request.args["turnId"]) if request.args.get("turnId") else None
+        after = UUID(request.args["after"]) if request.args.get("after") else None
+        around = UUID(request.args["around"]) if request.args.get("around") else None
     except ValueError as error:
         raise ServiceError("validation_error", 422) from error
     return jsonify(
-        conversation_history(user_id(), current_device(), conversation_id, before, turn_id)
+        conversation_history(
+            user_id(),
+            current_device(),
+            conversation_id,
+            before,
+            turn_id,
+            after=after,
+            around=around,
+        )
+    )
+
+
+@projects_bp.get("/conversations/<uuid:conversation_id>/search")
+@jwt_required()
+def search_messages_route(conversation_id: UUID):
+    try:
+        at = UUID(request.args["at"]) if request.args.get("at") else None
+    except ValueError as error:
+        raise ServiceError("validation_error", 422) from error
+    return jsonify(
+        search_messages(
+            user_id(),
+            current_device(),
+            conversation_id,
+            str(request.args.get("q") or ""),
+            at,
+            request.args.get("direction"),
+        )
     )
 
 

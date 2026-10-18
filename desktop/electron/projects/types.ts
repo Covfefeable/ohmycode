@@ -5,15 +5,19 @@ export type LocalConversation = {
   updatedAt: string;
   messages?: LocalMessage[];
   olderCursor?: string | null;
+  newerCursor?: string | null;
   contextUsage?: { usedTokens: number; contextLength: number; source: "provider" } | null;
 };
-export type ConversationHistoryQuery = { before?: string; turnId?: string };
+export type ConversationHistoryQuery = { before?: string; after?: string; around?: string; turnId?: string };
+export type MessageSearchQuery = { query: string; at?: string; direction?: "next" | "previous" };
+export type MessageSearchResult = { messageId: string | null; position: number; total: number };
 
 export type ConversationSearchResult = {
   projectId: string;
   projectName: string;
   conversation: LocalConversation;
   snippet: string | null;
+  messageId: string | null;
 };
 
 export type MessageAttachment = { id: string; name: string; path: string; size: number; mimeType: string };

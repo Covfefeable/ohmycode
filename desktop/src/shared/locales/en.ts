@@ -55,6 +55,12 @@ export const en = {
     clearSearch: "Clear search",
   },
   agent: {
+    searchConversation: "Search this conversation",
+    previousMatch: "Previous matching message",
+    nextMatch: "Next matching message",
+    searchFailed: "Search failed",
+    returnLatest: "Back to latest",
+    loadNewer: "Load newer messages",
     queuedMessages: "Queued messages",
     queuePaused: "Queue paused",
     resumeQueue: "Continue sending",
