@@ -1,0 +1,5 @@
+.viewport { overflow-anchor: none; }
+.row { width: min(960px, calc(100% - 48px)); margin: 0 auto; display: grid; padding: 0 4px 32px; }
+.history { height: 36px; display: flex; align-items: center; justify-content: center; color: var(--color-text-muted); font-size: var(--font-sm); }
+.history button { border: 0; background: none; color: var(--color-text-muted); cursor: pointer; }
+.history button:hover { color: var(--color-text); }

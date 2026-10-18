@@ -1,7 +1,7 @@
 import path from "node:path";
 import { dialog, shell } from "electron";
 import { ApiError, apiRequest } from "../api/api-client.js";
-import type { ConversationSearchResult, LocalConversation, LocalProject } from "./types.js";
+import type { ConversationHistoryQuery, ConversationSearchResult, LocalConversation, LocalProject } from "./types.js";
 
 export function listProjects(): Promise<LocalProject[]> { return apiRequest("/api/projects"); }
 export function searchConversations(query: string): Promise<ConversationSearchResult[]> {
@@ -32,6 +32,12 @@ export function deleteProject(projectId: string): Promise<void> { return apiRequ
 export function createConversation(projectId: string, title: string): Promise<LocalConversation> { return apiRequest(`/api/projects/${projectId}/conversations`, { method: "POST", body: JSON.stringify({ title }) }); }
 export function deleteConversation(_projectId: string, conversationId: string): Promise<void> { return apiRequest(`/api/projects/conversations/${conversationId}`, { method: "DELETE" }); }
 export function getConversation(conversationId: string): Promise<LocalConversation> { return apiRequest(`/api/projects/conversations/${conversationId}`); }
+export function getConversationHistory(conversationId: string, options: ConversationHistoryQuery = {}): Promise<LocalConversation> {
+  const query = new URLSearchParams();
+  if (options.before) query.set("before", options.before);
+  if (options.turnId) query.set("turnId", options.turnId);
+  return apiRequest(`/api/projects/conversations/${conversationId}/history?${query}`);
+}
 export function branchConversation(conversationId: string, messageId: string): Promise<LocalConversation> { return apiRequest(`/api/projects/conversations/${conversationId}/branch`, { method: "POST", body: JSON.stringify({ messageId }) }); }
 export async function suggestFollowups(conversationId: string): Promise<string[]> {
   const result = await apiRequest<{ suggestions: string[] }>(`/api/projects/conversations/${conversationId}/suggestions`, { method: "POST" });

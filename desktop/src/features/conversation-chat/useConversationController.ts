@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useFeedback } from "../feedback";
 import { classifyRequestError } from "../../shared/lib/request-error";
 import { updateActivity } from "./activity-timeline/updateActivity";
+import { mergeTurnMessages } from "./message-history";
 
 type Options = {
   conversationId: string;
@@ -21,6 +22,11 @@ export function useConversationController({ conversationId, onUpdated, scrollToB
   const [selectedModelId, setSelectedModelId] = useState("");
   const [contextUsage, setContextUsage] = useState(0);
   const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyFailed, setHistoryFailed] = useState(false);
+  const [prependedCount, setPrependedCount] = useState(0);
+  const historyRequestRef = useRef(false);
+  const historyGenerationRef = useRef(0);
   const activeTurnIdRef = useRef<string | null>(null);
   const suggestionRequestRef = useRef(0);
   const conversationRef = useRef<LocalConversation | null>(null);
@@ -48,6 +54,7 @@ export function useConversationController({ conversationId, onUpdated, scrollToB
 
   useEffect(() => {
     let disposed = false;
+    historyGenerationRef.current += 1;
     let snapshotLoaded = false;
     const pending: RuntimeEvent[] = [];
     const handledEvents = new Set<string>();
@@ -100,20 +107,14 @@ export function useConversationController({ conversationId, onUpdated, scrollToB
         if (event.type !== "turn.completed" && event.type !== "turn.failed" && event.type !== "turn.interrupted") continue;
         if (activeTurnIdRef.current === event.turnId) activeTurnIdRef.current = null;
         void window.ohmycode.conversations.waitTurn(event.turnId)
-          .then((value) => value ?? window.ohmycode.conversations.get(conversationId))
-          .catch(() => window.ohmycode.conversations.get(conversationId))
+          .then((value) => value ?? window.ohmycode.conversations.history(conversationId, { turnId: event.turnId }))
+          .catch(() => window.ohmycode.conversations.history(conversationId, { turnId: event.turnId }))
           .then((value) => {
             if (disposed) return;
-            // A queued Turn can already be streaming when the previous snapshot returns.
-            if (activeTurnIdRef.current && activeTurnIdRef.current !== event.turnId) {
-              const activeId = activeTurnIdRef.current;
-              setConversation((current) => ({ ...value, messages: [
-                ...(value.messages ?? []),
-                ...(current?.messages ?? []).filter((message) => message.id !== `stream-${event.turnId}` && !(value.messages ?? []).some((saved) => saved.id === message.id)),
-              ].filter((message) => !message.id.startsWith("stream-") || message.id === `stream-${activeId}`) }));
-              return;
-            }
-            setConversation(value);
+            setConversation((current) => current ? { ...current, title: value.title, updatedAt: value.updatedAt,
+              messages: mergeTurnMessages(current.messages ?? [], value.messages ?? [], event.turnId),
+            } : current);
+            if (activeTurnIdRef.current && activeTurnIdRef.current !== event.turnId) return;
             setContextUsage(value.contextUsage && value.contextUsage.contextLength > 0
               ? value.contextUsage.usedTokens / value.contextUsage.contextLength
               : 0);
@@ -152,11 +153,14 @@ export function useConversationController({ conversationId, onUpdated, scrollToB
       else enqueueRuntimeEvent(event);
     });
     void Promise.all([
-      window.ohmycode.conversations.get(conversationId),
+      window.ohmycode.conversations.history(conversationId),
       window.ohmycode.conversations.threadSnapshot(conversationId),
     ]).then(([loadedConversation, snapshot]) => {
       if (disposed) return;
       setConversation(loadedConversation);
+      setPrependedCount(0);
+      setHistoryLoading(false);
+      setHistoryFailed(false);
       setContextUsage(loadedConversation.contextUsage && loadedConversation.contextUsage.contextLength > 0
         ? loadedConversation.contextUsage.usedTokens / loadedConversation.contextUsage.contextLength
         : 0);
@@ -181,6 +185,7 @@ export function useConversationController({ conversationId, onUpdated, scrollToB
     }).catch(() => undefined);
     return () => {
       disposed = true;
+      historyGenerationRef.current += 1;
       unsubscribe();
       if (eventFrame !== null) window.cancelAnimationFrame(eventFrame);
       queuedEvents = [];
@@ -211,7 +216,6 @@ export function useConversationController({ conversationId, onUpdated, scrollToB
       return true;
     } catch (error) {
       toast({ type: "error", message: requestErrorMessage(error) });
-      try { setConversation(await window.ohmycode.conversations.get(conversationId)); } catch { /* Keep the visible snapshot. */ }
       setSending(false);
       return false;
     }
@@ -234,9 +238,32 @@ export function useConversationController({ conversationId, onUpdated, scrollToB
     await window.ohmycode.conversations.interruptTurn(turnId, stoppedMessage);
   }
 
+  async function loadOlder(): Promise<void> {
+    const cursor = conversationRef.current?.olderCursor;
+    if (!cursor || historyRequestRef.current) return;
+    const generation = historyGenerationRef.current;
+    historyRequestRef.current = true;
+    setHistoryLoading(true);
+    setHistoryFailed(false);
+    try {
+      const page = await window.ohmycode.conversations.history(conversationId, { before: cursor });
+      if (generation !== historyGenerationRef.current) return;
+      const known = new Set(conversationRef.current?.messages?.map((message) => message.id));
+      const older = (page.messages ?? []).filter((message) => !known.has(message.id));
+      setPrependedCount((count) => count + older.length);
+      setConversation((current) => current ? { ...current, olderCursor: page.olderCursor, messages: [...older, ...(current.messages ?? [])] } : current);
+    } catch {
+      if (generation === historyGenerationRef.current) setHistoryFailed(true);
+    } finally {
+      historyRequestRef.current = false;
+      if (generation === historyGenerationRef.current) setHistoryLoading(false);
+    }
+  }
+
   return {
     conversation, loadFailed, sending, models, selectedModelId, contextUsage, suggestions,
     setSelectedModelId, send, stop,
+    historyLoading, historyFailed, prependedCount, loadOlder,
     retry: () => { setLoadFailed(false); setReloadToken((value) => value + 1); },
   };
 }

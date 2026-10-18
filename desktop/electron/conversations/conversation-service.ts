@@ -88,5 +88,5 @@ export async function streamMessage(
   } finally {
     await registry.close();
   }
-  return transport.conversation(conversationId);
+  return transport.conversation(conversationId, turnId);
 }

@@ -1,11 +1,21 @@
 import { Children, isValidElement, type ComponentPropsWithoutRef, type ReactNode, useState } from "react";
 import { Check, Copy } from "lucide-react";
-import ReactMarkdown from "react-markdown";
+import ReactMarkdown, { defaultUrlTransform, type Components, type UrlTransform } from "react-markdown";
 import { useTranslation } from "react-i18next";
 import remarkGfm from "remark-gfm";
 import { CapabilityToken } from "../capability-token";
 import { CAPABILITY_LINK_PREFIX, remarkCapabilityTokens } from "./capability-tokens";
 import styles from "./MarkdownContent.module.css";
+import { MarkdownImage } from "../image-preview/MarkdownImage";
+import { isLocalImageLink } from "../image-preview/image-reference";
+
+const markdownUrlTransform: UrlTransform = (url, key, node) => {
+  const image = key === "src" && node.tagName === "img";
+  if (image && /^data:image\//i.test(url)) return url;
+  const localPath = /^(?:file:|[a-z]:[\\/])/i.test(url);
+  if (localPath && (image || key === "href" && node.tagName === "a" && isLocalImageLink(url, window.location.href))) return url;
+  return defaultUrlTransform(url);
+};
 
 function codeText(children: ReactNode): string {
   const child = Children.toArray(children)[0];
@@ -39,17 +49,23 @@ function CodeBlock({ children, ...props }: ComponentPropsWithoutRef<"pre">) {
   </div>;
 }
 
+const markdownComponents: Components = {
+  pre: CodeBlock,
+  img: ({ src, alt }) => <MarkdownImage src={typeof src === "string" ? src : ""} name={alt ?? ""} />,
+  a: ({ children: label, href, ...props }) => href?.startsWith(CAPABILITY_LINK_PREFIX)
+    ? <CapabilityToken kind={href.startsWith(`${CAPABILITY_LINK_PREFIX}mcp-`) ? "mcp" : "skill"} label={label} />
+    : href && isLocalImageLink(href, window.location.href)
+      ? <MarkdownImage src={href} name={typeof label === "string" ? label : href.split(/[\\/]/).at(-1) ?? ""} />
+      : <a {...props} href={href} target="_blank" rel="noreferrer">{label}</a>,
+  table: ({ children: rows, ...props }) => <div className={styles.tableScroll}><table {...props}>{rows}</table></div>,
+};
+
 export function MarkdownContent({ children, className = "" }: { children: string; className?: string }) {
   return <div className={`${styles.root} ${className}`.trim()}>
     <ReactMarkdown
       remarkPlugins={[remarkGfm, remarkCapabilityTokens]}
-      components={{
-        pre: CodeBlock,
-        a: ({ children: label, href, ...props }) => href?.startsWith(CAPABILITY_LINK_PREFIX)
-          ? <CapabilityToken kind={href.startsWith(`${CAPABILITY_LINK_PREFIX}mcp-`) ? "mcp" : "skill"} label={label} />
-          : <a {...props} href={href} target="_blank" rel="noreferrer">{label}</a>,
-        table: ({ children: rows, ...props }) => <div className={styles.tableScroll}><table {...props}>{rows}</table></div>,
-      }}
+      urlTransform={markdownUrlTransform}
+      components={markdownComponents}
     >{children}</ReactMarkdown>
   </div>;
 }

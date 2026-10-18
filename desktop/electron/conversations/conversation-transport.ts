@@ -1,4 +1,5 @@
-import { apiErrorFromResponse, apiFetch, apiRequest } from "../api/api-client.js";
+import { apiErrorFromResponse, apiFetch } from "../api/api-client.js";
+import { getConversationHistory } from "../projects/projects-service.js";
 import type { LocalConversation, MessageAttachment } from "../projects/types.js";
 import type { AgentTransport } from "@ohmycode/agent-runtime";
 import type { ProviderToolDefinition, ToolResult } from "@ohmycode/tool-contracts";
@@ -69,7 +70,7 @@ export class ConversationTransport implements AgentTransport {
     }).then(checked);
   }
 
-  conversation(conversationId: string): Promise<LocalConversation> {
-    return apiRequest(`/api/projects/conversations/${conversationId}`);
+  conversation(conversationId: string, turnId: string): Promise<LocalConversation> {
+    return getConversationHistory(conversationId, { turnId });
   }
 }

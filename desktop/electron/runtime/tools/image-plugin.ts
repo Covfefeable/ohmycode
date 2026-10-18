@@ -15,7 +15,6 @@ const VIEW_IMAGE_DEFINITION: ToolDefinition = {
 export function createImagePlugin(options: {
   projectId: string;
   workspaceRoot?: string;
-  attachmentPaths: Set<string>;
 }): ToolPlugin {
   return defineToolPlugin({
     id: "image",
@@ -23,7 +22,6 @@ export function createImagePlugin(options: {
     execute: (call) => executeViewImage(
       { ...(call.arguments as ViewImageArguments), projectId: options.projectId },
       options.workspaceRoot,
-      options.attachmentPaths,
     ),
   });
 }

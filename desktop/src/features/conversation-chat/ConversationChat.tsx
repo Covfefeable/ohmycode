@@ -17,6 +17,10 @@ import { useFollowupQueue } from "./useFollowupQueue";
 import { FollowupStrip } from "./followup-strip/FollowupStrip";
 import { classifyRequestError } from "../../shared/lib/request-error";
 import styles from "./ConversationChat.module.css";
+import type { VirtuosoHandle } from "react-virtuoso";
+import { MessageList } from "./message-list/MessageList";
+import { ActivityExpansionProvider } from "./activity-timeline/ActivityExpansionProvider";
+import { ImageScopeContext } from "../../shared/ui/image-preview/image-scope";
 
 type ConversationChatProps = { conversationId: string; active: boolean; onUpdated(): void; onBranched(conversation: LocalConversation): void };
 
@@ -32,28 +36,18 @@ export function ConversationChat({ conversationId, active, onUpdated, onBranched
   const [restoredInput, setRestoredInput] = useState<FollowupInput>();
   const followups = useFollowupQueue(conversationId);
   const dragDepthRef = useRef(0);
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<VirtuosoHandle>(null);
+  const [composerClearance, setComposerClearance] = useState(150);
   const composerDockRef = useRef<HTMLDivElement>(null);
   const autoScrollLockedRef = useRef(true);
-  const lastScrollTopRef = useRef(0);
-  const scrollFrameRef = useRef<number | null>(null);
 
   const forceScrollToBottom = useCallback(() => {
     autoScrollLockedRef.current = true;
-    if (scrollFrameRef.current !== null) window.cancelAnimationFrame(scrollFrameRef.current);
-    scrollFrameRef.current = window.requestAnimationFrame(() => {
-      const scroller = scrollRef.current;
-      if (scroller) {
-        scroller.scrollTop = scroller.scrollHeight;
-        lastScrollTopRef.current = scroller.scrollTop;
-      }
-      scrollFrameRef.current = null;
-    });
-  }, []);
+    listRef.current?.scrollToIndex({ index: "LAST", align: "end", offset: composerClearance });
+  }, [composerClearance]);
 
   const controller = useConversationController({ conversationId, onUpdated, scrollToBottom: forceScrollToBottom });
   const { conversation, sending } = controller;
-  const conversationLoaded = conversation !== null;
   const lastUserId = useMemo(
     () => [...(conversation?.messages ?? [])].reverse().find((message) => message.role === "user")?.id,
     [conversation],
@@ -61,53 +55,16 @@ export function ConversationChat({ conversationId, active, onUpdated, onBranched
 
   useEffect(() => {
     const dock = composerDockRef.current;
-    const scroller = scrollRef.current;
-    if (!dock || !scroller) return;
-    let previousClearance = 0;
+    if (!dock) return;
     const updateClearance = () => {
       const clearance = Math.ceil(dock.getBoundingClientRect().height) + 54;
-      scroller.style.paddingBottom = `${clearance}px`;
-      if (autoScrollLockedRef.current && clearance !== previousClearance) scroller.scrollTop = scroller.scrollHeight;
-      previousClearance = clearance;
+      setComposerClearance(clearance);
     };
     updateClearance();
     const observer = new ResizeObserver(updateClearance);
     observer.observe(dock);
     return () => observer.disconnect();
   }, [conversation?.id]);
-
-  useEffect(() => {
-    const scroller = scrollRef.current;
-    if (!scroller || !conversationLoaded) return;
-    autoScrollLockedRef.current = true;
-    const handleWheel = (event: WheelEvent) => {
-      if (event.deltaY < -1) autoScrollLockedRef.current = false;
-    };
-    const handleScroll = () => {
-      const distanceFromBottom = scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop;
-      if (scroller.scrollTop < lastScrollTopRef.current - 1 && distanceFromBottom > 36) autoScrollLockedRef.current = false;
-      if (distanceFromBottom <= 36) autoScrollLockedRef.current = true;
-      lastScrollTopRef.current = scroller.scrollTop;
-    };
-    scroller.addEventListener("wheel", handleWheel, { passive: true });
-    scroller.addEventListener("scroll", handleScroll, { passive: true });
-    return () => {
-      scroller.removeEventListener("wheel", handleWheel);
-      scroller.removeEventListener("scroll", handleScroll);
-    };
-  }, [conversationId, conversationLoaded]);
-
-  useEffect(() => {
-    const scroller = scrollRef.current;
-    if (!active || !scroller || !autoScrollLockedRef.current) return;
-    if (scrollFrameRef.current !== null) window.cancelAnimationFrame(scrollFrameRef.current);
-    scrollFrameRef.current = window.requestAnimationFrame(() => {
-      scroller.scrollTop = scroller.scrollHeight;
-      lastScrollTopRef.current = scroller.scrollTop;
-      scrollFrameRef.current = null;
-    });
-    return () => { if (scrollFrameRef.current !== null) window.cancelAnimationFrame(scrollFrameRef.current); };
-  }, [active, conversation?.messages]);
 
   async function copy(message: LocalMessage) {
     await navigator.clipboard.writeText(message.content);
@@ -149,18 +106,28 @@ export function ConversationChat({ conversationId, active, onUpdated, onBranched
     });
   }
 
-  function addFiles(files: File[]) {
-    if (!files.length) return;
-    const resolved = window.ohmycode.conversations.resolveDroppedFiles(files).filter((item) => item.path);
+  function appendAttachments(resolved: MessageAttachment[]) {
     setAttachments((current) => {
       const known = new Set(current.map((item) => item.path));
       return [...current, ...resolved.filter((item) => !known.has(item.path))].slice(0, 20);
     });
   }
 
+  function addFiles(files: File[]) {
+    appendAttachments(window.ohmycode.conversations.resolveDroppedFiles(files).filter((item) => item.path));
+  }
+
+  async function pasteImages(files: File[]) {
+    for (const file of files.slice(0, Math.max(0, 20 - attachments.length))) {
+      const [existing] = window.ohmycode.conversations.resolveDroppedFiles([file]);
+      const attachment = existing?.path ? existing : await window.ohmycode.conversations.savePastedImage(new Uint8Array(await file.arrayBuffer()));
+      appendAttachments([attachment]);
+    }
+  }
+
   if (controller.loadFailed && !conversation) return <LoadError message={t("agent.loadFailed")} onRetry={controller.retry} />;
   if (!conversation) return <FullScreenLoading />;
-  return <section
+  return <ImageScopeContext.Provider value={{ conversationId }}><section
     className={`${styles.chat} ${dragActive ? styles.dragActive : ""}`}
     onDragEnter={(event) => {
       if (!event.dataTransfer.types.includes("Files")) return;
@@ -186,10 +153,20 @@ export function ConversationChat({ conversationId, active, onUpdated, onBranched
     }}
   >
     {dragActive && <div className={styles.dropOverlay}><div><span>＋</span><strong>{t("agent.dropFiles")}</strong><small>{t("agent.dropFilesHint")}</small></div></div>}
-    <div ref={scrollRef} className={styles.scrollLayer}><div className={styles.chatInner}>
-      <header><h1>{conversation.title}</h1></header>
-      <div className={styles.messages}>
-      {(conversation.messages ?? []).map((message) => <article key={message.id} className={message.role === "user" ? styles.user : styles.assistant}>
+    <header className={styles.chatHeader}><h1>{conversation.title}</h1></header>
+    <div className={styles.scrollLayer}>
+      <ActivityExpansionProvider>
+      {conversation.messages?.length ? <MessageList
+        messages={conversation.messages}
+        prependedCount={controller.prependedCount}
+        loading={controller.historyLoading}
+        failed={controller.historyFailed}
+        loadOlder={controller.loadOlder}
+        clearance={composerClearance}
+        active={active}
+        listRef={listRef}
+        followRef={autoScrollLockedRef}
+        renderMessage={(message) => <article className={message.role === "user" ? styles.user : styles.assistant}>
         {editing?.message.id === message.id ? <div className={`${styles.bubble} ${styles.editBubble}`}>
           <PromptEditor autoFocus className={styles.editPromptEditor} value={editing.content} options={capabilityOptions} ariaLabel={t("agent.edit")} onChange={(content) => setEditing({ ...editing, content })} />
           <div className={styles.editActions}>
@@ -207,13 +184,12 @@ export function ConversationChat({ conversationId, active, onUpdated, onBranched
           {!message.id.startsWith("stream-") && !message.id.startsWith("user-") && <Tooltip content={t("agent.branch")}><button aria-label={t("agent.branch")} disabled={branchingId !== null} onClick={() => void branch(message)}>{branchingId === message.id ? <LoaderCircle className={styles.spin} /> : <GitBranch />}</button></Tooltip>}
           {message.id === lastUserId && !sending && <Tooltip content={t("agent.edit")}><button aria-label={t("agent.edit")} onClick={() => { setEditing({ message, content: message.content }); forceScrollToBottom(); }}><Pencil /></button></Tooltip>}
         </div> : null}
-      </article>)}
-      {!conversation.messages?.length && <p className={styles.empty}>{t("agent.emptyConversation")}</p>}
-      </div>
-    </div></div>
+      </article>} /> : <p className={styles.empty}>{t("agent.emptyConversation")}</p>}
+      </ActivityExpansionProvider>
+    </div>
     <div ref={composerDockRef} className={styles.composerDock}>
       <FollowupStrip state={followups} running={sending} onSteer={(id) => void queueAction(() => window.ohmycode.conversations.steer(conversationId, id))} onWithdraw={(id) => void withdraw(id)} onResume={() => void queueAction(() => window.ohmycode.conversations.resumeQueue(conversationId))} />
-      <TaskComposer busy={sending} disabled={Boolean(editing)} models={controller.models} selectedModelId={controller.selectedModelId} contextUsage={controller.contextUsage} attachments={attachments} suggestions={controller.suggestions} restoredInput={restoredInput} onRemoveAttachment={(id) => setAttachments((items) => items.filter((item) => item.id !== id))} onModelChange={controller.setSelectedModelId} onSubmit={(content, items) => send(content, items)} onStop={controller.stop} />
+      <TaskComposer onPasteImages={pasteImages} busy={sending} disabled={Boolean(editing)} models={controller.models} selectedModelId={controller.selectedModelId} contextUsage={controller.contextUsage} attachments={attachments} suggestions={controller.suggestions} restoredInput={restoredInput} onRemoveAttachment={(id) => setAttachments((items) => items.filter((item) => item.id !== id))} onModelChange={controller.setSelectedModelId} onSubmit={(content, items) => send(content, items)} onStop={controller.stop} />
     </div>
-  </section>;
+  </section></ImageScopeContext.Provider>;
 }

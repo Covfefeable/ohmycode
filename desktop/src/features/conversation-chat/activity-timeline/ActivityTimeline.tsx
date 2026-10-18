@@ -5,13 +5,15 @@ import { useTranslation } from "react-i18next";
 import { MarkdownContent } from "../../../shared/ui/markdown-content";
 import styles from "./ActivityTimeline.module.css";
 import { presentToolActivity } from "./tool-presentation";
+import { useActivityExpansion } from "./expansion-state";
+import { ImagePreview } from "../../../shared/ui/image-preview/ImagePreview";
 
 const FileDiffViewer = lazy(() => import("./file-diff-viewer/FileDiffViewer").then((module) => ({ default: module.FileDiffViewer })));
 const FileContentViewer = lazy(() => import("./file-diff-viewer/FileDiffViewer").then((module) => ({ default: module.FileContentViewer })));
 
 function ToolStep({ step }: { step: Extract<AgentActivityStep, { type: "tool" }> }) {
   const { t } = useTranslation();
-  const [open, setOpen] = useState(step.status === "running");
+  const [open, setOpen] = useActivityExpansion(`${step.id}-${step.status}`, step.status === "running");
   const presentation = presentToolActivity(step.tool, step.input, step.result);
   const { changes, command, displayResource: displayedFilePath, failed, input, projectId, resource: clickableFilePath, result } = presentation;
   const fileLabelKey = step.status === "running"
@@ -48,7 +50,9 @@ function ToolStep({ step }: { step: Extract<AgentActivityStep, { type: "tool" }>
         : displayedFilePath ? <span>{displayedFilePath}</span> : null}
       <button className={styles.expandButton} type="button" aria-expanded={open} onClick={(event) => { event.stopPropagation(); setOpen((value) => !value); }}><ChevronDown className={`${styles.chevron} ${open ? styles.chevronOpen : ""}`} /></button>
     </div>
-    {open && presentation.viewer === "file-diff" && !failed && changes.length > 0
+    {open && presentation.viewer === "image" && !failed
+      ? step.status === "completed" && <ImagePreview src={presentation.imageSource} name={displayedFilePath} />
+      : open && presentation.viewer === "file-diff" && !failed && changes.length > 0
       ? <Suspense fallback={<div className={styles.diffLoading}>{t("agent.loadingDiff")}</div>}><FileDiffViewer changes={changes} /></Suspense>
       : open && presentation.viewer === "file-content" && !failed && result
         ? <Suspense fallback={<div className={styles.diffLoading}>{t("agent.loadingFilePreview")}</div>}><FileContentViewer content={result} path={clickableFilePath} startLine={typeof input.startLine === "number" ? input.startLine : 1} /></Suspense>
@@ -72,7 +76,7 @@ function ToolStep({ step }: { step: Extract<AgentActivityStep, { type: "tool" }>
 
 function ReasoningStep({ step }: { step: Extract<AgentActivityStep, { type: "reasoning" }> }) {
   const { t } = useTranslation();
-  const [open, setOpen] = useState(step.status === "running");
+  const [open, setOpen] = useActivityExpansion(`${step.id}-${step.status}`, step.status === "running");
   return <div className={styles.step}>
     <button className={styles.stepHead} type="button" onClick={() => setOpen((value) => !value)}>
       {step.status === "running" ? <LoaderCircle className={styles.spinner} /> : <Check />}
@@ -107,7 +111,7 @@ function ActivityStep({ step }: { step: AgentActivityStep }) {
 }
 
 function TaskGroup({ task, steps }: { task: AgentTask; steps: AgentActivityStep[] }) {
-  const [manuallyOpen, setManuallyOpen] = useState(false);
+  const [manuallyOpen, setManuallyOpen] = useActivityExpansion(`task-${steps[0]?.id ?? task.id}`, false);
   const open = task.status === "in_progress" || manuallyOpen;
   const StatusIcon = task.status === "completed" ? Check : task.status === "in_progress" ? LoaderCircle : Circle;
   return <div className={styles.taskGroup}>
@@ -122,7 +126,7 @@ function TaskGroup({ task, steps }: { task: AgentTask; steps: AgentActivityStep[
 
 function RunSection({ steps, active, duration }: { steps: AgentActivityStep[]; active: boolean; duration?: string }) {
   const { t } = useTranslation();
-  const [manuallyOpen, setManuallyOpen] = useState(false);
+  const [manuallyOpen, setManuallyOpen] = useActivityExpansion(`run-${steps[0]?.id}`, false);
   const open = active || manuallyOpen;
   const plan = [...steps].reverse().find((step): step is Extract<AgentActivityStep, { type: "task_plan" }> => step.type === "task_plan");
   const ordinarySteps = steps.filter((step) => step.type !== "task_plan" && !step.taskId && step.type !== "run");

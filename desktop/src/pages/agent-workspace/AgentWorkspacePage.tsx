@@ -34,6 +34,7 @@ export function AgentWorkspacePage() {
       <section className={styles.content}>
         {conversationId && <div className={styles.conversationView}>
           <ConversationChat
+            key={conversationId}
             active
             conversationId={conversationId}
             onUpdated={() => setRefreshToken((value) => value + 1)}

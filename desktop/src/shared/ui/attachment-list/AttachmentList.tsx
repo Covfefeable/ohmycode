@@ -23,7 +23,7 @@ export function AttachmentList({ attachments, removeLabel, onRemove }: Attachmen
         <span className={styles.name}>{attachment.name}</span>
         <span className={styles.size}>{fileSize(attachment.size)}</span>
       </span>
-      {onRemove && <Tooltip content={removeLabel ?? "Remove"}><button type="button" aria-label={removeLabel ?? "Remove"} onClick={() => onRemove(attachment.id)}><X /></button></Tooltip>}
+      {onRemove && <Tooltip className={styles.remove} content={removeLabel ?? "Remove"}><button type="button" aria-label={removeLabel ?? "Remove"} onClick={() => onRemove(attachment.id)}><X /></button></Tooltip>}
     </div>)}
   </div>;
 }

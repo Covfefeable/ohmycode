@@ -25,6 +25,7 @@ interface DesktopBridge {
     };
     conversations: {
       get(conversationId: string): Promise<LocalConversation>;
+      history(conversationId: string, options?: import("./projects/types").ConversationHistoryQuery): Promise<LocalConversation>;
       branch(conversationId: string, messageId: string): Promise<LocalConversation>;
       startTurn(conversationId: string, content: string, modelId?: string, editMessageId?: string, attachments?: MessageAttachment[]): Promise<{ turnId: string } | { queued: true }>;
       followups(conversationId: string): Promise<import("@ohmycode/protocol").FollowupState>;
@@ -33,6 +34,7 @@ interface DesktopBridge {
       resumeQueue(conversationId: string): Promise<void>;
       onFollowups(conversationId: string, callback: (state: import("@ohmycode/protocol").FollowupState) => void): () => void;
       resolveDroppedFiles(files: File[]): MessageAttachment[];
+      savePastedImage(data: Uint8Array): Promise<MessageAttachment>;
       threadSnapshot(conversationId: string, afterSequence?: number): Promise<TurnSnapshot | null>;
       waitTurn(turnId: string): Promise<LocalConversation | null>;
       interruptTurn(turnId: string, partialMessage?: LocalMessage): Promise<void>;
@@ -50,6 +52,7 @@ interface DesktopBridge {
       openDevTools(): void;
     };
     openPath(targetPath: string, projectId?: string): Promise<void>;
+    previewImage(scope: import("./runtime/image-preview").ImageScope | undefined, reference: string): Promise<string>;
     auth: {
       bootstrap(): Promise<
         | { authenticated: false }
@@ -167,7 +170,7 @@ type AgentActivityStep =
   | { id: string; type: "tool"; tool: string; input: unknown; result?: unknown; status: "running" | "completed"; taskId?: string };
 type MessageAttachment = { id: string; name: string; path: string; size: number; mimeType: string };
 type LocalMessage = { id: string; role: "user" | "assistant"; content: string; attachments?: MessageAttachment[]; reasoning?: string | null; activity?: AgentActivityStep[] | null; agentDurationMs?: number | null; agentStartedAt?: string; createdAt: string };
-type LocalConversation = { id: string; title: string; createdAt: string; updatedAt: string; messages?: LocalMessage[]; contextUsage?: { usedTokens: number; contextLength: number; source: "provider" } | null };
+type LocalConversation = { id: string; title: string; createdAt: string; updatedAt: string; messages?: LocalMessage[]; olderCursor?: string | null; contextUsage?: { usedTokens: number; contextLength: number; source: "provider" } | null };
 type ConversationSearchResult = { projectId: string; projectName: string; conversation: LocalConversation; snippet: string | null };
 type LocalProject = { id: string; name: string; path: string; deviceId: string; deviceName: string; conversations: LocalConversation[] };
 type TerminalStatus = "running" | "exited" | "stopped";

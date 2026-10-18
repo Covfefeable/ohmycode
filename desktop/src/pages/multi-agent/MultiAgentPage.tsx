@@ -11,6 +11,7 @@ import { TeamEditor } from "./TeamEditor";
 import { useCollaborationWorkspace } from "./useCollaborationWorkspace";
 import { useMultiAgentExecution } from "./useMultiAgentExecution";
 import styles from "./MultiAgentPage.module.css";
+import { ImageScopeContext } from "../../shared/ui/image-preview/image-scope";
 
 export function MultiAgentPage() {
   const { t } = useTranslation();
@@ -39,7 +40,7 @@ export function MultiAgentPage() {
     onDeleteAgent={(id) => workspace.setDeleteTarget({ type: "agent", id })}
     onDeleteTask={(id) => workspace.setDeleteTarget({ type: "task", id })}
   />}>
-    <main className={styles.page}>
+    <ImageScopeContext.Provider value={task ? { taskId: task.id } : undefined}><main className={styles.page}>
       {task ? <>
         <header className={styles.header}><div><h1>{task.title}</h1><p>{task.request}</p></div></header>
         {isTemplate ? <TeamEditor
@@ -109,6 +110,6 @@ export function MultiAgentPage() {
         onCancel={() => workspace.setDeleteTarget(null)}
         onConfirm={() => void workspace.confirmDelete()}
       />
-    </main>
+    </main></ImageScopeContext.Provider>
   </AppShell>;
 }

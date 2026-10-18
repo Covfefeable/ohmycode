@@ -14,6 +14,7 @@ from ..services.conversations import (
     get_conversation,
     search_conversations,
 )
+from ..services.conversations.history import conversation_history
 from ..services.errors import ServiceError
 from ..services.projects import create_project, delete_project, list_projects, serialize_project
 from ..services.projects.queries import device_conversation, device_project
@@ -100,6 +101,19 @@ def delete_conversation_route(conversation_id: UUID):
         raise ServiceError("not_found", 404)
     delete_conversation(user_id(), conversation_id)
     return "", 204
+
+
+@projects_bp.get("/conversations/<uuid:conversation_id>/history")
+@jwt_required()
+def conversation_history_route(conversation_id: UUID):
+    try:
+        before = UUID(request.args["before"]) if request.args.get("before") else None
+        turn_id = UUID(request.args["turnId"]) if request.args.get("turnId") else None
+    except ValueError as error:
+        raise ServiceError("validation_error", 422) from error
+    return jsonify(
+        conversation_history(user_id(), current_device(), conversation_id, before, turn_id)
+    )
 
 
 @projects_bp.post("/conversations/<uuid:conversation_id>/branch")

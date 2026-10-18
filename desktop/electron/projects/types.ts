@@ -4,8 +4,10 @@ export type LocalConversation = {
   createdAt: string;
   updatedAt: string;
   messages?: LocalMessage[];
+  olderCursor?: string | null;
   contextUsage?: { usedTokens: number; contextLength: number; source: "provider" } | null;
 };
+export type ConversationHistoryQuery = { before?: string; turnId?: string };
 
 export type ConversationSearchResult = {
   projectId: string;

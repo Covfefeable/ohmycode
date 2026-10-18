@@ -51,3 +51,6 @@
 .sendProgress > button svg { width: 16px; height: 16px; }
 .sendProgress > .stop { background: var(--color-surface-control); color: var(--color-text); }
 .sendProgress > .stop svg { width: 11px; height: 11px; fill: currentColor; }
+.spinner { animation: spin 800ms linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }

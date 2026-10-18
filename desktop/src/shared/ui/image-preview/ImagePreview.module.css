@@ -1,0 +1,10 @@
+.thumbnail { display: block; max-width: 100%; margin-top: var(--space-2); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-2); background: var(--color-surface-1); cursor: zoom-in; overflow: hidden; }
+.thumbnail img { display: block; max-width: 100%; max-height: 280px; width: auto; height: auto; object-fit: contain; border-radius: var(--radius-sm); }
+.thumbnail:hover { border-color: var(--color-border-strong); background: var(--color-surface-hover); }
+.lightbox { z-index: var(--z-modal); }
+.controls { position: absolute; z-index: var(--z-sticky); right: var(--space-4); top: var(--space-4); display: flex; gap: var(--space-1); padding: var(--space-1); border-radius: var(--radius-md); background: var(--color-surface-1); }
+.controls svg { width: 20px; height: 20px; }
+.status { display: inline-flex; align-items: center; gap: var(--space-2); margin: var(--space-2) 0; color: var(--color-text-muted); font-size: var(--font-sm); }
+.spinner { width: 16px; height: 16px; animation: spin 800ms linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }

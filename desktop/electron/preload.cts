@@ -32,6 +32,7 @@ const bridge: DesktopBridge = {
   },
   conversations: {
     get: (conversationId) => ipcRenderer.invoke("conversations:get", conversationId),
+    history: (conversationId, options) => ipcRenderer.invoke("conversations:history", conversationId, options),
     branch: (conversationId, messageId) => ipcRenderer.invoke("conversations:branch", conversationId, messageId),
     startTurn: (conversationId, content, modelId, editMessageId, attachments) => ipcRenderer.invoke("conversations:start-turn", conversationId, content, modelId, editMessageId, attachments),
     followups: (id) => ipcRenderer.invoke("conversations:followups", id),
@@ -51,6 +52,7 @@ const bridge: DesktopBridge = {
       size: file.size,
       mimeType: file.type || "application/octet-stream",
     })),
+    savePastedImage: (data) => ipcRenderer.invoke("conversations:save-pasted-image", data),
     threadSnapshot: (conversationId, afterSequence) => ipcRenderer.invoke("conversations:thread-snapshot", conversationId, afterSequence),
     waitTurn: (turnId) => ipcRenderer.invoke("conversations:wait-turn", turnId),
     interruptTurn: (turnId, partialMessage) => ipcRenderer.invoke("conversations:interrupt-turn", turnId, partialMessage),
@@ -73,6 +75,7 @@ const bridge: DesktopBridge = {
     openDevTools: () => ipcRenderer.send("debug:open-devtools"),
   },
   openPath: (targetPath, projectId) => ipcRenderer.invoke("system:open-path", targetPath, projectId),
+  previewImage: (scope, reference) => ipcRenderer.invoke("images:preview", scope, reference),
   auth: {
     bootstrap: () => ipcRenderer.invoke("auth:bootstrap"),
     login: (payload) => ipcRenderer.invoke("auth:login", payload),

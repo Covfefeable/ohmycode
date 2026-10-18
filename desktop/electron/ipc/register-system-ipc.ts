@@ -3,8 +3,10 @@ import { BrowserWindow, ipcMain, shell } from "electron";
 import { getApiUrl, setApiUrl } from "../config.js";
 import { safeExistingPath } from "../files/workspace.js";
 import { listProjects } from "../projects/projects-service.js";
+import { previewWorkspaceImage, type ImageScope } from "../runtime/image-preview.js";
 
 export function registerSystemIpc(): void {
+  ipcMain.handle("images:preview", (_event, scope: ImageScope, reference: string) => previewWorkspaceImage(scope, reference));
   ipcMain.handle("api:status", async () => {
     const apiUrl = getApiUrl();
     try {

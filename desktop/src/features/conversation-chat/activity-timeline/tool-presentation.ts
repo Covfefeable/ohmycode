@@ -6,7 +6,7 @@ export type ToolPresentation = {
     completed: string;
     failed: string;
   };
-  viewer?: "file-content" | "file-diff";
+  viewer?: "file-content" | "file-diff" | "image";
 };
 
 export type FileChange = {
@@ -26,6 +26,7 @@ export type ToolActivityPresentation = ToolPresentation & {
   projectId?: string;
   resource: string;
   result: string;
+  imageSource?: string;
 };
 
 const FILE_PRESENTATIONS: Record<string, ToolPresentation> = {
@@ -55,6 +56,7 @@ const FILE_PRESENTATIONS: Record<string, ToolPresentation> = {
     kind: "file",
     icon: "image",
     labels: { running: "agent.viewingImage", completed: "agent.viewedImage", failed: "agent.viewImageFailed" },
+    viewer: "image",
   },
 };
 
@@ -128,5 +130,6 @@ export function presentToolActivity(toolName: string, rawInput: unknown, rawResu
     projectId: typeof input.projectId === "string" ? input.projectId : undefined,
     resource,
     result: resultText(rawResult),
+    imageSource: result.contentKind === "image" && typeof result.dataUrl === "string" && result.dataUrl.startsWith("data:image/") ? result.dataUrl : undefined,
   };
 }

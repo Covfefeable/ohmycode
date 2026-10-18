@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react";
-import { expect, test } from "vitest";
+import { expect, test, vi } from "vitest";
+import { ImageScopeContext } from "../image-preview/image-scope";
 import { MarkdownContent } from "./MarkdownContent";
 
 test("正文胶囊不改变代码块或行内代码的原文", () => {
@@ -7,6 +8,29 @@ test("正文胶囊不改变代码块或行内代码的原文", () => {
   const { container } = render(<MarkdownContent>{`Use ${value}\n\n\`${value}\`\n\n\`\`\`text\n${value}\n\`\`\``}</MarkdownContent>);
   expect(container.querySelectorAll('[data-kind="mcp"]')).toHaveLength(1);
   expect([...container.querySelectorAll("code")].map((node) => node.textContent?.trim())).toEqual([value, value]);
+});
+
+test("正文图片和本地图片链接通过受限 IPC 读取，包括 Windows 与 file URL", async () => {
+  const previewImage = vi.fn(async () => "data:image/png;base64,test");
+  Object.defineProperty(window, "ohmycode", { configurable: true, value: { previewImage } });
+  render(<ImageScopeContext.Provider value={{ conversationId: "thread" }}><MarkdownContent>{"![Relative](images/a.png)\n\n![Windows](<C:/images/a.png>)\n\n![File](file:///Users/test/a.png)\n\n[Local](images/local.jpg)"}</MarkdownContent></ImageScopeContext.Provider>);
+  for (const name of ["Relative", "Windows", "File", "Local"]) expect(await screen.findByRole("img", { name })).toBeTruthy();
+  expect(previewImage).toHaveBeenCalledWith({ conversationId: "thread" }, "images/a.png");
+  expect(previewImage).toHaveBeenCalledWith({ conversationId: "thread" }, "C:/images/a.png");
+  expect(previewImage).toHaveBeenCalledWith({ conversationId: "thread" }, "file:///Users/test/a.png");
+  expect(previewImage).toHaveBeenCalledWith({ conversationId: "thread" }, "images/local.jpg");
+});
+
+test("流式更新正文不卸载已显示的图片，也不重新请求本地图片", async () => {
+  const previewImage = vi.fn(async () => "data:image/png;base64,test");
+  Object.defineProperty(window, "ohmycode", { configurable: true, value: { previewImage } });
+  const content = "![Preview](image.png)\n\nFirst";
+  const view = (text: string) => <ImageScopeContext.Provider value={{ conversationId: "thread" }}><MarkdownContent>{text}</MarkdownContent></ImageScopeContext.Provider>;
+  const { rerender } = render(view(content));
+  const image = await screen.findByRole("img", { name: "Preview" });
+  rerender(view(content + " second chunk"));
+  expect(screen.getByRole("img", { name: "Preview" })).toBe(image);
+  expect(previewImage).toHaveBeenCalledTimes(1);
 });
 
 test("外部链接保持外部打开，危险脚本链接不被保留", () => {

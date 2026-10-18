@@ -107,6 +107,26 @@ Runtime keeps running in Electron main; when the user re-enters the Thread,
 the Renderer re-subscribes, reads the current snapshot, and replays events by
 `sequence` so nothing is lost.
 
+## Desktop conversation history
+
+Ordinary Desktop chats use `GET /api/projects/conversations/{id}/history` to load
+the newest 40 messages. `before` is a message-ID cursor; the service orders by
+`(created_at, id)` and returns `olderCursor` for the next page. Ownership and
+device checks apply to every page. This presentation endpoint does not limit
+the messages used to build model context.
+
+The Renderer keeps loaded pages in the current conversation state and uses
+React Virtuoso to mount only viewport-adjacent messages. Prepending pages adjusts
+the virtual first-item index to preserve the visible anchor. Activity expansion
+state lives above the virtual rows, so unmounting a row does not discard it.
+The title and composer stay outside the virtualized area; a measured footer
+reserves space for the composer and queued inputs.
+
+Turn completion fetches only that Turn's persisted messages through the same
+endpoint's `turnId` filter, then merges them by ID in place of its streaming
+placeholder. Already loaded history and newer active Turns are not replaced.
+Scrolling upward releases bottom-follow; returning to the bottom restores it.
+
 ## Queued follow-ups and steering
 
 Ordinary Desktop chats keep a per-thread queue in the Electron Runtime, persisted

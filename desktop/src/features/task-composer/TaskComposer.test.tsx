@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { expect, test, vi } from "vitest";
 import { TaskComposer } from "./TaskComposer";
@@ -37,4 +37,26 @@ test("发送失败保留草稿；撤销消息追加到现有草稿，不覆盖",
   fireEvent.change(editor, { target: { value: "Still here" } });
   rerender(<TaskComposer {...props} restoredInput={{ id: "one", content: "Withdrawn", attachments: [], status: "queued" }} />);
   expect(editor.value).toBe("Still here");
+});
+
+test("粘贴图片转交附件流程，保存期间禁止发送，普通文本粘贴不受影响", async () => {
+  let finish: () => void = () => {};
+  const onPasteImages = vi.fn(() => new Promise<void>((resolve) => { finish = resolve; }));
+  render(<TaskComposer {...props} onPasteImages={onPasteImages} />);
+  const editor = screen.getByRole("textbox");
+  fireEvent.change(editor, { target: { value: "Draft" } });
+  const image = new File(["png"], "clipboard.png", { type: "image/png" });
+  const event = new Event("paste", { bubbles: true, cancelable: true });
+  Object.defineProperty(event, "clipboardData", { value: { files: [image] } });
+  fireEvent(editor, event);
+  expect(event.defaultPrevented).toBe(true);
+  expect(onPasteImages).toHaveBeenCalledExactlyOnceWith([image]);
+  expect((screen.getByRole("button", { name: "Run ↵" }) as HTMLButtonElement).disabled).toBe(true);
+  await act(async () => finish());
+  expect((screen.getByRole("button", { name: "Run ↵" }) as HTMLButtonElement).disabled).toBe(false);
+  const text = new Event("paste", { bubbles: true, cancelable: true });
+  Object.defineProperty(text, "clipboardData", { value: { files: [] } });
+  fireEvent(editor, text);
+  expect(text.defaultPrevented).toBe(false);
+  expect((editor as HTMLTextAreaElement).value).toBe("Draft");
 });

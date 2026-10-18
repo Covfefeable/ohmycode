@@ -8,14 +8,17 @@ import {
   listProjects,
   openProject,
   getConversation,
+  getConversationHistory,
   searchConversations,
   suggestFollowups,
 } from "../projects/projects-service.js";
 import { activeThreadTurn, getThreadSnapshot, interruptTurn, startTurn, waitForTurn } from "../runtime/desktop-runtime-host.js";
 import { enqueueFollowup, followupSnapshot, resumeFollowups, steerFollowup, withdrawFollowup } from "../runtime/followup-host.js";
-import type { MessageAttachment } from "../projects/types.js";
+import type { ConversationHistoryQuery, MessageAttachment } from "../projects/types.js";
+import { savePastedImage } from "../files/pasted-image.js";
 
 export function registerProjectsIpc(): void {
+  ipcMain.handle("conversations:save-pasted-image", (_event, data: Uint8Array) => savePastedImage(data));
   ipcMain.handle("projects:list", listProjects);
   ipcMain.handle("projects:search-conversations", (_event, query: string) => searchConversations(query));
   ipcMain.handle("projects:create", createProject);
@@ -24,6 +27,7 @@ export function registerProjectsIpc(): void {
   ipcMain.handle("projects:create-conversation", (_event, projectId: string, title: string) => createConversation(projectId, title));
   ipcMain.handle("projects:delete-conversation", (_event, projectId: string, conversationId: string) => deleteConversation(projectId, conversationId));
   ipcMain.handle("conversations:get", (_event, conversationId: string) => getConversation(conversationId));
+  ipcMain.handle("conversations:history", (_event, conversationId: string, options?: ConversationHistoryQuery) => getConversationHistory(conversationId, options));
   ipcMain.handle("conversations:branch", (_event, conversationId: string, messageId: string) => branchConversation(conversationId, messageId));
   ipcMain.handle("conversations:suggest", (_event, conversationId: string) => suggestFollowups(conversationId));
   ipcMain.handle("conversations:start-turn", async (_event, conversationId: string, content: string, modelId?: string, editMessageId?: string, attachments: MessageAttachment[] = []) => {
