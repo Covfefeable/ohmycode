@@ -28,6 +28,7 @@ export function useConversationController({ conversationId, onUpdated, scrollToB
   const historyRequestRef = useRef(false);
   const historyGenerationRef = useRef(0);
   const activeTurnIdRef = useRef<string | null>(null);
+  const observedTurnsRef = useRef(new Map<string, { status: TurnSnapshot["status"]; initialUserMessageId?: string }>());
   const suggestionRequestRef = useRef(0);
   const conversationRef = useRef<LocalConversation | null>(null);
   const onUpdatedRef = useRef(onUpdated);
@@ -55,6 +56,7 @@ export function useConversationController({ conversationId, onUpdated, scrollToB
   useEffect(() => {
     let disposed = false;
     historyGenerationRef.current += 1;
+    observedTurnsRef.current.clear();
     let snapshotLoaded = false;
     const pending: RuntimeEvent[] = [];
     const handledEvents = new Set<string>();
@@ -64,10 +66,18 @@ export function useConversationController({ conversationId, onUpdated, scrollToB
       if (disposed || !events.length) return;
       for (const event of events) {
         if (event.type === "turn.started") {
+          observedTurnsRef.current.set(event.turnId, { status: "in_progress" });
           activeTurnIdRef.current = event.turnId;
           setSending(true);
           setSuggestions([]);
           suggestionRequestRef.current += 1;
+        }
+        const observed = observedTurnsRef.current.get(event.turnId);
+        if (observed) {
+          if (event.type === "item.completed" && event.item.kind === "user_message" && (event.item.input as { initial?: boolean }).initial) observed.initialUserMessageId = event.item.id;
+          if (event.type === "turn.completed") observed.status = "completed";
+          if (event.type === "turn.failed") observed.status = "failed";
+          if (event.type === "turn.interrupted") observed.status = "interrupted";
         }
         if (event.type === "context.updated") {
           setContextUsage(event.contextLength > 0 ? event.usedTokens / event.contextLength : 0);
@@ -198,17 +208,21 @@ export function useConversationController({ conversationId, onUpdated, scrollToB
       const result = await window.ohmycode.conversations.startTurn(conversationId, content, selectedModelId, editMessageId, attachments);
       if ("queued" in result) return true;
       const { turnId } = result;
+      const observed = observedTurnsRef.current.get(turnId);
+      if (observed && observed.status !== "in_progress") return true;
       activeTurnIdRef.current = turnId;
       const now = new Date().toISOString();
       setConversation((current) => {
         if (!current) return current;
         const streamId = `stream-${turnId}`;
+        const stream = current.messages?.find((message) => message.id === streamId);
         const currentMessages = (current.messages ?? []).filter((message) => message.id !== streamId);
         const editIndex = editMessageId ? currentMessages.findIndex((message) => message.id === editMessageId) : -1;
         const optimisticMessages = editIndex >= 0
           ? currentMessages.slice(0, editIndex + 1).map((message) => message.id === editMessageId ? { ...message, content } : message)
+          : observed?.initialUserMessageId ? currentMessages
           : [...currentMessages, { id: `user-${turnId}`, role: "user" as const, content, attachments, createdAt: now }];
-        return { ...current, messages: [...optimisticMessages, { id: streamId, role: "assistant", content: "", createdAt: now, agentStartedAt: now, activity: [] }] };
+        return { ...current, messages: [...optimisticMessages, stream ?? { id: streamId, role: "assistant", content: "", createdAt: now, agentStartedAt: now, activity: [] }] };
       });
       scrollToBottom();
       setSending(true);
