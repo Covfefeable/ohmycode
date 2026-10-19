@@ -48,6 +48,16 @@ uv run flask --app manage:app db check
 CI 从空库升级到最新版本，并检查 SQLAlchemy metadata 与迁移结果一致；不能只用
 `db.create_all()` 证明迁移正确。生产数据迁移不属于测试命令的职责。
 
+## 移动端适配器回归
+
+```bash
+pnpm --dir mobile test
+```
+
+移动端适配器测试在 mobile 内运行，使用同一版本的 Vitest 和普通模块 mock，
+不依赖 desktop 的测试目录或 `node_modules` 路径。覆盖认证刷新失败时的凭据保留，
+以及 MCP 调用失败不会自动重放操作。
+
 ## 共享 Runtime 与本地工具
 
 ```bash

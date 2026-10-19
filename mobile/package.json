@@ -3,14 +3,14 @@
   "main": "expo-router/entry",
   "version": "0.1.0",
   "dependencies": {
+    "@expo/metro-runtime": "~6.1.2",
     "@expo/vector-icons": "15.1.1",
+    "@modelcontextprotocol/sdk": "1.30.0",
     "@ohmycode/agent-runtime": "workspace:*",
     "@ohmycode/design-tokens": "workspace:*",
     "@ohmycode/protocol": "workspace:*",
     "@ohmycode/tool-contracts": "workspace:*",
     "@ohmycode/web-effects": "workspace:*",
-    "@modelcontextprotocol/sdk": "1.30.0",
-    "@expo/metro-runtime": "~6.1.2",
     "@react-navigation/native": "^7.1.8",
     "expo": "~54.0.37",
     "expo-constants": "~18.0.14",
@@ -39,9 +39,11 @@
     "@types/react-dom": "~19.1.7",
     "eslint": "^9.39.4",
     "eslint-config-expo": "~10.0.0",
-    "typescript": "~5.9.3"
+    "typescript": "~5.9.3",
+    "vitest": "5.0.5"
   },
   "scripts": {
+    "test": "vitest run",
     "build:packages": "pnpm --filter @ohmycode/design-tokens build && pnpm --filter @ohmycode/protocol build && pnpm --filter @ohmycode/tool-contracts build && pnpm --filter @ohmycode/agent-runtime build",
     "start": "pnpm build:packages && expo start",
     "android": "pnpm build:packages && expo start --android",

@@ -69,6 +69,8 @@ jobs:
         run: pnpm --dir desktop build
       - name: Mobile lint
         run: pnpm --dir mobile lint
+      - name: Mobile regression
+        run: pnpm --dir mobile test
       - name: Expo dependency compatibility
         run: pnpm --dir mobile exec expo install --check
       - name: Upload renderer test results

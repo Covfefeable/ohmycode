@@ -1,15 +1,15 @@
 import { beforeEach, expect, it, vi } from "vitest";
+import { bootstrapUser } from "./api-client";
 
 const mocks = vi.hoisted(() => {
   Object.assign(globalThis, { __DEV__: false });
   return { fetch: vi.fn(), read: vi.fn(), store: vi.fn(), clear: vi.fn() };
 });
-vi.mock("../../../mobile/node_modules/expo-device", () => ({ deviceName: "Test" }));
-vi.mock("../../../mobile/node_modules/expo-constants", () => ({ default: {} }));
-vi.mock("../../../mobile/node_modules/expo-secure-store", () => ({ getItemAsync: vi.fn(), setItemAsync: vi.fn() }));
-vi.mock("../../../mobile/node_modules/expo/fetch", () => ({ fetch: mocks.fetch }));
-vi.mock("../../../mobile/src/shared/api/token-store", () => ({ readTokens: mocks.read, storeTokens: mocks.store, clearTokens: mocks.clear }));
-import { bootstrapUser } from "../../../mobile/src/shared/api/api-client";
+vi.mock("expo-device", () => ({ deviceName: "Test" }));
+vi.mock("expo-constants", () => ({ default: {} }));
+vi.mock("expo-secure-store", () => ({ getItemAsync: vi.fn(), setItemAsync: vi.fn() }));
+vi.mock("expo/fetch", () => ({ fetch: mocks.fetch }));
+vi.mock("./token-store", () => ({ readTokens: mocks.read, storeTokens: mocks.store, clearTokens: mocks.clear }));
 
 const response = (status: number, payload: object) => ({ ok: status < 400, status, json: async () => payload });
 

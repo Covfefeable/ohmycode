@@ -75,6 +75,7 @@ pnpm --dir mobile exec expo start --clear
 ## 验证
 
 ```bash
+pnpm --dir mobile test
 pnpm --filter @ohmycode/mobile typecheck
 pnpm --filter @ohmycode/mobile lint
 pnpm --filter @ohmycode/mobile exec expo install --check
