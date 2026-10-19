@@ -31,11 +31,8 @@ export function GroupChatPanel(props: Props) {
   const [runDetailMessageId, setRunDetailMessageId] = useState<string | null>(null);
   const [liveDetailNodeId, setLiveDetailNodeId] = useState<string | null>(null);
   const names = useMemo(() => new Map(props.task.members.map((member) => [member.id, member.name])), [props.task.members]);
-  const liveRunningNodeId = Object.values(props.liveAgentRuns).find((run) => run.detail.status === "running")?.nodeId;
-  const snapshotRunningMember = props.task.members.find((member) => member.status === "running");
   const runningMember = props.task.status === "running"
-    ? props.task.members.find((member) => member.id === liveRunningNodeId)
-      ?? (snapshotRunningMember && !props.liveAgentRuns[snapshotRunningMember.id] ? snapshotRunningMember : undefined)
+    ? props.task.members.find((member) => member.status === "running")
     : undefined;
   const liveDetail = liveDetailNodeId ? props.liveAgentRuns[liveDetailNodeId]?.detail ?? null : null;
   useEffect(() => {

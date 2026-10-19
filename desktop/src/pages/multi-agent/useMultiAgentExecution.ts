@@ -66,26 +66,6 @@ export function useMultiAgentExecution(options: Options) {
     const unsubscribe = window.ohmycode.multiAgents.onEvent(requestId, (event) => {
       if (event.type === "task.updated") {
         options.setTask(event.task);
-        setLiveAgentRuns((current) => {
-          let changed = false;
-          const now = new Date().toISOString();
-          const next = Object.fromEntries(Object.entries(current).map(([nodeId, run]) => {
-            const memberStillRunning = event.task.status === "running"
-              && event.task.members.some((member) => member.id === nodeId && member.status === "running");
-            if (run.detail.status !== "running" || memberStillRunning) return [nodeId, run];
-            changed = true;
-            return [nodeId, {
-              ...run,
-              detail: {
-                ...run.detail,
-                status: "completed",
-                completedAt: now,
-                durationMs: new Date(now).getTime() - new Date(run.detail.startedAt).getTime(),
-              },
-            }];
-          }));
-          return changed ? next : current;
-        });
       }
       if (event.type === "node.event") {
         setLiveAgentRuns((current) => {
@@ -122,14 +102,21 @@ export function useMultiAgentExecution(options: Options) {
     });
     try {
       options.setTask(await window.ohmycode.multiAgents.runTask(target.id, requestId));
-      await options.reloadAgents();
     } catch (error) {
       toast({ type: "error", message: t(multiAgentErrorKey(error, "multiAgent.runFailed")) });
-      options.setTask(await window.ohmycode.multiAgents.getTask(target.id));
+      try {
+        options.setTask(await window.ohmycode.multiAgents.getTask(target.id));
+      } catch {
+        toast({ type: "error", message: t("multiAgent.loadFailed") });
+      }
     } finally {
       unsubscribe();
       setRunRequestId(null);
+    }
+    try {
       await options.reloadAgents();
+    } catch {
+      toast({ type: "error", message: t("multiAgent.loadFailed") });
     }
   }
 
@@ -148,7 +135,6 @@ export function useMultiAgentExecution(options: Options) {
       options.setSelectedTaskId(created.id);
       options.setTask(created);
       setMentionTargetId(null);
-      await options.reloadAgents();
       await executeTask(created);
     } catch (error) {
       toast({ type: "error", message: t(multiAgentErrorKey(error, "multiAgent.runFailed")) });

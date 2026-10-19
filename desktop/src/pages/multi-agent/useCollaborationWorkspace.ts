@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useFeedback } from "../../features/feedback";
-import { emptyDraft, multiAgentErrorKey, templateTask, type CollaborationDraft, type DeleteTarget } from "./multi-agent-utils";
+import { emptyDraft, multiAgentErrorKey, type CollaborationDraft, type DeleteTarget } from "./multi-agent-utils";
 
 const ACTIVE_AGENT_KEY = "ohmycode.activeCollaborationId";
 const ACTIVE_TASK_KEY = "ohmycode.activeCollaborationTaskId";
@@ -16,6 +16,7 @@ export function useCollaborationWorkspace() {
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(() => sessionStorage.getItem(ACTIVE_AGENT_KEY));
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(() => sessionStorage.getItem(ACTIVE_TASK_KEY));
   const [task, setTask] = useState<MultiAgentTask | null>(null);
+  const [team, setTeam] = useState<MultiAgentTemplateTeam | null>(null);
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [draft, setDraft] = useState<CollaborationDraft>(emptyDraft);
@@ -24,7 +25,8 @@ export function useCollaborationWorkspace() {
 
   const applyTaskSnapshot = useCallback((value: MultiAgentTask | null) => {
     setTask(value);
-    if (!value || value.status === "template") return;
+    if (!value) return;
+    setTeam(null);
     setAgents((current) => current.map((agent) => {
       if (agent.id !== value.agentId) return agent;
       const summary: MultiAgentTaskSummary = {
@@ -50,9 +52,9 @@ export function useCollaborationWorkspace() {
   }, []);
 
   const reloadModels = useCallback(async () => {
-    const settings = await window.ohmycode.settings.get();
-    setModels(settings.models);
-    return settings.models;
+    const models = await window.ohmycode.settings.listModels();
+    setModels(models);
+    return models;
   }, []);
 
   useEffect(() => window.ohmycode.settings.onModelsChanged(setModels), []);
@@ -76,24 +78,27 @@ export function useCollaborationWorkspace() {
         setAgents(items);
         if (!sessionStorage.getItem(ACTIVE_TASK_KEY)) {
           const selected = items.find((item) => item.id === sessionStorage.getItem(ACTIVE_AGENT_KEY));
-          if (selected) setTask(templateTask(selected));
+          if (selected) setTeam(selected.templateTeam);
         }
       })
       .catch(() => toast({ type: "error", message: t("multiAgent.loadFailed") }));
-    void window.ohmycode.settings.get()
-      .then((settings) => { if (active) setModels(settings.models); })
+    void window.ohmycode.settings.listModels()
+      .then((models) => { if (active) setModels(models); })
       .catch(() => toast({ type: "error", message: t("common.networkError") }));
     return () => { active = false; };
   }, [location.pathname, t, toast]);
 
   useEffect(() => {
     if (!selectedTaskId) return;
-    void window.ohmycode.multiAgents.getTask(selectedTaskId).then(applyTaskSnapshot)
+    let active = true;
+    void window.ohmycode.multiAgents.getTask(selectedTaskId).then((value) => { if (active) applyTaskSnapshot(value); })
       .catch(() => toast({ type: "error", message: t("multiAgent.loadFailed") }));
+    return () => { active = false; };
   }, [applyTaskSnapshot, selectedTaskId, t, toast]);
 
   const selectedAgent = agents.find((item) => item.id === selectedAgentId) ?? null;
   const selectedMember = task?.members.find((item) => item.id === selectedMemberId) ?? null;
+  const selectedTemplateMember = team?.members.find((item) => item.key === selectedMemberId) ?? null;
 
   function selectAgent(agentId: string, source = agents) {
     const agent = source.find((item) => item.id === agentId);
@@ -101,7 +106,8 @@ export function useCollaborationWorkspace() {
     setSelectedAgentId(agentId);
     setSelectedTaskId(null);
     setSelectedMemberId(null);
-    setTask(templateTask(agent));
+    setTask(null);
+    setTeam(agent.templateTeam);
   }
 
   function selectTask(taskId: string) {
@@ -125,7 +131,6 @@ export function useCollaborationWorkspace() {
       selectAgent(created.id, source);
       setCreateDialogOpen(false);
       setDraft(emptyDraft);
-      void reloadAgents();
     } catch (error) {
       toast({ type: "error", message: t(multiAgentErrorKey(error, "multiAgent.planFailed")) });
     } finally {
@@ -134,56 +139,50 @@ export function useCollaborationWorkspace() {
   }
 
   async function saveTeam() {
-    if (!selectedAgent || !task) return;
+    if (!selectedAgent || !team) return;
     const updated = await window.ohmycode.multiAgents.update(selectedAgent.id, {
-      templateTeam: {
-        title: task.title,
-        members: task.members.map(({ key, name, role, instructions, modelId, isHost, sortOrder }) => ({ key, name, role, instructions, modelId, isHost, sortOrder })),
-      },
-    } as Partial<MultiAgentSummary>);
+      templateTeam: team,
+    });
     setAgents((items) => items.map((item) => item.id === updated.id ? updated : item));
-    setTask(templateTask(updated));
+    setTeam(updated.templateTeam);
     toast({ type: "success", message: t("multiAgent.saved") });
   }
 
   function updateMember(field: "name" | "role" | "instructions" | "modelId", value: string) {
-    if (!task || !selectedMemberId) return;
-    setTask({
-      ...task,
-      members: task.members.map((member) => member.id === selectedMemberId
+    if (!team || !selectedMemberId) return;
+    setTeam({
+      ...team,
+      members: team.members.map((member) => member.key === selectedMemberId
         ? { ...member, [field]: field === "modelId" ? value || null : value }
         : member),
     });
   }
 
   function addMember() {
-    if (!task) return;
+    if (!team) return;
     const key = `agent_${crypto.randomUUID().slice(0, 8)}`;
-    setTask({
-      ...task,
-      members: [...task.members, {
-        id: key,
+    setTeam({
+      ...team,
+      members: [...team.members, {
         key,
         name: t("multiAgent.newAgentNode"),
         role: t("multiAgent.newAgentRole"),
         instructions: "",
         isHost: false,
-        sortOrder: task.members.length,
-        status: "idle",
-        changedFiles: [],
+        sortOrder: team.members.length,
       }],
     });
     setSelectedMemberId(key);
   }
 
   function removeMember(memberId: string) {
-    if (!task) return;
-    const member = task.members.find((item) => item.id === memberId);
+    if (!team) return;
+    const member = team.members.find((item) => item.key === memberId);
     if (!member || member.isHost) return;
-    setTask({
-      ...task,
-      members: task.members
-        .filter((item) => item.id !== memberId)
+    setTeam({
+      ...team,
+      members: team.members
+        .filter((item) => item.key !== memberId)
         .map((item, index) => ({ ...item, sortOrder: index })),
     });
     if (selectedMemberId === memberId) setSelectedMemberId(null);
@@ -198,6 +197,7 @@ export function useCollaborationWorkspace() {
         await window.ohmycode.multiAgents.delete(target.id);
         if (selectedAgentId === target.id) {
           setTask(null);
+          setTeam(null);
           setSelectedAgentId(null);
           setSelectedTaskId(null);
         }
@@ -217,7 +217,7 @@ export function useCollaborationWorkspace() {
   }
 
   return {
-    agents, models, selectedAgentId, selectedTaskId, task, selectedMember, selectedMemberId,
+    agents, models, selectedAgentId, selectedTaskId, task, team, selectedAgent, selectedMember, selectedTemplateMember, selectedMemberId,
     createDialogOpen, draft, creating, deleteTarget, reloadAgents, reloadModels, setSelectedAgentId,
     setSelectedTaskId, setTask: applyTaskSnapshot, setSelectedMemberId, setCreateDialogOpen, setDraft,
     setDeleteTarget, selectAgent, selectTask, createCollaboration, saveTeam, updateMember,

@@ -27,7 +27,7 @@ export function MultiAgentPage() {
   });
 
   const task = workspace.task;
-  const isTemplate = task?.status === "template";
+  const team = workspace.team;
   return <AppShell navigation={<NavigationRail />} sidebar={<MultiAgentSidebar
     agents={workspace.agents}
     selectedAgentId={workspace.selectedAgentId}
@@ -41,12 +41,12 @@ export function MultiAgentPage() {
     onDeleteTask={(id) => workspace.setDeleteTarget({ type: "task", id })}
   />}>
     <ImageScopeContext.Provider value={task ? { taskId: task.id } : undefined}><main className={styles.page}>
-      {task ? <>
-        <header className={styles.header}><div><h1>{task.title}</h1><p>{task.request}</p></div></header>
-        {isTemplate ? <TeamEditor
-          task={task}
+      {task || team ? <>
+        <header className={styles.header}><div><h1>{team ? workspace.selectedAgent?.name : task?.title}</h1><p>{team ? workspace.selectedAgent?.description : task?.request}</p></div></header>
+        {team ? <TeamEditor
+          team={team}
           models={workspace.models}
-          selectedMember={workspace.selectedMember}
+          selectedMember={workspace.selectedTemplateMember}
           selectedMemberId={workspace.selectedMemberId}
           onSelectMember={workspace.setSelectedMemberId}
           onAddMember={workspace.addMember}
@@ -54,7 +54,7 @@ export function MultiAgentPage() {
           onUpdateMember={workspace.updateMember}
           onSave={() => void workspace.saveTeam()}
           onRun={() => execution.setRunDialogOpen(true)}
-        /> : <div className={styles.chatLayout}>
+        /> : task && <div className={styles.chatLayout}>
           <GroupChatPanel
             task={task}
             message={execution.message}
