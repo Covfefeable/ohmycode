@@ -6,6 +6,7 @@ import { registerSettingsIpc } from "./ipc/register-settings-ipc.js";
 import { registerProjectsIpc } from "./ipc/register-projects-ipc.js";
 import { registerMultiAgentIpc } from "./ipc/register-multi-agent-ipc.js";
 import { registerUpdateIpc } from "./ipc/register-update-ipc.js";
+import { registerSpeechIpc, stopSpeech } from "./ipc/register-speech-ipc.js";
 import { stopAllTerminals } from "./terminal/terminal-manager.js";
 import { closeMcpSessions } from "./capabilities/mcp-manager.js";
 import { createMainWindow } from "./window/create-main-window.js";
@@ -38,6 +39,7 @@ if (!hasSingleInstanceLock) {
     registerProjectsIpc();
     registerMultiAgentIpc();
     registerUpdateIpc();
+    registerSpeechIpc();
     void createMainWindow();
     app.on("activate", () => {
       if (BrowserWindow.getAllWindows().length === 0) void createMainWindow();
@@ -50,6 +52,7 @@ app.on("window-all-closed", () => {
 });
 
 app.on("before-quit", () => {
+  stopSpeech();
   closeAgentRuntime();
   stopAllTerminals();
   void closeMcpSessions();

@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { ConversationChat } from "../../features/conversation-chat";
 import { ProjectList } from "../../features/project-list";
 import { FeedbackProvider } from "../../features/feedback";
+import { SpeechProvider } from "../../features/speech/SpeechProvider";
 import type { MessageLocation } from "../../entities/conversation/types";
 import { i18n } from "../../app/i18n";
 import "../../app/global.css";
@@ -23,6 +24,7 @@ Object.defineProperty(window, "ohmycode", { configurable: true, value: {
   projects: { list: async () => [project], searchConversations: async (query: string) => query === "needle" ? [{ projectId: project.id, projectName: project.name, conversation, messageId: "m-55", snippet: "needle evidence 55" }] : [] },
   capabilities: { onChanged: () => () => {}, listMcp: async () => [], listSkills: async () => [] },
   settings: { onModelsChanged: () => () => {}, listModels: async () => [] },
+  speech: { getSettings: async () => ({ workspaceId: "", voice: "longanhuan_v3.1", autoPlay: false, hasApiKey: false }), stop: () => {} },
   conversations: {
     onThreadEvent: (_id: string, listener: (event: RuntimeEvent) => void) => { listeners.add(listener); return () => listeners.delete(listener); },
     onFollowups: () => () => {}, followups: async () => ({ inputs: [], paused: false }),
@@ -52,7 +54,7 @@ export function SearchFixture() {
   const [location, setLocation] = useState<MessageLocation>();
   return <FeedbackProvider><div className={styles.shell}>
     <aside className={styles.sidebar}><ProjectList selectedConversationId="thread" refreshToken={0} heading={<h2>Workspace</h2>} onConversationDelete={() => {}} onConversationSelect={(_project, _conversation, target) => setLocation(target)} /></aside>
-    <div className={styles.content}><ConversationChat conversationId="thread" active searchLocation={location} onUpdated={() => {}} onBranched={() => {}} /></div>
+    <div className={styles.content}><SpeechProvider><ConversationChat conversationId="thread" active searchLocation={location} onUpdated={() => {}} onBranched={() => {}} /></SpeechProvider></div>
   </div></FeedbackProvider>;
 }
 await i18n.changeLanguage("en");

@@ -1,10 +1,31 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { expect, test, vi } from "vitest";
 import { Select } from "./Select";
 import { ConfirmDialog } from "../confirm-dialog";
 
 const options = [{ value: "a", label: "Alpha" }, { value: "b", label: "A much longer model name" }];
+
+test("菜单内部滚动保持打开，页面滚动关闭菜单", async () => {
+  render(<Select value="a" options={options} ariaLabel="Model" onChange={() => {}} />);
+  await userEvent.click(screen.getByRole("button", { name: "Model" }));
+  fireEvent.scroll(screen.getByRole("listbox"));
+  expect(screen.queryByRole("listbox")).not.toBeNull();
+  fireEvent.scroll(window);
+  expect(screen.queryByRole("listbox")).toBeNull();
+});
+
+test("不可用的选项不能选中，其他选项正常使用", async () => {
+  const user = userEvent.setup(), onChange = vi.fn();
+  render(<Select value="a" options={[...options, { value: "pending", label: "Pending voice", disabled: true }]} ariaLabel="Voice" onChange={onChange} />);
+  await user.click(screen.getByRole("button", { name: "Voice" }));
+  const pending = screen.getByRole("option", { name: "Pending voice" });
+  expect(pending).toHaveProperty("disabled", true);
+  await user.click(pending);
+  expect(onChange).not.toHaveBeenCalled();
+  await user.click(screen.getByRole("option", { name: "Alpha" }));
+  expect(onChange).toHaveBeenCalledExactlyOnceWith("a");
+});
 
 test("选择选项只触发一次回调，并关闭弹层", async () => {
   const user = userEvent.setup(), onChange = vi.fn();

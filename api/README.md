@@ -26,6 +26,21 @@ wsgi.py              生产 WSGI 入口
 Flask Route 只处理 HTTP 协议边界，查询、编排与业务判断必须放在 `app/services/`。预期业务
 错误通过带有稳定错误码的 `ServiceError` 返回。
 
+## 语音配置与自定义音色
+
+语音凭据由用户在桌面端“设置 → 语音配置”填写，无需新增服务端环境变量。
+API Key 加密保存在 `speech_settings` 表，普通设置接口仅返回是否已配置，不回显密钥。
+Electron 主进程通过认证接口获取连接配置，直接连接百炼 WebSocket；Flask 不转发音频。
+
+`/api/settings/speech` 提供配置读写，其下的 `/auto-play` 保存自动朗读偏好，
+`/connection` 返回主进程使用的连接信息并禁用响应缓存。
+`/voices` 创建或列出当前账号、业务空间及目标模型下的自定义音色，
+`/voices/refresh` 查询供应商审核状态。自定义音色只有审核通过后才能用于朗读。
+参考音频必须是供应商可访问的公网 URL，本地文件不会自动上传；创建前需确认声音使用授权。
+
+部署此版本需照常执行 `uv run flask --app manage:app db upgrade`，
+依次应用 `b69tx354vr73`、`c70uy465ws84`，建立语音配置和音色记录表。
+
 ## 本地环境
 
 前置要求：Python 3.12、`uv`，以及 PostgreSQL、Redis 和 MinIO。可以从仓库根目录启动依赖：

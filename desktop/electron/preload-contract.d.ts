@@ -68,6 +68,19 @@ interface DesktopBridge {
       toggleMaximize(): void;
       close(): void;
     };
+    speech: {
+      getSettings(): Promise<SpeechSettings>;
+      saveSettings(input: SpeechSettingsInput): Promise<SpeechSettings>;
+      setAutoPlay(enabled: boolean): Promise<SpeechSettings>;
+      listVoices(): Promise<CustomVoice[]>;
+      createVoice(input: VoiceCloneInput): Promise<CustomVoice>;
+      refreshVoices(): Promise<CustomVoice[]>;
+      start(id: string, mode: "asr" | "tts"): Promise<void>;
+      append(id: string, value: string | Uint8Array): void;
+      finish(id: string): void;
+      stop(mode: "asr" | "tts"): void;
+      onEvent(id: string, callback: (event: SpeechEvent) => void): () => void;
+    };
     settings: {
       get(): Promise<PublicSettings>;
       listModels(): Promise<ModelConfiguration[]>;
@@ -96,6 +109,12 @@ interface DesktopBridge {
 interface Window {
   ohmycode: DesktopBridge;
 }
+
+type SpeechSettings = import("./speech/types").SpeechSettings;
+type SpeechSettingsInput = import("./speech/types").SpeechSettingsInput;
+type SpeechEvent = import("./speech/types").SpeechEvent;
+type CustomVoice = import("./speech/types").CustomVoice;
+type VoiceCloneInput = import("./speech/types").VoiceCloneInput;
 
 type AuthUser = {
   id: string;

@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event";
 import { expect, test, vi } from "vitest";
 import { TaskComposer } from "./TaskComposer";
+vi.mock("../speech/speech-context", () => ({ useSpeech: () => ({ settings: { hasApiKey: false }, playback: { stop: vi.fn() }, refresh: vi.fn(), setRecording: vi.fn() }) }));
 
 vi.mock("../feedback", () => ({ useFeedback: () => ({ toast: vi.fn() }) }));
 vi.mock("../../shared/ui/prompt-editor", () => ({

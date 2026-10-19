@@ -4,7 +4,7 @@ import { createPortal } from "react-dom";
 import { Tooltip } from "../tooltip";
 import styles from "./Select.module.css";
 
-export type SelectOption = { value: string; label: string };
+export type SelectOption = { value: string; label: string; disabled?: boolean };
 
 type SelectProps = {
   value: string;
@@ -20,6 +20,7 @@ export function Select({ value, options, ariaLabel, disabled = false, compact = 
   const [open, setOpen] = useState(false);
   const [position, setPosition] = useState({ left: 0, top: 0, width: 220 });
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const selected = options.find((option) => option.value === value);
   const label = selected?.label || emptyLabel;
 
@@ -46,6 +47,10 @@ export function Select({ value, options, ariaLabel, disabled = false, compact = 
       if (!triggerRef.current?.contains(target) && !(target as Element).closest?.("[data-select-menu]")) setOpen(false);
     };
     const close = () => setOpen(false);
+    const onScroll = (event: Event) => {
+      if (event.target instanceof Node && menuRef.current?.contains(event.target)) return;
+      close();
+    };
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       event.preventDefault();
@@ -56,12 +61,12 @@ export function Select({ value, options, ariaLabel, disabled = false, compact = 
     document.addEventListener("pointerdown", closeOnPointer);
     document.addEventListener("keydown", onKeyDown, true);
     window.addEventListener("resize", close);
-    window.addEventListener("scroll", close, true);
+    window.addEventListener("scroll", onScroll, true);
     return () => {
       document.removeEventListener("pointerdown", closeOnPointer);
       document.removeEventListener("keydown", onKeyDown, true);
       window.removeEventListener("resize", close);
-      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("scroll", onScroll, true);
     };
   }, [open]);
 
@@ -80,11 +85,11 @@ export function Select({ value, options, ariaLabel, disabled = false, compact = 
         <span>{label}</span><ChevronDown className={open ? styles.open : ""} />
       </button>
     </Tooltip>
-    {open && createPortal(<div data-select-menu role="listbox" aria-label={ariaLabel} className={styles.menu} style={position}>
+    {open && createPortal(<div ref={menuRef} data-select-menu role="listbox" aria-label={ariaLabel} className={styles.menu} style={position}>
       {options.map((option) => {
         const active = option.value === value;
         return <Tooltip key={option.value} content={option.label} className={styles.optionRoot}>
-          <button type="button" role="option" aria-selected={active} className={active ? styles.selected : ""} onClick={() => { onChange(option.value); setOpen(false); }}>
+          <button type="button" role="option" disabled={option.disabled} aria-selected={active} className={active ? styles.selected : ""} onClick={() => { onChange(option.value); setOpen(false); }}>
             <span>{option.label}</span>{active && <Check />}
           </button>
         </Tooltip>;

@@ -13,12 +13,64 @@ from ..services.settings import (
     test_model,
 )
 from ..services.settings.commands import list_models
+from ..services.settings.speech import (
+    get_speech_settings,
+    save_speech_settings,
+    set_speech_auto_play,
+    speech_connection,
+)
+from ..services.settings.speech_voices import create_voice, list_voices, refresh_voices
 
 settings_bp = Blueprint("settings", __name__)
 
 
 def user_id() -> UUID:
     return UUID(get_jwt_identity())
+
+
+@settings_bp.get("/speech")
+@jwt_required()
+def get_speech_route():
+    return jsonify(get_speech_settings(user_id()))
+
+
+@settings_bp.get("/speech/voices")
+@jwt_required()
+def list_speech_voices_route():
+    return jsonify(list_voices(user_id()))
+
+
+@settings_bp.post("/speech/voices")
+@jwt_required()
+def create_speech_voice_route():
+    return jsonify(create_voice(user_id(), request.get_json(silent=True) or {})), 201
+
+
+@settings_bp.post("/speech/voices/refresh")
+@jwt_required()
+def refresh_speech_voices_route():
+    return jsonify(refresh_voices(user_id()))
+
+
+@settings_bp.put("/speech")
+@jwt_required()
+def save_speech_route():
+    return jsonify(save_speech_settings(user_id(), request.get_json(silent=True) or {}))
+
+
+@settings_bp.put("/speech/auto-play")
+@jwt_required()
+def speech_auto_play_route():
+    payload = request.get_json(silent=True) or {}
+    if not isinstance(payload.get("enabled"), bool):
+        return jsonify({"error": {"code": "validation_error"}}), 422
+    return jsonify(set_speech_auto_play(user_id(), payload["enabled"]))
+
+
+@settings_bp.post("/speech/connection")
+@jwt_required()
+def speech_connection_route():
+    return jsonify(speech_connection(user_id())), 200, {"Cache-Control": "no-store"}
 
 
 @settings_bp.get("")

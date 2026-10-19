@@ -88,6 +88,24 @@ const bridge: DesktopBridge = {
     toggleMaximize: () => ipcRenderer.send("window:toggle-maximize"),
     close: () => ipcRenderer.send("window:close"),
   },
+  speech: {
+    getSettings: () => ipcRenderer.invoke("speech:settings"),
+    saveSettings: (input) => ipcRenderer.invoke("speech:save", input),
+    setAutoPlay: (enabled) => ipcRenderer.invoke("speech:auto-play", enabled),
+    listVoices: () => ipcRenderer.invoke("speech:voices"),
+    createVoice: (input) => ipcRenderer.invoke("speech:clone-voice", input),
+    refreshVoices: () => ipcRenderer.invoke("speech:refresh-voices"),
+    start: (id, mode) => ipcRenderer.invoke("speech:start", id, mode),
+    append: (id, value) => ipcRenderer.send("speech:append", id, value),
+    finish: (id) => ipcRenderer.send("speech:finish", id),
+    stop: (mode) => ipcRenderer.send("speech:stop", mode),
+    onEvent: (id, callback) => {
+      const channel = `speech:event:${id}`;
+      const listener = (_event: IpcRendererEvent, event: SpeechEvent) => callback(event);
+      ipcRenderer.on(channel, listener);
+      return () => { ipcRenderer.removeListener(channel, listener); };
+    },
+  },
   settings: {
     get: () => ipcRenderer.invoke("settings:get"),
     listModels: () => ipcRenderer.invoke("settings:list-models"),

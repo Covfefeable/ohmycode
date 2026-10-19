@@ -18,6 +18,8 @@ from .multi_agent import (
 )
 from .project import Project
 from .retrieval_document import RetrievalDocument
+from .speech_settings import SpeechSettings
+from .speech_voice import SpeechVoice
 from .user import User
 
 __all__ = [
@@ -41,5 +43,7 @@ __all__ = [
     "RetrievalDocument",
     "SkillPackage",
     "User",
+    "SpeechSettings",
+    "SpeechVoice",
     "WorkspaceChange",
 ]

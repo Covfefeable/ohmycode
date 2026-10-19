@@ -9,11 +9,12 @@ import { FullScreenLoading } from "../shared/ui/full-screen-loading";
 import { WindowControls } from "../widgets/window-controls";
 import { FeedbackProvider } from "../features/feedback";
 import { DebugPanel } from "../features/debug-panel";
+import { SpeechProvider } from "../features/speech/SpeechProvider";
 
 function ProtectedRoute() {
   const { status } = useAuth();
   if (status === "booting") return <FullScreenLoading />;
-  return status === "authenticated" ? <Outlet /> : <Navigate to="/login" replace />;
+  return status === "authenticated" ? <SpeechProvider><Outlet /></SpeechProvider> : <Navigate to="/login" replace />;
 }
 
 function PublicOnlyRoute() {

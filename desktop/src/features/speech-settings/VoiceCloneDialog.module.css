@@ -1,0 +1,127 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  display: grid;
+  place-items: center;
+  padding: var(--space-5);
+  background: color-mix(in srgb, var(--color-surface-deep) 62%, transparent);
+  backdrop-filter: blur(8px);
+}
+.dialog {
+  width: min(500px, 100%);
+  max-height: calc(100dvh - 80px);
+  overflow-y: auto;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-1);
+  box-shadow: var(--shadow-panel);
+  padding: var(--space-5);
+}
+.dialog header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+.dialog h2 {
+  margin: 0;
+  color: var(--color-text);
+  font-size: var(--font-title-panel);
+}
+.fields {
+  display: grid;
+  gap: var(--space-4);
+}
+.fields label,
+.language {
+  display: grid;
+  gap: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--font-sm);
+}
+.fields input:not([type="checkbox"]) {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-input);
+  color: var(--color-text);
+  padding: 10px var(--space-3);
+  font: inherit;
+}
+.fields input:focus-visible {
+  outline: 1px solid var(--color-border-strong);
+}
+.fields small {
+  color: var(--color-text-dim);
+  line-height: 1.6;
+}
+.fields .checkbox {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  line-height: 1.6;
+}
+.checkbox input {
+  margin: 3px 0 0;
+  accent-color: var(--color-accent);
+}
+.error {
+  margin: 0;
+  color: var(--color-danger-text);
+  font-size: var(--font-sm);
+  line-height: 1.6;
+}
+.dialog footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-5);
+}
+.dialog footer button {
+  height: var(--control-height);
+  min-width: 82px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+  color: var(--color-text);
+  padding: 0 15px;
+  font: inherit;
+  line-height: 1;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.dialog footer .primary {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-accent-ink);
+  font-weight: 700;
+}
+.dialog button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.dialog footer svg {
+  width: 14px;
+  height: 14px;
+}
+.spinner {
+  animation: spin 800ms linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation: none;
+  }
+}

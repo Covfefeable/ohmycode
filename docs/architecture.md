@@ -59,6 +59,23 @@ Key boundaries:
   generic terminal or filesystem APIs to the Renderer.
 - Secrets and model credentials live in the service or Electron main process and
   must never be exposed to the Renderer, logs, fixtures, or commits.
+- Runtime telemetry (`run.started` and `context.*`) remains available for execution
+  tracking and usage accounting, but is excluded from model-facing event history,
+  newly created branch snapshots and turn-summary source data.
+
+## Desktop speech
+
+Speech settings and custom voice records are persisted by Flask. Credentials are
+encrypted at rest and are retrieved only by the authenticated Electron main process,
+never by the renderer. The main process owns the ASR/TTS provider WebSockets;
+the renderer captures microphone PCM through an AudioWorklet and plays synthesized
+audio through Web Audio. Audio does not pass through Flask or the Agent tool loop.
+Closing the application or signing out releases speech connections.
+
+The current desktop integration uses Qwen Audio 3.1 ASR/TTS. Custom voice enrollment
+and status queries run through Flask and are scoped by user, workspace and target
+model. Only approved custom voices are selectable. See the desktop and API READMEs
+for configuration and migration requirements.
 
 ## Data and control flow
 

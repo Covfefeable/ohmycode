@@ -1,8 +1,8 @@
 import { useTranslation } from "react-i18next";
-import { Bot, CircleUserRound, PackageOpen, PlugZap, RefreshCw, Timer } from "lucide-react";
+import { Bot, CircleUserRound, PackageOpen, PlugZap, RefreshCw, Timer, AudioLines } from "lucide-react";
 import styles from "./SettingsSidebar.module.css";
 
-export type SettingsTab = "profile" | "models" | "background" | "mcp" | "skills" | "updates";
+export type SettingsTab = "profile" | "models" | "speech" | "background" | "mcp" | "skills" | "updates";
 export function SettingsSidebar({ tab, onChange }: { tab: SettingsTab; onChange(tab: SettingsTab): void }) {
   const { t } = useTranslation();
   return <aside className={styles.sidebar}>
@@ -10,6 +10,7 @@ export function SettingsSidebar({ tab, onChange }: { tab: SettingsTab; onChange(
     <nav>
       <button className={tab === "profile" ? styles.active : ""} onClick={() => onChange("profile")}><CircleUserRound />{t("settings.profileTab")}</button>
       <button className={tab === "models" ? styles.active : ""} onClick={() => onChange("models")}><Bot />{t("settings.modelsTab")}</button>
+      <button className={tab === "speech" ? styles.active : ""} onClick={() => onChange("speech")}><AudioLines />{t("speech.title")}</button>
       <button className={tab === "background" ? styles.active : ""} onClick={() => onChange("background")}><Timer />{t("settings.backgroundTasksTab")}</button>
       <button className={tab === "mcp" ? styles.active : ""} onClick={() => onChange("mcp")}><PlugZap />{t("settings.mcpTab")}</button>
       <button className={tab === "skills" ? styles.active : ""} onClick={() => onChange("skills")}><PackageOpen />{t("settings.skillsTab")}</button>

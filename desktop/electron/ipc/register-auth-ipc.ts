@@ -1,6 +1,7 @@
 import { ipcMain } from "electron";
 import { authenticate, bootstrapAuth, clearTokens } from "../auth/auth-service.js";
 import type { AuthPayload } from "../auth/types.js";
+import { stopSpeech } from "./register-speech-ipc.js";
 
 export function registerAuthIpc(): void {
   ipcMain.handle("auth:bootstrap", bootstrapAuth);
@@ -8,6 +9,6 @@ export function registerAuthIpc(): void {
   ipcMain.handle("auth:register", (_event, payload: AuthPayload) =>
     authenticate("/register", payload),
   );
-  ipcMain.handle("auth:logout", clearTokens);
+  ipcMain.handle("auth:logout", () => { stopSpeech(); return clearTokens(); });
 }
 

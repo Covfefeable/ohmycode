@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowDown, Check, Copy, GitBranch, LoaderCircle, Pencil, Search } from "lucide-react";
+import { ArrowDown, Check, Copy, GitBranch, LoaderCircle, Pencil, Search, Volume2, VolumeX, Square } from "lucide-react";
 import { TaskComposer } from "../task-composer";
 import { useFeedback } from "../feedback";
 import { FullScreenLoading } from "../../shared/ui/full-screen-loading";
@@ -25,12 +25,16 @@ import { IconButton } from "../../shared/ui/icon-button";
 import { ConversationSearchBar } from "./message-search/ConversationSearchBar";
 import { useConversationSearch } from "./message-search/useConversationSearch";
 import type { MessageLocation } from "../../entities/conversation/types";
+import { useSpeech } from "../speech/speech-context";
+import { useConversationSpeech } from "../speech/useConversationSpeech";
 
 type ConversationChatProps = { conversationId: string; active: boolean; searchLocation?: MessageLocation; onUpdated(): void; onBranched(conversation: LocalConversation): void };
 
 export function ConversationChat({ conversationId, active, searchLocation, onUpdated, onBranched }: ConversationChatProps) {
   const { t, i18n } = useTranslation();
   const { toast } = useFeedback();
+  const speech = useSpeech();
+  useConversationSpeech(conversationId);
   const capabilityOptions = usePromptCapabilities();
   const [editing, setEditing] = useState<{ message: LocalMessage; content: string } | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -112,6 +116,7 @@ export function ConversationChat({ conversationId, active, searchLocation, onUpd
   }
 
   async function send(content: string, nextAttachments: MessageAttachment[] = [], editMessageId?: string) {
+    if (speech.settings?.autoPlay) void speech.playback.unlock().catch(() => toast({ type: "error", message: t("speech.failed") }));
     const sent = await controller.send(content, nextAttachments, editMessageId);
     if (!sent) return false;
     if (editMessageId) setEditing(null);
@@ -182,6 +187,7 @@ export function ConversationChat({ conversationId, active, searchLocation, onUpd
     <header className={styles.chatHeader}>
       <div className={styles.heading}><h1>{conversation.title}</h1><div className={styles.headerActions}>
         {search.view && <button className={styles.returnLatest} onClick={forceScrollToBottom}><ArrowDown />{t("agent.returnLatest")}</button>}
+        <Tooltip content={t(speech.settings?.autoPlay ? "speech.autoPlayOn" : "speech.autoPlayOff")}><IconButton active={speech.settings?.autoPlay} aria-pressed={Boolean(speech.settings?.autoPlay)} aria-label={t("speech.autoPlay")} onClick={() => void speech.toggle()}>{speech.settings?.autoPlay ? <Volume2 /> : <VolumeX />}</IconButton></Tooltip>
         <Tooltip content={t("agent.searchConversation")}><IconButton aria-label={t("agent.searchConversation")} onClick={() => { openSearch(); searchInputRef.current?.focus(); }}><Search /></IconButton></Tooltip>
       </div></div>
       {search.opened && <ConversationSearchBar inputRef={searchInputRef} query={search.query} result={search.result} loading={search.loading} failed={search.failed} onChange={(value) => { autoScrollLockedRef.current = false; search.changeQuery(value); }} onMove={(direction) => { autoScrollLockedRef.current = false; search.move(direction); }} onClose={search.close} onRetry={search.retry} />}
@@ -216,6 +222,7 @@ export function ConversationChat({ conversationId, active, searchLocation, onUpd
         {!editing || editing.message.id !== message.id ? <div className={styles.messageActions}>
           <time>{new Intl.DateTimeFormat(i18n.language, { hour: "2-digit", minute: "2-digit" }).format(new Date(message.createdAt))}</time>
           <Tooltip content={t("agent.copy")}><button aria-label={t("agent.copy")} onClick={() => void copy(message)}>{copiedId === message.id ? <Check /> : <Copy />}</button></Tooltip>
+          {message.role === "assistant" && <Tooltip content={t(speech.playing && speech.readingId === message.id ? "speech.stopReading" : "speech.read")}><button disabled={speech.recording} aria-label={t(speech.playing && speech.readingId === message.id ? "speech.stopReading" : "speech.read")} onClick={() => speech.playing && speech.readingId === message.id ? speech.playback.stop() : void speech.read(message)}>{speech.playing && speech.readingId === message.id ? <Square /> : <Volume2 />}</button></Tooltip>}
           {!message.id.startsWith("stream-") && !message.id.startsWith("user-") && <Tooltip content={t("agent.branch")}><button aria-label={t("agent.branch")} disabled={branchingId !== null} onClick={() => void branch(message)}>{branchingId === message.id ? <LoaderCircle className={styles.spin} /> : <GitBranch />}</button></Tooltip>}
           {message.id === lastUserId && !sending && <Tooltip content={t("agent.edit")}><button aria-label={t("agent.edit")} onClick={() => { setEditing({ message, content: message.content }); forceScrollToBottom(); }}><Pencil /></button></Tooltip>}
         </div> : null}

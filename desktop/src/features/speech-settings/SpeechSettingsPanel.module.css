@@ -1,0 +1,78 @@
+.section {
+  width: min(900px, 100%);
+  display: grid;
+  gap: var(--space-5);
+}
+.save {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-width: 76px;
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-md);
+  background: var(--color-accent);
+  color: var(--color-accent-ink);
+  padding: 9px var(--space-3);
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.save:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.save svg {
+  width: 14px;
+  height: 14px;
+}
+.card {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-1);
+  padding: var(--space-4);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+.card label {
+  display: grid;
+  align-content: start;
+  gap: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--font-sm);
+}
+.card input {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-input);
+  color: var(--color-text);
+  padding: 10px var(--space-3);
+  font: inherit;
+}
+.card input:focus {
+  outline: none;
+  border-color: var(--color-border-strong);
+}
+.spinner {
+  animation: spin 800ms linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation: none;
+  }
+}
+@media (max-width: 680px) {
+  .card {
+    grid-template-columns: 1fr;
+  }
+}
