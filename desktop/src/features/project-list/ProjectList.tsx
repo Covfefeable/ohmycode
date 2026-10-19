@@ -21,6 +21,8 @@ export function ProjectList({ selectedConversationId, onConversationSelect, onCo
   const { t, i18n } = useTranslation();
   const { toast } = useFeedback();
   const [projects, setProjects] = useState<LocalProject[]>([]);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [deleteTarget, setDeleteTarget] = useState<{ type: "project"; project: LocalProject } | { type: "conversation"; projectId: string; conversationId: string } | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -31,19 +33,13 @@ export function ProjectList({ selectedConversationId, onConversationSelect, onCo
 
   useEffect(() => {
     let cancelled = false;
-    let timer: number | undefined;
-    let attempts = 0;
-    const load = () => {
-      attempts += 1;
-      void window.ohmycode.projects.list().then((items) => {
-        if (!cancelled) setProjects(items);
-      }).catch(() => {
-        if (!cancelled && attempts < 5) timer = window.setTimeout(load, 1200);
-      });
-    };
-    load();
-    return () => { cancelled = true; if (timer) window.clearTimeout(timer); };
-  }, [refreshToken]);
+    void window.ohmycode.projects.list().then((items) => {
+      if (cancelled) return;
+      setProjects(items);
+      setLoadFailed(false);
+    }).catch(() => { if (!cancelled) setLoadFailed(true); });
+    return () => { cancelled = true; };
+  }, [refreshToken, reloadKey]);
 
   useEffect(() => {
     const query = searchQuery.trim();
@@ -131,6 +127,10 @@ export function ProjectList({ selectedConversationId, onConversationSelect, onCo
       <p className={styles.label}>{t("projects.title")}</p>
     </div>
     <div className={styles.list}>
+      {loadFailed && <div role="alert" className={styles.loadError}>
+        <span>{t("projects.loadFailed")}</span>
+        <button onClick={() => setReloadKey((key) => key + 1)}>{t("common.retry")}</button>
+      </div>}
       {searchQuery.trim() && searchResults.map((result) => <button className={styles.searchResult} key={result.conversation.id} onClick={() => selectSearchResult(result)}>
         <span className={styles.searchResultTitle}>{result.conversation.title}</span>
         <span className={styles.searchResultMeta}>{result.projectName}<time>{new Intl.DateTimeFormat(i18n.language, { month: "short", day: "numeric" }).format(new Date(result.conversation.updatedAt))}</time></span>
@@ -160,7 +160,7 @@ export function ProjectList({ selectedConversationId, onConversationSelect, onCo
           {project.conversations.length === 0 && <EmptyState compact icon={<FolderOpen />} title={t("projects.noConversations")} />}
         </div>}
       </article>)}
-      {projects.length === 0 && <EmptyState icon={<FolderOpen />} title={t("projects.empty")} description={t("projects.emptyDescription")} />}
+      {projects.length === 0 && !loadFailed && <EmptyState icon={<FolderOpen />} title={t("projects.empty")} description={t("projects.emptyDescription")} />}
       </>}
     </div>
     <ConfirmDialog open={Boolean(deleteTarget)} title={t("common.confirmDelete")} description={t("common.deleteWarning")} onCancel={() => setDeleteTarget(null)} onConfirm={() => {

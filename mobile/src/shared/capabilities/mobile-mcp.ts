@@ -148,21 +148,10 @@ export class MobileMcpClient {
         undefined,
         { signal: compatibleAbortSignal(signal) },
       );
-    } catch {
-      if (signal?.aborted) {
-        if (signal.reason instanceof Error) throw signal.reason;
-        const error = new Error("aborted");
-        error.name = "AbortError";
-        throw error;
-      }
+    } catch (error) {
       this.sessions.delete(server.id);
       await session.client.close().catch(() => undefined);
-      const client = await this.connect(server, signal);
-      return client.callTool(
-        { name: originalName, arguments: args },
-        undefined,
-        { signal: compatibleAbortSignal(signal) },
-      );
+      throw error;
     }
   }
 

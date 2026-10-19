@@ -34,6 +34,7 @@ export const en = {
   },
   debug: { title: "Debug settings", close: "Close debug settings", apiUrl: "Server base URL", apiUrlHint: "New requests use the updated address immediately after saving.", openDevTools: "Open developer tools", save: "Save", saved: "Base URL updated.", invalidUrl: "Enter a valid HTTP or HTTPS URL." },
   projects: {
+    loadFailed: "Could not load projects. Please try again.",
     create: "Create project",
     title: "PROJECTS",
     empty: "No projects yet",

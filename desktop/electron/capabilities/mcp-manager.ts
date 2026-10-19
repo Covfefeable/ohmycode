@@ -122,11 +122,10 @@ export async function callMcpTool(serverId: string, name: string, args: Record<s
   }
   try {
     return await session.client.callTool({ name, arguments: args });
-  } catch {
+  } catch (error) {
     sessions.delete(serverId);
     await session.client.close().catch(() => undefined);
-    const client = await connect(await runtimeServer(serverId));
-    return client.callTool({ name, arguments: args });
+    throw error;
   }
 }
 
