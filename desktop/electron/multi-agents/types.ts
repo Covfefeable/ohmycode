@@ -1,7 +1,6 @@
-export type MultiAgentTaskSummary = { id: string; title: string; status: string; createdAt: string };
-export type CollaborationMemberTemplate = { key: string; name: string; role: string; instructions: string; modelId?: string | null; isHost: boolean; sortOrder: number };
-export type MultiAgentSummary = { id: string; name: string; description: string; division: string; templateTeam: { title: string; members: CollaborationMemberTemplate[] }; createdAt: string; tasks: MultiAgentTaskSummary[] };
-export type MultiAgentMessage = { id: string; fromNodeId: string | null; toNodeId: string | null; runId: string | null; type: string; senderType: "user" | "agent"; content: string; createdAt: string };
-export type MultiAgentRunDetail = { id: string; status: string; errorCode?: string | null; startedAt: string; completedAt?: string | null; durationMs?: number | null; inputTokens?: number | null; outputTokens?: number | null; activity: unknown[] };
-export type MultiAgentMember = CollaborationMemberTemplate & { id: string; status: string; conversationId?: string | null; finalOutput?: Record<string, unknown> | null; agentStartedAt?: string | null; agentDurationMs?: number | null; changedFiles: Array<{ id: string; path: string; operation: string; sequence: number }> };
-export type MultiAgentTask = { id: string; agentId: string; title: string; request: string; status: string; workspacePath: string; executionLimit: number; executionCount: number; members: MultiAgentMember[]; messages: MultiAgentMessage[]; currentSpeakerId?: string | null; createdAt: string; updatedAt: string };
+export type {
+  MultiAgentTaskSummary, MultiAgentSummary, MultiAgentMessage, MultiAgentRunDetail,
+  MultiAgentTask, MultiAgentRunEvent,
+  MultiAgentTemplateMember as CollaborationMemberTemplate,
+  MultiAgentMemberData as MultiAgentMember,
+} from "@ohmycode/protocol";

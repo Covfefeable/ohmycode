@@ -1,4 +1,5 @@
 export type ItemKind = "reasoning" | "agent_message" | "user_message" | "tool" | "context";
+export type * from "./conversations.js";
 
 export type FollowupInput = {
   id: string;

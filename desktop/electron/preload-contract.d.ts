@@ -70,6 +70,7 @@ interface DesktopBridge {
     };
     settings: {
       get(): Promise<PublicSettings>;
+      listModels(): Promise<ModelConfiguration[]>;
       saveProfile(displayName: string): Promise<PublicSettings["profile"]>;
       saveAvatar(data: string, contentType: string): Promise<PublicSettings["profile"]>;
       onProfileChanged(callback: (profile: PublicSettings["profile"]) => void): () => void;
@@ -111,20 +112,11 @@ type AuthResponse = {
   payload: { user?: AuthUser; error?: { code: string; fields?: Record<string, string> } };
 };
 
-type ModelConfiguration = {
-  id: string;
-  name: string;
-  baseUrl: string;
-  model: string;
-  contextLength: number;
-  supportsVision: boolean;
-  apiKey?: string;
-  hasApiKey?: boolean;
-};
-type McpTool = { name: string; description?: string; inputSchema?: Record<string, unknown> };
-type McpServerInput = { id?: string; name: string; identifier: string; transport: "http" | "stdio"; configuration: { url?: string; headers?: Record<string, string>; command?: string; args?: string[]; cwd?: string; env?: Record<string, string> }; enabled: boolean };
-type McpServerRecord = McpServerInput & { id: string; tools: McpTool[]; status: string; lastError?: string | null };
-type SkillRecord = { id: string; name: string; description: string; version: string; sha256: string; size: number; enabled: boolean; installed: boolean };
+type ModelConfiguration = import("./settings/types").ModelInput;
+type McpTool = import("./capabilities/types").McpTool;
+type McpServerInput = import("./capabilities/types").McpServerInput;
+type McpServerRecord = import("./capabilities/types").McpServerRecord;
+type SkillRecord = import("./capabilities/types").SkillRecord;
 type PublicSettings = {
   profile: { displayName: string; avatarAvailable: boolean; avatarDataUrl?: string | null };
   models: ModelConfiguration[];
@@ -133,53 +125,28 @@ type PublicSettings = {
 };
 type TokenUsageEntry = { date: string; tokens: number };
 type UpdateCheckResult = { status: "latest" | "available"; currentVersion: string; latestVersion: string; releaseName: string; publishedAt: string | null };
-type BackgroundTaskSettings = { autoSummaryEnabled: boolean; autoSummaryModelId: string | null; contextCompactionThreshold: number; contextCompactionModelId: string | null; suggestionsEnabled: boolean; suggestionsModelId: string | null };
-type MultiAgentTaskSummary = { id: string; title: string; status: string; createdAt: string };
-type MultiAgentTemplateMember = { key: string; name: string; role: string; instructions: string; modelId?: string | null; isHost: boolean; sortOrder: number };
-type MultiAgentTemplateTeam = { title: string; members: MultiAgentTemplateMember[] };
-type MultiAgentSummary = { id: string; name: string; description: string; division: string; templateTeam: MultiAgentTemplateTeam; createdAt: string; tasks: MultiAgentTaskSummary[] };
-type MultiAgentMessage = { id: string; fromNodeId: string | null; toNodeId: string | null; runId: string | null; type: string; senderType: "user" | "agent"; content: string; createdAt: string };
-type MultiAgentRunDetail = { id: string; status: string; errorCode?: string | null; startedAt: string; completedAt?: string | null; durationMs?: number | null; inputTokens?: number | null; outputTokens?: number | null; activity: AgentActivityStep[] };
-type MultiAgentMemberData = MultiAgentTemplateMember & { id: string; status: string; conversationId?: string | null; finalOutput?: Record<string, unknown> | null; agentStartedAt?: string | null; agentDurationMs?: number | null; changedFiles: Array<{ id: string; path: string; operation: string; sequence: number }> };
-type MultiAgentTask = { id: string; agentId: string; title: string; request: string; status: string; workspacePath: string; executionLimit: number; executionCount: number; members: MultiAgentMemberData[]; messages: MultiAgentMessage[]; currentSpeakerId?: string | null; createdAt: string; updatedAt: string };
-type ConversationStreamEvent =
-  | { type: "reasoning.started"; stepId: string }
-  | { type: "run.started"; runId: string }
-  | { type: "run.failed"; errorCode: string }
-  | { type: "reasoning.delta"; content: string }
-  | { type: "message.started" }
-  | { type: "message.delta"; content: string }
-  | { type: "context.usage"; usedTokens: number; contextLength: number; source: "estimated" | "provider" }
-  | { type: "context.compaction.started" | "context.compaction.completed"; estimatedTokens: number; contextLength: number }
-  | { type: "task.plan.updated"; tasks: AgentTask[] }
-  | { type: "tool.requested"; runId: string; callId: string; tool: string; arguments: TerminalAction | Record<string, unknown>; taskId?: string }
-  | { type: "tool.completed"; callId: string; result: unknown };
+type BackgroundTaskSettings = import("./settings/types").BackgroundTaskSettings;
+type MultiAgentTaskSummary = import("@ohmycode/protocol").MultiAgentTaskSummary;
+type MultiAgentTemplateMember = import("@ohmycode/protocol").MultiAgentTemplateMember;
+type MultiAgentTemplateTeam = import("@ohmycode/protocol").MultiAgentTemplateTeam;
+type MultiAgentSummary = import("@ohmycode/protocol").MultiAgentSummary;
+type MultiAgentMessage = import("@ohmycode/protocol").MultiAgentMessage;
+type MultiAgentRunDetail = import("@ohmycode/protocol").MultiAgentRunDetail;
+type MultiAgentMemberData = import("@ohmycode/protocol").MultiAgentMemberData;
+type MultiAgentTask = import("@ohmycode/protocol").MultiAgentTask;
+
 type AgentTask = import("@ohmycode/protocol").AgentTask;
 type RuntimeItem = import("@ohmycode/protocol").RuntimeItem;
 type RuntimeEvent = import("@ohmycode/protocol").RuntimeEvent;
 type TurnSnapshot = import("@ohmycode/protocol").TurnSnapshot;
-type MultiAgentRunEvent =
-  | { type: "task.updated"; task: MultiAgentTask }
-  | { type: "node.event"; nodeId: string; event: RuntimeEvent }
-  | { type: "task.failed"; error: string };
-type AgentActivityStep =
-  | { id: string; type: "run"; status: "running" | "completed"; taskId?: string }
-  | { id: string; type: "task_plan"; tasks: AgentTask[] }
-  | { id: string; type: "reasoning"; content: string; status: "running" | "completed"; taskId?: string }
-  | { id: string; type: "message"; content: string; status: "running" | "completed"; taskId?: string }
-  | { id: string; type: "context"; status: "running" | "completed"; taskId?: string }
-  | { id: string; type: "tool"; tool: string; input: unknown; result?: unknown; status: "running" | "completed"; taskId?: string };
-type MessageAttachment = { id: string; name: string; path: string; size: number; mimeType: string };
-type LocalMessage = { id: string; role: "user" | "assistant"; content: string; attachments?: MessageAttachment[]; reasoning?: string | null; activity?: AgentActivityStep[] | null; agentDurationMs?: number | null; agentStartedAt?: string; createdAt: string };
-type LocalConversation = { id: string; title: string; createdAt: string; updatedAt: string; messages?: LocalMessage[]; olderCursor?: string | null; newerCursor?: string | null; contextUsage?: { usedTokens: number; contextLength: number; source: "provider" } | null };
-type MessageSearchResult = import("./projects/types").MessageSearchResult;
-type ConversationSearchResult = { projectId: string; projectName: string; conversation: LocalConversation; snippet: string | null; messageId: string | null };
-type LocalProject = { id: string; name: string; path: string; deviceId: string; deviceName: string; conversations: LocalConversation[] };
-type TerminalStatus = "running" | "exited" | "stopped";
-type TerminalAction =
-  | { action: "start"; projectId: string; command: string; cwd?: string; yieldMs?: number; intent?: "read" | "write" }
-  | { action: "read"; terminalId: string; afterCursor?: number; yieldMs?: number }
-  | { action: "write"; terminalId: string; input: string }
-  | { action: "stop"; terminalId: string }
-  | { action: "list"; projectId?: string };
-type TerminalResult = { terminalId: string; command: string; cwd: string; status: TerminalStatus; cursor: number; output: string; truncated?: boolean; exitCode?: number };
+type MultiAgentRunEvent = import("@ohmycode/protocol").MultiAgentRunEvent;
+type AgentActivityStep = import("@ohmycode/protocol").AgentActivityStep;
+type MessageAttachment = import("@ohmycode/protocol").MessageAttachment;
+type LocalMessage = import("@ohmycode/protocol").LocalMessage;
+type LocalConversation = import("@ohmycode/protocol").LocalConversation;
+type MessageSearchResult = import("@ohmycode/protocol").MessageSearchResult;
+type ConversationSearchResult = import("@ohmycode/protocol").ConversationSearchResult;
+type LocalProject = import("@ohmycode/protocol").LocalProject;
+type TerminalStatus = import("./terminal/types").TerminalStatus;
+type TerminalAction = import("./terminal/types").TerminalAction;
+type TerminalResult = import("./terminal/types").TerminalResult;

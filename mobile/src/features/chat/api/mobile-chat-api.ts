@@ -1,4 +1,5 @@
 import { runToolLoop, type AgentStreamEvent } from "@ohmycode/agent-runtime";
+import type { AgentActivityStep, LocalMessage } from "@ohmycode/protocol";
 
 import { ApiError, authenticatedFetch, authenticatedRequest } from "@/shared/api/api-client";
 import { MobileToolRegistry } from "@/features/chat/tools/mobile-tool-registry";
@@ -6,22 +7,12 @@ import type { ProviderToolDefinition } from "@ohmycode/tool-contracts";
 
 const threadDynamicTools = new Map<string, ProviderToolDefinition[]>();
 
-export type MobileMessage = {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
+export type MobileMessage = Omit<LocalMessage, "createdAt" | "activity" | "attachments"> & {
   createdAt?: string;
-  reasoning?: string | null;
   activity?: MobileActivityStep[] | null;
-  agentDurationMs?: number | null;
-  agentStartedAt?: string;
 };
 
-export type MobileActivityStep =
-  | { id: string; type: "run"; status: "running" | "completed" }
-  | { id: string; type: "reasoning" | "message"; content: string; status: "running" | "completed"; taskId?: string }
-  | { id: string; type: "tool"; tool: string; input: unknown; result?: unknown; status: "running" | "completed"; taskId?: string }
-  | { id: string; type: "task_plan"; tasks: { id: string; content: string; status: "pending" | "in_progress" | "completed" }[] };
+export type MobileActivityStep = Exclude<AgentActivityStep, { type: "context" }>;
 
 export type MobileConversation = {
   id: string;

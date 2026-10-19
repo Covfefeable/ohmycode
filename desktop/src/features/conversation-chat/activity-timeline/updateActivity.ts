@@ -1,4 +1,4 @@
-export function updateActivity(steps: AgentActivityStep[], event: ConversationStreamEvent | RuntimeEvent): AgentActivityStep[] {
+export function updateActivity(steps: AgentActivityStep[], event: RuntimeEvent): AgentActivityStep[] {
   const next = steps.map((step) => ({ ...step }));
   if (event.type === "turn.started") {
     for (const step of next) if (step.type !== "task_plan" && step.status === "running") step.status = "completed";
@@ -28,40 +28,7 @@ export function updateActivity(steps: AgentActivityStep[], event: ConversationSt
     }
   } else if (event.type === "turn.completed" || event.type === "turn.failed" || event.type === "turn.interrupted") {
     for (const step of next) if (step.type !== "task_plan" && step.status === "running") step.status = "completed";
-  } else if (event.type === "task.plan.updated") {
-    const planIndex = next.findIndex((step) => step.type === "task_plan");
-    const plan = { id: "task-plan-live", type: "task_plan" as const, tasks: event.tasks };
-    if (planIndex >= 0) next[planIndex] = plan;
-    else next.push(plan);
-  } else if (event.type === "run.started") {
-    for (const step of next) if (step.type !== "task_plan" && step.status === "running") step.status = "completed";
-    let lastRunIndex = -1;
-    for (let index = next.length - 1; index >= 0; index -= 1) {
-      if (next[index].type === "run") { lastRunIndex = index; break; }
-    }
-    const pendingRun = lastRunIndex >= 0
-      && next.slice(lastRunIndex + 1).every((step) => step.type === "message" && step.id.startsWith("user-"));
-    if (pendingRun) next[lastRunIndex] = { id: `run-${event.runId}`, type: "run", status: "running" };
-    else next.push({ id: `run-${event.runId}`, type: "run", status: "running" });
-  } else if (event.type === "reasoning.started") {
-    for (const step of next) if (step.type === "reasoning") step.status = "completed";
-    next.push({ id: event.stepId, type: "reasoning", content: "", status: "running" });
-  } else if (event.type === "reasoning.delta") {
-    const step = [...next].reverse().find((item) => item.type === "reasoning" && item.status === "running");
-    if (step?.type === "reasoning") step.content += event.content;
-  } else if (event.type === "message.started") {
-    for (const step of next) if (step.type === "reasoning") step.status = "completed";
-    next.push({ id: `message-${crypto.randomUUID()}`, type: "message", content: "", status: "running" });
-  } else if (event.type === "message.delta") {
-    const step = [...next].reverse().find((item) => item.type === "message" && item.status === "running");
-    if (step?.type === "message") step.content += event.content;
-  } else if (event.type === "tool.requested") {
-    for (const step of next) if (step.type === "reasoning" || step.type === "message") step.status = "completed";
-    if (event.tool === "update_tasks") return next;
-    next.push({ id: event.callId, type: "tool", tool: event.tool, input: event.arguments, status: "running", taskId: event.taskId });
-  } else if (event.type === "tool.completed") {
-    const step = next.find((item) => item.type === "tool" && item.id === event.callId);
-    if (step?.type === "tool") { step.result = event.result; step.status = "completed"; }
+
   }
   return next;
 }

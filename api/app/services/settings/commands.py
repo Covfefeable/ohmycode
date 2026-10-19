@@ -29,6 +29,10 @@ def serialize_model(item: ModelConfiguration) -> dict:
     }
 
 
+def list_models(user_id: UUID) -> list[dict]:
+    return [serialize_model(item) for item in models_for_user(user_id)]
+
+
 def get_settings(user_id: UUID) -> dict:
     user = db.session.get(User, user_id)
     if not user:
@@ -62,7 +66,7 @@ def get_settings(user_id: UUID) -> dict:
             "displayName": user.display_name,
             "avatarAvailable": bool(user.avatar_object_key),
         },
-        "models": [serialize_model(item) for item in models_for_user(user_id)],
+        "models": list_models(user_id),
         "backgroundTasks": serialize_background_tasks(background_task_settings(user_id)),
         "tokenUsage": token_usage,
     }

@@ -15,7 +15,7 @@ test("上一轮完成回显晚到时，不覆盖已经自动开始的新一轮",
       onThreadEvent: (_id: string, callback: typeof listener) => { listener = callback; return () => {}; },
       history: vi.fn(async () => loaded), threadSnapshot: vi.fn(async () => null), waitTurn: vi.fn(() => previous), suggest: vi.fn(async () => []),
     },
-    settings: { onModelsChanged: () => () => {}, get: vi.fn(async () => ({ models: [] })) },
+    settings: { onModelsChanged: () => () => {}, listModels: vi.fn(async () => []) },
   };
   Object.defineProperty(window, "ohmycode", { configurable: true, value: bridge });
   const { result } = renderHook(() => useConversationController({ conversationId: "thread", onUpdated: vi.fn(), scrollToBottom: vi.fn() }));
@@ -48,7 +48,7 @@ test("向上加载期间收到新消息，历史只前插一次且不覆盖流�
       onThreadEvent: (_id: string, callback: typeof listener) => { listener = callback; return () => {}; },
       history, threadSnapshot: vi.fn(async () => null),
     },
-    settings: { onModelsChanged: () => () => {}, get: vi.fn(async () => ({ models: [] })) },
+    settings: { onModelsChanged: () => () => {}, listModels: vi.fn(async () => []) },
   } });
   const { result } = renderHook(() => useConversationController({ conversationId: "thread", onUpdated: vi.fn(), scrollToBottom: vi.fn() }));
   await waitFor(() => expect(result.current.conversation?.id).toBe("thread"));
@@ -72,7 +72,7 @@ test("历史页失败不清空消息，可以手动重试", async () => {
   const history = vi.fn().mockResolvedValueOnce(loaded).mockRejectedValueOnce(new Error("offline")).mockResolvedValueOnce({ ...loaded, olderCursor: null });
   Object.defineProperty(window, "ohmycode", { configurable: true, value: {
     conversations: { onThreadEvent: () => () => {}, history, threadSnapshot: vi.fn(async () => null) },
-    settings: { onModelsChanged: () => () => {}, get: vi.fn(async () => ({ models: [] })) },
+    settings: { onModelsChanged: () => () => {}, listModels: vi.fn(async () => []) },
   } });
   const { result } = renderHook(() => useConversationController({ conversationId: "thread", onUpdated: vi.fn(), scrollToBottom: vi.fn() }));
   await waitFor(() => expect(result.current.conversation?.id).toBe("thread"));

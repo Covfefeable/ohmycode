@@ -1,6 +1,7 @@
 import { BrowserWindow, ipcMain } from "electron";
 import {
   getPublicSettings,
+  getModels,
   saveAvatar,
   saveBackgroundTasks,
   saveModels,
@@ -11,6 +12,7 @@ import type { BackgroundTaskSettings, ModelInput } from "../settings/types.js";
 
 export function registerSettingsIpc(): void {
   ipcMain.handle("settings:get", getPublicSettings);
+  ipcMain.handle("settings:list-models", getModels);
   const publishProfile = async () => {
     const profile = (await getPublicSettings()).profile;
     for (const window of BrowserWindow.getAllWindows()) {
@@ -28,7 +30,7 @@ export function registerSettingsIpc(): void {
   });
   ipcMain.handle("settings:save-models", async (_event, models: ModelInput[]) => {
     await saveModels(models);
-    const freshModels = (await getPublicSettings()).models;
+    const freshModels = await getModels();
     for (const window of BrowserWindow.getAllWindows()) {
       if (!window.isDestroyed()) window.webContents.send("settings:models-changed", freshModels);
     }

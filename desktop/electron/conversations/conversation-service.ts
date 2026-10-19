@@ -5,7 +5,7 @@ import { DesktopToolRegistry } from "../runtime/desktop-tool-registry.js";
 import type { DesktopTurnExecution } from "../runtime/desktop-execution-adapter.js";
 import type { DesktopExecutionContext } from "../runtime/types.js";
 import { ConversationTransport } from "./conversation-transport.js";
-import { getPublicSettings } from "../settings/settings-service.js";
+import { getModels } from "../settings/settings-service.js";
 
 export type ConversationStreamEvent = AgentStreamEvent;
 export type { AgentTask };
@@ -41,10 +41,10 @@ export async function streamMessage(
   );
   const workspaceInstructions = "";
   const transport = new ConversationTransport(execution.signal);
-  const settings = await getPublicSettings();
+  const models = await getModels();
   const model = modelId
-    ? settings.models.find((item) => item.id === modelId)
-    : settings.models[0];
+    ? models.find((item) => item.id === modelId)
+    : models[0];
   const attachmentPaths = new Set((attachments ?? []).map((item) => item.path));
   const registry = new DesktopToolRegistry({
     execution,

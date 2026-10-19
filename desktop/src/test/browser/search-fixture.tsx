@@ -22,7 +22,7 @@ window.searchFixture = { emitDelta() { for (const listener of listeners) listene
 Object.defineProperty(window, "ohmycode", { configurable: true, value: {
   projects: { list: async () => [project], searchConversations: async (query: string) => query === "needle" ? [{ projectId: project.id, projectName: project.name, conversation, messageId: "m-55", snippet: "needle evidence 55" }] : [] },
   capabilities: { onChanged: () => () => {}, listMcp: async () => [], listSkills: async () => [] },
-  settings: { onModelsChanged: () => () => {}, get: async () => ({ models: [] }) },
+  settings: { onModelsChanged: () => () => {}, listModels: async () => [] },
   conversations: {
     onThreadEvent: (_id: string, listener: (event: RuntimeEvent) => void) => { listeners.add(listener); return () => listeners.delete(listener); },
     onFollowups: () => () => {}, followups: async () => ({ inputs: [], paused: false }),

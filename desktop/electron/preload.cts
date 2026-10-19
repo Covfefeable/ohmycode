@@ -90,6 +90,7 @@ const bridge: DesktopBridge = {
   },
   settings: {
     get: () => ipcRenderer.invoke("settings:get"),
+    listModels: () => ipcRenderer.invoke("settings:list-models"),
     saveProfile: (displayName) => ipcRenderer.invoke("settings:save-profile", displayName),
     saveAvatar: (data, contentType) => ipcRenderer.invoke("settings:save-avatar", data, contentType),
     onProfileChanged: (callback) => {

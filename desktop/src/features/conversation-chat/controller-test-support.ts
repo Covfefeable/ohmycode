@@ -36,7 +36,7 @@ export function controllerBridge() {
         return () => { current.delete(listener); };
       }),
     },
-    settings: { onModelsChanged: () => () => {}, get: vi.fn(async () => ({ models: [] })) },
+    settings: { onModelsChanged: () => () => {}, listModels: vi.fn(async () => []) },
   };
   Object.defineProperty(window, "ohmycode", { configurable: true, value: bridge });
   return {

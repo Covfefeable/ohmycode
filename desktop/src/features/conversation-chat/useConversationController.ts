@@ -189,10 +189,10 @@ export function useConversationController({ conversationId, onUpdated, scrollToB
       setLoadFailed(true);
       toast({ type: "error", message: t("agent.loadFailed") });
     });
-    void window.ohmycode.settings.get().then((settings) => {
+    void window.ohmycode.settings.listModels().then((models) => {
       if (disposed) return;
-      setModels(settings.models);
-      setSelectedModelId(settings.models[0]?.id ?? "");
+      setModels(models);
+      setSelectedModelId(models[0]?.id ?? "");
     }).catch(() => undefined);
     return () => {
       disposed = true;

@@ -3,13 +3,10 @@ import { stat } from "node:fs/promises";
 import { dialog } from "electron";
 import { ApiError, apiErrorCode, apiRequest } from "../api/api-client.js";
 import { interruptTurn, startTurn, subscribeTurn, waitForTurn } from "../runtime/desktop-runtime-host.js";
-import type { RuntimeEvent } from "@ohmycode/protocol";
+import type { MultiAgentRunEvent } from "@ohmycode/protocol";
 import type { MultiAgentRunDetail, MultiAgentSummary, MultiAgentTask } from "./types.js";
 
-export type MultiAgentRunEvent =
-  | { type: "task.updated"; task: MultiAgentTask }
-  | { type: "node.event"; nodeId: string; event: RuntimeEvent }
-  | { type: "task.failed"; error: string };
+export type { MultiAgentRunEvent } from "@ohmycode/protocol";
 
 type ActiveRun = { taskId: string; nodeTurnId?: string; cancelled: boolean };
 const activeRuns = new Map<string, ActiveRun>();

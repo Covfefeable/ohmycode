@@ -12,6 +12,7 @@ from ..services.settings import (
     save_profile,
     test_model,
 )
+from ..services.settings.commands import list_models
 
 settings_bp = Blueprint("settings", __name__)
 
@@ -57,6 +58,12 @@ def save_models_route():
     models = (request.get_json(silent=True) or {}).get("models") or []
     save_models(user_id(), models)
     return "", 204
+
+
+@settings_bp.get("/models")
+@jwt_required()
+def list_models_route():
+    return jsonify(list_models(user_id()))
 
 
 @settings_bp.put("/background-tasks")
