@@ -18,7 +18,6 @@ from ..services.multi_agents import (
     post_user_message,
     record_changes,
     recover_host,
-    replace_team,
     retry_node,
     serialize_agent,
     serialize_message_run,
@@ -110,15 +109,6 @@ def get_message_run_route(message_id: UUID):
     if not message.run:
         raise ServiceError("run_not_found", 404)
     return jsonify(serialize_message_run(message))
-
-
-@multi_agents_bp.patch("/tasks/<uuid:task_id>/team")
-@jwt_required()
-def replace_team_route(task_id: UUID):
-    require_device_task(task_id)
-    return jsonify(
-        serialize_task(replace_team(user_id(), task_id, request.get_json(silent=True) or {}))
-    )
 
 
 @multi_agents_bp.delete("/tasks/<uuid:task_id>")

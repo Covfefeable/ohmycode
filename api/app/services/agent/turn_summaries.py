@@ -15,6 +15,7 @@ from .config import RECENT_FULL_TURNS
 from .context import _summary_request
 from .image_context import text_only_images
 from .prompts import TURN_SUMMARY_INSTRUCTIONS
+from .result_references import protect_result_references
 
 TURN_SUMMARY_SOURCE_BYTES = 32 * 1024
 
@@ -147,6 +148,7 @@ def summarize_agent_run(run_id: UUID) -> bool:
         summary.status = "pending"
         db.session.commit()
         return False
+    protect_result_references(result)
     summary.summary = result
     summary.status = "completed"
     summary.error = None

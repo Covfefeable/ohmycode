@@ -39,6 +39,7 @@ def completed_run(workspace):
 
 
 def add_reference(workspace, run_id):
+    result_references.protect_result_references({"resultRef": {"runId": str(run_id)}})
     db.session.add(
         Message(
             conversation_id=workspace.conversation,

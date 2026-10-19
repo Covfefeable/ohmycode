@@ -3,10 +3,11 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 from ...extensions import db
-from ...models import Conversation, Message
+from ...models import Conversation, Message, Project
 from ..agent.context_history import branch_context_snapshot
+from ..agent.result_references import protect_result_references
 from ..errors import ServiceError
-from ..projects.queries import owned_conversation, owned_project
+from ..projects.queries import owned_conversation
 
 
 def touch_conversation(conversation: Conversation) -> None:
@@ -43,10 +44,7 @@ def get_conversation(user_id: UUID, conversation_id: UUID) -> Conversation:
     return conversation
 
 
-def create_conversation(user_id: UUID, project_id: UUID, payload: dict) -> Conversation:
-    project = owned_project(user_id, project_id)
-    if not project:
-        raise ServiceError("not_found", 404)
+def create_conversation(project: Project, payload: dict) -> Conversation:
     conversation = Conversation(
         project=project, title=str(payload.get("title") or "New conversation")[:200]
     )
@@ -55,10 +53,7 @@ def create_conversation(user_id: UUID, project_id: UUID, payload: dict) -> Conve
     return conversation
 
 
-def branch_conversation(
-    user_id: UUID, conversation_id: UUID, message_id: UUID
-) -> Conversation:
-    source = get_conversation(user_id, conversation_id)
+def branch_conversation(source: Conversation, message_id: UUID) -> Conversation:
     messages = list(source.messages)
     branch_index = next(
         (index for index, message in enumerate(messages) if message.id == message_id), None
@@ -83,18 +78,21 @@ def branch_conversation(
         )
         for message in messages[: branch_index + 1]
     ]
+    for message in branch.messages:
+        protect_result_references(
+            message.context_snapshot, message.content, message.activity, message.reasoning
+        )
     db.session.commit()
     return branch
 
 
-def delete_conversation(user_id: UUID, conversation_id: UUID) -> None:
-    conversation = get_conversation(user_id, conversation_id)
+def delete_conversation(conversation: Conversation) -> None:
     db.session.delete(conversation)
     db.session.commit()
 
 
-def add_message(user_id: UUID, conversation_id: UUID, payload: dict) -> Message:
-    conversation = get_conversation(user_id, conversation_id)
+def add_message(conversation: Conversation, payload: dict) -> Message:
+    protect_result_references(payload.get("content"))
     role = str(payload.get("role") or "")
     content = str(payload.get("content") or "").strip()
     if role not in {"user", "assistant"} or not content:
@@ -109,10 +107,10 @@ def add_message(user_id: UUID, conversation_id: UUID, payload: dict) -> Message:
 
 
 def edit_last_user_message(
-    user_id: UUID, conversation_id: UUID, message_id: UUID, content: str, *, commit: bool = True
+    conversation: Conversation, message_id: UUID, content: str, *, commit: bool = True
 ) -> Conversation:
-    conversation = get_conversation(user_id, conversation_id)
     content = content.strip()
+    protect_result_references(content)
     messages = list(conversation.messages)
     target = next((message for message in messages if message.id == message_id), None)
     last_user = next((message for message in reversed(messages) if message.role == "user"), None)
@@ -140,13 +138,14 @@ def prepare_user_prompt(
 ) -> Conversation:
     conversation = get_conversation(user_id, conversation_id)
     content = content.strip()
+    protect_result_references(content)
     messages = list(conversation.messages)
     if edit_message_id:
         try:
             message_id = UUID(str(edit_message_id))
         except ValueError as error:
             raise ServiceError("validation_error", 422) from error
-        return edit_last_user_message(user_id, conversation_id, message_id, content, commit=False)
+        return edit_last_user_message(conversation, message_id, content, commit=False)
     normalized_attachments = normalize_attachments(attachments or [])
     if not content and not normalized_attachments:
         raise ServiceError("validation_error", 422)

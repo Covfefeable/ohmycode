@@ -4,7 +4,7 @@ from ..extensions import db
 from ..models import AgentRun, Conversation, Project
 from .agent.executions import recover_execution, resume_execution, start_execution
 from .agent.runs import cancel_run
-from .conversations import create_conversation, delete_conversation, get_conversation
+from .conversations import create_conversation, delete_conversation
 from .errors import ServiceError
 
 MOBILE_DEVICE_ID = "mobile"
@@ -70,17 +70,15 @@ def list_mobile_conversations(user_id: UUID) -> list[Conversation]:
 
 
 def create_mobile_conversation(user_id: UUID, payload: dict) -> Conversation:
-    return create_conversation(user_id, _mobile_project(user_id).id, payload)
+    return create_conversation(_mobile_project(user_id), payload)
 
 
 def get_mobile_conversation(user_id: UUID, conversation_id: UUID) -> Conversation:
-    _owned_mobile_conversation(user_id, conversation_id)
-    return get_conversation(user_id, conversation_id)
+    return _owned_mobile_conversation(user_id, conversation_id)
 
 
 def delete_mobile_conversation(user_id: UUID, conversation_id: UUID) -> None:
-    _owned_mobile_conversation(user_id, conversation_id)
-    delete_conversation(user_id, conversation_id)
+    delete_conversation(_owned_mobile_conversation(user_id, conversation_id))
 
 
 def cancel_mobile_run(user_id: UUID, run_id: UUID, partial_message: object = None) -> None:

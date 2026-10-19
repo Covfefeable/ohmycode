@@ -14,6 +14,7 @@ from ...models import (
 from ..errors import ServiceError
 from .config import CANCEL_SUMMARY_TOKEN_BUDGET
 from .prompts import STOPPED_RUN_CONTEXT
+from .result_references import protect_result_references
 
 
 def start_run(
@@ -38,6 +39,7 @@ def start_run(
 
 
 def append_event(run: AgentRun, event_type: str, payload: dict | None = None) -> AgentEvent:
+    protect_result_references(payload)
     run.last_event_sequence = db.session.scalar(
         db.update(AgentRun)
         .where(AgentRun.id == run.id)
@@ -201,6 +203,7 @@ def cancel_run(
     ):
         content = str(partial_message.get("content") or "").strip()
         activity = partial_message.get("activity")
+        protect_result_references(content, activity)
         db.session.add(
             Message(
                 conversation_id=run.conversation_id,

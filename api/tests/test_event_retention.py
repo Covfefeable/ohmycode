@@ -16,7 +16,7 @@ from app.models import (
     User,
 )
 from app.services.agent.event_retention import cleanup_expired_agent_events
-from app.services.agent.result_references import referenced_runs
+from app.services.agent.result_references import protect_result_references, referenced_runs
 from app.services.errors import ServiceError
 
 
@@ -137,7 +137,7 @@ def test_cleanup_only_removes_expired_summarized_unreferenced_events():
             )
         )
         with pytest.raises(ServiceError, match="tool_result_expired"):
-            db.session.flush()
+            protect_result_references({"resultRef": {"runId": str(removable.id)}})
         db.session.rollback()
         for execution_id in (executions[0], executions[2], executions[3]):
             assert db.session.get(ModelExecution, execution_id) is not None

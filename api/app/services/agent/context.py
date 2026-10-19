@@ -32,6 +32,7 @@ from .context_history import (
 )
 from .image_context import text_only_images
 from .prompts import COMPACTION_INSTRUCTIONS
+from .result_references import protect_result_references
 from .runs import append_event
 from .tokens import estimate_tokens, request_tokens
 from .tool_history import tool_batches
@@ -176,6 +177,7 @@ def iter_prepare_context(
         }
         for block in eligible:
             cursor.update(block.cursor)
+        protect_result_references(summary)
         checkpoint = ContextCheckpoint(
             run=run,
             conversation_id=run.conversation_id,

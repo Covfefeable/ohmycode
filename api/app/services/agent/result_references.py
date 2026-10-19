@@ -3,32 +3,13 @@
 import re
 from uuid import UUID
 
-from sqlalchemy import event, exists, func, inspect, select
+from sqlalchemy import exists, func, select
 from sqlalchemy.orm import Session
 
-from ...models import (
-    AgentEvent,
-    AgentRun,
-    AgentRunSummary,
-    ContextCheckpoint,
-    Message,
-    ModelExecution,
-    ModelStreamEvent,
-    MultiAgentMessage,
-    MultiAgentNode,
-)
+from ...extensions import db
+from ...models import AgentEvent, AgentRun
 from ..errors import ServiceError
 
-REFERENCE_MODELS = (
-    AgentEvent,
-    AgentRunSummary,
-    ContextCheckpoint,
-    Message,
-    ModelExecution,
-    ModelStreamEvent,
-    MultiAgentMessage,
-    MultiAgentNode,
-)
 RESULT_REFERENCE = re.compile(
     r'"resultRef"\s*:\s*\{[^}]*"runId"\s*:\s*'
     r'"([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})"'
@@ -61,28 +42,19 @@ def lock_result_history(session: Session, run_id: UUID, *, shared: bool = False)
         session.execute(select(lock(key)))
 
 
-@event.listens_for(Session, "before_flush")
-def protect_result_references(session: Session, _context, _instances) -> None:
-    references: set[UUID] = set()
-    pending_histories = {
-        item.run_id or (item.run.id if item.run else None)
-        for item in session.new
-        if isinstance(item, AgentEvent)
-    }
-    for item in session.new.union(session.dirty):
-        if not isinstance(item, REFERENCE_MODELS):
-            continue
-        state = inspect(item)
-        for column in state.mapper.column_attrs:
-            if state.pending or state.attrs[column.key].history.has_changes():
-                references.update(referenced_runs(getattr(item, column.key)))
+def protect_result_references(*values: object) -> None:
+    """Validate references explicitly before persisting their owning content."""
+    with db.session.no_autoflush:
+        _protect_references(set().union(*(referenced_runs(value) for value in values)))
+
+
+def _protect_references(references: set[UUID]) -> None:
     for run_id in sorted(references):
-        lock_result_history(session, run_id, shared=True)
-        run = session.get(AgentRun, run_id)
+        lock_result_history(db.session, run_id, shared=True)
+        run = db.session.get(AgentRun, run_id)
         if (
             run
             and run.status == "completed"
-            and run_id not in pending_histories
-            and not session.scalar(select(exists().where(AgentEvent.run_id == run_id)))
+            and not db.session.scalar(select(exists().where(AgentEvent.run_id == run_id)))
         ):
             raise ServiceError("tool_result_expired", 409)

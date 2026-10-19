@@ -13,6 +13,7 @@ from ..conversations import get_conversation
 from ..errors import ServiceError
 from .preparation import create_completion_run
 from .prompts import AGENT_SYSTEM_INSTRUCTIONS
+from .result_references import protect_result_references
 from .runs import append_event, get_owned_run
 from .tool_snapshot import validate_tool_snapshot
 
@@ -37,6 +38,7 @@ def dispatch_execution(execution_id: UUID) -> None:
 
 
 def _submit(run: AgentRun, key: str, parameters: dict) -> UUID:
+    protect_result_references(parameters)
     previous = latest_execution(run.id)
     execution = ModelExecution(
         run_id=run.id,

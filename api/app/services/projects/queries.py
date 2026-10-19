@@ -3,6 +3,7 @@ from uuid import UUID
 from ...extensions import db
 from ...models import AgentRun, Conversation, Project
 from ..devices import DeviceContext
+from ..errors import ServiceError
 
 
 def owned_project(user_id: UUID, project_id: UUID) -> Project | None:
@@ -54,3 +55,19 @@ def device_run(user_id: UUID, device: DeviceContext, run_id: UUID) -> AgentRun |
             Project.device_id == device.id,
         )
     )
+
+
+def require_device_project(user_id: UUID, device: DeviceContext, project_id: UUID) -> Project:
+    project = device_project(user_id, device, project_id)
+    if not project:
+        raise ServiceError("not_found", 404)
+    return project
+
+
+def require_device_conversation(
+    user_id: UUID, device: DeviceContext, conversation_id: UUID
+) -> Conversation:
+    conversation = device_conversation(user_id, device, conversation_id)
+    if not conversation:
+        raise ServiceError("not_found", 404)
+    return conversation

@@ -4,7 +4,6 @@ from ...extensions import db
 from ...models import Project
 from ..devices import DeviceContext
 from ..errors import ServiceError
-from .queries import owned_project
 
 
 def list_projects(user_id: UUID, device: DeviceContext) -> list[Project]:
@@ -53,9 +52,6 @@ def create_project(user_id: UUID, device: DeviceContext, payload: dict) -> Proje
     return project
 
 
-def delete_project(user_id: UUID, project_id: UUID) -> None:
-    project = owned_project(user_id, project_id)
-    if not project:
-        raise ServiceError("not_found", 404)
+def delete_project(project: Project) -> None:
     db.session.delete(project)
     db.session.commit()

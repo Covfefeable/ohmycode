@@ -13,6 +13,7 @@ from .chat import stream_completion
 from .config import MODEL_REQUEST_TIMEOUT_SECONDS, MODEL_STREAM_ATTEMPTS
 from .executions import dispatch_execution
 from .preparation import iter_prepare_completion
+from .result_references import protect_result_references
 from .runs import fail_run
 from .steering import receive_inputs
 
@@ -20,6 +21,7 @@ LEASE_DURATION = timedelta(seconds=2 * MODEL_REQUEST_TIMEOUT_SECONDS * MODEL_STR
 
 
 def _write(execution: ModelExecution, events: list[dict]) -> None:
+    protect_result_references(events)
     for payload in events:
         execution.last_sequence += 1
         db.session.add(

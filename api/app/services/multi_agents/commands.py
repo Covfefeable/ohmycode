@@ -12,6 +12,7 @@ from ...models import (
     MultiAgentTask,
     Project,
 )
+from ..agent.result_references import protect_result_references
 from ..devices import DeviceContext
 from ..errors import ServiceError
 from .planner import validate_plan
@@ -47,6 +48,7 @@ def create_task(
     workspace_path = str(payload.get("workspacePath") or "").strip()[:1024]
     workspace_name = str(payload.get("workspaceName") or "").strip()[:255]
     request = str(payload.get("request") or "").strip()
+    protect_result_references(request)
     if not workspace_path:
         raise ServiceError("validation_error", 422)
     if not request:
@@ -146,13 +148,6 @@ def delete_task(user_id: UUID, task_id: UUID) -> None:
     db.session.commit()
 
 
-def replace_team(user_id: UUID, task_id: UUID, payload: dict) -> MultiAgentTask:
-    task = get_task(user_id, task_id)
-    if not task:
-        raise ServiceError("not_found", 404)
-    raise ServiceError("collaboration_team_managed_on_template", 409)
-
-
 def start_task(user_id: UUID, task_id: UUID) -> MultiAgentTask:
     task = get_task(user_id, task_id)
     if not task:
@@ -211,6 +206,7 @@ def post_message(user_id: UUID, node_id: UUID, payload: dict) -> MultiAgentMessa
         raise ServiceError("agent_not_running", 409)
     recipient = str(payload.get("to") or "").strip()
     content = str(payload.get("content") or "").strip()
+    protect_result_references(content)
     if not content:
         raise ServiceError("validation_error", 422)
     if source.task.status != "running":
@@ -263,6 +259,7 @@ def post_user_message(user_id: UUID, node_id: UUID, payload: dict) -> MultiAgent
     if not target:
         raise ServiceError("not_found", 404)
     content = str(payload.get("content") or "").strip()
+    protect_result_references(content)
     if not content:
         raise ServiceError("validation_error", 422)
     message = MultiAgentMessage(
@@ -300,6 +297,7 @@ def complete_node(user_id: UUID, node_id: UUID, payload: dict) -> MultiAgentTask
     if not node or node.status != "running":
         raise ServiceError("invalid_node_state", 409)
     output = payload.get("output")
+    protect_result_references(output)
     if isinstance(output, dict):
         node.final_output = output
     content = str(output.get("content") or "").strip() if isinstance(output, dict) else ""
@@ -326,6 +324,7 @@ def complete_node(user_id: UUID, node_id: UUID, payload: dict) -> MultiAgentTask
 
 
 def fail_node(user_id: UUID, node_id: UUID, error_code: str) -> MultiAgentTask:
+    protect_result_references(error_code)
     node = owned_node(user_id, node_id)
     if not node:
         raise ServiceError("not_found", 404)

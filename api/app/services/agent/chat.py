@@ -9,6 +9,7 @@ from ..errors import ServiceError
 from .preparation import CompletionPreparation
 from .provider_errors import provider_error_code
 from .provider_stream import PreparedCompletion, provider_payloads
+from .result_references import protect_result_references
 from .runs import (
     append_event,
     build_run_activity,
@@ -205,6 +206,7 @@ def stream_completion(
                 if event.event_type == "reasoning.completed"
             )
             full_reasoning = "\n\n".join(part for part in (prior_reasoning, reasoning) if part)
+            protect_result_references(answer, full_reasoning)
             message = Message(
                 conversation_id=prepared.conversation_id,
                 agent_run_id=run.id,
