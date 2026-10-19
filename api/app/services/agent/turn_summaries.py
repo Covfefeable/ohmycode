@@ -13,6 +13,7 @@ from ..settings.background_tasks import (
 )
 from .config import RECENT_FULL_TURNS
 from .context import _summary_request
+from .context_history import is_conversation_event
 from .image_context import text_only_images
 from .prompts import TURN_SUMMARY_INSTRUCTIONS
 from .result_references import protect_result_references
@@ -29,6 +30,7 @@ def serialized_run_events(run: AgentRun) -> str:
                 "payload": event.payload,
             }
             for event in run.events
+            if is_conversation_event(event.event_type)
         ],
         ensure_ascii=False,
         separators=(",", ":"),

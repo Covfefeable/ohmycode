@@ -122,7 +122,7 @@ def test_branch_deep_copies_messages_without_usage_or_runtime_state():
             ) == 0
             snapshot = copied.messages[1].context_snapshot
             assert snapshot and "Complete AgentEvent history" in snapshot[0]["content"]
-            assert '"usedTokens":150' in snapshot[0]["content"]
+            assert '"usedTokens"' not in snapshot[0]["content"]
             rendered = _render_messages(copied.messages, set())
             assert snapshot[0] in rendered
 

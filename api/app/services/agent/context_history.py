@@ -26,6 +26,10 @@ def _message_content(message: Message) -> str:
     return f"{message.content}\n\n" + "\n".join(lines)
 
 
+def is_conversation_event(event_type: str) -> bool:
+    return event_type != "run.started" and not event_type.startswith("context.")
+
+
 def _run_context_message(run: AgentRun, protected: bool, after_sequence: int = 0) -> dict[str, str]:
     summary = run.summary
     if (
@@ -46,7 +50,7 @@ def _run_context_message(run: AgentRun, protected: bool, after_sequence: int = 0
             "payload": text_only_images(event.payload),
         }
         for event in run.events
-        if event.sequence > after_sequence
+        if event.sequence > after_sequence and is_conversation_event(event.event_type)
     ]
     return {
         "role": "system",

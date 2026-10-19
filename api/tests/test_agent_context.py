@@ -20,12 +20,40 @@ from app.models import (
 )
 from app.services.agent import turn_summaries
 from app.services.agent.context import COMPACTION_RATIO
-from app.services.agent.context_history import _protected_run_ids, _render_messages
+from app.services.agent.context_history import (
+    _protected_run_ids,
+    _render_messages,
+    _run_context_message,
+)
 from app.services.agent.prompts import AGENT_SYSTEM_INSTRUCTIONS
 from app.services.agent.provider_stream import PreparedCompletion, _payload, provider_payloads
 from app.services.agent.task_plan import active_task_id, normalize_task_plan
 from app.services.agent.tokens import estimate_tokens
 from app.services.agent.tool_history import image_tool_content, tool_result_content
+
+
+def test_history_excludes_runtime_metadata_but_keeps_tool_results():
+    run = SimpleNamespace(
+        id=uuid.uuid4(),
+        summary=None,
+        events=[
+            SimpleNamespace(
+                sequence=1, event_type="run.started", payload={"modelId": "private-id"}
+            ),
+            SimpleNamespace(
+                sequence=2, event_type="context.usage", payload={"model": "provider-model"}
+            ),
+            SimpleNamespace(
+                sequence=3,
+                event_type="tool.output",
+                payload={"results": [{"result": "file content"}]},
+            ),
+        ],
+    )
+    content = _run_context_message(run, protected=True)["content"]
+    assert "private-id" not in content
+    assert "provider-model" not in content
+    assert "file content" in content
 
 
 def test_context_defaults_and_multilingual_token_estimate():
