@@ -6,6 +6,8 @@ import { ArrowUp, LoaderCircle, Square, Mic } from "lucide-react";
 import { IconButton } from "../../shared/ui/icon-button";
 import { Tooltip } from "../../shared/ui/tooltip";
 import { useSpeechInput } from "../speech/useSpeechInput";
+import { useSpeech } from "../speech/speech-context";
+import { VoiceChatComposer } from "./VoiceChatComposer";
 import { useFeedback } from "../feedback";
 import { AttachmentList } from "../../shared/ui/attachment-list";
 import { Select } from "../../shared/ui/select";
@@ -13,6 +15,7 @@ import { PromptEditor, usePromptCapabilities } from "../../shared/ui/prompt-edit
 import styles from "./TaskComposer.module.css";
 
 type TaskComposerProps = {
+  sessionId?: string;
   disabled?: boolean;
   busy?: boolean;
   models: ModelConfiguration[];
@@ -28,18 +31,28 @@ type TaskComposerProps = {
   onStop(): Promise<void>;
 };
 
-export function TaskComposer({ disabled = false, busy = false, models, selectedModelId, contextUsage = 0, attachments = [], onRemoveAttachment, onPasteImages, suggestions = [], restoredInput, onModelChange, onSubmit, onStop }: TaskComposerProps) {
+export function TaskComposer(props: TaskComposerProps) {
+  const speech = useSpeech();
+  const [content, setContent] = useState("");
+  const [restoredId, setRestoredId] = useState<string>();
+  if (props.restoredInput && props.restoredInput.id !== restoredId) {
+    setRestoredId(props.restoredInput.id);
+    setContent((current) => [current, props.restoredInput?.content].filter(Boolean).join("\n\n"));
+  }
+  if (speech.settings?.autoPlay) return <VoiceChatComposer
+    key={props.sessionId} disabled={props.disabled ?? false} busy={props.busy ?? false}
+    selectedModelId={props.selectedModelId} attachments={props.attachments ?? []}
+    onSubmit={props.onSubmit} onStop={props.onStop}
+  />;
+  return <TextTaskComposer {...props} content={content} setContent={setContent} />;
+}
+
+function TextTaskComposer({ disabled = false, busy = false, models, selectedModelId, contextUsage = 0, attachments = [], onRemoveAttachment, onPasteImages, suggestions = [], onModelChange, onSubmit, onStop, content, setContent }: TaskComposerProps & { content: string; setContent: React.Dispatch<React.SetStateAction<string>> }) {
   const { t } = useTranslation();
   const { toast } = useFeedback();
-  const [content, setContent] = useState("");
   const microphone = useSpeechInput(content, setContent);
   const [submitting, setSubmitting] = useState(false);
   const [pendingPastes, setPendingPastes] = useState(0);
-  const [restoredId, setRestoredId] = useState<string>();
-  if (restoredInput && restoredInput.id !== restoredId) {
-    setRestoredId(restoredInput.id);
-    setContent((current) => [current, restoredInput.content].filter(Boolean).join("\n\n"));
-  }
   const capabilityOptions = usePromptCapabilities();
   async function submit() {
     if (disabled || submitting || pendingPastes > 0 || microphone.state === "starting") return;

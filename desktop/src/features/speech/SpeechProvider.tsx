@@ -82,6 +82,7 @@ export function SpeechProvider({ children }: PropsWithChildren) {
         if (!current.hasApiKey) throw new Error("speech_not_configured");
           const text = messageSpeechText(message);
           if (!text) return;
+          playback.resume();
           await playback.unlock();
           setReadingId(message.id);
           const task = playback.task();

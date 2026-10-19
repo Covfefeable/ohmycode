@@ -51,6 +51,7 @@ export class DashscopeSession {
                 format: "pcm",
                 sample_rate: 16000,
                 intermediate_result_enabled: true,
+                heartbeat: true,
               }
             : {
                 text_type: "PlainText",

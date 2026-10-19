@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowDown, Check, Copy, GitBranch, LoaderCircle, Pencil, Search, Volume2, VolumeX, Square } from "lucide-react";
+import { ArrowDown, AudioLines, Check, Copy, GitBranch, LoaderCircle, Pencil, Search, Volume2, Square } from "lucide-react";
 import { TaskComposer } from "../task-composer";
 import { useFeedback } from "../feedback";
 import { FullScreenLoading } from "../../shared/ui/full-screen-loading";
@@ -187,7 +187,7 @@ export function ConversationChat({ conversationId, active, searchLocation, onUpd
     <header className={styles.chatHeader}>
       <div className={styles.heading}><h1>{conversation.title}</h1><div className={styles.headerActions}>
         {search.view && <button className={styles.returnLatest} onClick={forceScrollToBottom}><ArrowDown />{t("agent.returnLatest")}</button>}
-        <Tooltip content={t(speech.settings?.autoPlay ? "speech.autoPlayOn" : "speech.autoPlayOff")}><IconButton active={speech.settings?.autoPlay} aria-pressed={Boolean(speech.settings?.autoPlay)} aria-label={t("speech.autoPlay")} onClick={() => void speech.toggle()}>{speech.settings?.autoPlay ? <Volume2 /> : <VolumeX />}</IconButton></Tooltip>
+        <Tooltip content={t(speech.settings?.autoPlay ? "speech.autoPlayOn" : "speech.autoPlayOff")}><IconButton active={speech.settings?.autoPlay} aria-pressed={Boolean(speech.settings?.autoPlay)} aria-label={t("speech.autoPlay")} onClick={() => void speech.toggle()}><AudioLines /></IconButton></Tooltip>
         <Tooltip content={t("agent.searchConversation")}><IconButton aria-label={t("agent.searchConversation")} onClick={() => { openSearch(); searchInputRef.current?.focus(); }}><Search /></IconButton></Tooltip>
       </div></div>
       {search.opened && <ConversationSearchBar inputRef={searchInputRef} query={search.query} result={search.result} loading={search.loading} failed={search.failed} onChange={(value) => { autoScrollLockedRef.current = false; search.changeQuery(value); }} onMove={(direction) => { autoScrollLockedRef.current = false; search.move(direction); }} onClose={search.close} onRetry={search.retry} />}
@@ -231,7 +231,7 @@ export function ConversationChat({ conversationId, active, searchLocation, onUpd
     </div>
     <div ref={composerDockRef} className={styles.composerDock}>
       <FollowupStrip state={followups} running={sending} onSteer={(id) => void queueAction(() => window.ohmycode.conversations.steer(conversationId, id))} onWithdraw={(id) => void withdraw(id)} onResume={() => void queueAction(() => window.ohmycode.conversations.resumeQueue(conversationId))} />
-      <TaskComposer onPasteImages={pasteImages} busy={sending} disabled={Boolean(editing)} models={controller.models} selectedModelId={controller.selectedModelId} contextUsage={controller.contextUsage} attachments={attachments} suggestions={controller.suggestions} restoredInput={restoredInput} onRemoveAttachment={(id) => setAttachments((items) => items.filter((item) => item.id !== id))} onModelChange={controller.setSelectedModelId} onSubmit={(content, items) => send(content, items)} onStop={controller.stop} />
+      <TaskComposer sessionId={conversationId} onPasteImages={pasteImages} busy={sending} disabled={Boolean(editing)} models={controller.models} selectedModelId={controller.selectedModelId} contextUsage={controller.contextUsage} attachments={attachments} suggestions={controller.suggestions} restoredInput={restoredInput} onRemoveAttachment={(id) => setAttachments((items) => items.filter((item) => item.id !== id))} onModelChange={controller.setSelectedModelId} onSubmit={(content, items) => send(content, items)} onStop={controller.stop} />
     </div>
   </section></ImageScopeContext.Provider>;
 }

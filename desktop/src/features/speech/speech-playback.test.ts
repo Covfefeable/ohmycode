@@ -20,6 +20,10 @@ beforeEach(() => {
       destination = {};
       resume = vi.fn(async () => {});
       close = vi.fn(async () => {});
+      createAnalyser() {
+        return { fftSize: 256, connect: vi.fn(), disconnect: vi.fn(),
+          getFloatTimeDomainData: (samples: Float32Array) => samples.fill(0.1) };
+      }
       createBuffer(_channels: number, length: number, sampleRate: number) {
         return {
           duration: length / sampleRate,
@@ -71,12 +75,14 @@ test("PCM 音频按时间顺序播放，网络结束后仍等待音频播完", a
   const emit = [...listeners.values()][0];
   emit({ type: "audio", data: new Uint8Array([0, 0, 1]) });
   emit({ type: "audio", data: new Uint8Array([0, 2, 0]) });
+  expect(playback.readLevel()).toBeCloseTo(0.5);
   expect(sources[0].start).toHaveBeenCalledWith(1.04);
   expect(sources[1].start.mock.calls[0][0]).toBeGreaterThan(1.04);
   emit({ type: "finished" });
   expect(state).toHaveBeenLastCalledWith(true);
   sources.forEach((source) => source.onended?.());
   expect(state).toHaveBeenLastCalledWith(false);
+  expect(playback.readLevel()).toBe(0);
   playback.dispose();
   expect(error).not.toHaveBeenCalled();
 });
@@ -100,5 +106,22 @@ test("取消后不再发送尚未就绪的文字，同时清空监听和声音",
   expect(window.ohmycode.speech.append).not.toHaveBeenCalled();
   expect(window.ohmycode.speech.finish).not.toHaveBeenCalled();
   expect(listeners.size).toBe(0);
+  playback.dispose();
+});
+
+test("语音打断后屏蔽本轮后续朗读，下一轮恢复", async () => {
+  const playback = new SpeechPlayback(vi.fn(), vi.fn());
+  await playback.unlock();
+  playback.interrupt();
+  playback.task().append("不应朗读");
+  expect(window.ohmycode.speech.start).not.toHaveBeenCalled();
+  playback.resume();
+  playback.task().append("用户仍在说话时不能恢复朗读");
+  expect(window.ohmycode.speech.start).not.toHaveBeenCalled();
+  playback.releaseInput();
+  playback.resume();
+  playback.task().append("新的回答");
+  await Promise.resolve();
+  expect(window.ohmycode.speech.append).toHaveBeenCalledOnce();
   playback.dispose();
 });

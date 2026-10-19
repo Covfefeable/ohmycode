@@ -9,6 +9,7 @@ from ..conversations import prepare_user_prompt
 from ..errors import ServiceError
 from ..model_credentials import decrypt_api_key
 from ..settings import get_model_configuration
+from ..settings.speech import voice_chat_context
 from .context import iter_prepare_context
 from .prompts import AGENT_SYSTEM_INSTRUCTIONS
 from .provider_stream import PreparedCompletion
@@ -44,6 +45,11 @@ def iter_prepare_completion(
             ],
             [
                 {"role": "system", "content": system_instructions},
+                *(
+                    voice_chat_context(conversation.project.user_id)
+                    if conversation.kind == "chat"
+                    else []
+                ),
                 *(
                     [
                         {

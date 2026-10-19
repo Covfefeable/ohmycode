@@ -136,3 +136,56 @@ test("Ctrl+F 搜索完整会话，Enter 与 Shift+Enter 跳转，Escape 退出�
   assert.equal(await page.getByRole("search").count(), 0);
   assert.ok(await page.getByRole("button", { name: "Back to latest" }).isVisible());
 });
+
+test("聊天模式切换为语音界面，未选择模型不开麦，退出保留原文字草稿", async () => {
+  await page.goto(`${baseUrl}/tests/browser/search.html`);
+  await page.getByText("Live output", { exact: true }).waitFor();
+  const editor = page.getByRole("textbox", { name: "Describe a task…" });
+  await editor.fill("Keep my draft");
+  const toggle = page.getByRole("button", { name: "Chat mode", exact: true });
+  await toggle.click();
+  const voicePanel = page.getByRole("region", { name: "Chat mode", exact: true });
+  await voicePanel.waitFor();
+  assert.equal(await editor.count(), 0);
+  assert.equal(await voicePanel.getByRole("button").count(), 0);
+  assert.equal(await voicePanel.locator("p").count(), 0);
+  const panelStyle = await voicePanel.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return { background: style.backgroundColor, border: style.borderTopWidth, blur: style.backdropFilter };
+  });
+  assert.deepEqual(panelStyle, { background: "rgba(0, 0, 0, 0)", border: "0px", blur: "none" });
+  assert.equal(await page.getByText("Speak naturally; pause to send", { exact: true }).count(), 0);
+  const orb = voicePanel.locator('[aria-hidden="true"] > div');
+  await orb.locator("svg").waitFor();
+  const idleFrame = await orb.locator("svg").evaluate((element) => element.innerHTML);
+  await page.waitForFunction((before) => {
+    const svg = document.querySelector('section[aria-label="Chat mode"] [aria-hidden="true"] svg');
+    return svg.innerHTML !== before;
+  }, idleFrame);
+  const silentTransform = await orb.evaluate((element) => getComputedStyle(element).transform);
+  await page.evaluate(async () => {
+    const { SpeechPlayback } = await import("/src/features/speech/speech-playback.ts");
+    SpeechPlayback.prototype.readLevel = () => 0.25;
+  });
+  await page.waitForFunction((before) => {
+    const panel = document.querySelector('section[aria-label="Chat mode"]');
+    const orb = panel.querySelector('[aria-hidden="true"] > div');
+    return getComputedStyle(orb).transform !== before;
+  }, silentTransform);
+  const speakingTransform = await orb.evaluate((element) => getComputedStyle(element).transform);
+  assert.ok(Number(speakingTransform.match(/^matrix\(([^,]+)/)[1]) > 1, "Speaking enlarges the orb");
+  await page.evaluate(async () => {
+    const { SpeechPlayback } = await import("/src/features/speech/speech-playback.ts");
+    SpeechPlayback.prototype.readLevel = () => 0;
+  });
+  await page.waitForFunction(() => {
+    const orb = document.querySelector('section[aria-label="Chat mode"] [aria-hidden="true"] > div');
+    return Number(getComputedStyle(orb).transform.match(/^matrix\(([^,]+)/)[1]) < 1.01;
+  });
+  const bounds = await voicePanel.boundingBox();
+  assert.ok(bounds && bounds.y >= 0 && bounds.y + bounds.height <= 800, "Voice panel remains inside the viewport");
+  assert.ok(bounds.height < 140, "Idle orb panel keeps compact vertical spacing");
+  await toggle.click();
+  await editor.waitFor();
+  assert.equal(await editor.textContent(), "Keep my draft");
+});

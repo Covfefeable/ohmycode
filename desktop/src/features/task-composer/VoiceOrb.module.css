@@ -1,0 +1,3 @@
+.stage { display: grid; place-items: center; height: 96px; pointer-events: none; }
+.orb { width: 80px; height: 80px; transform-origin: center; }
+.orb svg { display: block; width: 100%; height: 100%; }

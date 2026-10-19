@@ -24,7 +24,11 @@ Object.defineProperty(window, "ohmycode", { configurable: true, value: {
   projects: { list: async () => [project], searchConversations: async (query: string) => query === "needle" ? [{ projectId: project.id, projectName: project.name, conversation, messageId: "m-55", snippet: "needle evidence 55" }] : [] },
   capabilities: { onChanged: () => () => {}, listMcp: async () => [], listSkills: async () => [] },
   settings: { onModelsChanged: () => () => {}, listModels: async () => [] },
-  speech: { getSettings: async () => ({ workspaceId: "", voice: "longanhuan_v3.1", autoPlay: false, hasApiKey: false }), stop: () => {} },
+  speech: {
+    getSettings: async () => ({ workspaceId: "llm-test", voice: "longanhuan_v3.1", autoPlay: false, hasApiKey: true }),
+    setAutoPlay: async (enabled: boolean) => ({ workspaceId: "llm-test", voice: "longanhuan_v3.1", autoPlay: enabled, hasApiKey: true }),
+    stop: () => {},
+  },
   conversations: {
     onThreadEvent: (_id: string, listener: (event: RuntimeEvent) => void) => { listeners.add(listener); return () => listeners.delete(listener); },
     onFollowups: () => () => {}, followups: async () => ({ inputs: [], paused: false }),

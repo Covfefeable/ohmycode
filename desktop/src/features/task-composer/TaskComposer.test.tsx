@@ -4,6 +4,7 @@ import { beforeEach, expect, test, vi } from "vitest";
 import { TaskComposer } from "./TaskComposer";
 const microphone = vi.hoisted(() => ({ state: "idle", active: false, toggle: vi.fn(), finish: vi.fn() }));
 vi.mock("../speech/useSpeechInput", () => ({ useSpeechInput: () => microphone }));
+vi.mock("../speech/speech-context", () => ({ useSpeech: () => ({ settings: { autoPlay: false } }) }));
 beforeEach(() => { microphone.state = "idle"; microphone.active = false; microphone.finish.mockReset(); });
 
 vi.mock("../feedback", () => ({ useFeedback: () => ({ toast: vi.fn() }) }));

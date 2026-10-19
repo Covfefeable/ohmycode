@@ -8,6 +8,22 @@ from ..model_credentials import decrypt_api_key, encrypt_api_key
 from .speech_provider import DEFAULT_VOICE, require_speech_settings
 from .speech_voices import validate_voice
 
+VOICE_CHAT_INSTRUCTIONS = (
+    "Voice chat mode is enabled. Write user-visible progress updates and answers for listening: "
+    "use conversational, concise language and short natural sentences. Prefer plain paragraphs; "
+    "avoid tables, decorative symbols, dense Markdown, and unnecessary lists. "
+    "Lead with the result. "
+    "Keep required code, commands and file contents correct; this style preference does not change "
+    "tool protocols or the requested artifacts. Do not output SSML or voice-control markup."
+)
+
+
+def voice_chat_context(user_id: UUID) -> list[dict]:
+    settings = db.session.get(SpeechSettings, user_id)
+    if not settings or not settings.auto_play:
+        return []
+    return [{"role": "system", "content": VOICE_CHAT_INSTRUCTIONS}]
+
 
 def get_speech_settings(user_id: UUID) -> dict:
     settings = db.session.get(SpeechSettings, user_id)

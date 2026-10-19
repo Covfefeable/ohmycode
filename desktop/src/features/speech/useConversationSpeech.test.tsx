@@ -12,7 +12,7 @@ const mock = vi.hoisted(() => ({
 vi.mock("./speech-context", () => ({
   useSpeech: () => ({ settings: { autoPlay: mock.enabled }, playback }),
 }));
-const playback = { task: mock.task, stop: mock.stop };
+const playback = { task: mock.task, stop: mock.stop, resume: vi.fn() };
 let emit: (event: RuntimeEvent) => void;
 beforeEach(() => {
   vi.clearAllMocks();

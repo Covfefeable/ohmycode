@@ -47,7 +47,11 @@ test("ASR 修正保留 sentenceId，心跳不作为文字，意外断线返回�
         socket.send(JSON.stringify({ header: { event: "result-generated" }, payload: { output: { sentence } } }));
       }
       socket.close();
-    } else socket.send(JSON.stringify({ header: { event: "task-started" }, payload: {} }));
+    } else {
+      const command = JSON.parse(_data.toString());
+      expect(command.payload.parameters.heartbeat).toBe(true);
+      socket.send(JSON.stringify({ header: { event: "task-started" }, payload: {} }));
+    }
   }));
   const session = new DashscopeSession("asr", connection, (event) => events.push(event));
   try {

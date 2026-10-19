@@ -39,6 +39,7 @@ export function useConversationSpeech(conversationId: string) {
         sequences.set(event.turnId, event.sequence);
         if (event.type === "turn.started") {
           playback.stop();
+          playback.resume();
           items.clear();
         }
         if (

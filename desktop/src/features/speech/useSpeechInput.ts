@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useFeedback } from "../feedback";
 import { useSpeech } from "./speech-context";
 import { speechErrorKey } from "./speech-error";
+import { SpeechActivity } from "./speech-activity";
 
 type Recording = {
   id: string;
@@ -11,6 +12,7 @@ type Recording = {
   text: string;
   completed: Promise<string | null>;
   resolve(text: string | null): void;
+  takeText(): string;
   stream?: MediaStream;
   context?: AudioContext;
   node?: AudioWorkletNode;
@@ -37,6 +39,13 @@ function cancelRecording(current: Recording) {
 export function useSpeechInput(
   content: string,
   onChange: (text: string) => void,
+  options?: {
+    continuous: boolean;
+    onResult(final: boolean): void;
+    onSpeech(): void;
+    onLevel(level: number): void;
+    onEnd?(): void;
+  },
 ) {
   const [state, setState] = useState<
     "idle" | "starting" | "recording" | "finishing"
@@ -51,6 +60,7 @@ export function useSpeechInput(
     if (!current) return;
     cancelRecording(current);
     recording.current = null;
+    options?.onLevel(0);
     setRecording(false);
   }
   useEffect(
@@ -89,15 +99,32 @@ export function useSpeechInput(
     }
     let resolve!: (text: string | null) => void;
     const completed = new Promise<string | null>((done) => { resolve = done; });
+    let base = content;
+    let sentThrough = -1;
+    let lastFinal = false;
+    const activity = new SpeechActivity(() => {
+      options?.onSpeech();
+      options?.onResult(lastFinal);
+    });
+    const sentences = new Map<number, string>();
     const current: Recording = {
       id: crypto.randomUUID(), cancelled: false, finishing: false,
       text: content, completed, resolve,
+      takeText() {
+        const text = current.text;
+        sentThrough = Math.max(sentThrough, ...sentences.keys());
+        sentences.clear();
+        base = "";
+        current.text = "";
+        activity.reset();
+        lastFinal = false;
+        onChange("");
+        return text;
+      },
     };
     recording.current = current;
-    setRecording(true);
+    setRecording(!options?.continuous);
     setState("starting");
-    const base = content;
-    const sentences = new Map<number, string>();
     try {
       const config = settings ?? (await refresh());
       if (!config.hasApiKey) throw new Error("speech_not_configured");
@@ -129,6 +156,7 @@ export function useSpeechInput(
         (event) => {
           if (current.cancelled) return;
           if (event.type === "transcript") {
+            if (event.sentenceId <= sentThrough) return;
             sentences.set(event.sentenceId, event.text);
             const text = [...sentences]
               .sort(([a], [b]) => a - b)
@@ -136,8 +164,13 @@ export function useSpeechInput(
               .join("");
             current.text = base + (base && text ? " " : "") + text;
             onChange(current.text);
+            lastFinal = event.final;
+            const wasAccepted = activity.accepted;
+            activity.transcript(current.text, event.final);
+            if (wasAccepted) options?.onResult(event.final);
           }
           if (event.type === "finished" || event.type === "error") {
+            options?.onEnd?.();
             if (event.type === "finished") current.resolve(current.text);
             if (event.type === "error")
               toast({
@@ -158,6 +191,13 @@ export function useSpeechInput(
         if (current.cancelled) return;
         if (frame.data.byteLength)
           window.ohmycode.speech.append(current.id, new Uint8Array(frame.data));
+        if (options && frame.data.byteLength) {
+          const samples = new Int16Array(frame.data);
+          const energy = samples.reduce((sum, sample) => sum + (sample / 32768) ** 2, 0);
+          const level = Math.min(1, Math.sqrt(energy / samples.length) * 5);
+          options.onLevel(level);
+          activity.audio(level, samples.length / 16);
+        }
         if (frame.final) {
           window.ohmycode.speech.finish(current.id);
           releaseMedia(current);
@@ -170,11 +210,16 @@ export function useSpeechInput(
       setState("recording");
     } catch (error) {
       if (!current.cancelled) {
+        options?.onEnd?.();
         dispose();
         setState("idle");
         toast({ type: "error", message: t(speechErrorKey(error)) });
       }
     }
   }
-  return { state, active: state !== "idle", toggle, finish };
+  return {
+    state, active: state !== "idle", toggle, finish,
+    takeText: () => recording.current?.takeText() ?? "",
+    cancel: () => { dispose(); setState("idle"); },
+  };
 }

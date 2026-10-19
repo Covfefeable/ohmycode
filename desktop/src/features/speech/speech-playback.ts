@@ -1,12 +1,30 @@
 /** Schedules raw mono PCM chunks without creating a new audio player for each frame. */
 export class SpeechPlayback {
   private context: AudioContext | null = null;
+  private analyser: AnalyserNode | null = null;
+  private samples = new Float32Array(256);
   private nextTime = 0;
   private sources = new Set<AudioBufferSourceNode>();
   private listeners = new Set<() => void>();
   private tasks = new Set<string>();
   private carry: number | null = null;
   private generation = 0;
+  private interrupted = false;
+  private inputActive = false;
+
+  interrupt() {
+    this.stop();
+    this.interrupted = true;
+    this.inputActive = true;
+  }
+
+  resume() {
+    if (!this.inputActive) this.interrupted = false;
+  }
+
+  releaseInput() {
+    this.inputActive = false;
+  }
 
   constructor(
     private onState: (playing: boolean) => void,
@@ -15,10 +33,25 @@ export class SpeechPlayback {
 
   async unlock() {
     this.context ??= new AudioContext({ sampleRate: 24000 });
+    if (!this.analyser) {
+      this.analyser = this.context.createAnalyser();
+      this.analyser.fftSize = this.samples.length;
+      this.analyser.connect(this.context.destination);
+    }
     await this.context.resume();
   }
 
-  task() {
+  /** Measures actual playback, not PCM waiting in the network queue. */
+  readLevel() {
+    if (!this.analyser || !this.sources.size) return 0;
+    this.analyser.getFloatTimeDomainData(this.samples);
+    let energy = 0;
+    for (const sample of this.samples) energy += sample * sample;
+    return Math.min(1, Math.sqrt(energy / this.samples.length) * 5);
+  }
+
+  task(): { append(text: string): void; finish(): void } {
+    if (this.interrupted) return { append: () => {}, finish: () => {} };
     const id = crypto.randomUUID();
     const generation = this.generation;
     this.tasks.add(id);
@@ -69,7 +102,7 @@ export class SpeechPlayback {
       samples[i] = view.getInt16(i * 2, true) / 32768;
     const source = context.createBufferSource();
     source.buffer = buffer;
-    source.connect(context.destination);
+    source.connect(this.analyser!);
     this.sources.add(source);
     source.onended = () => {
       source.disconnect();
@@ -108,6 +141,8 @@ export class SpeechPlayback {
 
   dispose() {
     this.stop();
+    this.analyser?.disconnect();
+    this.analyser = null;
     void this.context?.close();
     this.context = null;
   }

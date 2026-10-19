@@ -158,3 +158,28 @@ test("结束识别失败或会话卸载时取消待发送，不发送残缺文�
   unmount();
   expect(await cancelled).toBeNull();
 });
+
+test("持续模式取走一段文字后保持同一麦克风与识别连接，忽略已发送段落的迟到回显", async () => {
+  const callbacks = { continuous: true, onSpeech: vi.fn(), onResult: vi.fn(), onLevel: vi.fn() };
+  const { result, unmount } = renderHook(() => useSpeechInput("", vi.fn(), callbacks));
+  await act(() => result.current.toggle());
+  act(() => node.port.onmessage!({ data: { data: new Int16Array(6400).fill(8000).buffer, final: false } }));
+  act(() => emit({ type: "transcript", sentenceId: 1, text: "第一句", final: true }));
+  let text = "";
+  act(() => { text = result.current.takeText(); });
+  expect(text).toBe("第一句");
+  expect(result.current.state).toBe("recording");
+  expect(trackStop).not.toHaveBeenCalled();
+  act(() => {
+    emit({ type: "transcript", sentenceId: 1, text: "第一句", final: true });
+    emit({ type: "transcript", sentenceId: 2, text: "第二句", final: true });
+    node.port.onmessage!({ data: { data: new Int16Array(6400).fill(8000).buffer, final: false } });
+  });
+  act(() => { text = result.current.takeText(); });
+  expect(text).toBe("第二句");
+  expect(callbacks.onSpeech).toHaveBeenCalledTimes(2);
+  expect(window.ohmycode.speech.start).toHaveBeenCalledOnce();
+  expect(mocks.setRecording).not.toHaveBeenCalledWith(true);
+  unmount();
+  expect(trackStop).toHaveBeenCalledOnce();
+});
