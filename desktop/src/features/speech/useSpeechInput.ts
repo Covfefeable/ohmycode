@@ -7,6 +7,10 @@ import { speechErrorKey } from "./speech-error";
 type Recording = {
   id: string;
   cancelled: boolean;
+  finishing: boolean;
+  text: string;
+  completed: Promise<string | null>;
+  resolve(text: string | null): void;
   stream?: MediaStream;
   context?: AudioContext;
   node?: AudioWorkletNode;
@@ -24,6 +28,7 @@ function releaseMedia(current: Recording) {
 
 function cancelRecording(current: Recording) {
   current.cancelled = true;
+  current.resolve(null);
   releaseMedia(current);
   current.unsubscribe?.();
   window.ohmycode.speech.stop("asr");
@@ -59,6 +64,18 @@ export function useSpeechInput(
     [setRecording],
   );
 
+  function finish(): Promise<string | null> {
+    const current = recording.current;
+    if (!current) return Promise.resolve(content);
+    if (current.finishing) return current.completed;
+    if (!current.node) return Promise.resolve(null);
+    current.finishing = true;
+    setState("finishing");
+    // Flush the worklet's partial frame before finish-task.
+    current.node.port.postMessage("flush");
+    return current.completed;
+  }
+
   async function toggle() {
     if (state === "finishing") return;
     if (state === "starting") {
@@ -67,13 +84,15 @@ export function useSpeechInput(
       return;
     }
     if (recording.current) {
-      const current = recording.current;
-      setState("finishing");
-      // Flush the worklet's partial frame before finish-task.
-      current.node!.port.postMessage("flush");
+      void finish();
       return;
     }
-    const current: Recording = { id: crypto.randomUUID(), cancelled: false };
+    let resolve!: (text: string | null) => void;
+    const completed = new Promise<string | null>((done) => { resolve = done; });
+    const current: Recording = {
+      id: crypto.randomUUID(), cancelled: false, finishing: false,
+      text: content, completed, resolve,
+    };
     recording.current = current;
     setRecording(true);
     setState("starting");
@@ -99,6 +118,7 @@ export function useSpeechInput(
       await current.context.audioWorklet.addModule(
         new URL("speech-capture.js", document.baseURI).href,
       );
+      if (current.cancelled) return;
       await current.context.resume();
       if (current.cancelled) {
         releaseMedia(current);
@@ -114,9 +134,11 @@ export function useSpeechInput(
               .sort(([a], [b]) => a - b)
               .map(([, value]) => value)
               .join("");
-            onChange(base + (base && text ? " " : "") + text);
+            current.text = base + (base && text ? " " : "") + text;
+            onChange(current.text);
           }
           if (event.type === "finished" || event.type === "error") {
+            if (event.type === "finished") current.resolve(current.text);
             if (event.type === "error")
               toast({
                 type: "error",
@@ -154,5 +176,5 @@ export function useSpeechInput(
       }
     }
   }
-  return { state, active: state !== "idle", toggle };
+  return { state, active: state !== "idle", toggle, finish };
 }

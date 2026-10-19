@@ -124,3 +124,37 @@ test("拒绝麦克风权限时恢复按钮状态，且不建立语音连接", as
   expect(window.ohmycode.speech.start).not.toHaveBeenCalled();
   expect(mocks.toast).toHaveBeenCalledOnce();
 });
+
+test("直接发送等待最终识别，返回修正后的完整草稿，不使用中间文本", async () => {
+  const { result } = renderHook(() => useSpeechInput("草稿", vi.fn()));
+  await act(() => result.current.toggle());
+  act(() => emit({ type: "transcript", sentenceId: 1, text: "中间", final: false }));
+  let finished!: Promise<string | null>;
+  act(() => { finished = result.current.finish(); });
+  const done = vi.fn();
+  void finished.then(done);
+  expect(node.port.postMessage).toHaveBeenCalledExactlyOnceWith("flush");
+  act(() => node.port.onmessage!({ data: { data: new ArrayBuffer(2), final: true } }));
+  expect(result.current.finish()).toBe(finished);
+  expect(done).not.toHaveBeenCalled();
+  await act(async () => {
+    emit({ type: "transcript", sentenceId: 1, text: "最终文字。", final: true });
+    emit({ type: "finished" });
+    await finished;
+  });
+  expect(done).toHaveBeenCalledExactlyOnceWith("草稿 最终文字。");
+});
+
+test("结束识别失败或会话卸载时取消待发送，不发送残缺文本", async () => {
+  const { result, unmount } = renderHook(() => useSpeechInput("", vi.fn()));
+  await act(() => result.current.toggle());
+  let failed!: Promise<string | null>;
+  act(() => { failed = result.current.finish(); });
+  await act(async () => { emit({ type: "error", code: "speech_timeout" }); });
+  expect(await failed).toBeNull();
+  await act(() => result.current.toggle());
+  let cancelled!: Promise<string | null>;
+  act(() => { cancelled = result.current.finish(); });
+  unmount();
+  expect(await cancelled).toBeNull();
+});

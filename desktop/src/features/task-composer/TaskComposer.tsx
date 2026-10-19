@@ -42,14 +42,16 @@ export function TaskComposer({ disabled = false, busy = false, models, selectedM
   }
   const capabilityOptions = usePromptCapabilities();
   async function submit() {
-    if ((!content.trim() && attachments.length === 0) || disabled || submitting || pendingPastes > 0 || microphone.active) return;
+    if (disabled || submitting || pendingPastes > 0 || microphone.state === "starting") return;
+    if (!microphone.active && !content.trim() && attachments.length === 0) return;
     if (!selectedModelId) {
       toast({ type: "error", message: t("agent.modelRequired") });
       return;
     }
-    const next = content;
     setSubmitting(true);
     try {
+      const next = microphone.active ? await microphone.finish() : content;
+      if (next === null || (!next.trim() && attachments.length === 0)) return;
       const sent = await onSubmit(next, attachments);
       if (sent !== false) setContent((current) => current === next ? "" : current);
     } finally { setSubmitting(false); }
@@ -76,9 +78,9 @@ export function TaskComposer({ disabled = false, busy = false, models, selectedM
         <div className={styles.actions}>
           <Select compact disabled={busy} ariaLabel={t("agent.model")} value={selectedModelId} emptyLabel={t("agent.noModel")} options={models.map((model) => ({ value: model.id, label: model.name || model.model }))} onChange={onModelChange} />
           {busy && <button type="button" className={styles.stopButton} aria-label={t("agent.stop")} onClick={() => void onStop()}><Square /></button>}
-          <Tooltip content={t(microphone.state === "finishing" ? "speech.finishing" : microphone.active ? "speech.stopInput" : "speech.startInput")}><IconButton active={microphone.active} aria-label={t(microphone.active ? "speech.stopInput" : "speech.startInput")} aria-pressed={microphone.active} disabled={disabled || microphone.state === "finishing"} onClick={() => void microphone.toggle()}>{microphone.state === "starting" || microphone.state === "finishing" ? <LoaderCircle className={styles.spinner} /> : microphone.active ? <Square /> : <Mic />}</IconButton></Tooltip>
+          <Tooltip content={t(microphone.state === "finishing" ? "speech.finishing" : microphone.active ? "speech.stopInput" : "speech.startInput")}><IconButton active={microphone.active} aria-label={t(microphone.active ? "speech.stopInput" : "speech.startInput")} aria-pressed={microphone.active} disabled={disabled || submitting || microphone.state === "finishing"} onClick={() => void microphone.toggle()}>{microphone.state === "starting" || microphone.state === "finishing" ? <LoaderCircle className={styles.spinner} /> : microphone.active ? <Square /> : <Mic />}</IconButton></Tooltip>
           <span className={styles.sendProgress} style={{ "--context-usage": `${Math.max(0, Math.min(1, contextUsage)) * 100}%` } as React.CSSProperties}>
-            <button aria-label={t("agent.run")} aria-busy={pendingPastes > 0} disabled={submitting || pendingPastes > 0 || microphone.active || ((!content.trim() && attachments.length === 0) || disabled)} onClick={() => void submit()}>{pendingPastes > 0 ? <LoaderCircle className={styles.spinner} /> : <ArrowUp />}</button>
+            <button aria-label={t("agent.run")} aria-busy={submitting || pendingPastes > 0} disabled={submitting || pendingPastes > 0 || microphone.state === "starting" || disabled || (!microphone.active && !content.trim() && attachments.length === 0)} onClick={() => void submit()}>{submitting || pendingPastes > 0 ? <LoaderCircle className={styles.spinner} /> : <ArrowUp />}</button>
           </span>
         </div>
       </div>

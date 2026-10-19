@@ -1,8 +1,10 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { expect, test, vi } from "vitest";
+import { beforeEach, expect, test, vi } from "vitest";
 import { TaskComposer } from "./TaskComposer";
-vi.mock("../speech/speech-context", () => ({ useSpeech: () => ({ settings: { hasApiKey: false }, playback: { stop: vi.fn() }, refresh: vi.fn(), setRecording: vi.fn() }) }));
+const microphone = vi.hoisted(() => ({ state: "idle", active: false, toggle: vi.fn(), finish: vi.fn() }));
+vi.mock("../speech/useSpeechInput", () => ({ useSpeechInput: () => microphone }));
+beforeEach(() => { microphone.state = "idle"; microphone.active = false; microphone.finish.mockReset(); });
 
 vi.mock("../feedback", () => ({ useFeedback: () => ({ toast: vi.fn() }) }));
 vi.mock("../../shared/ui/prompt-editor", () => ({
@@ -11,6 +13,35 @@ vi.mock("../../shared/ui/prompt-editor", () => ({
 }));
 
 const props = { models: [{ id: "model", name: "Test", model: "test" }] as ModelConfiguration[], selectedModelId: "model", onModelChange() {}, onStop: vi.fn(), onSubmit: vi.fn(async () => true) };
+
+test("录音时可直接点击发送，等识别收尾后只提交一次", async () => {
+  microphone.state = "recording";
+  microphone.active = true;
+  let finish!: (text: string | null) => void;
+  microphone.finish.mockReturnValue(new Promise<string | null>((resolve) => { finish = resolve; }));
+  const onSubmit = vi.fn(async () => true);
+  render(<TaskComposer {...props} onSubmit={onSubmit} />);
+  const send = screen.getByRole("button", { name: "Run ↵" }) as HTMLButtonElement;
+  expect(send.disabled).toBe(false);
+  await userEvent.click(send);
+  expect(microphone.finish).toHaveBeenCalledOnce();
+  expect(onSubmit).not.toHaveBeenCalled();
+  expect(send.disabled).toBe(true);
+  await act(async () => finish("最终识别结果"));
+  expect(onSubmit).toHaveBeenCalledExactlyOnceWith("最终识别结果", []);
+});
+
+test("识别失败不发送已有半句，恢复发送按钮", async () => {
+  microphone.state = "recording";
+  microphone.active = true;
+  microphone.finish.mockResolvedValue(null);
+  const onSubmit = vi.fn();
+  render(<TaskComposer {...props} onSubmit={onSubmit} />);
+  fireEvent.change(screen.getByRole("textbox"), { target: { value: "半句" } });
+  await userEvent.click(screen.getByRole("button", { name: "Run ↵" }));
+  expect(onSubmit).not.toHaveBeenCalled();
+  expect((screen.getByRole("textbox") as HTMLTextAreaElement).value).toBe("半句");
+});
 
 test("运行中可以继续输入并发送，停止按钮独立保留", async () => {
   const user = userEvent.setup(), onSubmit = vi.fn(async () => true), onStop = vi.fn();
