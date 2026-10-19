@@ -53,7 +53,7 @@ test("语音凭据不回显，保存保持按钮文案并清空填写的 Key", a
   expect(input.value).toBe("");
   expect(input.type).toBe("password");
   fireEvent.change(input, { target: { value: "test-key" } });
-  await userEvent.click(screen.getByRole("button", { name: "Save" }));
+  await userEvent.click(screen.getByRole("button", { name: "Save voice settings" }));
   await waitFor(() => expect(input.value).toBe(""));
   expect(save).toHaveBeenCalledWith({
     workspaceId: "llm-demo",

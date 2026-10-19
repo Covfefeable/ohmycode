@@ -1,3 +1,4 @@
+from datetime import datetime
 from io import BytesIO
 
 from flask import current_app
@@ -66,3 +67,17 @@ def delete_object(key: str) -> None:
         client.remove_object(_bucket(client), key)
     except Exception as error:
         raise ServiceError("object_storage_unavailable", 503) from error
+
+
+def remove_old_objects(prefix: str, before: datetime) -> int:
+    client = _client()
+    removed = 0
+    try:
+        bucket = _bucket(client)
+        for item in client.list_objects(bucket, prefix=prefix, recursive=True):
+            if item.last_modified < before:
+                client.remove_object(bucket, item.object_name)
+                removed += 1
+    except Exception as error:
+        raise ServiceError("object_storage_unavailable", 503) from error
+    return removed

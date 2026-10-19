@@ -17,7 +17,7 @@ export type CustomVoice = {
 };
 export type VoiceCloneInput = {
   name: string;
-  audioUrl: string;
+  audioData: string;
   language: string;
   preprocess: boolean;
   consent: boolean;

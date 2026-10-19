@@ -7,24 +7,12 @@ import { Select } from "../../shared/ui/select";
 import { useFeedback } from "../feedback";
 import { speechErrorKey } from "../speech/speech-error";
 import styles from "./VoiceCloneDialog.module.css";
+import { VoiceRecorder } from "./VoiceRecorder";
+import { audioBase64 } from "./voice-recording";
 
 const languages = [
   "zh",
   "en",
-  "fr",
-  "de",
-  "ja",
-  "ko",
-  "ru",
-  "pt",
-  "th",
-  "id",
-  "vi",
-  "it",
-  "es",
-  "ms",
-  "fil",
-  "ar",
 ];
 
 export function VoiceCloneDialog({
@@ -39,7 +27,7 @@ export function VoiceCloneDialog({
   const titleId = useId();
   const dialog = useRef<HTMLElement>(null);
   const [name, setName] = useState("");
-  const [audioUrl, setAudioUrl] = useState("");
+  const [audio, setAudio] = useState<Blob | null>(null);
   const [language, setLanguage] = useState("zh");
   const [preprocess, setPreprocess] = useState(false);
   const [consent, setConsent] = useState(false);
@@ -66,13 +54,13 @@ export function VoiceCloneDialog({
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
-    if (busy || !name.trim() || !audioUrl.trim() || !consent) return;
+    if (busy || !name.trim() || !audio || !consent) return;
     setBusy(true);
     setError("");
     try {
       const voice = await window.ohmycode.speech.createVoice({
         name: name.trim(),
-        audioUrl: audioUrl.trim(),
+        audioData: await audioBase64(audio),
         language,
         preprocess,
         consent,
@@ -144,22 +132,6 @@ export function VoiceCloneDialog({
                 placeholder={t("speech.voiceNamePlaceholder")}
               />
             </label>
-            <label>
-              <span>{t("speech.audioUrl")}</span>
-              <input
-                type="url"
-                aria-label={t("speech.audioUrl")}
-                aria-describedby={`${titleId}-audio-help`}
-                required
-                disabled={busy}
-                value={audioUrl}
-                onChange={(event) => setAudioUrl(event.target.value)}
-                placeholder="https://…"
-              />
-              <small id={`${titleId}-audio-help`}>
-                {t("speech.audioRequirements")}
-              </small>
-            </label>
             <div className={styles.language}>
               <span>{t("speech.audioLanguage")}</span>
               <Select
@@ -170,9 +142,10 @@ export function VoiceCloneDialog({
                   value,
                   label: names.of(value) ?? value,
                 }))}
-                onChange={setLanguage}
+                onChange={(value) => { setLanguage(value); setAudio(null); }}
               />
             </div>
+            <VoiceRecorder key={language} language={language} disabled={busy} onChange={setAudio} />
             <label className={styles.checkbox}>
               <input
                 type="checkbox"
@@ -205,7 +178,7 @@ export function VoiceCloneDialog({
             <button
               className={styles.primary}
               type="submit"
-              disabled={busy || !name.trim() || !audioUrl.trim() || !consent}
+              disabled={busy || !name.trim() || !audio || !consent}
               aria-busy={busy}
             >
               {busy && <LoaderCircle className={styles.spinner} />}

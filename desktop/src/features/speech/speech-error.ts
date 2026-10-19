@@ -10,6 +10,8 @@ export function speechErrorKey(error: unknown): string {
   if (code === "speech_voice_invalid") return "speech.voiceInvalid";
   if (code === "speech_voice_not_ready") return "speech.voiceNotReady";
   if (code === "speech_voice_create_failed") return "speech.voiceCreateFailed";
+  if (code === "speech_public_url_missing") return "speech.publicUrlMissing";
+  if (code === "object_storage_unavailable") return "speech.storageUnavailable";
   if (error instanceof DOMException && error.name === "NotAllowedError")
     return "speech.microphoneDenied";
   return "speech.failed";

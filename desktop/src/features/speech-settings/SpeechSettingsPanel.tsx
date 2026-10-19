@@ -81,7 +81,7 @@ function SpeechSettingsForm({ initial }: { initial: SpeechSettings }) {
             onClick={() => void save()}
           >
             {saving && <LoaderCircle className={styles.spinner} />}
-            {t("common.save")}
+            {t("speech.save")}
           </button>
         }
       />

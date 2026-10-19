@@ -77,6 +77,12 @@ and status queries run through Flask and are scoped by user, workspace and targe
 model. Only approved custom voices are selectable. See the desktop and API READMEs
 for configuration and migration requirements.
 
+For enrollment, the renderer records a short PCM WAV sample locally. On confirmation,
+the main process uploads it through the authenticated API. Flask stores it in MinIO
+and supplies a 24-hour signed audio endpoint under `PUBLIC_API_URL` to the provider.
+The endpoint does not require a user JWT; possession of its unexpired signature is
+the access credential. Beat removes samples older than 24 hours every hour.
+
 ## Data and control flow
 
 A normal chat turn flows like this:

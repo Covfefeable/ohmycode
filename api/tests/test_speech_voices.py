@@ -1,14 +1,39 @@
+import base64
+import wave
+from io import BytesIO
+
 import httpx
 import pytest
+from itsdangerous import TimestampSigner
 
 from app import create_app
 from app.extensions import db
 from app.models import SpeechVoice
 
 
+def sample_audio(seconds=15):
+    buffer = BytesIO()
+    with wave.open(buffer, "wb") as audio:
+        audio.setnchannels(1)
+        audio.setsampwidth(2)
+        audio.setframerate(16000)
+        audio.writeframes(b"\x00\x00" * 16000 * seconds)
+    return base64.b64encode(buffer.getvalue()).decode()
+
+
 @pytest.fixture
-def voice_client():
+def voice_client(monkeypatch):
     app = create_app("testing")
+    app.config["PUBLIC_API_URL"] = "https://api.example.com:8765"
+    samples = {}
+    monkeypatch.setattr(
+        "app.services.settings.speech_samples.put_object",
+        lambda key, content, mime: samples.update({key: (content, mime)}),
+    )
+    monkeypatch.setattr("app.services.settings.speech_samples.get_object", lambda key: samples[key])
+    monkeypatch.setattr(
+        "app.services.settings.speech_samples.delete_object", lambda key: samples.pop(key, None)
+    )
     with app.app_context():
         db.create_all()
     with app.test_client() as client:
@@ -76,7 +101,7 @@ def test_create_refresh_select_and_scope_custom_voice(voice_client, monkeypatch)
     monkeypatch.setattr("app.services.settings.speech_provider.httpx.post", post)
     payload = {
         "name": "我的声音",
-        "audioUrl": "https://example.com/sample.wav",
+        "audioData": sample_audio(),
         "language": "zh",
         "preprocess": True,
         "consent": True,
@@ -93,7 +118,16 @@ def test_create_refresh_select_and_scope_custom_voice(voice_client, monkeypatch)
     sent = requests[0][1]["json"]
     assert sent["model"] == "voice-enrollment"
     assert sent["input"]["target_model"] == "qwen-audio-3.1-tts-flash"
-    assert sent["input"]["url"] == payload["audioUrl"]
+    sample_url = sent["input"]["url"]
+    assert sample_url.startswith("https://api.example.com:8765/api/settings/speech/samples/")
+    from urllib.parse import urlsplit
+
+    sample = client.get(urlsplit(sample_url).path)
+    assert sample.status_code == 200
+    assert sample.mimetype == "audio/wav"
+    assert sample.data == base64.b64decode(payload["audioData"])
+    assert sample.headers["Cache-Control"] == "no-store"
+    assert client.get(urlsplit(sample_url).path + "broken").status_code == 404
     assert sent["input"]["enable_preprocess"] is True
     assert sent["input"]["prefix"].isalnum() and len(sent["input"]["prefix"]) <= 10
     assert client.get("/api/settings/speech/voices", headers=other).get_json() == []
@@ -137,7 +171,7 @@ def test_provider_errors_do_not_create_voice_or_leak_provider_message(
         headers=headers,
         json={
             "name": "Voice",
-            "audioUrl": "https://example.com/audio.wav",
+            "audioData": sample_audio(),
             "language": "en",
             "consent": True,
         },
@@ -155,14 +189,16 @@ def test_invalid_input_does_not_call_provider(voice_client, monkeypatch):
 
     monkeypatch.setattr("app.services.settings.speech_provider.httpx.post", unexpected)
     for patch in [
-        {"audioUrl": "file:///sample.wav"},
+        {"audioData": "invalid base64"},
+        {"audioData": sample_audio(2)},
+        {"audioData": sample_audio(31)},
         {"consent": False},
         {"language": "unknown"},
         {"name": ""},
     ]:
         payload = {
             "name": "Voice",
-            "audioUrl": "https://example.com/audio.wav",
+            "audioData": sample_audio(),
             "language": "zh",
             "consent": True,
             **patch,
@@ -171,3 +207,70 @@ def test_invalid_input_does_not_call_provider(voice_client, monkeypatch):
             client.post("/api/settings/speech/voices", headers=headers, json=payload).status_code
             == 422
         )
+
+
+def test_expired_sample_link_cannot_read_audio(voice_client, monkeypatch):
+    from app.services.settings.speech_samples import store_sample
+
+    app, client, _, _ = voice_client
+    with monkeypatch.context() as patch:
+        patch.setattr(TimestampSigner, "get_timestamp", lambda _: 1)
+        with app.app_context():
+            _, url = store_sample(sample_audio())
+    from urllib.parse import urlsplit
+
+    assert client.get(urlsplit(url).path).status_code == 404
+
+
+def test_missing_public_address_does_not_upload_audio(voice_client, monkeypatch):
+    app, client, headers, _ = voice_client
+    app.config["PUBLIC_API_URL"] = ""
+    uploaded = []
+    monkeypatch.setattr(
+        "app.services.settings.speech_samples.put_object", lambda *args: uploaded.append(args)
+    )
+    response = client.post(
+        "/api/settings/speech/voices",
+        headers=headers,
+        json={
+            "name": "Voice",
+            "audioData": sample_audio(),
+            "language": "zh",
+            "consent": True,
+        },
+    )
+    assert response.status_code == 503
+    assert response.get_json()["error"]["code"] == "speech_public_url_missing"
+    assert uploaded == []
+
+
+def test_cleanup_only_removes_expired_sample_objects(monkeypatch):
+    from datetime import UTC, datetime, timedelta
+    from types import SimpleNamespace
+
+    from app.services import object_storage
+
+    now = datetime.now(UTC)
+    removed = []
+    prefixes = []
+
+    class Storage:
+        def list_objects(self, bucket, *, prefix, recursive):
+            prefixes.append(prefix)
+            return [
+                SimpleNamespace(
+                    object_name="speech-samples/old.wav", last_modified=now - timedelta(days=2)
+                ),
+                SimpleNamespace(object_name="speech-samples/new.wav", last_modified=now),
+            ]
+
+        def remove_object(self, bucket, key):
+            removed.append(key)
+
+    monkeypatch.setattr(object_storage, "_client", Storage)
+    monkeypatch.setattr(object_storage, "_bucket", lambda _: "test")
+    from app.services.settings.speech_samples import cleanup_samples
+
+    assert cleanup_samples() == 1
+    assert prefixes == ["speech-samples/"]
+    assert removed == ["speech-samples/old.wav"]

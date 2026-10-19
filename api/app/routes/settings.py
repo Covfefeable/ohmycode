@@ -19,6 +19,7 @@ from ..services.settings.speech import (
     set_speech_auto_play,
     speech_connection,
 )
+from ..services.settings.speech_samples import read_sample
 from ..services.settings.speech_voices import create_voice, list_voices, refresh_voices
 
 settings_bp = Blueprint("settings", __name__)
@@ -26,6 +27,12 @@ settings_bp = Blueprint("settings", __name__)
 
 def user_id() -> UUID:
     return UUID(get_jwt_identity())
+
+
+@settings_bp.get("/speech/samples/<token>")
+def speech_sample_route(token: str):
+    content, content_type = read_sample(token)
+    return Response(content, mimetype=content_type, headers={"Cache-Control": "no-store"})
 
 
 @settings_bp.get("/speech")
@@ -43,6 +50,7 @@ def list_speech_voices_route():
 @settings_bp.post("/speech/voices")
 @jwt_required()
 def create_speech_voice_route():
+    request.max_content_length = 3_000_000
     return jsonify(create_voice(user_id(), request.get_json(silent=True) or {})), 201
 
 

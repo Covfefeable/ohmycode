@@ -4,6 +4,9 @@ import { expect, test, vi } from "vitest";
 import { VoiceCloneDialog } from "./VoiceCloneDialog";
 
 vi.mock("../feedback", () => ({ useFeedback: () => ({ toast: vi.fn() }) }));
+vi.mock("./VoiceRecorder", () => ({
+  VoiceRecorder: ({ onChange }: { onChange(audio: Blob): void }) => <button type="button" onClick={() => onChange(new Blob(["wav"], { type: "audio/wav" }))}>Record</button>,
+}));
 
 test("创建音色提交参考音频及配置，处理期间保留按钮文案并阻止重复提交", async () => {
   const user = userEvent.setup();
@@ -23,10 +26,7 @@ test("创建音色提交参考音频及配置，处理期间保留按钮文案�
   render(<VoiceCloneDialog onClose={onClose} onCreated={onCreated} />);
   expect(screen.getByRole("dialog").getAttribute("aria-modal")).toBe("true");
   await user.type(screen.getByLabelText("Voice name"), "My voice");
-  await user.type(
-    screen.getByLabelText("Reference audio URL"),
-    "https://example.com/audio.wav",
-  );
+  await user.click(screen.getByRole("button", { name: "Record" }));
   await user.click(
     screen.getByLabelText("Audio noise reduction and enhancement"),
   );
@@ -36,7 +36,7 @@ test("创建音色提交参考音频及配置，处理期间保留按钮文案�
   await user.click(create);
   expect(createVoice).toHaveBeenCalledExactlyOnceWith({
     name: "My voice",
-    audioUrl: "https://example.com/audio.wav",
+    audioData: "d2F2",
     language: "zh",
     preprocess: true,
     consent: true,

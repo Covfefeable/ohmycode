@@ -24,6 +24,7 @@ def _bool_env(name: str, default: bool) -> bool:
 
 
 class BaseConfig:
+    PUBLIC_API_URL = os.getenv("PUBLIC_API_URL", "")
     SECRET_KEY = os.getenv("SECRET_KEY", "development-only-secret")
     JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", SECRET_KEY)
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(minutes=30)

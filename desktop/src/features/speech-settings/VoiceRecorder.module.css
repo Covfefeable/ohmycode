@@ -1,0 +1,9 @@
+.recorder { display: grid; gap: var(--space-3); }
+.sample { margin: 0; padding: var(--space-3); border-radius: var(--radius-md); background: var(--color-surface-2); color: var(--color-text-soft); font-size: var(--font-sm); line-height: 1.8; }
+.recorder small { color: var(--color-text-muted); font-size: var(--font-xs); line-height: 1.6; }
+.controls { display: flex; align-items: center; gap: var(--space-3); color: var(--color-text-muted); font-size: var(--font-xs); }
+.controls button { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); padding: var(--space-2) var(--space-3); border: 1px solid var(--color-border-strong); border-radius: var(--radius-md); background: var(--color-surface-2); color: var(--color-text); font: inherit; cursor: pointer; }
+.controls svg { width: 16px; height: 16px; }
+.controls meter { min-width: 0; width: 80px; accent-color: var(--color-accent); }
+.recorder audio { width: 100%; height: 40px; }
+.recorder [role="alert"] { color: var(--color-danger-text); }
