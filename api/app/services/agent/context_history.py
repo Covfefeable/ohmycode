@@ -26,11 +26,27 @@ def _message_content(message: Message) -> str:
     return f"{message.content}\n\n" + "\n".join(lines)
 
 
+CONVERSATION_EVENT_TYPES = frozenset(
+    {
+        "tool.requested",
+        "tool.output",
+        "reasoning.completed",
+        "message.progress",
+        "input.received",
+        "task.plan.updated",
+        "run.cancelled",
+        "run.failed",
+    }
+)
+
+
 def is_conversation_event(event_type: str) -> bool:
-    return event_type != "run.started" and not event_type.startswith("context.")
+    return event_type in CONVERSATION_EVENT_TYPES
 
 
-def _run_context_message(run: AgentRun, protected: bool, after_sequence: int = 0) -> dict[str, str]:
+def _run_context_message(
+    run: AgentRun, protected: bool, after_sequence: int = 0
+) -> dict[str, str] | None:
     summary = run.summary
     if (
         not after_sequence
@@ -52,6 +68,8 @@ def _run_context_message(run: AgentRun, protected: bool, after_sequence: int = 0
         for event in run.events
         if event.sequence > after_sequence and is_conversation_event(event.event_type)
     ]
+    if not events:
+        return None
     return {
         "role": "system",
         "content": (
@@ -76,7 +94,8 @@ def branch_context_snapshot(message: Message) -> list[dict] | None:
     if message.role == "assistant" and message.agent_run_id:
         run = db.session.get(AgentRun, message.agent_run_id)
         if run:
-            return [_run_context_message(run, protected=True)]
+            context = _run_context_message(run, protected=True)
+            return [context] if context else None
     return None
 
 
@@ -109,9 +128,9 @@ def _render_messages(
                     if checkpoint and checkpoint.covered_run_id == run.id
                     else 0
                 )
-                rendered.append(
-                    _run_context_message(run, run.id in protected_run_ids, after_sequence)
-                )
+                context = _run_context_message(run, run.id in protected_run_ids, after_sequence)
+                if context:
+                    rendered.append(context)
         rendered.append({"role": message.role, "content": _message_content(message)})
     return rendered
 

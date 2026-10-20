@@ -48,12 +48,53 @@ def test_history_excludes_runtime_metadata_but_keeps_tool_results():
                 event_type="tool.output",
                 payload={"results": [{"result": "file content"}]},
             ),
+            SimpleNamespace(
+                sequence=4,
+                event_type="conversation.suggestions.generated",
+                payload={"suggestions": ["UI-only suggestion"]},
+            ),
+            SimpleNamespace(
+                sequence=5,
+                event_type="conversation.title.generated",
+                payload={"title": "UI-only title"},
+            ),
+            SimpleNamespace(
+                sequence=6,
+                event_type="message.completed",
+                payload={"messageId": "metadata-only-id"},
+            ),
+            SimpleNamespace(sequence=7, event_type="run.completed", payload={}),
         ],
     )
     content = _run_context_message(run, protected=True)["content"]
     assert "private-id" not in content
     assert "provider-model" not in content
     assert "file content" in content
+    assert "UI-only" not in content
+    assert "metadata-only-id" not in content
+    source = turn_summaries.serialized_run_events(run)
+    assert "file content" in source
+    assert "UI-only" not in source
+
+
+def test_history_with_only_ui_and_lifecycle_events_is_not_injected():
+    run = SimpleNamespace(
+        id=uuid.uuid4(),
+        summary=None,
+        events=[
+            SimpleNamespace(
+                sequence=1, event_type="message.completed", payload={"messageId": "message"}
+            ),
+            SimpleNamespace(sequence=2, event_type="run.completed", payload={}),
+            SimpleNamespace(
+                sequence=3,
+                event_type="conversation.suggestions.generated",
+                payload={"suggestions": ["UI only"]},
+            ),
+        ],
+    )
+    assert _run_context_message(run, protected=True) is None
+    assert turn_summaries.serialized_run_events(run) == "[]"
 
 
 def test_context_defaults_and_multilingual_token_estimate():

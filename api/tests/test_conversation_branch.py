@@ -72,6 +72,14 @@ def test_branch_deep_copies_messages_without_usage_or_runtime_state():
                 )
             )
             source_message = db.session.get(Message, uuid.UUID(second["id"]))
+            db.session.add(
+                AgentEvent(
+                    run=run,
+                    sequence=2,
+                    event_type="reasoning.completed",
+                    payload={"content": "Independent reasoning"},
+                )
+            )
             source_message.agent_run_id = run.id
             source_message.reasoning = "Independent reasoning"
             source_message.activity = [{"type": "message", "content": "Second"}]
@@ -101,9 +109,7 @@ def test_branch_deep_copies_messages_without_usage_or_runtime_state():
             {first["id"], second["id"]}
         )
         assert branch["messages"][1]["reasoning"] == "Independent reasoning"
-        assert branch["messages"][1]["activity"] == [
-            {"type": "message", "content": "Second"}
-        ]
+        assert branch["messages"][1]["activity"] == [{"type": "message", "content": "Second"}]
         assert branch["messages"][1]["attachments"][0]["name"] == "notes.md"
         source_detail = client.get(
             f"/api/projects/conversations/{source['id']}", headers=headers
@@ -115,11 +121,14 @@ def test_branch_deep_copies_messages_without_usage_or_runtime_state():
         with app.app_context():
             copied = db.session.get(Conversation, uuid.UUID(branch["id"]))
             assert all(message.agent_run_id is None for message in copied.messages)
-            assert db.session.scalar(
-                db.select(db.func.count(AgentRun.id)).where(
-                    AgentRun.conversation_id == copied.id
+            assert (
+                db.session.scalar(
+                    db.select(db.func.count(AgentRun.id)).where(
+                        AgentRun.conversation_id == copied.id
+                    )
                 )
-            ) == 0
+                == 0
+            )
             snapshot = copied.messages[1].context_snapshot
             assert snapshot and "Complete AgentEvent history" in snapshot[0]["content"]
             assert '"usedTokens"' not in snapshot[0]["content"]
@@ -127,9 +136,12 @@ def test_branch_deep_copies_messages_without_usage_or_runtime_state():
             assert snapshot[0] in rendered
 
         # A branch's model context remains usable after removing its source.
-        assert client.delete(
-            f"/api/projects/conversations/{source['id']}", headers=headers
-        ).status_code == 204
+        assert (
+            client.delete(
+                f"/api/projects/conversations/{source['id']}", headers=headers
+            ).status_code
+            == 204
+        )
         with app.app_context():
             copied = db.session.get(Conversation, uuid.UUID(branch["id"]))
             assert snapshot[0] in _render_messages(copied.messages, set())
