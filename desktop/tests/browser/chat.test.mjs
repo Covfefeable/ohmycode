@@ -27,6 +27,29 @@ afterEach(async () => {
 
 const scroller = () => page.locator('[data-virtuoso-scroller="true"]');
 
+test("Token 日历在不同窗口宽度下均保持正方形，宽屏填满可用宽度", async () => {
+  await page.goto(`${baseUrl}/tests/browser/sidebar.html`);
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  const days = page.locator("[data-level]");
+  await days.first().waitFor();
+  assert.equal(await days.count(), 365);
+  for (const width of [1100, 1600, 720]) {
+    await page.setViewportSize({ width, height: 900 });
+    const sizes = await days.evaluateAll((cells) => cells.map((cell) => {
+      const { width, height } = cell.getBoundingClientRect();
+      return { width, height };
+    }));
+    assert.ok(sizes.every((cell) => cell.width > 0 && Math.abs(cell.width - cell.height) < 0.1), `Cells must stay square at ${width}px`);
+    if (width === 1600) {
+      const dimensions = await days.first().evaluate((cell) => {
+        const calendar = cell.parentElement.parentElement;
+        return { calendar: calendar.getBoundingClientRect().width, container: calendar.parentElement.clientWidth };
+      });
+      assert.ok(Math.abs(dimensions.calendar - dimensions.container) < 1);
+    }
+  }
+});
+
 test("三个页面同步收起侧栏，内容填满可用空间，项目展开状态跨页面保留", async () => {
   await page.goto(`${baseUrl}/tests/browser/sidebar.html`);
   await page.getByRole("button", { name: "Remembered project" }).click();
