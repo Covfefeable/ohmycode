@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowDown, AudioLines, Check, Copy, GitBranch, LoaderCircle, Pencil, Search, Volume2, Square } from "lucide-react";
+import { ArrowDown, AudioLines, Check, Copy, GitBranch, LoaderCircle, Pencil, Search } from "lucide-react";
+import { ReadAloudButton } from "../speech/ReadAloudButton";
 import { TaskComposer } from "../task-composer";
 import { useFeedback } from "../feedback";
 import { FullScreenLoading } from "../../shared/ui/full-screen-loading";
@@ -222,7 +223,7 @@ export function ConversationChat({ conversationId, active, searchLocation, onUpd
         {!editing || editing.message.id !== message.id ? <div className={styles.messageActions}>
           <time>{new Intl.DateTimeFormat(i18n.language, { hour: "2-digit", minute: "2-digit" }).format(new Date(message.createdAt))}</time>
           <Tooltip content={t("agent.copy")}><button aria-label={t("agent.copy")} onClick={() => void copy(message)}>{copiedId === message.id ? <Check /> : <Copy />}</button></Tooltip>
-          {message.role === "assistant" && <Tooltip content={t(speech.playing && speech.readingId === message.id ? "speech.stopReading" : "speech.read")}><button disabled={speech.recording} aria-label={t(speech.playing && speech.readingId === message.id ? "speech.stopReading" : "speech.read")} onClick={() => speech.playing && speech.readingId === message.id ? speech.playback.stop() : void speech.read(message)}>{speech.playing && speech.readingId === message.id ? <Square /> : <Volume2 />}</button></Tooltip>}
+          {message.role === "assistant" && <ReadAloudButton message={message} />}
           {!message.id.startsWith("stream-") && !message.id.startsWith("user-") && <Tooltip content={t("agent.branch")}><button aria-label={t("agent.branch")} disabled={branchingId !== null} onClick={() => void branch(message)}>{branchingId === message.id ? <LoaderCircle className={styles.spin} /> : <GitBranch />}</button></Tooltip>}
           {message.id === lastUserId && !sending && <Tooltip content={t("agent.edit")}><button aria-label={t("agent.edit")} onClick={() => { setEditing({ message, content: message.content }); forceScrollToBottom(); }}><Pencil /></button></Tooltip>}
         </div> : null}

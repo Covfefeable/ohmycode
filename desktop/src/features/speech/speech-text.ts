@@ -1,6 +1,8 @@
 import { fromMarkdown } from "mdast-util-from-markdown";
 import type { Nodes } from "mdast";
 
+export type ReadableMessage = Pick<LocalMessage, "id" | "content" | "activity">;
+
 export function speechText(markdown: string): string {
   function read(node: Nodes): string {
     if (
@@ -29,7 +31,7 @@ export function speechText(markdown: string): string {
 }
 
 /** Activity message items already include the final answer; don't read it twice. */
-export function messageSpeechText(message: LocalMessage): string {
+export function messageSpeechText(message: ReadableMessage): string {
   const parts = (message.activity ?? [])
     .filter((step) => step.type === "message")
     .map((step) => step.content);

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowUp, Copy, Info, LoaderCircle } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useFeedback } from "../../features/feedback";
+import { ReadAloudButton } from "../../features/speech/ReadAloudButton";
 import { MarkdownContent } from "../../shared/ui/markdown-content";
 import { PromptEditor, usePromptCapabilities } from "../../shared/ui/prompt-editor";
 import { Tooltip } from "../../shared/ui/tooltip";
@@ -112,6 +113,7 @@ export function GroupChatPanel(props: Props) {
             <div className={styles.bubble}><b>@{target}</b><MarkdownContent>{item.content}</MarkdownContent></div>
             <div className={styles.messageActions}>
               <Tooltip content={t("common.copy")}><button aria-label={t("common.copy")} onClick={() => void navigator.clipboard.writeText(item.content).then(() => toast({ type: "success", message: t("common.copied") }))}><Copy /></button></Tooltip>
+              {!mine && <ReadAloudButton message={item} />}
               {item.runId && <Tooltip content={t("multiAgent.details")}><button aria-label={t("multiAgent.details")} onClick={() => void showRunDetail(item.id)}><Info /></button></Tooltip>}
             </div>
           </div>

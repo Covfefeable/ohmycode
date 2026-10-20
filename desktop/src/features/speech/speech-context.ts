@@ -1,5 +1,6 @@
 import { createContext, useContext } from "react";
 import type { SpeechPlayback } from "./speech-playback";
+import type { ReadableMessage } from "./speech-text";
 
 export type SpeechContextValue = {
   settings: SpeechSettings | null;
@@ -11,7 +12,7 @@ export type SpeechContextValue = {
   refresh(): Promise<SpeechSettings>;
   update(settings: SpeechSettings): void;
   toggle(): Promise<void>;
-  read(message: LocalMessage): Promise<void>;
+  read(message: ReadableMessage): Promise<void>;
 };
 export const SpeechContext = createContext<SpeechContextValue | null>(null);
 export function useSpeech() {

@@ -10,7 +10,7 @@ import { useFeedback } from "../feedback";
 import { SpeechContext } from "./speech-context";
 import { SpeechPlayback } from "./speech-playback";
 import { speechErrorKey } from "./speech-error";
-import { messageSpeechText } from "./speech-text";
+import { messageSpeechText, type ReadableMessage } from "./speech-text";
 
 export function SpeechProvider({ children }: PropsWithChildren) {
   const { t, i18n } = useTranslation();
@@ -75,7 +75,7 @@ export function SpeechProvider({ children }: PropsWithChildren) {
           toast({ type: "error", message: t(speechErrorKey(error)) });
         }
       },
-      async read(message: LocalMessage) {
+      async read(message: ReadableMessage) {
         playback.stop();
         try {
         const current = settings ?? (await refresh());
