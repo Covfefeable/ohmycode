@@ -38,6 +38,7 @@ export const zhCN = {
     close: "关闭",
   },
   navigation: {
+    collapseSidebar: "收起侧栏", expandSidebar: "展开侧栏",
     label: "主导航",
     tasks: "任务",
     multiAgent: "多 Agent",

@@ -1,32 +1,8 @@
-import { useRef, useSyncExternalStore } from "react";
+import { useRef } from "react";
 import type { CSSProperties, PropsWithChildren, ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import styles from "./AppShell.module.css";
-
-const SIDEBAR_MIN_WIDTH = 220;
-const SIDEBAR_MAX_WIDTH = 420;
-const SIDEBAR_STORAGE_KEY = "ohmycode.app-shell.sidebar-width";
-
-function storedSidebarWidth(): number {
-  const saved = Number(window.localStorage.getItem(SIDEBAR_STORAGE_KEY));
-  return Number.isFinite(saved)
-    ? Math.min(SIDEBAR_MAX_WIDTH, Math.max(SIDEBAR_MIN_WIDTH, saved))
-    : 300;
-}
-
-let sharedSidebarWidth = storedSidebarWidth();
-const sidebarWidthListeners = new Set<() => void>();
-
-function subscribeSidebarWidth(listener: () => void): () => void {
-  sidebarWidthListeners.add(listener);
-  return () => sidebarWidthListeners.delete(listener);
-}
-
-function setSharedSidebarWidth(width: number): void {
-  sharedSidebarWidth = width;
-  window.localStorage.setItem(SIDEBAR_STORAGE_KEY, String(Math.round(width)));
-  for (const listener of sidebarWidthListeners) listener();
-}
+import { SIDEBAR_MAX_WIDTH, SIDEBAR_MIN_WIDTH, setSidebarWidth, useSidebarState } from "./sidebar-state";
 
 type AppShellProps = PropsWithChildren<{
   navigation: ReactNode;
@@ -35,11 +11,7 @@ type AppShellProps = PropsWithChildren<{
 
 export function AppShell({ navigation, sidebar, children }: AppShellProps) {
   const { t } = useTranslation();
-  const sidebarWidth = useSyncExternalStore(
-    subscribeSidebarWidth,
-    () => sharedSidebarWidth,
-    () => 300,
-  );
+  const { width: sidebarWidth, collapsed } = useSidebarState();
   const widthRef = useRef(sidebarWidth);
 
   function startResize(event: React.PointerEvent<HTMLDivElement>) {
@@ -64,7 +36,7 @@ export function AppShell({ navigation, sidebar, children }: AppShellProps) {
       handle.removeEventListener("pointerup", stop);
       handle.removeEventListener("pointercancel", stop);
       document.documentElement.classList.remove(styles.resizing);
-      setSharedSidebarWidth(widthRef.current);
+      setSidebarWidth(widthRef.current);
     };
     handle.addEventListener("pointermove", move);
     handle.addEventListener("pointerup", stop);
@@ -74,15 +46,15 @@ export function AppShell({ navigation, sidebar, children }: AppShellProps) {
   function resizeWithKeyboard(direction: -1 | 1) {
     const next = Math.min(SIDEBAR_MAX_WIDTH, Math.max(SIDEBAR_MIN_WIDTH, sidebarWidth + direction * 12));
     widthRef.current = next;
-    setSharedSidebarWidth(next);
+    setSidebarWidth(next);
   }
 
   return (
-    <main className={styles.shell} style={{ "--app-sidebar-width": `${sidebarWidth}px` } as CSSProperties}>
+    <main className={styles.shell} style={{ "--app-sidebar-width": `${collapsed ? 0 : sidebarWidth}px` } as CSSProperties}>
       {navigation}
-      <div className={styles.sidebarFrame}>
+      <div id="app-sidebar" className={`${styles.sidebarFrame} ${collapsed ? styles.collapsed : ""}`} inert={collapsed} aria-hidden={collapsed}>
         {sidebar}
-        <div
+        {!collapsed && <div
           aria-label={t("workspace.resizeSidebar")}
           aria-orientation="vertical"
           aria-valuemin={SIDEBAR_MIN_WIDTH}
@@ -97,7 +69,7 @@ export function AppShell({ navigation, sidebar, children }: AppShellProps) {
             event.preventDefault();
             resizeWithKeyboard(event.key === "ArrowRight" ? 1 : -1);
           }}
-        />
+        />}
       </div>
       {children}
     </main>

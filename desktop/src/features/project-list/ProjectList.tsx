@@ -9,6 +9,8 @@ import { ConfirmDialog } from "../../shared/ui/confirm-dialog";
 import styles from "./ProjectList.module.css";
 import type { MessageLocation } from "../../entities/conversation/types";
 
+const EXPANDED_PROJECTS_KEY = "ohmycode.workspace.expandedProjects";
+
 type ProjectListProps = {
   selectedConversationId: string | null;
   onConversationSelect(project: LocalProject, conversation: LocalConversation, location?: MessageLocation): void;
@@ -23,13 +25,15 @@ export function ProjectList({ selectedConversationId, onConversationSelect, onCo
   const [projects, setProjects] = useState<LocalProject[]>([]);
   const [loadFailed, setLoadFailed] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [expanded, setExpanded] = useState(() => new Set((sessionStorage.getItem(EXPANDED_PROJECTS_KEY) ?? "").split(",").filter(Boolean)));
   const [deleteTarget, setDeleteTarget] = useState<{ type: "project"; project: LocalProject } | { type: "conversation"; projectId: string; conversationId: string } | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<ConversationSearchResult[]>([]);
   const [searching, setSearching] = useState(false);
   const searchRequestRef = useRef(0);
   const revealLabel = navigator.userAgent.includes("Mac") ? t("projects.revealFinder") : t("projects.revealExplorer");
+
+  useEffect(() => { sessionStorage.setItem(EXPANDED_PROJECTS_KEY, [...expanded].join(",")); }, [expanded]);
 
   useEffect(() => {
     let cancelled = false;
@@ -91,6 +95,7 @@ export function ProjectList({ selectedConversationId, onConversationSelect, onCo
   async function removeProject(project: LocalProject) {
     await window.ohmycode.projects.delete(project.id);
     setProjects((items) => items.filter((item) => item.id !== project.id));
+    setExpanded((current) => { const next = new Set(current); next.delete(project.id); return next; });
     toast({ type: "success", message: t("projects.removed") });
   }
 
@@ -140,7 +145,7 @@ export function ProjectList({ selectedConversationId, onConversationSelect, onCo
       {!searchQuery.trim() && <>
       {projects.map((project) => <article key={project.id} className={styles.project}>
         <div className={styles.projectRow}>
-          <button className={styles.projectMain} onClick={() => toggle(project)}>
+          <button className={styles.projectMain} aria-expanded={expanded.has(project.id)} onClick={() => toggle(project)}>
             {expanded.has(project.id) ? <ChevronDown /> : <ChevronRight />}
             <Tooltip className={styles.projectName} content={project.path}><span>{project.name}</span></Tooltip>
           </button>

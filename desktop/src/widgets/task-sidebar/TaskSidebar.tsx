@@ -1,5 +1,4 @@
 import { useTranslation } from "react-i18next";
-import { ApiStatus } from "../../features/api-status";
 import { ProjectList } from "../../features/project-list";
 import styles from "./TaskSidebar.module.css";
 import type { MessageLocation } from "../../entities/conversation/types";
@@ -18,9 +17,6 @@ export function TaskSidebar({ selectedConversationId, onConversationSelect, onCo
       <ProjectList selectedConversationId={selectedConversationId} onConversationSelect={onConversationSelect} onConversationDelete={onConversationDelete} refreshToken={refreshToken} heading={<header>
         <h2>{t("workspace.title")}</h2>
       </header>} />
-      <footer>
-        <ApiStatus />
-      </footer>
     </aside>
   );
 }

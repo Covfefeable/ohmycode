@@ -39,5 +39,4 @@
 .deleteTask:hover { color: var(--color-danger-text); }
 .deleteTask:disabled { opacity: .25 !important; cursor: not-allowed; }
 .deleteTask svg { width: 14px; height: 14px; }
-.footer { margin-top: auto; display: grid; gap: 14px; }
 @keyframes spin { to { transform: rotate(360deg); } }

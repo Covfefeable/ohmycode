@@ -3,7 +3,6 @@ import { Check, ChevronDown, ChevronRight, Circle, CircleAlert, Clock3, LoaderCi
 import { useTranslation } from "react-i18next";
 import { PopoverMenu } from "../../shared/ui/popover-menu";
 import { Tooltip } from "../../shared/ui/tooltip";
-import { ApiStatus } from "../api-status";
 import styles from "./MultiAgentSidebar.module.css";
 
 type Props = {
@@ -67,6 +66,5 @@ export function MultiAgentSidebar(props: Props) {
         </div>}
       </section>)}
     </div>
-    <footer className={styles.footer}><ApiStatus /></footer>
   </aside>;
 }

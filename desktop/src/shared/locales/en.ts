@@ -38,6 +38,7 @@ export const en = {
     close: "Close",
   },
   navigation: {
+    collapseSidebar: "Collapse sidebar", expandSidebar: "Expand sidebar",
     label: "Primary navigation",
     tasks: "Tasks",
     multiAgent: "Multi-agent",

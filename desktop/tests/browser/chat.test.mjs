@@ -27,6 +27,29 @@ afterEach(async () => {
 
 const scroller = () => page.locator('[data-virtuoso-scroller="true"]');
 
+test("三个页面同步收起侧栏，内容填满可用空间，项目展开状态跨页面保留", async () => {
+  await page.goto(`${baseUrl}/tests/browser/sidebar.html`);
+  await page.getByRole("button", { name: "Remembered project" }).click();
+  await page.getByRole("button", { name: "Remembered chat", exact: true }).waitFor();
+  const collapse = page.getByRole("button", { name: "Collapse sidebar" });
+  const theme = page.getByRole("button", { name: /theme/i });
+  assert.ok((await collapse.boundingBox()).y < (await theme.boundingBox()).y, "Collapse button is above the theme button");
+  await collapse.click();
+  assert.equal(await page.getByRole("separator").count(), 0);
+  const content = await page.locator('[data-page="Workspace"]').boundingBox();
+  assert.equal(content.x, 64);
+  assert.equal(content.width, 1036);
+  await page.getByRole("button", { name: "Multi-agent", exact: true }).click();
+  await page.locator('[data-page="Collaboration"]').waitFor();
+  assert.equal(await page.getByRole("button", { name: "Expand sidebar" }).count(), 1);
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.locator('[data-page="Settings"]').waitFor();
+  await page.getByRole("button", { name: "Expand sidebar" }).click();
+  await page.getByRole("separator").waitFor();
+  await page.getByRole("button", { name: "Tasks", exact: true }).click();
+  await page.getByRole("button", { name: "Remembered chat", exact: true }).waitFor();
+});
+
 test("调试上下文使用真实 Monaco 展示请求，可切换 Schema 且弹窗不溢出", async () => {
   await page.goto(`${baseUrl}/tests/browser/search.html`);
   await page.getByText("Live output", { exact: true }).waitFor();

@@ -8,4 +8,3 @@
   overflow: auto;
 }
 .sidebar h2 { font-size: var(--font-title-panel); margin: 0 0 28px; }
-.sidebar footer { margin-top: auto; display: grid; gap: 14px; }

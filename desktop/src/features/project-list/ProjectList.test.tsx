@@ -1,9 +1,28 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { expect, test, vi } from "vitest";
+import { beforeEach, expect, test, vi } from "vitest";
 import { ProjectList } from "./ProjectList";
 
 vi.mock("../feedback", () => ({ useFeedback: () => ({ toast }) }));
 const { toast } = vi.hoisted(() => ({ toast: vi.fn() }));
+beforeEach(() => sessionStorage.removeItem("ohmycode.workspace.expandedProjects"));
+
+test("项目展开和手动收起在页面卸载后仍记忆", async () => {
+  const conversation = { id: "thread", title: "Remembered chat", createdAt: "", updatedAt: "" };
+  const project = { id: "remembered", name: "Remembered project", conversations: [conversation], path: "/remembered", deviceId: "test", deviceName: "Test" };
+  Object.defineProperty(window, "ohmycode", { configurable: true, value: { projects: { list: async () => [project] } } });
+  const props = { selectedConversationId: "thread", onConversationSelect: vi.fn(), onConversationDelete: vi.fn(), refreshToken: 0, heading: <h2>Projects</h2> };
+  let view = render(<ProjectList {...props} />);
+  fireEvent.click(await screen.findByRole("button", { name: "Remembered project" }));
+  expect(await screen.findByRole("button", { name: "Remembered chat" })).toBeTruthy();
+  view.unmount();
+  view = render(<ProjectList {...props} />);
+  expect(await screen.findByRole("button", { name: "Remembered chat" })).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Remembered project" }));
+  view.unmount();
+  render(<ProjectList {...props} />);
+  await screen.findByRole("button", { name: "Remembered project" });
+  expect(screen.queryByRole("button", { name: "Remembered chat" })).toBeNull();
+});
 
 test("列表失败保留明确错误，由用户重试而不是固定轮询", async () => {
   const list = vi.fn().mockRejectedValueOnce(new Error("offline")).mockResolvedValueOnce([]);
