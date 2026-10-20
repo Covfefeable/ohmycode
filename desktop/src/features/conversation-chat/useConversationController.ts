@@ -4,6 +4,7 @@ import { useFeedback } from "../feedback";
 import { classifyRequestError } from "../../shared/lib/request-error";
 import { updateActivity } from "./activity-timeline/updateActivity";
 import { mergeTurnMessages } from "./message-history";
+import { useConversationModel } from "./useConversationModel";
 
 type Options = {
   conversationId: string;
@@ -18,8 +19,7 @@ export function useConversationController({ conversationId, onUpdated, scrollToB
   const [loadFailed, setLoadFailed] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
   const [sending, setSending] = useState(false);
-  const [models, setModels] = useState<ModelConfiguration[]>([]);
-  const [selectedModelId, setSelectedModelId] = useState("");
+  const { models, selectedModelId, setSelectedModelId } = useConversationModel(conversationId, reloadToken);
   const [contextUsage, setContextUsage] = useState(0);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -46,12 +46,6 @@ export function useConversationController({ conversationId, onUpdated, scrollToB
 
   useEffect(() => { conversationRef.current = conversation; }, [conversation]);
   useEffect(() => { onUpdatedRef.current = onUpdated; }, [onUpdated]);
-  useEffect(() => window.ohmycode.settings.onModelsChanged((nextModels) => {
-    setModels(nextModels);
-    setSelectedModelId((current) => nextModels.some((model) => model.id === current)
-      ? current
-      : nextModels[0]?.id ?? "");
-  }), []);
 
   useEffect(() => {
     let disposed = false;
@@ -189,11 +183,6 @@ export function useConversationController({ conversationId, onUpdated, scrollToB
       setLoadFailed(true);
       toast({ type: "error", message: t("agent.loadFailed") });
     });
-    void window.ohmycode.settings.listModels().then((models) => {
-      if (disposed) return;
-      setModels(models);
-      setSelectedModelId(models[0]?.id ?? "");
-    }).catch(() => undefined);
     return () => {
       disposed = true;
       historyGenerationRef.current += 1;
