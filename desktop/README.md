@@ -159,27 +159,31 @@ pnpm --dir desktop dist:win
 
 产物位于 `desktop/release/OhMyCode-Setup-<version>-x64.exe`。
 
-macOS Apple Silicon：
+macOS（Apple Silicon 和 Intel）：
 
 ```bash
 pnpm --dir desktop dist:mac
 ```
 
-产物位于 `desktop/release/OhMyCode-Setup-<version>-arm64.dmg`。
-
-也可以运行 GitHub Actions 的 **macOS Test Build**，在 macOS runner 上构建 M1/M2 等
-Apple Silicon 测试包，不创建正式 Release。支持手动运行，或推送 `desktop-test-*` 标签：
-
-```bash
-git tag desktop-test-<标识>
-git push origin desktop-test-<标识>
-```
-
-完成后从该次运行的 Artifacts 下载 DMG 和 SHA-256 校验文件。测试包使用正式包的服务端地址，
-不包含 API 服务或本机 `.env`，也不会改变现有发布版本。
+生成两个 DMG：`desktop/release/OhMyCode-Setup-<version>-arm64.dmg`（M1/M2 等）和
+`desktop/release/OhMyCode-Setup-<version>-x64.dmg`（Intel x86_64）。正式包由
+`.github/workflows/release.yml` 构建并发布，不再保留临时 macOS 测试工作流。
 
 当前安装包尚未配置 Windows 代码签名或 Apple Developer ID 签名与公证。正式分发前应配置
 平台证书，且不得将证书、密码或发布凭据提交到仓库。
+
+### macOS 首次打开提示“已损坏”
+
+仅对从本仓库 Release 下载、已核对 SHA-256 的安装包执行以下操作。先将应用拖入
+“应用程序”，然后在终端执行：
+
+```bash
+xattr -dr com.apple.quarantine "/Applications/OhMyCode.app"
+```
+
+该命令仅移除 OhMyCode 的隔离属性，不关闭系统全局安全检查。如果应用安装在其他位置，
+请替换为实际路径；若提示权限不足，可为同一命令加上 `sudo`。若仍无法打开，请重新核对
+校验和并下载，不要对整个下载目录或系统目录执行此命令。
 
 ## 开发约束
 

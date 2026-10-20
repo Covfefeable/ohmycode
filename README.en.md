@@ -364,9 +364,9 @@ The command builds TypeScript, the Renderer, and Electron Main before creating a
 desktop/release/OhMyCode-Setup-<version>-x64.exe
 ```
 
-### macOS Apple Silicon
+### macOS (Apple Silicon / Intel)
 
-Run on an Apple Silicon Mac:
+Run on a Mac:
 
 ```bash
 cd desktop
@@ -374,10 +374,11 @@ pnpm install --frozen-lockfile
 pnpm dist:mac
 ```
 
-The command creates an arm64 DMG:
+The command creates Apple Silicon arm64 and Intel x86_64 DMGs:
 
 ```text
 desktop/release/OhMyCode-Setup-<version>-arm64.dmg
+desktop/release/OhMyCode-Setup-<version>-x64.dmg
 ```
 
 The current build does not configure Windows code signing or Apple Developer ID signing and
@@ -385,15 +386,24 @@ notarization. Distribution may therefore trigger SmartScreen or Gatekeeper warni
 appropriate platform certificates before a broader public release, and never commit certificates,
 passwords, or Apple credentials.
 
+If macOS reports that the app is damaged, verify the release SHA-256 checksum, move the app to
+Applications, and run this only for your trusted OhMyCode installation:
+
+```bash
+xattr -dr com.apple.quarantine "/Applications/OhMyCode.app"
+```
+
+This removes quarantine only for this app, not system-wide security checks. Adjust the path if needed.
+
 ### GitHub Release
 
 Push a tag that matches the version in `desktop/package.json`. `.github/workflows/release.yml` uses
-the GitHub Actions `GITHUB_TOKEN` to build Windows x64 and macOS arm64 installers, generate SHA-256
+the GitHub Actions `GITHUB_TOKEN` to build Windows x64, macOS arm64 and macOS x64 installers, generate SHA-256
 checksums, and publish them to GitHub Releases:
 
 ```bash
-git tag v0.1.0
-git push origin v0.1.0
+git tag v1.0.1
+git push origin v1.0.1
 ```
 
 The workflow fails immediately when the tag and client version differ.

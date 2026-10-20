@@ -350,9 +350,9 @@ pnpm dist:win
 desktop/release/OhMyCode-Setup-<version>-x64.exe
 ```
 
-### macOS Apple Silicon
+### macOS（Apple Silicon / Intel）
 
-在 Apple Silicon Mac（M1/M2/M3 等）的终端中执行：
+在 Mac 的终端中执行：
 
 ```bash
 cd desktop
@@ -360,25 +360,35 @@ pnpm install --frozen-lockfile
 pnpm dist:mac
 ```
 
-该命令生成 arm64 DMG：
+该命令生成 Apple Silicon arm64 和 Intel x86_64 两种 DMG：
 
 ```text
 desktop/release/OhMyCode-Setup-<version>-arm64.dmg
+desktop/release/OhMyCode-Setup-<version>-x64.dmg
 ```
 
 当前构建没有配置 Windows 代码签名或 Apple Developer ID 签名与公证，因此分发给其他设备
 时可能触发 SmartScreen 或 Gatekeeper 提示。正式公开发布前应配置对应平台的签名证书；
 不要把证书、密码或 Apple 凭据写入仓库。
 
+如果 macOS 提示应用“已损坏”，先核对 Release 附带的 SHA-256，将应用移入“应用程序”，
+再仅对可信的 OhMyCode 执行：
+
+```bash
+xattr -dr com.apple.quarantine "/Applications/OhMyCode.app"
+```
+
+此操作不会关闭系统全局安全检查；应用路径不同时需替换为实际路径。
+
 ### GitHub Release
 
 推送与 `desktop/package.json` 版本一致的 Tag 后，`.github/workflows/release.yml` 会使用
-GitHub Actions 自带的 `GITHUB_TOKEN`，分别构建 Windows x64 和 macOS arm64 安装包，
+GitHub Actions 自带的 `GITHUB_TOKEN`，分别构建 Windows x64、macOS arm64 和 macOS x64 安装包，
 生成 SHA-256 校验文件并发布到当前仓库的 GitHub Releases：
 
 ```bash
-git tag v0.2.0
-git push origin v0.2.0
+git tag v1.0.1
+git push origin v1.0.1
 ```
 
 Tag 与客户端版本不一致时，Release workflow 会立即失败，不会发布错误版本。

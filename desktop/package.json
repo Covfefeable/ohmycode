@@ -1,6 +1,6 @@
 {
   "name": "@ohmycode/desktop",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "description": "Electron desktop client for OhMyCode",
   "main": "dist-electron/main.js",
@@ -15,7 +15,7 @@
     "test:ui": "vitest run",
     "test:browser": "node --test tests/browser/*.test.mjs",
     "dist:win": "pnpm build && electron-builder --win nsis --x64",
-    "dist:mac": "pnpm build && electron-builder --mac dmg --arm64",
+    "dist:mac": "pnpm build && electron-builder --mac dmg --arm64 --x64",
     "typecheck": "tsc -b --pretty false",
     "lint": "eslint .",
     "prepare:node-pty": "node scripts/ensure-node-pty-helper.mjs",
@@ -120,7 +120,8 @@
         {
           "target": "dmg",
           "arch": [
-            "arm64"
+            "arm64",
+            "x64"
           ]
         }
       ]
