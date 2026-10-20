@@ -1,6 +1,18 @@
 import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from "electron";
 
 const bridge: DesktopBridge = {
+  browser: {
+    state: (id) => ipcRenderer.invoke("browser:state", id),
+    setOpened: (id, opened) => ipcRenderer.invoke("browser:open", id, opened),
+    command: (id, command) => ipcRenderer.invoke("browser:command", id, command),
+    layout: (id, bounds) => ipcRenderer.invoke("browser:layout", id, bounds),
+    onState: (id, callback) => {
+      const channel = `browser:state:${id}`;
+      const listener = (_event: IpcRendererEvent, state: import("@ohmycode/browser-use/types").BrowserState) => callback(state);
+      ipcRenderer.on(channel, listener);
+      return () => ipcRenderer.removeListener(channel, listener);
+    },
+  },
   projects: {
     list: () => ipcRenderer.invoke("projects:list"),
     searchConversations: (query) => ipcRenderer.invoke("projects:search-conversations", query),

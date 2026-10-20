@@ -47,6 +47,7 @@ export async function streamMessage(
     : models[0];
   const attachmentPaths = new Set((attachments ?? []).map((item) => item.path));
   const registry = new DesktopToolRegistry({
+    conversationId,
     execution,
     executionContext,
     workspaceRoot,

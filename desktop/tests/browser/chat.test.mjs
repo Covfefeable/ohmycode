@@ -73,6 +73,50 @@ test("三个页面同步收起侧栏，内容填满可用空间，项目展开�
   await page.getByRole("button", { name: "Remembered chat", exact: true }).waitFor();
 });
 
+test("聊天右侧浏览器面板独立开关，标题栏和输入框不被遮挡", async () => {
+  await page.goto(`${baseUrl}/tests/browser/search.html`);
+  await page.getByText("Live output", { exact: true }).waitFor();
+  await page.getByRole("button", { name: "Browser", exact: true }).click();
+  const panel = page.getByRole("complementary", { name: "Browser", exact: true });
+  await panel.waitFor();
+  const bounds = await panel.boundingBox();
+  assert.ok(bounds.width >= 280 && bounds.x + bounds.width <= 1100);
+  const address = await panel.getByRole("textbox", { name: "Enter a URL" }).boundingBox();
+  assert.ok(address.y > 32 && address.x >= bounds.x);
+  const handle = page.getByRole("separator", { name: "Resize browser" });
+  const grip = await handle.boundingBox();
+  await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(grip.x - 100, grip.y + grip.height / 2, { steps: 8 });
+  await page.mouse.up();
+  const wider = await panel.boundingBox();
+  assert.ok(wider.width > bounds.width + 60, "Dragging left expands the browser");
+  await handle.focus();
+  await page.keyboard.press("ArrowRight");
+  assert.ok((await panel.boundingBox()).width < wider.width, "Keyboard resizing works too");
+  assert.ok(await page.getByText("Live output", { exact: true }).isVisible());
+  await panel.getByRole("button", { name: "Hide browser" }).click();
+  assert.equal(await panel.count(), 0);
+  await page.getByRole("button", { name: "Browser", exact: true }).click();
+  await panel.waitFor();
+  assert.ok((await panel.boundingBox()).width > bounds.width + 40, "Width survives closing and reopening");
+  await page.setViewportSize({ width: 1600, height: 900 });
+  const wideGrip = await handle.boundingBox();
+  await page.mouse.move(wideGrip.x + 4, wideGrip.y + wideGrip.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(0, wideGrip.y + wideGrip.height / 2, { steps: 8 });
+  await page.mouse.up();
+  const available = await panel.evaluate((element) => element.parentElement.getBoundingClientRect().width);
+  assert.ok((await panel.boundingBox()).width > 720, "Wide screens are not capped at 720px");
+  assert.ok(Math.abs((await panel.boundingBox()).width - available * 0.75) < 2);
+  const expandedGrip = await handle.boundingBox();
+  await page.mouse.move(expandedGrip.x + 4, expandedGrip.y + expandedGrip.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(1590, expandedGrip.y + expandedGrip.height / 2, { steps: 8 });
+  await page.mouse.up();
+  assert.ok(Math.abs((await panel.boundingBox()).width - available * 0.15) < 2);
+});
+
 test("调试上下文使用真实 Monaco 展示请求，可切换 Schema 且弹窗不溢出", async () => {
   await page.goto(`${baseUrl}/tests/browser/search.html`);
   await page.getByText("Live output", { exact: true }).waitFor();

@@ -17,6 +17,7 @@ import { activeThreadTurn, getThreadSnapshot, interruptTurn, startTurn, waitForT
 import { enqueueFollowup, followupSnapshot, resumeFollowups, steerFollowup, withdrawFollowup } from "../runtime/followup-host.js";
 import type { ConversationHistoryQuery, MessageAttachment, MessageSearchQuery } from "../projects/types.js";
 import { savePastedImage } from "../files/pasted-image.js";
+import { activeBrowser } from "../browser/browser-service.js";
 
 export function registerProjectsIpc(): void {
   ipcMain.handle("conversations:save-pasted-image", (_event, data: Uint8Array) => savePastedImage(data));
@@ -27,7 +28,10 @@ export function registerProjectsIpc(): void {
   ipcMain.handle("projects:open", (_event, projectId: string) => openProject(projectId));
   ipcMain.handle("projects:delete", (_event, projectId: string) => deleteProject(projectId));
   ipcMain.handle("projects:create-conversation", (_event, projectId: string, title: string) => createConversation(projectId, title));
-  ipcMain.handle("projects:delete-conversation", (_event, projectId: string, conversationId: string) => deleteConversation(projectId, conversationId));
+  ipcMain.handle("projects:delete-conversation", async (_event, projectId: string, conversationId: string) => {
+    await deleteConversation(projectId, conversationId);
+    activeBrowser().closeSession(conversationId);
+  });
   ipcMain.handle("conversations:get", (_event, conversationId: string) => getConversation(conversationId));
   ipcMain.handle("conversations:history", (_event, conversationId: string, options?: ConversationHistoryQuery) => getConversationHistory(conversationId, options));
   ipcMain.handle("conversations:branch", (_event, conversationId: string, messageId: string) => branchConversation(conversationId, messageId));

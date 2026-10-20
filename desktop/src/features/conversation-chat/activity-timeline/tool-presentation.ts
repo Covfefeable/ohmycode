@@ -58,6 +58,12 @@ const FILE_PRESENTATIONS: Record<string, ToolPresentation> = {
     labels: { running: "agent.viewingImage", completed: "agent.viewedImage", failed: "agent.viewImageFailed" },
     viewer: "image",
   },
+  browser_screenshot: {
+    kind: "file",
+    icon: "image",
+    labels: { running: "agent.viewingImage", completed: "agent.viewedImage", failed: "agent.viewImageFailed" },
+    viewer: "image",
+  },
 };
 
 export function toolPresentation(toolName: string): ToolPresentation {

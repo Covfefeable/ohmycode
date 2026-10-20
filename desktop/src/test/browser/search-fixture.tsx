@@ -7,6 +7,7 @@ import { SpeechProvider } from "../../features/speech/SpeechProvider";
 import { DebugPanel } from "../../features/debug-panel";
 import { MemoryRouter } from "react-router-dom";
 import type { MessageLocation } from "../../entities/conversation/types";
+import type { BrowserState } from "@ohmycode/browser-use/types";
 import { i18n } from "../../app/i18n";
 import "../../app/global.css";
 import styles from "./search-fixture.module.css";
@@ -21,8 +22,20 @@ const listeners = new Set<(event: RuntimeEvent) => void>();
 let sequence = 3;
 declare global { interface Window { searchFixture: { emitDelta(): void } } }
 window.searchFixture = { emitDelta() { for (const listener of listeners) listener({ type: "item.delta", threadId: "thread", turnId: "live", sequence: ++sequence, itemId: "live-answer", delta: " background continues" }); } };
+let browserState: BrowserState = { tabs: [], selectedId: null, opened: false };
+const browserListeners = new Set<(state: BrowserState) => void>();
 
 Object.defineProperty(window, "ohmycode", { configurable: true, value: {
+  browser: {
+    state: async () => browserState,
+    onState: (_id: string, listener: (state: BrowserState) => void) => { browserListeners.add(listener); return () => browserListeners.delete(listener); },
+    setOpened: async (_id: string, opened: boolean) => {
+      browserState = { ...browserState, opened };
+      for (const listener of browserListeners) listener(browserState);
+      return browserState;
+    },
+    layout: async () => {},
+  },
   debug: {
     getConfig: async () => ({ apiUrl: "http://localhost:8765" }),
     contextSnapshot: async (conversationId: string) => ({ conversationId, title: "Fixture conversation", snapshot: {

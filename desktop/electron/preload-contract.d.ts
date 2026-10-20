@@ -1,4 +1,11 @@
 interface DesktopBridge {
+    browser: {
+      state(id: string): Promise<import("@ohmycode/browser-use/types").BrowserState>;
+      setOpened(id: string, opened: boolean): Promise<import("@ohmycode/browser-use/types").BrowserState>;
+      command(id: string, command: import("@ohmycode/browser-use/types").BrowserCommand): Promise<import("@ohmycode/browser-use/types").BrowserState>;
+      layout(id: string | null, bounds: import("@ohmycode/browser-use/types").BrowserBounds | null): Promise<void>;
+      onState(id: string, callback: (state: import("@ohmycode/browser-use/types").BrowserState) => void): () => void;
+    };
     projects: {
       list(): Promise<LocalProject[]>;
       searchConversations(query: string): Promise<ConversationSearchResult[]>;

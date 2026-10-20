@@ -23,12 +23,15 @@ import { createImagePlugin } from "./tools/image-plugin.js";
 import { createTaskPlanPlugin } from "./tools/task-plan-plugin.js";
 import { createTerminalPlugin } from "./tools/terminal-plugin.js";
 import { createToolResultPlugin } from "./tools/tool-result-plugin.js";
+import { createBrowserPlugin } from "@ohmycode/browser-use";
+import { activeBrowser } from "../browser/browser-service.js";
 
 type RegistryOptions = {
   execution: DesktopTurnExecution;
   executionContext?: DesktopExecutionContext;
   workspaceRoot?: string;
   projectId: string;
+  conversationId: string;
   supportsVision: boolean;
   initialDynamicDefinitions?: ProviderToolDefinition[];
   onDynamicDefinitionsChanged?(definitions: ProviderToolDefinition[]): void;
@@ -68,6 +71,7 @@ export class DesktopToolRegistry implements ToolExecutor {
 
   constructor(private readonly options: RegistryOptions) {
     this.registry.register(createTaskPlanPlugin());
+    this.registry.register(createBrowserPlugin(activeBrowser(), options.conversationId, options.supportsVision, options.execution.signal));
     if (options.executionContext) {
       this.registry.register(createCollaborationPlugin(options.executionContext));
     }

@@ -1,5 +1,7 @@
 import { app, BrowserWindow } from "electron";
 import { registerAuthIpc } from "./ipc/register-auth-ipc.js";
+import { registerBrowserIpc } from "./ipc/register-browser-ipc.js";
+import { closeBrowsers } from "./browser/browser-service.js";
 import { registerCapabilitiesIpc } from "./ipc/register-capabilities-ipc.js";
 import { registerSystemIpc } from "./ipc/register-system-ipc.js";
 import { registerSettingsIpc } from "./ipc/register-settings-ipc.js";
@@ -33,6 +35,7 @@ if (!hasSingleInstanceLock) {
   app.whenReady().then(() => {
     initializeAgentRuntime();
     registerAuthIpc();
+    registerBrowserIpc();
     registerCapabilitiesIpc();
     registerSystemIpc();
     registerSettingsIpc();
@@ -52,6 +55,7 @@ app.on("window-all-closed", () => {
 });
 
 app.on("before-quit", () => {
+  closeBrowsers();
   stopSpeech();
   closeAgentRuntime();
   stopAllTerminals();

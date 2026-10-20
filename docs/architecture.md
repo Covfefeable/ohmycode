@@ -85,6 +85,27 @@ the access credential. Beat removes samples older than 24 hours every hour.
 
 ## Data and control flow
 
+### Built-in Desktop browser
+
+`packages/browser-use` is an explicitly Electron-specific package. It owns managed
+`WebContentsView` instances, per-conversation tabs and page-scoped CDP commands.
+Desktop supplies a window adapter, a narrow browser preload API, and the chat's
+right-hand panel. Browser pages have no application preload or Node integration.
+No remote debugging port is opened, and the application renderer is never a CDP target.
+
+The Runtime registers browser tools alongside file and terminal plugins. Their schemas
+are sent upfront in the provider's `tools` field, not discovered through MCP search.
+Screenshot is advertised only for vision-capable models. The existing tool loop and
+image-result protocol are reused; Flask has no browser-specific orchestration.
+The browser is not an external Chrome MCP process and requires no separate Chrome install.
+
+Panel hiding and conversation switches hide the native view but retain its pages
+and background rendering so screenshots still work. Modal dialogs temporarily hide
+the view so native content cannot cover them.
+Closing the host, logging out or deleting a conversation releases the associated pages.
+
+### Normal chat turn
+
 A normal chat turn flows like this:
 
 1. The user sends a message in the React UI.

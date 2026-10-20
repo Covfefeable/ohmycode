@@ -1,4 +1,6 @@
 export const en = {
+  browserResize: "Resize browser",
+  browser: { title: "Browser", close: "Hide browser", newTab: "New tab", closeTab: "Close tab", back: "Back", forward: "Forward", reload: "Reload", address: "Enter a URL", empty: "Enter a URL or ask the agent to open a page", failed: "Could not load the page. Check the URL or connection and retry." },
   speech: {
     title: "Voice", description: "Configure live dictation and read-aloud with Alibaba Cloud Model Studio.",
     addVoice: "Add custom voice", createVoice: "Create voice", defaultVoice: "Default",

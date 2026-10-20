@@ -25,6 +25,9 @@ importers:
       '@ohmycode/agent-runtime':
         specifier: workspace:*
         version: link:../packages/agent-runtime
+      '@ohmycode/browser-use':
+        specifier: workspace:*
+        version: link:../packages/browser-use
       '@ohmycode/design-tokens':
         specifier: workspace:*
         version: link:../packages/design-tokens

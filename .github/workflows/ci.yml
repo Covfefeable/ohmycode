@@ -65,6 +65,10 @@ jobs:
         run: pnpm --dir desktop test:file-tools
       - name: Desktop lint
         run: pnpm --dir desktop lint
+      - name: Browser package lint and boundary regression
+        run: |
+          pnpm --dir packages/browser-use lint
+          node --test scripts/check-package-boundaries.test.mjs
       - name: Desktop build
         run: pnpm --dir desktop build
       - name: Mobile lint
@@ -101,6 +105,8 @@ jobs:
         run: pnpm --dir desktop test:runtime
       - name: Native path and file tool regression
         run: pnpm --dir desktop test:file-tools
+      - name: Embedded browser regression
+        run: pnpm --dir packages/browser-use test
 
   migrations:
     runs-on: ubuntu-latest

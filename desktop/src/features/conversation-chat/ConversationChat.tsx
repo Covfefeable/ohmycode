@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowDown, AudioLines, Check, Copy, GitBranch, LoaderCircle, Pencil, Search } from "lucide-react";
+import { ArrowDown, AudioLines, Check, Copy, GitBranch, Globe, LoaderCircle, Pencil, Search } from "lucide-react";
+import { BrowserPanel } from "../browser-panel/BrowserPanel";
+import { useBrowser } from "../browser-panel/useBrowser";
 import { ReadAloudButton } from "../speech/ReadAloudButton";
 import { TaskComposer } from "../task-composer";
 import { useFeedback } from "../feedback";
@@ -34,6 +36,7 @@ type ConversationChatProps = { conversationId: string; active: boolean; searchLo
 export function ConversationChat({ conversationId, active, searchLocation, onUpdated, onBranched }: ConversationChatProps) {
   const { t, i18n } = useTranslation();
   const { toast } = useFeedback();
+  const browser = useBrowser(conversationId);
   const speech = useSpeech();
   useConversationSpeech(conversationId);
   const capabilityOptions = usePromptCapabilities();
@@ -159,7 +162,7 @@ export function ConversationChat({ conversationId, active, searchLocation, onUpd
 
   if (controller.loadFailed && !conversation) return <LoadError message={t("agent.loadFailed")} onRetry={controller.retry} />;
   if (!conversation) return <FullScreenLoading />;
-  return <ImageScopeContext.Provider value={{ conversationId }}><section
+  return <ImageScopeContext.Provider value={{ conversationId }}><div className={styles.layout}><section
     className={`${styles.chat} ${dragActive ? styles.dragActive : ""}`}
     onDragEnter={(event) => {
       if (!event.dataTransfer.types.includes("Files")) return;
@@ -190,6 +193,7 @@ export function ConversationChat({ conversationId, active, searchLocation, onUpd
         {search.view && <button className={styles.returnLatest} onClick={forceScrollToBottom}><ArrowDown />{t("agent.returnLatest")}</button>}
         <Tooltip content={t(speech.settings?.autoPlay ? "speech.autoPlayOn" : "speech.autoPlayOff")}><IconButton active={speech.settings?.autoPlay} aria-pressed={Boolean(speech.settings?.autoPlay)} aria-label={t("speech.autoPlay")} onClick={() => void speech.toggle()}><AudioLines /></IconButton></Tooltip>
         <Tooltip content={t("agent.searchConversation")}><IconButton aria-label={t("agent.searchConversation")} onClick={() => { openSearch(); searchInputRef.current?.focus(); }}><Search /></IconButton></Tooltip>
+        <Tooltip content={t("browser.title")}><IconButton active={browser.state.opened} aria-pressed={browser.state.opened} aria-label={t("browser.title")} onClick={() => void browser.toggle()}><Globe /></IconButton></Tooltip>
       </div></div>
       {search.opened && <ConversationSearchBar inputRef={searchInputRef} query={search.query} result={search.result} loading={search.loading} failed={search.failed} onChange={(value) => { autoScrollLockedRef.current = false; search.changeQuery(value); }} onMove={(direction) => { autoScrollLockedRef.current = false; search.move(direction); }} onClose={search.close} onRetry={search.retry} />}
     </header>
@@ -234,5 +238,5 @@ export function ConversationChat({ conversationId, active, searchLocation, onUpd
       <FollowupStrip state={followups} running={sending} onSteer={(id) => void queueAction(() => window.ohmycode.conversations.steer(conversationId, id))} onWithdraw={(id) => void withdraw(id)} onResume={() => void queueAction(() => window.ohmycode.conversations.resumeQueue(conversationId))} />
       <TaskComposer sessionId={conversationId} onPasteImages={pasteImages} busy={sending} disabled={Boolean(editing)} models={controller.models} selectedModelId={controller.selectedModelId} contextUsage={controller.contextUsage} attachments={attachments} suggestions={controller.suggestions} restoredInput={restoredInput} onRemoveAttachment={(id) => setAttachments((items) => items.filter((item) => item.id !== id))} onModelChange={controller.setSelectedModelId} onSubmit={(content, items) => send(content, items)} onStop={controller.stop} />
     </div>
-  </section></ImageScopeContext.Provider>;
+  </section>{browser.state.opened && <BrowserPanel conversationId={conversationId} state={browser.state} active={active} onClose={() => void browser.toggle()} />}</div></ImageScopeContext.Provider>;
 }
