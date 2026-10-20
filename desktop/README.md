@@ -12,6 +12,7 @@ Desktop Runtime Host 负责运行 Agent、维护终端与本地工具状态；Re
 - 持久 PTY 终端和跨平台文件工具
 - Markdown、Monaco Diff、MCP、Skills 与上下文压缩
 - 主持人调度的 Multi-Agent 群聊协作
+- 内置浏览器工具及聊天右侧浏览器面板，用户与 Agent 操作同一页面，无需外部 Chrome
 - Windows 与 macOS 桌面安装包
 
 普通对话运行时，待发送消息显示在输入框上方。点击“引导”后，要求会在下一次模型请求前
@@ -22,6 +23,7 @@ Desktop Runtime Host 负责运行 Agent、维护终端与本地工具状态；Re
 
 ```text
 electron/
+  browser/          browser-use 包的宿主适配与状态发布
   api/              Flask API 客户端
   capabilities/     MCP 与 Skill 的本地加载和执行
   files/            文件工具与图片查看
@@ -164,6 +166,17 @@ pnpm --dir desktop dist:mac
 ```
 
 产物位于 `desktop/release/OhMyCode-Setup-<version>-arm64.dmg`。
+
+也可以运行 GitHub Actions 的 **macOS Test Build**，在 macOS runner 上构建 M1/M2 等
+Apple Silicon 测试包，不创建正式 Release。支持手动运行，或推送 `desktop-test-*` 标签：
+
+```bash
+git tag desktop-test-<标识>
+git push origin desktop-test-<标识>
+```
+
+完成后从该次运行的 Artifacts 下载 DMG 和 SHA-256 校验文件。测试包使用正式包的服务端地址，
+不包含 API 服务或本机 `.env`，也不会改变现有发布版本。
 
 当前安装包尚未配置 Windows 代码签名或 Apple Developer ID 签名与公证。正式分发前应配置
 平台证书，且不得将证书、密码或发布凭据提交到仓库。

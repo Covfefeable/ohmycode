@@ -1,0 +1,46 @@
+name: macOS Test Build
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "desktop-test-*"
+
+permissions:
+  contents: read
+
+jobs:
+  macos-arm64:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.15.0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install desktop dependencies
+        run: pnpm install --frozen-lockfile --filter @ohmycode/desktop...
+      - name: Runtime regression
+        run: pnpm --dir desktop test:runtime
+      - name: Embedded browser regression
+        run: pnpm --dir packages/browser-use test
+      - name: Build Apple Silicon DMG
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+        run: pnpm --dir desktop dist:mac
+      - name: Create checksums
+        run: |
+          cd desktop/release
+          for file in *.dmg; do
+            shasum -a 256 "$file" > "$file.sha256"
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: OhMyCode-macOS-arm64-${{ github.sha }}
+          path: |
+            desktop/release/*.dmg
+            desktop/release/*.dmg.sha256
+          if-no-files-found: error
