@@ -5,6 +5,7 @@ from flask_jwt_extended import get_jwt_identity, jwt_required
 
 from ..services.agent import generate_followup_suggestions
 from ..services.agent.executions import start_execution
+from ..services.agent.request_snapshots import get_request_snapshot
 from ..services.conversations import (
     add_message,
     branch_conversation,
@@ -31,6 +32,12 @@ projects_bp = Blueprint("projects", __name__)
 
 def user_id() -> UUID:
     return UUID(get_jwt_identity())
+
+
+@projects_bp.get("/conversations/<uuid:conversation_id>/context-snapshot")
+@jwt_required()
+def context_snapshot_route(conversation_id: UUID):
+    return jsonify(get_request_snapshot(user_id(), current_device(), conversation_id))
 
 
 @projects_bp.get("")

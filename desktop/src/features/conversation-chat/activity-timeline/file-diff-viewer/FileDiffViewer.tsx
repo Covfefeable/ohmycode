@@ -1,12 +1,9 @@
-import { DiffEditor, Editor, loader } from "@monaco-editor/react";
-import * as monaco from "monaco-editor/editor/editor.api";
-import EditorWorker from "monaco-editor/editor/editor.worker?worker";
-import { useEffect, useMemo, useState } from "react";
+import { DiffEditor, Editor } from "@monaco-editor/react";
+import { useMemo, useState } from "react";
+import { useMonacoTheme } from "../../../../shared/lib/monaco";
 import { useTranslation } from "react-i18next";
 import styles from "./FileDiffViewer.module.css";
 
-self.MonacoEnvironment = { getWorker: () => new EditorWorker() };
-loader.config({ monaco });
 
 export type FileChange = {
   path: string;
@@ -31,15 +28,6 @@ function contentWithoutToolLineNumbers(output: string, startLine: number): strin
   }).join("\n");
 }
 
-function useMonacoTheme(): string {
-  const [theme, setTheme] = useState(() => document.documentElement.dataset.theme === "light" ? "light" : "vs-dark");
-  useEffect(() => {
-    const observer = new MutationObserver(() => setTheme(document.documentElement.dataset.theme === "light" ? "light" : "vs-dark"));
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
-    return () => observer.disconnect();
-  }, []);
-  return theme;
-}
 
 export function FileContentViewer({ content, path, startLine = 1 }: { content: string; path: string; startLine?: number }) {
   const theme = useMonacoTheme();

@@ -48,6 +48,7 @@ interface DesktopBridge {
       openDownload(): Promise<void>;
     };
     debug: {
+      contextSnapshot(conversationId: string): Promise<import("./debug/types").ContextSnapshot>;
       getConfig(): Promise<{ apiUrl: string }>;
       setApiUrl(apiUrl: string): Promise<{ apiUrl: string }>;
       openDevTools(): void;

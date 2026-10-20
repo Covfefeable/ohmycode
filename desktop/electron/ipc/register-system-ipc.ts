@@ -1,6 +1,7 @@
 import path from "node:path";
 import { BrowserWindow, ipcMain, shell } from "electron";
 import { getApiUrl, setApiUrl } from "../config.js";
+import { apiRequest } from "../api/api-client.js";
 import { safeExistingPath } from "../files/workspace.js";
 import { listProjects } from "../projects/projects-service.js";
 import { previewWorkspaceImage, type ImageScope } from "../runtime/image-preview.js";
@@ -17,6 +18,7 @@ export function registerSystemIpc(): void {
     }
   });
   ipcMain.handle("debug:get-config", () => ({ apiUrl: getApiUrl() }));
+  ipcMain.handle("debug:context-snapshot", (_event, conversationId: string) => apiRequest(`/api/projects/conversations/${encodeURIComponent(conversationId)}/context-snapshot`));
   ipcMain.handle("debug:set-api-url", (_event, apiUrl: string) => ({ apiUrl: setApiUrl(apiUrl) }));
   ipcMain.on("debug:open-devtools", (event) => BrowserWindow.fromWebContents(event.sender)?.webContents.openDevTools({ mode: "detach" }));
   ipcMain.handle("system:open-path", async (_event, targetPath: string, projectId?: string) => {

@@ -18,6 +18,7 @@ class ModelExecution(db.Model):
     request_key: Mapped[str] = mapped_column(String(64))
     step: Mapped[int] = mapped_column(Integer, default=0)
     parameters: Mapped[dict] = mapped_column(JSON)
+    request_snapshot: Mapped[dict | None] = mapped_column(JSON(none_as_null=True), nullable=True)
     status: Mapped[str] = mapped_column(String(16), default="queued", index=True)
     last_sequence: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

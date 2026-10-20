@@ -71,6 +71,7 @@ const bridge: DesktopBridge = {
     openDownload: () => ipcRenderer.invoke("updates:open-download"),
   },
   debug: {
+    contextSnapshot: (conversationId) => ipcRenderer.invoke("debug:context-snapshot", conversationId),
     getConfig: () => ipcRenderer.invoke("debug:get-config"),
     setApiUrl: (apiUrl) => ipcRenderer.invoke("debug:set-api-url", apiUrl),
     openDevTools: () => ipcRenderer.send("debug:open-devtools"),

@@ -1,0 +1,20 @@
+.dialog { display: flex; flex-direction: column; width: min(1200px, 100%); height: min(850px, calc(100dvh - 48px)); min-height: 0; overflow: hidden; border: 1px solid var(--color-border-strong); border-radius: var(--radius-lg); background: var(--color-surface-1); box-shadow: var(--shadow-panel); color: var(--color-text); }
+.header { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); padding: var(--space-4) var(--space-5); border-bottom: 1px solid var(--color-border); }
+.header > div:first-child { min-width: 0; }
+.header h2 { margin: 0; font-size: var(--font-md); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.header time { display: block; margin-top: var(--space-1); color: var(--color-text-muted); font-size: var(--font-xs); }
+.actions { display: flex; align-items: center; flex: none; gap: var(--space-1); }
+.actions svg { width: 16px; height: 16px; }
+.metrics { display: flex; flex-wrap: wrap; gap: var(--space-3) var(--space-5); margin: 0; padding: var(--space-4) var(--space-5); max-height: 180px; overflow: auto; }
+.metrics div { min-width: 90px; max-width: 260px; }
+.metrics dt { color: var(--color-text-muted); font-size: var(--font-xs); }
+.metrics dd { margin: var(--space-1) 0 0; font-size: var(--font-sm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tabs { display: flex; gap: var(--space-2); padding: 0 var(--space-5) var(--space-2); border-bottom: 1px solid var(--color-border); }
+.tabs button { padding: var(--space-2) var(--space-3); border: 0; border-radius: var(--radius-md); background: transparent; color: var(--color-text-muted); font: inherit; font-size: var(--font-sm); cursor: pointer; }
+.tabs button:hover { background: var(--color-surface-hover); color: var(--color-text); }
+.tabs button[aria-selected="true"] { background: var(--color-surface-2); color: var(--color-accent); }
+.editor { flex: 1; min-height: 0; }
+.dialog:focus { outline: none; }
+.footer, .notice { padding: var(--space-2) var(--space-5); font-size: var(--font-xs); color: var(--color-text-muted); }
+.notice { color: var(--color-text); }
+.empty { display: grid; place-items: center; flex: 1; padding: var(--space-5); color: var(--color-text-muted); font-size: var(--font-sm); text-align: center; }

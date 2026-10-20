@@ -26,6 +26,8 @@ def iter_prepare_completion(
     tools: list[dict],
     system_instructions: str = AGENT_SYSTEM_INSTRUCTIONS,
     continuation: list[dict] | None = None,
+    *,
+    execution_id: UUID | None = None,
 ) -> CompletionPreparation:
     run = db.session.get(AgentRun, run_id)
     if not run:
@@ -98,6 +100,8 @@ def iter_prepare_completion(
         context_length=configuration.context_length,
         payload=payload,
         estimated_input_tokens=context.estimated_tokens,
+        execution_id=execution_id,
+        compacted=context.compacted,
     )
 
 

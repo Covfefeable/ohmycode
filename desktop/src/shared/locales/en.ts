@@ -64,7 +64,15 @@ export const en = {
     connected: "Online",
     starting: "API starting",
   },
-  debug: { title: "Debug settings", close: "Close debug settings", apiUrl: "Server base URL", apiUrlHint: "New requests use the updated address immediately after saving.", openDevTools: "Open developer tools", save: "Save", saved: "Base URL updated.", invalidUrl: "Enter a valid HTTP or HTTPS URL." },
+  debug: {
+    title: "Debug settings", close: "Close debug settings", apiUrl: "Server base URL", apiUrlHint: "New requests use the updated address immediately after saving.", openDevTools: "Open developer tools", save: "Save", saved: "Base URL updated.", invalidUrl: "Enter a valid HTTP or HTTPS URL.",
+    viewContext: "Inspect current conversation context", refresh: "Refresh snapshot", loading: "Loading context…", loadFailed: "Could not load context. Refresh to retry.", copyFailed: "Could not copy. Please try again.",
+    noSnapshot: "No request snapshot yet. Send a new message or run the next tool step to capture one.", notProvided: "Not provided",
+    requestModel: "Request model", requestStatus: "Request status", requestStep: "Request in turn", estimatedTokens: "Estimated input tokens", actualTokens: "Actual input tokens", cachedTokens: "Cached input tokens", occupancy: "Context usage / limit", messageCount: "Messages", toolCount: "Tools", requestSize: "JSON size", compacted: "Compacted for request", yes: "Yes", no: "No",
+    snapshotHint: "Latest actual request. Image bytes are omitted; credentials are not recorded. Refresh never calls the model.",
+    tabs: { messages: "Messages", tools: "Tool schemas", request: "Full request" },
+    status: { queued: "Queued", running: "Running", completed: "Completed", failed: "Failed", cancelled: "Cancelled" },
+  },
   projects: {
     loadFailed: "Could not load projects. Please try again.",
     create: "Create project",

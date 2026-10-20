@@ -4,6 +4,8 @@ import { ConversationChat } from "../../features/conversation-chat";
 import { ProjectList } from "../../features/project-list";
 import { FeedbackProvider } from "../../features/feedback";
 import { SpeechProvider } from "../../features/speech/SpeechProvider";
+import { DebugPanel } from "../../features/debug-panel";
+import { MemoryRouter } from "react-router-dom";
 import type { MessageLocation } from "../../entities/conversation/types";
 import { i18n } from "../../app/i18n";
 import "../../app/global.css";
@@ -21,6 +23,15 @@ declare global { interface Window { searchFixture: { emitDelta(): void } } }
 window.searchFixture = { emitDelta() { for (const listener of listeners) listener({ type: "item.delta", threadId: "thread", turnId: "live", sequence: ++sequence, itemId: "live-answer", delta: " background continues" }); } };
 
 Object.defineProperty(window, "ohmycode", { configurable: true, value: {
+  debug: {
+    getConfig: async () => ({ apiUrl: "http://localhost:8765" }),
+    contextSnapshot: async (conversationId: string) => ({ conversationId, title: "Fixture conversation", snapshot: {
+      capturedAt: "2026-10-20T00:00:00Z", runId: "turn", executionId: "execution", step: 2, status: "completed",
+      body: { model: "actual-request-model", messages: [{ role: "system", content: "Actual system prompt" }, { role: "user", content: "Actual user input" }], tools: [{ type: "function", function: { name: "read_file" } }] },
+      estimatedTokens: 100, contextLength: 4096, compacted: false, messageCount: 2, toolCount: 1, requestBytes: 1000,
+      usage: { prompt_tokens: 120, prompt_tokens_details: { cached_tokens: 80 } },
+    } }),
+  },
   projects: { list: async () => [project], searchConversations: async (query: string) => query === "needle" ? [{ projectId: project.id, projectName: project.name, conversation, messageId: "m-55", snippet: "needle evidence 55" }] : [] },
   capabilities: { onChanged: () => () => {}, listMcp: async () => [], listSkills: async () => [] },
   settings: { onModelsChanged: () => () => {}, listModels: async () => [] },
@@ -56,10 +67,11 @@ Object.defineProperty(window, "ohmycode", { configurable: true, value: {
 
 export function SearchFixture() {
   const [location, setLocation] = useState<MessageLocation>();
-  return <FeedbackProvider><div className={styles.shell}>
+  return <MemoryRouter><FeedbackProvider><DebugPanel /><div className={styles.shell}>
     <aside className={styles.sidebar}><ProjectList selectedConversationId="thread" refreshToken={0} heading={<h2>Workspace</h2>} onConversationDelete={() => {}} onConversationSelect={(_project, _conversation, target) => setLocation(target)} /></aside>
     <div className={styles.content}><SpeechProvider><ConversationChat conversationId="thread" active searchLocation={location} onUpdated={() => {}} onBranched={() => {}} /></SpeechProvider></div>
-  </div></FeedbackProvider>;
+  </div></FeedbackProvider></MemoryRouter>;
 }
+sessionStorage.setItem("ohmycode.activeConversationId", "thread");
 await i18n.changeLanguage("en");
 createRoot(document.getElementById("root")!).render(<SearchFixture />);

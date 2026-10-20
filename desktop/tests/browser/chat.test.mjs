@@ -26,6 +26,29 @@ afterEach(async () => {
 });
 
 const scroller = () => page.locator('[data-virtuoso-scroller="true"]');
+
+test("调试上下文使用真实 Monaco 展示请求，可切换 Schema 且弹窗不溢出", async () => {
+  await page.goto(`${baseUrl}/tests/browser/search.html`);
+  await page.getByText("Live output", { exact: true }).waitFor();
+  await page.keyboard.type("ohmycodedebug");
+  await page.getByRole("button", { name: "Inspect current conversation context" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByText("actual-request-model", { exact: true }).waitFor();
+  await dialog.locator(".monaco-editor").waitFor();
+  await dialog.locator(".view-lines").getByText(/Actual\s+system\s+prompt/).waitFor();
+  await dialog.getByRole("tab", { name: "Tool schemas" }).click();
+  await dialog.locator(".view-lines").getByText(/read_file/).waitFor();
+  await dialog.locator(".monaco-editor textarea").focus();
+  await page.keyboard.press("Control+f");
+  await dialog.locator(".find-widget.visible").waitFor();
+  assert.equal(await page.getByRole("search").count(), 0, "Editor search must not open the conversation search behind the modal");
+  await page.keyboard.press("Escape");
+  assert.ok(await dialog.isVisible(), "Escape dismisses editor search before the dialog");
+  const bounds = await dialog.boundingBox();
+  assert.ok(bounds && bounds.x >= 0 && bounds.y >= 0 && bounds.x + bounds.width <= 1100 && bounds.y + bounds.height <= 800);
+  await dialog.getByRole("button", { name: "Close", exact: true }).click();
+  await page.getByRole("heading", { name: "Debug settings" }).waitFor();
+});
 async function settle() {
   await page.evaluate(() => new Promise((resolve) => {
     let remaining = 4;

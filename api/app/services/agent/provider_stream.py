@@ -4,6 +4,7 @@ from uuid import UUID
 from openai import APIStatusError, OpenAI
 
 from .config import MODEL_REQUEST_TIMEOUT_SECONDS, MODEL_STREAM_ATTEMPTS
+from .request_snapshots import record_request, record_request_usage
 
 
 @dataclass(frozen=True)
@@ -15,6 +16,8 @@ class PreparedCompletion:
     context_length: int
     payload: dict
     estimated_input_tokens: int = 0
+    execution_id: UUID | None = None
+    compacted: bool = False
 
 
 def _base_url(endpoint: str) -> str:
@@ -42,11 +45,15 @@ def provider_payloads(prepared: PreparedCompletion):
         max_retries=max(0, MODEL_STREAM_ATTEMPTS - 1),
     ) as client:
         try:
+            record_request(prepared, request_payload)
             stream = client.chat.completions.create(**request_payload)
         except APIStatusError as error:
             if error.status_code != 400 or "stream_options" not in request_payload:
                 raise
             request_payload.pop("stream_options")
+            record_request(prepared, request_payload)
             stream = client.chat.completions.create(**request_payload)
         for chunk in stream:
-            yield _payload(chunk)
+            payload = _payload(chunk)
+            record_request_usage(prepared.execution_id, payload.get("usage") or {})
+            yield payload

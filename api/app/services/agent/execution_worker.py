@@ -90,6 +90,7 @@ def execute_execution(execution_id: UUID) -> None:
             parameters["workspace_instructions"],
             parameters["tools"],
             parameters["system_instructions"],
+            execution_id=execution.id,
         )
         source = stream_completion(preparation, is_active=active)
         for event in source:
