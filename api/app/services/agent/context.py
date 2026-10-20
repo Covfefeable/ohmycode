@@ -125,7 +125,9 @@ def iter_prepare_context(
         TOOL_RESULT_TOKEN_BUDGET,
         max(0, int(threshold / factor) - retained_tokens) // (result_count + 1),
     )
-    batches = tool_batches(run, after_sequence, result_budget)
+    batches = tool_batches(
+        run, after_sequence, result_budget, supports_vision=model.supports_vision
+    )
     latest_input_sequence = next(
         (event.sequence for event in reversed(run.events) if event.event_type == "input.received"),
         0,

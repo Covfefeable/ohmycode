@@ -3,6 +3,7 @@ from collections.abc import Callable
 from uuid import UUID
 
 from ..errors import ServiceError
+from .image_context import text_only_images
 from .runs import get_owned_run
 from .tokens import estimate_tokens
 
@@ -13,6 +14,7 @@ SEARCH_CONTEXT_CHARACTERS = 128
 
 
 def render_tool_result(result: object) -> str:
+    result = text_only_images(result)
     if isinstance(result, dict):
         content = result.get("content")
         if isinstance(content, list):

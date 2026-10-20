@@ -3,6 +3,7 @@ from dataclasses import dataclass
 
 from ...models import AgentRun
 from .config import TOOL_RESULT_TOKEN_BUDGET
+from .image_context import text_only_images
 from .tokens import estimate_tokens
 from .tool_results import render_tool_result, slice_to_token_budget
 
@@ -14,7 +15,7 @@ class ToolBatch:
 
 
 def tool_result_content(run: AgentRun, item: dict, token_budget: int) -> str:
-    serialized = json.dumps(item["result"], ensure_ascii=False)
+    serialized = json.dumps(text_only_images(item["result"]), ensure_ascii=False)
     if estimate_tokens(serialized) <= token_budget:
         return serialized
     rendered = render_tool_result(item["result"])
@@ -46,7 +47,23 @@ def tool_result_content(run: AgentRun, item: dict, token_budget: int) -> str:
 
 
 def image_tool_content(result: object) -> list[dict] | None:
-    if not isinstance(result, dict) or result.get("contentKind") != "image":
+    if not isinstance(result, dict):
+        return None
+    if isinstance(result.get("content"), list):
+        images = [
+            {
+                "type": "image_url",
+                "image_url": {"url": f"data:{part['mimeType']};base64,{part['data']}"},
+            }
+            for part in result["content"]
+            if isinstance(part, dict)
+            and part.get("type") == "image"
+            and isinstance(part.get("data"), str)
+            and isinstance(part.get("mimeType"), str)
+            and part["mimeType"].startswith("image/")
+        ]
+        return images or None
+    if result.get("contentKind") != "image":
         return None
     data_url = result.get("dataUrl")
     if not isinstance(data_url, str) or not data_url.startswith("data:image/"):
@@ -65,7 +82,11 @@ def image_tool_content(result: object) -> list[dict] | None:
 
 
 def tool_batches(
-    run: AgentRun, after_sequence: int = 0, token_budget: int = TOOL_RESULT_TOKEN_BUDGET
+    run: AgentRun,
+    after_sequence: int = 0,
+    token_budget: int = TOOL_RESULT_TOKEN_BUDGET,
+    *,
+    supports_vision: bool,
 ) -> list[ToolBatch]:
     batches = []
     pending: list[dict] = []
@@ -84,8 +105,7 @@ def tool_batches(
             images = []
             for item in event.payload["results"]:
                 result = item["result"]
-                if image_parts := image_tool_content(result):
-                    result = {key: value for key, value in result.items() if key != "dataUrl"}
+                if supports_vision and (image_parts := image_tool_content(result)):
                     images.append({"role": "user", "content": image_parts})
                 pending.append(
                     {

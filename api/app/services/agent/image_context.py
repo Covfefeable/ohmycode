@@ -38,6 +38,11 @@ def text_only_images(value: object) -> object:
             "type": "text",
             "text": "[Image content omitted from history]" if url.startswith("data:") else url,
         }
+    if value.get("type") == "image" and isinstance(value.get("mimeType"), str):
+        return {
+            **{key: text_only_images(item) for key, item in value.items() if key != "data"},
+            "imageOmitted": True,
+        }
     return {
         key: text_only_images(item)
         for key, item in value.items()

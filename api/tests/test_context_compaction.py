@@ -454,6 +454,7 @@ def test_summary_pages_fit_a_smaller_configured_summary_model(workspace, monkeyp
 
 def test_large_image_results_remain_multimodal_without_base64_token_inflation(workspace):
     w = workspace
+    w.model.supports_vision = True
     w.model.context_length = 262144
     add_batch(w.run, "image", "placeholder", calls=2)
     output = next(event for event in w.run.events if event.event_type == "tool.output")
