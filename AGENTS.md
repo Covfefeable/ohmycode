@@ -21,7 +21,7 @@
 - Flask routes perform request parsing, authentication boundary handling, and response serialization only. Business logic belongs under `api/app/services/`.
 - SQLAlchemy persistence models belong under `api/app/models/`. Schema changes require a migration.
 - The platform-neutral Agent Runtime owns Thread / Turn / Item execution; the Electron desktop host is the source of truth for active desktop tools and terminal state.
-- Shared packages under `packages/` must not import Electron, React Native, Expo, Node built-ins, or application directories.
+- Packages under `packages/` are platform-neutral by default and must not import Electron, React Native, Expo, Node built-ins, or platform-specific workspace packages. A package may explicitly declare `ohmycode.platform: "electron"` in its package.json when it is an Electron-specific integration; those packages may import Electron and Node but not React Native or Expo. No package may import application directories such as desktop, mobile, or api.
 - React Renderer code must not execute operating-system commands or access Node APIs directly. Use the narrow preload/IPC boundary.
 - Keep local tools behind the Runtime. Do not expose generic terminal or filesystem execution APIs to the Renderer.
 - Ordinary chat and Multi-Agent execution must reuse the same Runtime and event model.

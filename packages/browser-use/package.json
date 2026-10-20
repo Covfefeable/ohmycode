@@ -1,0 +1,33 @@
+{
+  "name": "@ohmycode/browser-use",
+  "version": "0.1.0",
+  "private": true,
+  "author": "OhMyCode contributors",
+  "packageManager": "pnpm@10.15.0",
+  "description": "Isolated Electron browser views and agent browser tools",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist"],
+  "exports": { ".": "./dist/index.js", "./types": "./dist/types.js", "./definitions": "./dist/definitions.js" },
+  "ohmycode": { "platform": "electron" },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint src test",
+    "test": "pnpm build && node --test test/*.test.mjs",
+    "test:electron": "pnpm build && node --test test/electron.test.mjs"
+  },
+  "dependencies": {
+    "@ohmycode/tool-contracts": "workspace:*"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "26.2.0",
+    "electron": "43.4.1",
+    "eslint": "10.9.0",
+    "globals": "17.11.0",
+    "typescript-eslint": "8.67.0",
+    "typescript": "5.9.3"
+  }
+}

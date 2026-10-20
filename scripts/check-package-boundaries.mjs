@@ -1,13 +1,33 @@
 import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
+import { isBuiltin } from "node:module";
 
 const root = process.cwd();
 const packagesRoot = path.join(root, "packages");
 const sourceExtensions = new Set([".ts", ".tsx", ".js", ".mjs"]);
-const forbiddenPackages = /^(electron|react-native|expo(?:-|$)|node:)/;
+const platformRules = {
+  neutral: /^(electron(?:\/|$)|react-native(?:[-/]|$)|expo(?:[-/]|$)|@expo\/)/,
+  electron: /^(react-native(?:[-/]|$)|expo(?:[-/]|$)|@expo\/)/,
+};
 const importPattern = /(?:from\s+|import\s*\(|require\s*\()\s*["']([^"']+)["']/g;
 const violations = [];
+const packages = [];
+
+for (const entry of await readdir(packagesRoot, { withFileTypes: true })) {
+  if (!entry.isDirectory()) continue;
+  const directory = path.join(packagesRoot, entry.name);
+  let metadata;
+  try {
+    metadata = JSON.parse(await readFile(path.join(directory, "package.json"), "utf8"));
+  } catch (error) {
+    if (error?.code === "ENOENT") continue;
+    throw error;
+  }
+  const platform = metadata.ohmycode?.platform ?? "neutral";
+  if (!Object.hasOwn(platformRules, platform)) throw new Error(`Unsupported package platform: ${platform}`);
+  packages.push({ directory, name: metadata.name, platform });
+}
 
 async function sourceFiles(directory) {
   const files = [];
@@ -20,9 +40,8 @@ async function sourceFiles(directory) {
   return files;
 }
 
-for (const entry of await readdir(packagesRoot, { withFileTypes: true })) {
-  if (!entry.isDirectory()) continue;
-  const sourceRoot = path.join(packagesRoot, entry.name, "src");
+for (const workspace of packages) {
+  const sourceRoot = path.join(workspace.directory, "src");
   let files = [];
   try {
     files = await sourceFiles(sourceRoot);
@@ -39,8 +58,14 @@ for (const entry of await readdir(packagesRoot, { withFileTypes: true })) {
         : "";
       const importsApplication =
         resolved.includes(`${path.sep}desktop${path.sep}`) ||
-        resolved.includes(`${path.sep}mobile${path.sep}`);
-      if (forbiddenPackages.test(specifier) || importsApplication) {
+        resolved.includes(`${path.sep}mobile${path.sep}`) ||
+        resolved.includes(`${path.sep}api${path.sep}`);
+      const importedPackage = packages.find((item) =>
+        specifier === item.name || specifier.startsWith(`${item.name}/`) ||
+        resolved.startsWith(`${item.directory}${path.sep}`));
+      const crossesPlatform = workspace.platform === "neutral" &&
+        (isBuiltin(specifier) || importedPackage && importedPackage.platform !== "neutral");
+      if (platformRules[workspace.platform].test(specifier) || crossesPlatform || importsApplication) {
         violations.push(`${path.relative(root, file)} imports ${specifier}`);
       }
     }
