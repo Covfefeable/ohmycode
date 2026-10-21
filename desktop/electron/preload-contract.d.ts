@@ -1,5 +1,6 @@
 interface DesktopBridge {
     browser: {
+      reserveSpace(width: number): Promise<number>;
       state(id: string): Promise<import("@ohmycode/browser-use/types").BrowserState>;
       setOpened(id: string, opened: boolean): Promise<import("@ohmycode/browser-use/types").BrowserState>;
       command(id: string, command: import("@ohmycode/browser-use/types").BrowserCommand): Promise<import("@ohmycode/browser-use/types").BrowserState>;

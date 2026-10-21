@@ -12,7 +12,7 @@ export function BrowserPanel({ conversationId, state, active, onClose }: { conve
   const { t } = useTranslation();
   const viewport = useRef<HTMLDivElement>(null);
   const panel = useRef<HTMLElement>(null);
-  const resize = useBrowserResize(panel);
+  const resize = useBrowserResize(panel, active);
   const [failed, setFailed] = useState(false);
   const selected = state.tabs.find((tab) => tab.id === state.selectedId);
   useBrowserViewport(conversationId, viewport, active);

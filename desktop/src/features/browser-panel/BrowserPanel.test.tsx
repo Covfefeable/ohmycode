@@ -6,10 +6,11 @@ import { BrowserPanel } from "./BrowserPanel";
 const state: BrowserState = { opened: true, selectedId: "tab-1", tabs: [{ id: "tab-1", title: "Example", url: "https://example.com/", loading: false, canGoBack: false, canGoForward: false }] };
 const command = vi.fn().mockResolvedValue(state);
 const layout = vi.fn().mockResolvedValue(undefined);
+const reserveSpace = vi.fn().mockResolvedValue(1024);
 
 beforeEach(() => {
-  command.mockClear(); layout.mockClear();
-  Object.defineProperty(window, "ohmycode", { configurable: true, value: { browser: { command, layout } } });
+  command.mockClear(); layout.mockClear(); reserveSpace.mockClear();
+  Object.defineProperty(window, "ohmycode", { configurable: true, value: { browser: { command, layout, reserveSpace } } });
   vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} });
   vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({ x: 500, y: 140, width: 400, height: 500 } as DOMRect);
 });
@@ -31,6 +32,7 @@ it("uses shared controls and sends navigation only through the browser bridge", 
 it("detaches the native page on unmount and masks it while a modal is open", async () => {
   const view = render(<BrowserPanel conversationId="one" state={state} active onClose={() => undefined} />);
   await waitFor(() => expect(layout).toHaveBeenLastCalledWith("one", { x: 500, y: 140, width: 400, height: 500 }));
+  expect(reserveSpace).toHaveBeenCalledTimes(1);
   const modal = document.createElement("div");
   modal.setAttribute("aria-modal", "true");
   modal.getClientRects = () => [1] as unknown as DOMRectList;
@@ -40,6 +42,17 @@ it("detaches the native page on unmount and masks it while a modal is open", asy
   await waitFor(() => expect(layout).toHaveBeenLastCalledWith("one", { x: 500, y: 140, width: 400, height: 500 }));
   view.unmount();
   expect(layout).toHaveBeenLastCalledWith(null, null);
+  expect(reserveSpace).toHaveBeenLastCalledWith(0);
+});
+
+it("preserves the base chat width returned by the host when switching from an expanded window", async () => {
+  reserveSpace.mockResolvedValueOnce(900);
+  const view = render(<BrowserPanel conversationId="two" state={state} active onClose={() => undefined} />);
+  const panel = screen.getByRole("complementary");
+  await waitFor(() => expect(panel.parentElement!.style.getPropertyValue("--browser-chat-min-width")).toBe("276px"));
+  view.unmount();
+  expect(panel.parentElement).toBeNull();
+  expect(reserveSpace).toHaveBeenLastCalledWith(0);
 });
 
 it("displays navigation errors instead of leaving an unhandled rejection", async () => {
@@ -47,4 +60,5 @@ it("displays navigation errors instead of leaving an unhandled rejection", async
   render(<BrowserPanel conversationId="one" state={state} active={false} onClose={() => undefined} />);
   fireEvent.click(screen.getByRole("button", { name: "Reload" }));
   expect(await screen.findByRole("status")).toBeTruthy();
+  expect(reserveSpace).not.toHaveBeenCalled();
 });

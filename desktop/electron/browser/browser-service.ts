@@ -1,7 +1,19 @@
 import { BrowserHost } from "@ohmycode/browser-use";
 import { BrowserWindow } from "electron";
+import { BrowserWindowSpace } from "./browser-window-space.js";
 
 const hosts = new Map<number, BrowserHost>();
+const spaces = new Map<number, BrowserWindowSpace>();
+
+export function reserveBrowserSpace(window: BrowserWindow, width: number): number {
+  let space = spaces.get(window.id);
+  if (!space) {
+    space = new BrowserWindowSpace(window);
+    spaces.set(window.id, space);
+    window.once("closed", () => spaces.delete(window.id));
+  }
+  return space.reserve(width);
+}
 
 export function browserForWindow(window: BrowserWindow): BrowserHost {
   let host = hosts.get(window.id);

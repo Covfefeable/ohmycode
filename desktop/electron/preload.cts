@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from "ele
 
 const bridge: DesktopBridge = {
   browser: {
+    reserveSpace: (width) => ipcRenderer.invoke("browser:reserve-space", width),
     state: (id) => ipcRenderer.invoke("browser:state", id),
     setOpened: (id, opened) => ipcRenderer.invoke("browser:open", id, opened),
     command: (id, command) => ipcRenderer.invoke("browser:command", id, command),

@@ -27,6 +27,7 @@ const browserListeners = new Set<(state: BrowserState) => void>();
 
 Object.defineProperty(window, "ohmycode", { configurable: true, value: {
   browser: {
+    reserveSpace: async () => window.innerWidth,
     state: async () => browserState,
     onState: (_id: string, listener: (state: BrowserState) => void) => { browserListeners.add(listener); return () => browserListeners.delete(listener); },
     setOpened: async (_id: string, opened: boolean) => {
