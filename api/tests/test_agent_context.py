@@ -314,6 +314,15 @@ def test_agent_prompt_requires_meaningful_visible_progress():
     assert "diagnosis, implementation, or validation" in AGENT_SYSTEM_INSTRUCTIONS
 
 
+def test_agent_prompt_prioritizes_progress_without_skipping_validation():
+    assert "retry only when new evidence or a changed condition" in AGENT_SYSTEM_INSTRUCTIONS
+    assert "do not cycle through equivalent commands" in AGENT_SYSTEM_INSTRUCTIONS
+    assert "incidental obstacles from task-blocking failures" in AGENT_SYSTEM_INSTRUCTIONS
+    assert "without widening scope or weakening correctness" in AGENT_SYSTEM_INSTRUCTIONS
+    assert "smallest missing input" in AGENT_SYSTEM_INSTRUCTIONS
+    assert "Do not claim success for skipped or failed work" in AGENT_SYSTEM_INSTRUCTIONS
+
+
 def test_task_plan_is_bounded_and_has_only_one_active_task():
     tasks, error = normalize_task_plan(
         {
