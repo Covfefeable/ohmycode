@@ -30,9 +30,16 @@ PostgreSQL 和 Redis 构建。它支持 OpenAI-compatible 模型、流式对话�
 
 ![Agent Run 运行详情](docs/images/multi-agent-run-detail.png)
 
+### 内置浏览器
+
+Agent 可以在桌面端内置浏览器中打开页面、点击、填写与截图，把网页操作纳入同一条
+Turn 时间线。
+
+![Agent 在内置浏览器中操作页面](docs/images/browser-use.png)
+
 ### 个人设置
 
-桌面端提供模型、MCP、Skills、后台任务、更新检查以及 Token 使用记录等统一设置。
+桌面端提供模型、MCP、Skills、语音配置、后台任务、更新检查以及 Token 使用记录等统一设置。
 
 ![个人信息与 Token 使用记录](docs/images/settings-profile.png)
 
@@ -72,6 +79,7 @@ mobile/
 packages/
   design-tokens/       桌面与移动端共享的语义设计变量
   web-effects/         桌面与移动 Web 共享的 Three.js 视觉效果
+  browser-use/         内置浏览器会话、页面工具与截图能力
   protocol/            Thread / Turn / Item 事件协议
   tool-contracts/      平台无关工具定义与执行契约
   agent-runtime/       平台无关事件 Journal、流式解析、Tool Loop 与 Turn 执行

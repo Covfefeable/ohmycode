@@ -32,10 +32,17 @@ Every Agent Run exposes duration, token usage, reasoning, file operations, and t
 
 ![Agent Run details](docs/images/multi-agent-run-detail.png)
 
+### Built-in Browser
+
+Agents can open pages, click, fill inputs, and capture screenshots in the desktop's built-in
+browser, so web work stays inside the same Turn timeline.
+
+![Agent operating a page in the built-in browser](docs/images/browser-use.png)
+
 ### Personal Settings
 
-The desktop app provides unified settings for models, MCP, Skills, background tasks, update checks,
-and token usage history.
+The desktop app provides unified settings for models, MCP, Skills, voice configuration, background
+tasks, update checks, and token usage history.
 
 ![Profile and token usage history](docs/images/settings-profile.png)
 
@@ -75,6 +82,7 @@ mobile/
 packages/
   design-tokens/       Shared semantic design variables for desktop and mobile
   web-effects/         Shared Three.js effects for desktop and mobile web
+  browser-use/         Built-in browser sessions, page tools, and screenshots
   protocol/            Thread / Turn / Item event protocol
   tool-contracts/      Platform-independent tool definitions and execution contracts
   agent-runtime/       Platform-independent event Journal, stream parsing, Tool Loop, and Turn execution
