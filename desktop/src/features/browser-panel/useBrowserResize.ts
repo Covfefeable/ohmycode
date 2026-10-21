@@ -29,14 +29,15 @@ export function useBrowserResize(panel: RefObject<HTMLElement | null>, active: b
   }, [panel, active]);
 
   function clamp(value: number) {
-    const available = Number.parseFloat(panel.current!.parentElement!.style.getPropertyValue("--browser-chat-min-width"));
-    return Math.max(available * 0.15, Math.min(available * 1.5, value));
+    const layout = panel.current!.parentElement!;
+    const available = layout.getBoundingClientRect().width;
+    return Math.max(available * 0.15, Math.min(available * 0.75, value));
   }
 
   function save(value: number) {
+    panel.current!.parentElement!.style.setProperty("--browser-chat-min-width", "0px");
     setWidth(value);
     localStorage.setItem(storageKey, String(value));
-    void window.ohmycode.browser.reserveSpace(value);
   }
 
   function start(event: PointerEvent<HTMLDivElement>) {
@@ -54,8 +55,8 @@ export function useBrowserResize(panel: RefObject<HTMLElement | null>, active: b
     document.documentElement.style.userSelect = "none";
     const move = (pointer: globalThis.PointerEvent) => {
       next = clamp(startWidth + startX - pointer.screenX);
+      element.parentElement!.style.setProperty("--browser-chat-min-width", "0px");
       element.style.setProperty("--browser-panel-width", `${next}px`);
-      void window.ohmycode.browser.reserveSpace(next);
     };
     const clear = () => {
       handle.removeEventListener("pointermove", move);

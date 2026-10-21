@@ -15,7 +15,7 @@ export class BrowserWindowSpace {
     if (!Number.isFinite(width) || width < 0) throw new Error("browser_invalid_width");
     this.requested = width;
     if (this.window.isMaximized() || this.window.isFullScreen()) {
-      // The renderer keeps panel widths and scrolls when the display cannot grow.
+      // The renderer fits both panels into the available width when the display cannot grow.
       return this.window.getContentSize()[0] - this.added;
     }
     const bounds = this.window.getBounds();

@@ -81,31 +81,61 @@ test("聊天右侧浏览器面板独立开关，标题栏和输入框不被遮�
   await page.getByRole("button", { name: "Browser", exact: true }).click();
   const panel = page.getByRole("complementary", { name: "Browser", exact: true });
   await panel.waitFor();
+  // The fixture has no native window: emulate the width reserved by the Electron host.
+  const fitBrowserWindow = async () => {
+    const width = await page.evaluate(() => Number(localStorage.getItem("ohmycode.browserPanelWidth")));
+    await page.setViewportSize({ width: 1100 + Math.round(width), height: 800 });
+    await settle();
+  };
+  await fitBrowserWindow();
   const bounds = await panel.boundingBox();
   assert.ok(bounds.width >= 280);
-  assert.ok(Math.abs((await chat.boundingBox()).width - originalChat.width) < 2, "Opening the browser must preserve conversation width even without room to expand");
-  await panel.evaluate((element) => { element.parentElement.scrollLeft = element.parentElement.scrollWidth; });
+  assert.ok(Math.abs((await chat.boundingBox()).width - originalChat.width) < 2, "Opening the browser preserves conversation width when the window can expand");
   const address = await panel.getByRole("textbox", { name: "Enter a URL" }).boundingBox();
   assert.ok(address.y > 32 && address.x >= (await panel.boundingBox()).x);
   const handle = page.getByRole("separator", { name: "Resize browser" });
   const grip = await handle.boundingBox();
+  await handle.hover();
+  const highlight = await handle.evaluate((element) => {
+    const line = getComputedStyle(element, "::after");
+    const rect = element.getBoundingClientRect();
+    return { right: rect.right - parseFloat(line.right), height: parseFloat(line.height) };
+  });
+  assert.ok(highlight.right < bounds.x && highlight.height >= grip.height - 1, "The full-height resize highlight stays on the conversation side, outside the native browser view");
   await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2);
   await page.mouse.down();
   await page.mouse.move(grip.x - 100, grip.y + grip.height / 2, { steps: 8 });
   await page.mouse.up();
+  await settle();
   const wider = await panel.boundingBox();
   assert.ok(wider.width > bounds.width + 60, "Dragging left expands the browser");
-  assert.ok(Math.abs((await chat.boundingBox()).width - originalChat.width) < 2, "Resizing the browser must not shrink the conversation");
+  assert.ok((await chat.boundingBox()).width < originalChat.width - 60, "Dragging the divider redistributes space to the browser");
+  assert.ok(Math.abs(wider.x + wider.width - bounds.x - bounds.width) < 2, "The browser right edge stays fixed while dragging");
   await handle.focus();
   await page.keyboard.press("ArrowRight");
   assert.ok((await panel.boundingBox()).width < wider.width, "Keyboard resizing works too");
+  assert.ok((await chat.boundingBox()).width > originalChat.width - (wider.width - bounds.width), "Keyboard resizing gives space back to the conversation");
   assert.ok(await page.getByText("Live output", { exact: true }).isVisible());
   await panel.getByRole("button", { name: "Hide browser" }).click();
+  await page.setViewportSize({ width: 1100, height: 800 });
+  await settle();
   assert.equal(await panel.count(), 0);
   assert.ok(Math.abs((await chat.boundingBox()).width - originalChat.width) < 2, "Closing restores the original layout");
   await page.getByRole("button", { name: "Browser", exact: true }).click();
   await panel.waitFor();
+  await fitBrowserWindow();
   assert.ok((await panel.boundingBox()).width > bounds.width + 40, "Width survives closing and reopening");
+  await page.setViewportSize({ width: 1100, height: 800 });
+  await settle();
+  const constrained = await panel.boundingBox();
+  assert.ok(constrained.width < bounds.width && constrained.x + constrained.width <= 1101, "Browser shrinks to fit when the window cannot expand");
+  const outer = await panel.evaluate((element) => ({
+    overflowX: getComputedStyle(element.parentElement).overflowX,
+    scrollWidth: element.parentElement.scrollWidth,
+    clientWidth: element.parentElement.clientWidth,
+  }));
+  assert.equal(outer.overflowX, "hidden", "There is no shared horizontal scrollbar");
+  assert.ok(outer.scrollWidth <= outer.clientWidth + 1, "The two panels fit the constrained window");
 });
 
 test("调试上下文使用真实 Monaco 展示请求，可切换 Schema 且弹窗不溢出", async () => {
