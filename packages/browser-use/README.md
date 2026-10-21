@@ -28,12 +28,30 @@ host.layout(conversationId, { x: 600, y: 140, width: 600, height: 600 });
 | `browser_tabs` | 列出、新建、选择和关闭标签页 |
 | `browser_navigate` | HTTP(S) 导航、前进、后退、刷新 |
 | `browser_snapshot` | 获取页面文本、无障碍角色和可操作的 nodeId |
-| `browser_act` | 按 nodeId 点击、填写，按键和滚动 |
+| `browser_act` | 元素/坐标点击、双击、右键、悬停、拖拽、填写/输入、组合键和双向滚动 |
+| `browser_evaluate` | 执行网页 JavaScript，支持 Promise、提取数据及修改 DOM/样式 |
+| `browser_upload` | 通过文件输入元素的 nodeId 设置本地文件，空数组清空选择 |
+| `browser_download` | 发起下载、查询进度和文件路径、取消下载；包含点击链接产生的下载 |
+| `browser_dialog` | 查看、接受或取消网页 alert/confirm/beforeunload 弹窗 |
 | `browser_screenshot` | 返回图片结果，仅向多模态模型开放 |
 
 Schema 与文件工具一样随模型请求的 `tools` 字段提前提供，不需要 search/load。
 浏览器使用说明随工具 description 提供；网页内容不是系统指令。
 同会话内工具操作按序执行，不同会话不共享标签页。同一页面可以由用户与 Agent 操作。
+
+`browser_act` 的坐标使用网页视口 CSS 像素，不是桌面坐标；优先使用最新快照里的 nodeId。
+组合键使用 `Control+a` / macOS 的 `Meta+a` 等形式。滚动可指定元素或视口位置，
+便于操作内部滚动容器；拖拽通过真实鼠标按下、移动和释放实现。
+脚本结果按值返回，超过 32,000 字符时返回截断预览；应缩小查询，而不是反复请求整页数据。
+脚本和页面交互有 30 秒操作超时，支持 Runtime 的停止信号。
+遇到网页弹窗时先返回弹窗信息，让模型调用 `browser_dialog`，不会等待弹窗导致工具队列死锁。
+Electron 不实现 `prompt()`，不通过替换网页函数来模拟；此限制也写入工具描述。
+
+上传必须使用绝对路径且目标是已有文件，只能上传用户授权给该网站的文件；
+设置文件后网站可能自动上传。下载使用系统下载目录下的 `OhMyCode/<唯一ID>/`，
+不覆盖已有文件，不自动执行下载内容。`start` 仅表示请求已发起，需查询到 `completed`
+才代表成功；`failed`/`interrupted`/`cancelled` 均不应当报告为下载成功。
+下载记录按会话隔离，关闭会话会取消未完成下载，已下载文件保留。
 
 ## 界面与生命周期
 
@@ -70,7 +88,7 @@ pnpm --dir packages/browser-use test
 `WebContentsView` + `webContents.debugger` 的页面级适配，未修改上游 MCP、未增加全局
 CDP 兼容补丁。探针启动器、独立打包配置和审计脚本已移除。
 
-本实现不是 Chrome DevTools MCP 全功能兼容层；不提供性能审计、文件上传/下载编排等扩展工具。
+本实现不是 Chrome DevTools MCP 全功能兼容层；暂不提供性能审计、扩展插件安装或系统原生菜单控制。
 macOS arm64 使用相同 Electron API，但仍需在 Mac 上做真实交互验证。
 
 参考：[WebContentsView](https://www.electronjs.org/docs/latest/api/web-contents-view)、

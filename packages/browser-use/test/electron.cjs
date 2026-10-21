@@ -1,12 +1,34 @@
 const { app, BrowserWindow } = require("electron");
 const assert = require("node:assert/strict");
 const { createServer } = require("node:http");
+const { mkdirSync } = require("node:fs");
+const { join } = require("node:path");
+const advanced = require("./advanced.cjs");
 
 // Real Chromium regression test. No provider, external site, or installed Chrome needed.
 async function main() {
+  app.on("window-all-closed", () => {});
   app.setPath("userData", process.env.BROWSER_USE_TEST_PROFILE);
-  const server = createServer((_req, res) => {
+  const downloads = join(process.env.BROWSER_USE_TEST_PROFILE, "downloads");
+  mkdirSync(downloads);
+  app.setPath("downloads", downloads);
+  const server = createServer((req, res) => {
+    if (req.url === "/slow-download") {
+      res.setHeader("Content-Disposition", 'attachment; filename="slow.txt"');
+      res.setHeader("Content-Type", "application/octet-stream");
+      res.setHeader("Content-Length", "100000");
+      res.write(Buffer.alloc(1024));
+      const timer = setTimeout(() => res.end("remaining"), 5000);
+      res.once("close", () => clearTimeout(timer));
+      return;
+    }
+    if (req.url === "/download") {
+      res.setHeader("Content-Disposition", 'attachment; filename="fixture.txt"');
+      res.end("fixture download");
+      return;
+    }
     res.setHeader("Content-Type", "text/html");
+    if (req.url === "/advanced") { res.end(advanced.html); return; }
     res.end(`<title>Browser fixture</title><h1>Local browser test</h1><input aria-label="Name"><button onclick="document.querySelector('h1').textContent=document.querySelector('input').value">Apply</button><a target="_blank" href="/popup">Popup</a>`);
   });
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -23,8 +45,9 @@ async function main() {
     const base = `http://127.0.0.1:${server.address().port}`;
     const plugin = createBrowserPlugin(host, "one", true);
     const textPlugin = createBrowserPlugin(host, "one", false);
-    assert.equal(plugin.definitions().length, 5);
+    assert.equal(plugin.definitions().length, 9);
     assert.equal(textPlugin.handles("browser_screenshot"), false);
+    console.log("Browser fixture: initial navigation");
     await host.execute("one", "browser_navigate", { action: "navigate", url: base });
     assert.equal(host.state("one").tabs.length, 1);
     assert.equal(window.contentView.children.length, baseChildren + 1);
@@ -40,6 +63,9 @@ async function main() {
     const image = await host.execute("one", "browser_screenshot", {});
     assert.match(image.dataUrl, /^data:image\/png;base64,/);
     assert.ok(image.width > 0);
+    console.log("Browser fixture: advanced interactions");
+    await advanced.test(host, base, process.env.BROWSER_USE_TEST_PROFILE);
+    await host.execute("one", "browser_navigate", { action: "navigate", url: base });
     await assert.rejects(host.execute("one", "browser_navigate", { action: "navigate", url: "file:///etc/passwd" }));
     assert.equal(host.state("one").tabs[0].url, `${base}/`);
     const firstId = host.state("one").selectedId;

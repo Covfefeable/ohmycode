@@ -99,6 +99,16 @@ Screenshot is advertised only for vision-capable models. The existing tool loop 
 image-result protocol are reused; Flask has no browser-specific orchestration.
 The browser is not an external Chrome MCP process and requires no separate Chrome install.
 
+The package handles page-scoped script evaluation, real CDP mouse/keyboard input,
+file input selection, download tracking and JavaScript dialog responses. Script
+execution has no Node or application bridge. Upload paths must reference existing
+absolute files; downloads are saved in unique system Downloads/OhMyCode subdirectories.
+Download records belong to a conversation, and closing it cancels active transfers
+without removing completed files. A page dialog returns control to the tool loop so
+it can be handled in a later call instead of blocking the per-conversation queue.
+Electron's unsupported prompt() is not polyfilled. Script/interaction operations
+are bounded and accept the Runtime abort signal.
+
 Panel hiding and conversation switches hide the native view but retain its pages
 and background rendering so screenshots still work. Modal dialogs temporarily hide
 the view so native content cannot cover them.
