@@ -4,6 +4,7 @@ const { createServer } = require("node:http");
 const { mkdirSync } = require("node:fs");
 const { join } = require("node:path");
 const advanced = require("./advanced.cjs");
+const lifecycle = require("./lifecycle.cjs");
 
 // Real Chromium regression test. No provider, external site, or installed Chrome needed.
 async function main() {
@@ -94,6 +95,7 @@ async function main() {
     host.closeSession("one");
     assert.equal(host.state("one").tabs.length, 0);
     assert.equal(window.contentView.children.length, baseChildren);
+    await lifecycle(host, window, base, baseChildren);
     host.layout(null, null);
     await host.execute("background", "browser_navigate", { action: "navigate", url: base });
     await assert.rejects(host.execute("background", "browser_screenshot", {}), /browser_page_not_presented/);

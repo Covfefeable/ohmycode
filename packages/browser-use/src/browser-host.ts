@@ -1,4 +1,4 @@
-import { nativeImage, session, WebContentsView, type BrowserWindow } from "electron";
+import { nativeImage, session, WebContentsView, type BrowserWindow, type WebContents } from "electron";
 import type { BrowserBounds, BrowserCommand, BrowserState } from "./types.js";
 import { browserUrl, fitBounds } from "./types.js";
 import { evaluatePage, pageAction, pageSnapshot, uploadFiles } from "./page-tools.js";
@@ -6,7 +6,7 @@ import { waitForPage } from "./navigation.js";
 import { PageSession } from "./page-session.js";
 import { BrowserDownloads } from "./browser-downloads.js";
 
-type Tab = { id: string; view: WebContentsView; page: PageSession; presented: boolean; error?: string };
+type Tab = { id: string; view: WebContentsView; contents: WebContents; page: PageSession; presented: boolean; error?: string };
 type BrowserSession = { tabs: Map<string, Tab>; selectedId: string | null; opened: boolean };
 
 /** Owns only browser views. Never attaches a debugger to the application's renderer. */
@@ -24,7 +24,7 @@ export class BrowserHost {
     browserSession.setPermissionCheckHandler(() => false);
     this.downloads = new BrowserDownloads(browserSession, (page) => {
       for (const [conversationId, session] of this.sessions) {
-        for (const tab of session.tabs.values()) if (tab.view.webContents === page) return { conversationId, pageId: tab.id };
+        for (const tab of session.tabs.values()) if (tab.contents === page) return { conversationId, pageId: tab.id };
       }
     });
     window.webContents.on("did-start-navigation", (_event, _url, _inPlace, isMainFrame) => {
@@ -39,10 +39,10 @@ export class BrowserHost {
       opened: session?.opened ?? false,
       selectedId: session?.selectedId ?? null,
       tabs: [...(session?.tabs.values() ?? [])].map((tab) => ({
-        id: tab.id, title: tab.view.webContents.getTitle(), url: tab.view.webContents.getURL(),
-        loading: tab.view.webContents.isLoading(),
-        canGoBack: tab.view.webContents.navigationHistory.canGoBack(),
-        canGoForward: tab.view.webContents.navigationHistory.canGoForward(),
+        id: tab.id, title: tab.contents.getTitle(), url: tab.contents.getURL(),
+        loading: tab.contents.isLoading(),
+        canGoBack: tab.contents.navigationHistory.canGoBack(),
+        canGoForward: tab.contents.navigationHistory.canGoForward(),
         ...(tab.error ? { error: tab.error } : {}),
       })),
     };
@@ -69,18 +69,15 @@ export class BrowserHost {
       session.selectedId = command.tabId;
     } else if (command.action === "close") {
       const tab = this.tab(id, command.tabId);
-      session.tabs.delete(tab.id);
-      if (session.selectedId === tab.id) session.selectedId = session.tabs.keys().next().value ?? null;
-      this.syncView();
-      this.window.contentView.removeChildView(tab.view);
-      tab.view.webContents.close();
+      this.removeTab(id, tab);
+      tab.contents.close();
     } else {
       const tab = this.tab(id);
       if (command.action === "navigate") await this.navigate(tab, command.url);
-      else if (command.action === "back" && tab.view.webContents.navigationHistory.canGoBack()) tab.view.webContents.navigationHistory.goBack();
-      else if (command.action === "forward" && tab.view.webContents.navigationHistory.canGoForward()) tab.view.webContents.navigationHistory.goForward();
-      else if (command.action === "reload") tab.view.webContents.reload();
-      await waitForPage(tab.view.webContents);
+      else if (command.action === "back" && tab.contents.navigationHistory.canGoBack()) tab.contents.navigationHistory.goBack();
+      else if (command.action === "forward" && tab.contents.navigationHistory.canGoForward()) tab.contents.navigationHistory.goForward();
+      else if (command.action === "reload") tab.contents.reload();
+      await waitForPage(tab.contents);
     }
     this.changed(id);
     return this.state(id);
@@ -95,7 +92,7 @@ export class BrowserHost {
       if (this.sessions.get(id) !== session) throw new Error("browser_session_closed");
       const stopLoading = () => {
         for (const tab of session.tabs.values()) {
-          tab.view.webContents.stop();
+          tab.contents.stop();
           if (tab.page.dialog) void tab.page.handleDialog(false).catch(() => undefined);
         }
       };
@@ -115,11 +112,13 @@ export class BrowserHost {
     this.downloads.closeSession(id);
     const session = this.sessions.get(id);
     this.sessions.delete(id);
-    this.syncView();
-    for (const tab of session?.tabs.values() ?? []) {
-      if (!this.window.isDestroyed()) this.window.contentView.removeChildView(tab.view);
-      tab.view.webContents.close();
+    const tabs = [...(session?.tabs.values() ?? [])];
+    session?.tabs.clear();
+    for (const tab of tabs) {
+      this.detachView(tab);
+      tab.contents.close();
     }
+    this.syncView();
   }
 
   close(): void {
@@ -143,13 +142,30 @@ export class BrowserHost {
     return tab;
   }
 
+  private removeTab(id: string, tab: Tab): void {
+    const session = this.sessions.get(id);
+    if (!session?.tabs.delete(tab.id)) return;
+    if (session.selectedId === tab.id) session.selectedId = session.tabs.keys().next().value ?? null;
+    this.detachView(tab);
+    this.changed(id);
+  }
+
+  private detachView(tab: Tab): void {
+    if (this.mounted === tab.view) this.mounted = null;
+    if (!this.window.isDestroyed()) {
+      tab.view.setVisible(false);
+      this.window.contentView.removeChildView(tab.view);
+    }
+  }
+
   private async newTab(id: string, url: string): Promise<Tab> {
     const target = browserUrl(url);
     const view = new WebContentsView({ webPreferences: {
       partition: "persist:ohmycode-browser", contextIsolation: true, sandbox: true,
       nodeIntegration: false, webSecurity: true,
     } });
-    const tab: Tab = { id: crypto.randomUUID(), view, page: new PageSession(view.webContents), presented: false };
+    const page = view.webContents;
+    const tab: Tab = { id: crypto.randomUUID(), view, contents: page, page: new PageSession(page), presented: false };
     const [width, height] = this.window.getContentSize();
     view.setBounds({ x: 0, y: 0, width, height });
     view.setVisible(false);
@@ -158,7 +174,7 @@ export class BrowserHost {
     session.tabs.set(tab.id, tab);
     session.selectedId = tab.id;
     session.opened = true;
-    const page = view.webContents;
+    page.once("destroyed", () => this.removeTab(id, tab));
     page.setWindowOpenHandler(({ url: popup }) => {
       void this.newTab(id, popup).catch((error: unknown) => { tab.error = String(error); this.changed(id); });
       return { action: "deny" };
@@ -188,8 +204,8 @@ export class BrowserHost {
 
   private async navigate(tab: Tab, url: string): Promise<void> {
     const target = browserUrl(url);
-    const timer = setTimeout(() => tab.view.webContents.stop(), 30_000);
-    try { await tab.view.webContents.loadURL(target); }
+    const timer = setTimeout(() => tab.contents.stop(), 30_000);
+    try { await tab.contents.loadURL(target); }
     finally { clearTimeout(timer); }
   }
 
@@ -212,27 +228,27 @@ export class BrowserHost {
       if (args.action === "accept" || args.action === "dismiss") return tab.page.handleDialog(args.action === "accept");
       throw new Error("browser_invalid_dialog_action");
     }
-    if (tool === "browser_download") return this.downloads.execute(id, tab.view.webContents, args);
+    if (tool === "browser_download") return this.downloads.execute(id, tab.contents, args);
     if (tab.page.dialog) return { dialog: tab.page.dialog };
-    await waitForPage(tab.view.webContents);
+    await waitForPage(tab.contents);
     if (tool === "browser_navigate") {
       if (args.action === "navigate") return this.command(id, { action: "navigate", url: String(args.url) });
       if (args.action === "back" || args.action === "forward" || args.action === "reload") return this.command(id, { action: args.action });
       throw new Error("browser_invalid_navigation");
     }
-    if (tool === "browser_snapshot") return pageSnapshot(tab.view.webContents);
-    if (tool === "browser_evaluate") return tab.page.run(() => evaluatePage(tab.view.webContents, args.expression), signal);
-    if (tool === "browser_upload") return tab.page.run(() => uploadFiles(tab.view.webContents, args.nodeId, args.paths), signal);
+    if (tool === "browser_snapshot") return pageSnapshot(tab.contents);
+    if (tool === "browser_evaluate") return tab.page.run(() => evaluatePage(tab.contents, args.expression), signal);
+    if (tool === "browser_upload") return tab.page.run(() => uploadFiles(tab.contents, args.nodeId, args.paths), signal);
     if (tool === "browser_act") {
       return tab.page.run(async () => {
-        await pageAction(tab.view.webContents, args);
-        await waitForPage(tab.view.webContents);
+        await pageAction(tab.contents, args);
+        await waitForPage(tab.contents);
         return this.state(id);
       }, signal);
     }
     if (tool === "browser_screenshot") {
       if (!tab.presented) throw new Error("browser_page_not_presented: open this conversation's browser panel before its first screenshot; text snapshots and page actions work without it");
-      const page = tab.view.webContents;
+      const page = tab.contents;
       if (!page.debugger.isAttached()) page.debugger.attach("1.3");
       let timer: ReturnType<typeof setTimeout>;
       const capture = page.debugger.sendCommand("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
@@ -255,15 +271,13 @@ export class BrowserHost {
     const session = this.activeId ? this.sessions.get(this.activeId) : undefined;
     const next = session?.opened && this.bounds && session.selectedId ? session.tabs.get(session.selectedId)?.view ?? null : null;
     if (this.mounted !== next) {
-      if (this.mounted) {
-        this.mounted.setVisible(false);
-        this.mounted.webContents.setBackgroundThrottling(false);
-      }
+      const previous = this.mounted;
+      this.mounted = next;
+      if (previous) previous.setVisible(false);
       if (next) {
         next.setVisible(true);
         if (session?.selectedId) session.tabs.get(session.selectedId)!.presented = true;
       }
-      this.mounted = next;
     }
     if (next && this.bounds) next.setBounds(fitBounds(this.bounds, this.window.getContentSize()));
   }
