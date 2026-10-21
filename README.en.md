@@ -9,7 +9,7 @@ PostgreSQL, and Redis. It supports OpenAI-compatible models, streaming conversat
 persistent terminals, file tools, context compaction, and host-orchestrated Multi-Agent collaboration.
 
 This repository contains a runnable desktop app, an Expo mobile app, a standalone API service,
-and a production Compose stack. The project is currently at `0.1.0`. Its core execution path is
+and a production Compose stack. The project has shipped its official release. Its core execution path is
 operational, while approval for high-risk writes, background-task resilience, release security,
 and end-to-end coverage remain priorities. See [`docs/architecture.md`](docs/architecture.md)
 for architecture boundaries and [`docs/issues.md`](docs/issues.md) for the current improvement list.
@@ -34,8 +34,8 @@ Every Agent Run exposes duration, token usage, reasoning, file operations, and t
 
 ### Built-in Browser
 
-Agents can open pages, click, fill inputs, and capture screenshots in the desktop's built-in
-browser, so web work stays inside the same Turn timeline.
+Agents can carry out highly complex interactive tasks in the desktop's built-in browser. Results
+currently also depend on your model's capability.
 
 ![Agent operating a page in the built-in browser](docs/images/browser-use.png)
 

@@ -9,7 +9,7 @@ PostgreSQL 和 Redis 构建。它支持 OpenAI-compatible 模型、流式对话�
 文件工具、上下文压缩以及主持人调度的 Multi-Agent 协作。
 
 当前仓库同时包含可运行的桌面端、Expo 移动端、独立 API 服务和生产 Compose。
-项目仍处于 `0.2.0` 阶段；核心执行链路已经落地，但高风险写入审批、后台任务韧性、
+项目已发布正式版；核心执行链路已经落地，但高风险写入审批、后台任务韧性、
 发布安全和端到端测试仍是后续重点。详细边界见
 [`docs/architecture.md`](docs/architecture.md)，当前改进清单见
 [`docs/issues.md`](docs/issues.md)。
@@ -32,8 +32,8 @@ PostgreSQL 和 Redis 构建。它支持 OpenAI-compatible 模型、流式对话�
 
 ### 内置浏览器
 
-Agent 可以在桌面端内置浏览器中打开页面、点击、填写与截图，把网页操作纳入同一条
-Turn 时间线。
+Agent 可以在桌面端内置浏览器中完成高复杂度的交互性任务，实际效果当前也取决于
+你的模型能力。
 
 ![Agent 在内置浏览器中操作页面](docs/images/browser-use.png)
 
