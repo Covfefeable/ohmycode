@@ -33,6 +33,23 @@ for (const mode of ["production", "development"]) test(`${mode}：独立浏览�
     const page = application.windows().find((page) => page.url().includes("#/browser/"));
     await page.waitForSelector("aside input[name=url]");
     assert.equal(await page.locator("aside input[name=url]").inputValue(), env.BROWSER_TEST_URL + "/");
+    await application.evaluate(async () => {
+      const { context } = globalThis.browserTest;
+      await context.host.execute("thread", "browser_evaluate", { expression: `document.title = ${JSON.stringify("南京房产网，南京二手房，租房，新房，房产信息网–南京58安居客".repeat(3))}` });
+    });
+    await page.getByRole("button", { name: /南京房产网/ }).waitFor();
+    const tabGeometry = await page.getByRole("button", { name: /南京房产网/ }).evaluate((title) => {
+      const tab = title.parentElement;
+      const close = tab.querySelector("span button");
+      const bounds = tab.getBoundingClientRect();
+      const icon = close.getBoundingClientRect();
+      return { width: bounds.width, closeWidth: icon.width, closeInside: icon.right <= bounds.right && icon.left >= bounds.left, ellipsis: getComputedStyle(title).textOverflow, truncated: title.scrollWidth > title.clientWidth };
+    });
+    assert.equal(tabGeometry.width <= 170, true);
+    assert.equal(tabGeometry.closeWidth, 28);
+    assert.equal(tabGeometry.closeInside, true);
+    assert.equal(tabGeometry.ellipsis, "ellipsis");
+    assert.equal(tabGeometry.truncated, true);
     await Promise.all([
       page.waitForEvent("close"),
       page.evaluate(() => document.querySelector("[aria-label='Return to panel'], [aria-label='返回面板']").click()),

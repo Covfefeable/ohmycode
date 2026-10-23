@@ -30,6 +30,18 @@ it("uses shared controls and sends navigation only through the browser bridge", 
   expect(close).toHaveBeenCalledOnce();
 });
 
+it("sends address-bar search text to Baidu in both an existing and an empty tab", async () => {
+  const view = render(<BrowserPanel conversationId="one" state={state} active={false} onClose={() => undefined} />);
+  const input = screen.getByRole("textbox");
+  fireEvent.change(input, { target: { value: "南京二手房" } });
+  fireEvent.submit(input.closest("form")!);
+  await waitFor(() => expect(command).toHaveBeenCalledWith("one", { action: "navigate", url: `https://www.baidu.com/s?wd=${encodeURIComponent("南京二手房")}` }));
+  view.rerender(<BrowserPanel conversationId="one" state={{ ...state, tabs: [], selectedId: null }} active={false} onClose={() => undefined} />);
+  fireEvent.change(screen.getByRole("textbox"), { target: { value: "hello world" } });
+  fireEvent.submit(screen.getByRole("textbox").closest("form")!);
+  await waitFor(() => expect(command).toHaveBeenCalledWith("one", { action: "new", url: "https://www.baidu.com/s?wd=hello%20world" }));
+});
+
 it("detaches the native page on unmount and masks it while a modal is open", async () => {
   const view = render(<BrowserPanel conversationId="one" state={state} active onClose={() => undefined} />);
   await waitFor(() => expect(layout).toHaveBeenLastCalledWith("one", { x: 500, y: 140, width: 400, height: 500 }));

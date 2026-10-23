@@ -6,6 +6,7 @@ import { IconButton } from "../../shared/ui/icon-button";
 import { Tooltip } from "../../shared/ui/tooltip";
 import { useBrowserViewport } from "./useBrowserViewport";
 import { useBrowserResize } from "./useBrowserResize";
+import { browserAddress } from "./browser-address";
 import styles from "./BrowserPanel.module.css";
 
 export function BrowserPanel({ conversationId, state, active, onClose, standalone = false }: { conversationId: string; state: BrowserState; active: boolean; onClose(): void; standalone?: boolean }) {
@@ -47,8 +48,8 @@ export function BrowserPanel({ conversationId, state, active, onClose, standalon
     </header>
     <div className={styles.tabs}>
       {state.tabs.map((tab) => <div key={tab.id} className={`${styles.tab} ${tab.id === state.selectedId ? styles.selected : ""}`}>
-        <button title={tab.title || tab.url} onClick={() => void command({ action: "select", tabId: tab.id })}>{tab.title || t("browser.newTab")}</button>
-        <Tooltip content={t("browser.closeTab")}><IconButton aria-label={t("browser.closeTab")} onClick={() => void command({ action: "close", tabId: tab.id })}><X /></IconButton></Tooltip>
+        <button className={styles.tabTitle} title={tab.title || tab.url} onClick={() => void command({ action: "select", tabId: tab.id })}>{tab.title || t("browser.newTab")}</button>
+        <Tooltip className={styles.tabClose} content={t("browser.closeTab")}><IconButton aria-label={t("browser.closeTab")} onClick={() => void command({ action: "close", tabId: tab.id })}><X /></IconButton></Tooltip>
       </div>)}
       <Tooltip content={t("browser.newTab")}><IconButton aria-label={t("browser.newTab")} onClick={() => void command({ action: "new" })}><Plus /></IconButton></Tooltip>
     </div>
@@ -58,9 +59,8 @@ export function BrowserPanel({ conversationId, state, active, onClose, standalon
       <Tooltip content={t("browser.reload")}><IconButton disabled={!selected} aria-label={t("browser.reload")} onClick={() => void command({ action: "reload" })}>{selected?.loading ? <LoaderCircle className={styles.spin} /> : <RotateCw />}</IconButton></Tooltip>
       <form className={styles.address} onSubmit={(event) => {
         event.preventDefault();
-        const value = String(new FormData(event.currentTarget).get("url") ?? "").trim();
-        if (!value) return;
-        const url = /^[a-z][a-z\d+.-]*:/i.test(value) ? value : `https://${value}`;
+        const url = browserAddress(String(new FormData(event.currentTarget).get("url") ?? ""));
+        if (!url) return;
         void command(selected ? { action: "navigate", url } : { action: "new", url });
       }}><input key={`${selected?.id}:${selected?.url}`} name="url" defaultValue={selected?.url === "about:blank" ? "" : selected?.url} aria-label={t("browser.address")} placeholder={t("browser.address")} spellCheck={false} /></form>
     </div>
