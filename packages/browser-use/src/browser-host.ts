@@ -1,10 +1,11 @@
-import { nativeImage, session, WebContentsView, type BrowserWindow, type WebContents } from "electron";
+import { app, nativeImage, session, WebContentsView, type BrowserWindow, type WebContents } from "electron";
 import type { BrowserBounds, BrowserCommand, BrowserState } from "./types.js";
 import { browserUrl, fitBounds } from "./types.js";
 import { evaluatePage, pageAction, pageSnapshot, uploadFiles } from "./page-tools.js";
 import { waitForPage } from "./navigation.js";
 import { PageSession } from "./page-session.js";
 import { BrowserDownloads } from "./browser-downloads.js";
+import { browserUserAgent } from "./user-agent.js";
 
 type Tab = { id: string; view: WebContentsView; contents: WebContents; owner: BrowserWindow; page: PageSession; presented: boolean; error?: string };
 type BrowserSession = { tabs: Map<string, Tab>; selectedId: string | null; opened: boolean };
@@ -22,6 +23,7 @@ export class BrowserHost {
 
   constructor(private readonly window: BrowserWindow, private readonly onChange: (id: string, state: BrowserState) => void) {
     const browserSession = session.fromPartition("persist:ohmycode-browser");
+    browserSession.setUserAgent(browserUserAgent(browserSession.getUserAgent(), app.getName()));
     browserSession.setPermissionRequestHandler((_page, _permission, callback) => callback(false));
     browserSession.setPermissionCheckHandler(() => false);
     this.downloads = new BrowserDownloads(browserSession, (page) => {

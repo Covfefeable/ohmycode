@@ -8,12 +8,14 @@ const lifecycle = require("./lifecycle.cjs");
 
 // Real Chromium regression test. No provider, external site, or installed Chrome needed.
 async function main() {
+  app.setName("Browser Agent Fixture");
   app.on("window-all-closed", () => {});
   app.setPath("userData", process.env.BROWSER_USE_TEST_PROFILE);
   const downloads = join(process.env.BROWSER_USE_TEST_PROFILE, "downloads");
   mkdirSync(downloads);
   app.setPath("downloads", downloads);
   const server = createServer((req, res) => {
+    if (require("./user-agent.cjs").respond(req, res)) return;
     if (require("./network.cjs").respond(req, res)) return;
     if (req.url === "/slow-download") {
       res.setHeader("Content-Disposition", 'attachment; filename="slow.txt"');
@@ -51,6 +53,7 @@ async function main() {
     assert.equal(textPlugin.handles("browser_screenshot"), false);
     console.log("Browser fixture: initial navigation");
     await host.execute("one", "browser_navigate", { action: "navigate", url: base });
+    await require("./user-agent.cjs").test(host);
     assert.equal(host.state("one").tabs.length, 1);
     assert.equal(window.contentView.children.length, baseChildren + 1);
     assert.equal(window.webContents.debugger.isAttached(), false, "app renderer is not exposed");
@@ -66,6 +69,8 @@ async function main() {
     assert.match(image.dataUrl, /^data:image\/png;base64,/);
     assert.ok(image.width > 0);
     console.log("Browser fixture: advanced interactions");
+    window.focus();
+    visiblePages().at(-1).webContents.focus();
     await advanced.test(host, base, process.env.BROWSER_USE_TEST_PROFILE);
     await host.execute("one", "browser_navigate", { action: "navigate", url: base });
     await assert.rejects(host.execute("one", "browser_navigate", { action: "navigate", url: "file:///etc/passwd" }));

@@ -12,6 +12,8 @@
 
 这是声明 `ohmycode.platform: "electron"` 的平台集成包，不供 Mobile 或平台无关 Runtime 引用。
 它不导入任何应用目录，不访问 OhMyCode 的账号凭据。
+浏览器独立 Session 使用去除应用名和 Electron 产品标识的 Chromium User-Agent，
+保留实际操作系统及内核版本，不影响应用 Renderer 的 UA，也不伪造其他浏览器指纹。
 
 ```ts
 import { BrowserHost, createBrowserPlugin } from "@ohmycode/browser-use";
