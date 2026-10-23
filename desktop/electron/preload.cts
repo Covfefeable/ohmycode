@@ -2,10 +2,13 @@ import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from "ele
 
 const bridge: DesktopBridge = {
   android: {
-    installPlan: () => ipcRenderer.invoke("android:install-plan"),
+    installPlan: (mode) => ipcRenderer.invoke("android:install-plan", mode),
     installation: () => ipcRenderer.invoke("android:installation"),
-    chooseInstallRoot: () => ipcRenderer.invoke("android:install-root"),
-    install: (consent) => ipcRenderer.invoke("android:install", consent),
+    chooseInstallRoot: (mode) => ipcRenderer.invoke("android:install-root", mode),
+    install: (consent, mode) => ipcRenderer.invoke("android:install", consent, mode),
+    selectTarget: (target) => ipcRenderer.invoke("android:select-target", target),
+    connect: (address, name) => ipcRenderer.invoke("android:connect", address, name),
+    removeDevice: (serial) => ipcRenderer.invoke("android:remove-device", serial),
     cancelInstall: () => ipcRenderer.invoke("android:cancel-install"),
     openLicense: () => ipcRenderer.invoke("android:license"),
     onInstallation: (callback) => {

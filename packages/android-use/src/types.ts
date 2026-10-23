@@ -6,6 +6,10 @@ export type AndroidEnvironment = {
   imagePath: string;
   imageName: string;
 };
+export type AndroidTarget = { kind: "none" } | { kind: "managed" } | { kind: "external"; serial: string; name: string };
+export type AndroidDevice = { serial: string; name: string; status: "device" | "offline" | "unauthorized" | "unavailable"; transport: "usb" | "network" | "local" };
+export type AdbTarget = { adb: string; serial: string; serverPort?: number };
+export type AndroidInstallMode = "runtime" | "tools";
 export type AndroidState = {
   enabled: boolean;
   installed: boolean;
@@ -15,6 +19,11 @@ export type AndroidState = {
   phase: "stopped" | "starting" | "running" | "stopping" | "error";
   error?: string;
   ownerConversationId?: string;
+  target: AndroidTarget;
+  devices: AndroidDevice[];
+  adbReady: boolean;
+  adbPath?: string;
+  managedInstalled: boolean;
 };
 export type AndroidAction =
   | { action: "tap"; x: number; y: number }
@@ -26,6 +35,7 @@ export type AndroidAction =
 export type AndroidTouch = { action: "down" | "move" | "up"; x: number; y: number; width: number; height: number };
 
 export type AndroidInstallState = {
+  mode: AndroidInstallMode;
   phase: "idle" | "checking" | "downloading" | "verifying" | "extracting" | "finishing" | "completed" | "canceled" | "error";
   root: string;
   component?: "emulator" | "platformTools" | "systemImage";
@@ -34,6 +44,7 @@ export type AndroidInstallState = {
   error?: string;
 };
 export type AndroidInstallPlan = {
+  mode: AndroidInstallMode;
   root: string;
   licenseUrl: string;
   requiredFreeBytes: number;

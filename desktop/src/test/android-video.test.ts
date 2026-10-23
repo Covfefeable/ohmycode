@@ -1,6 +1,30 @@
-import { expect, it } from "vitest";
+import { expect, it, vi } from "vitest";
+import { EventEmitter } from "node:events";
+import type { WebContents } from "electron";
+import { startAndroidVideo, stopAndroidVideo } from "../../electron/android/android-presentation";
 import { ScrcpyProtocol } from "../../../packages/android-use/src/video/protocol";
 import { encodeTouch } from "../../../packages/android-use/src/video/touch";
+
+const mocks = vi.hoisted(() => ({ ensureServer: vi.fn(), openVideo: vi.fn() }));
+vi.mock("electron", () => ({ app: { getPath: () => "/profile" }, BrowserWindow: {}, net: { fetch: vi.fn() } }));
+vi.mock("@ohmycode/android-use", () => ({ ensureVideoServer: mocks.ensureServer }));
+vi.mock("../../electron/android/android-service", () => ({ getAndroidState: async () => ({ enabled: true, installed: true, phase: "running" }), androidHost: () => ({ openVideo: mocks.openVideo }) }));
+vi.mock("../../electron/window/create-main-window", () => ({ createApplicationWindow: vi.fn() }));
+
+it("切页取消视频初始化属于正常停止，不上报失败；真实初始化错误仍返回", async () => {
+  const sender = Object.assign(new EventEmitter(), { isDestroyed: () => false, send: vi.fn() }) as unknown as WebContents;
+  mocks.ensureServer.mockImplementation((_path, _fetch, signal: AbortSignal) => new Promise((_resolve, reject) => signal.addEventListener("abort", () => reject(signal.reason), { once: true })));
+  const starting = startAndroidVideo(sender, "cancelled");
+  await vi.waitFor(() => expect(mocks.ensureServer).toHaveBeenCalled());
+  await stopAndroidVideo(sender, "cancelled");
+  await expect(starting).resolves.toBeUndefined();
+  expect(sender.send).not.toHaveBeenCalled();
+  expect(mocks.openVideo).not.toHaveBeenCalled();
+  mocks.ensureServer.mockRejectedValueOnce(new Error("download failed"));
+  await expect(startAndroidVideo(sender, "failed")).rejects.toThrow("download failed");
+  expect(sender.send).toHaveBeenCalledWith("android:video", "failed", { error: "android_video_failed" });
+  expect(sender.listenerCount("destroyed")).toBe(0);
+});
 
 it("投屏协议跨分包还原视频并完整编码触摸轨迹，拒绝无效数据", () => {
   const header = Buffer.alloc(13);

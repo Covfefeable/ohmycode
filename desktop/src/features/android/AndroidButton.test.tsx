@@ -3,8 +3,8 @@ import { expect, it, vi } from "vitest";
 import { AndroidButton } from "./AndroidButton";
 import type { AndroidState } from "@ohmycode/android-use/types";
 
-const ready: AndroidState = { enabled: true, installed: true, sdkPath: "/sdk", phase: "stopped" };
-it.each([null, { ...ready, installed: false }, { ...ready, enabled: false }])("未完成安装或停用时不显示入口", (state) => {
+const ready: AndroidState = { enabled: true, installed: true, sdkPath: "/sdk", phase: "stopped", target: { kind: "managed" }, devices: [], adbReady: true, managedInstalled: true };
+it.each([null, { ...ready, adbReady: false }, { ...ready, enabled: false }])("未完成安装或停用时不显示入口", (state) => {
   render(<AndroidButton state={state} opened={false} onToggle={vi.fn()} />);
   expect(screen.queryByRole("button")).toBeNull();
 });

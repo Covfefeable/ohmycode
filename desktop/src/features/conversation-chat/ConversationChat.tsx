@@ -242,6 +242,6 @@ export function ConversationChat({ conversationId, active, searchLocation, onUpd
       <TaskComposer sessionId={conversationId} onPasteImages={pasteImages} busy={sending} disabled={Boolean(editing)} models={controller.models} selectedModelId={controller.selectedModelId} contextUsage={controller.contextUsage} attachments={attachments} suggestions={controller.suggestions} restoredInput={restoredInput} onRemoveAttachment={(id) => setAttachments((items) => items.filter((item) => item.id !== id))} onModelChange={controller.setSelectedModelId} onSubmit={(content, items) => send(content, items)} onStop={controller.stop} />
     </div>
   </section>{panels.panel === "browser" && !panels.browser.detached && <BrowserPanel conversationId={conversationId} state={panels.browser} active={active} onClose={panels.close} />}
-    {panels.panel === "android" && panels.android?.installed && panels.android.enabled && <AndroidPanel conversationId={conversationId} state={panels.android} active={active} onClose={panels.close} />}
+    {panels.panel === "android" && panels.android?.adbReady && panels.android.enabled && <AndroidPanel conversationId={conversationId} state={panels.android} active={active} onClose={panels.close} />}
   </div></ImageScopeContext.Provider>;
 }

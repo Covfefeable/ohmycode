@@ -25,9 +25,54 @@ beforeEach(() => {
     return Buffer.alloc(0);
   });
   host = new AndroidHost("/managed-android", vi.fn());
-  host.configure(true, "/sdk", environment);
+  host.configure({ enabled: true, sdkPath: "/sdk", environment, target: { kind: "managed" }, devices: [] });
 });
 afterEach(async () => { await host.close(); });
+
+it("移除选中设备后没有默认目标，不会启动内置模拟器", async () => {
+  host.configure({ enabled: true, sdkPath: "/sdk", adb: environment.adb, environment, target: { kind: "none" }, devices: [] });
+  expect(host.available).toBe(false);
+  await expect(host.start("thread")).rejects.toThrow("android_not_available");
+  expect(mocks.spawn).not.toHaveBeenCalled();
+});
+
+it("外部设备只使用设置中的目标，断开不关闭设备或共享 ADB", async () => {
+  mocks.run.mockImplementation(async (_file: string, args: string[]) => {
+    if (args[0] === "devices") return Buffer.from("List of devices attached\nphone-a device model:Phone_A\nphone-b device model:Phone_B\n");
+    return Buffer.alloc(0);
+  });
+  host.configure({ enabled: true, sdkPath: "/sdk", adb: environment.adb, target: { kind: "external", serial: "phone-b", name: "Phone B" }, devices: [] });
+  await host.start("thread");
+  expect(mocks.spawn).not.toHaveBeenCalled();
+  expect(() => host.configure({ enabled: true, sdkPath: "/sdk", target: { kind: "managed" }, devices: [] })).toThrow("android_stop_before_configure");
+  await host.act("thread", { action: "key", key: "home" });
+  expect(mocks.run).toHaveBeenLastCalledWith(environment.adb, ["-s", "phone-b", "shell", "input", "keyevent", "KEYCODE_HOME"], undefined);
+  await host.stop();
+  expect(mocks.run.mock.calls.some(([, args]) => args.includes("kill-server") || args.includes("emu") || args.includes("disconnect"))).toBe(false);
+});
+
+it("设置中的设备未授权时不回退到其他在线设备", async () => {
+  mocks.run.mockResolvedValue(Buffer.from("phone-a device\nphone-b unauthorized\n"));
+  host.configure({ enabled: true, sdkPath: "/sdk", adb: environment.adb, target: { kind: "external", serial: "phone-b", name: "Phone B" }, devices: [] });
+  await expect(host.start("thread")).rejects.toThrow("android_device_unauthorized");
+  expect(host.state()).toMatchObject({ phase: "error", target: { serial: "phone-b" } });
+  expect(host.state().ownerConversationId).toBeUndefined();
+  expect(mocks.spawn).not.toHaveBeenCalled();
+});
+
+it("外部设备掉线释放会话占用，不切换目标或继续执行", async () => {
+  mocks.run.mockImplementation(async (_file: string, args: string[]) => {
+    if (args[0] === "devices") return Buffer.from("phone device\nother device\n");
+    throw new Error("device offline");
+  });
+  host.configure({ enabled: true, sdkPath: "/sdk", adb: environment.adb, target: { kind: "external", serial: "phone", name: "Phone" }, devices: [] });
+  await host.start("thread");
+  await vi.waitFor(() => expect(host.state().phase).toBe("error"), { timeout: 4500 });
+  expect(host.state()).toMatchObject({ error: "android_device_offline", target: { serial: "phone" } });
+  expect(host.state().ownerConversationId).toBeUndefined();
+  await expect(host.act("thread", { action: "key", key: "home" })).rejects.toThrow("android_not_running");
+  expect(mocks.run.mock.calls.filter(([, args]) => args[0] === "-s").every(([, args]) => args[1] === "phone")).toBe(true);
+});
 
 it("设备快照走真实 XML 解析链路，保留末尾内容与状态而不是返回截断 XML", async () => {
   await host.start("thread");

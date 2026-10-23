@@ -6,6 +6,6 @@ import { Tooltip } from "../../shared/ui/tooltip";
 
 export function AndroidButton({ state, opened, onToggle }: { state: AndroidState | null; opened: boolean; onToggle(): void }) {
   const { t } = useTranslation();
-  if (!state?.installed || !state.enabled) return null;
+  if (!state?.adbReady || !state.enabled) return null;
   return <Tooltip content={t("android.title")}><IconButton active={opened} aria-pressed={opened} aria-label={t("android.title")} onClick={onToggle}><Smartphone /></IconButton></Tooltip>;
 }

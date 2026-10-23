@@ -18,6 +18,17 @@ export function sdkCandidates(): string[] {
   ].filter((value): value is string => Boolean(value)))];
 }
 
+export async function checkAdb(sdkPath: string, run: CommandRunner = runCommand): Promise<{ adb?: string; issue?: AndroidIssue }> {
+  const suffix = process.platform === "win32" ? ".exe" : "";
+  const candidates = sdkPath ? [path.join(sdkPath, "platform-tools", `adb${suffix}`), path.join(sdkPath, `adb${suffix}`)] : ["adb"];
+  for (const adb of candidates) {
+    if (sdkPath && !(await isFile(adb))) continue;
+    try { await run(adb, ["version"]); return { adb }; }
+    catch { return { issue: "tools_invalid" }; }
+  }
+  return { issue: "adb_missing" };
+}
+
 export async function checkEnvironment(sdkPath: string, run: CommandRunner = runCommand): Promise<EnvironmentCheck> {
   if (process.platform !== "win32" && process.platform !== "darwin") return { sdkPath, issue: "unsupported_platform" };
   const suffix = process.platform === "win32" ? ".exe" : "";

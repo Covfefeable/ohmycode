@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import type { AndroidInstallPlan, AndroidInstallState } from "@ohmycode/android-use/types";
+import type { AndroidInstallMode, AndroidInstallPlan, AndroidInstallState } from "@ohmycode/android-use/types";
 
-export function useAndroidInstallation() {
+export function useAndroidInstallation(mode: AndroidInstallMode = "runtime") {
   const [state, setState] = useState<AndroidInstallState | null>(null);
   const [plan, setPlan] = useState<AndroidInstallPlan | null>(null);
   const [failed, setFailed] = useState(false);
@@ -10,18 +10,18 @@ export function useAndroidInstallation() {
     let active = true;
     let received = false;
     const off = window.ohmycode.android.onInstallation((next) => { received = true; setState(next); });
-    void Promise.all([window.ohmycode.android.installation(), window.ohmycode.android.installPlan()]).then(([next, nextPlan]) => {
+    void Promise.all([window.ohmycode.android.installation(), window.ohmycode.android.installPlan(mode)]).then(([next, nextPlan]) => {
       if (!active) return;
       if (!received) setState(next);
       setPlan(nextPlan);
       setFailed(false);
     }).catch(() => { if (active) setFailed(true); });
     return () => { active = false; off(); };
-  }, [attempt]);
+  }, [attempt, mode]);
   return {
-    state, plan, failed,
+    state: state?.mode === mode ? state : null, plan, failed,
     active: Boolean(state && !["idle", "completed", "error", "canceled"].includes(state.phase)),
     retry: () => setAttempt((value) => value + 1),
-    chooseRoot: async () => { setPlan(await window.ohmycode.android.chooseInstallRoot()); },
+    chooseRoot: async () => { setPlan(await window.ohmycode.android.chooseInstallRoot(mode)); },
   };
 }

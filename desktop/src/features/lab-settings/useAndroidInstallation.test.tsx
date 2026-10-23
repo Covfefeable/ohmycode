@@ -3,8 +3,8 @@ import { expect, it, vi } from "vitest";
 import type { AndroidInstallPlan, AndroidInstallState } from "@ohmycode/android-use/types";
 import { useAndroidInstallation } from "./useAndroidInstallation";
 
-const idle: AndroidInstallState = { phase: "idle", root: "/android", receivedBytes: 0, totalBytes: 100 };
-const plan: AndroidInstallPlan = { root: idle.root, components: [], totalBytes: 100, requiredFreeBytes: 15 * 1024 ** 3, licenseUrl: "https://developer.android.com/studio/terms" };
+const idle: AndroidInstallState = { mode: "runtime", phase: "idle", root: "/android", receivedBytes: 0, totalBytes: 100 };
+const plan: AndroidInstallPlan = { mode: "runtime", root: idle.root, components: [], totalBytes: 100, requiredFreeBytes: 15 * 1024 ** 3, licenseUrl: "https://developer.android.com/studio/terms" };
 
 it("晚到的初始快照不会覆盖安装进度，重新挂载能恢复主进程快照", async () => {
   let listener!: (state: AndroidInstallState) => void;

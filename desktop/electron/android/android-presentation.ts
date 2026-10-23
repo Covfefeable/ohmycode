@@ -62,7 +62,9 @@ export async function startAndroidVideo(sender: WebContents, id: string): Promis
       if (!current.abort.signal.aborted && !sender.isDestroyed()) sender.send("android:video", id, packet);
     }, fail, current.abort.signal);
     if (current.abort.signal.aborted) await current.close();
-  } catch (error) { fail(); throw error; }
+  } catch (error) {
+    if (!current.abort.signal.aborted) { fail(); throw error; }
+  }
   finally {
     if (current.abort.signal.aborted) sender.removeListener("destroyed", destroyed);
     else current.abort.signal.addEventListener("abort", () => sender.removeListener("destroyed", destroyed), { once: true });

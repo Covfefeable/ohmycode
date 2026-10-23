@@ -1,12 +1,24 @@
 import { beforeEach, expect, it, vi } from "vitest";
 import { createAndroidPlugin, AndroidHost } from "../../../packages/android-use/src/index";
 import { actionArguments } from "../../../packages/android-use/src/command";
+import { listDevices, networkAddress } from "../../../packages/android-use/src/adb";
 import { compactSnapshot } from "../../../packages/android-use/src/snapshot";
 import type { ToolCall } from "@ohmycode/tool-contracts";
 
 const host = new AndroidHost("/test-data", vi.fn());
 const environment = { sdkPath: "/sdk", emulator: "/sdk/emulator", adb: "/sdk/adb", imagePath: "/sdk/image", imageName: "android-35/default/x86_64" };
 const call = (tool: string, args: unknown = {}): ToolCall => ({ tool, arguments: args, callId: "call", runId: "turn" });
+
+it("设备发现保留授权和离线状态，网络地址不能注入参数", async () => {
+  const run = vi.fn().mockResolvedValue(Buffer.from("List of devices attached\nusb-one device usb:1-2 model:Pixel_9 transport_id:1\n127.0.0.1:5555 offline\nphone unauthorized\n"));
+  expect(await listDevices("adb", run)).toEqual([
+    { serial: "usb-one", name: "Pixel 9", status: "device", transport: "usb" },
+    { serial: "127.0.0.1:5555", name: "127.0.0.1:5555", status: "offline", transport: "network" },
+    { serial: "phone", name: "phone", status: "unauthorized", transport: "local" },
+  ]);
+  expect(networkAddress(" [::1]:5555 ")).toBe("[::1]:5555");
+  for (const value of ["host", "host:0", "host:65536", "host:5555 --help", "host:5555;stop"]) expect(() => networkAddress(value)).toThrow("android_invalid_address");
+});
 
 it("快照压缩去掉空布局，但保留可操作祖先、禁用状态与解码后的文本", () => {
   const xml = `<hierarchy rotation="1"><node class="Layout" bounds="[0,0][800,600]" package="example">
@@ -31,27 +43,27 @@ it("大快照不在工具内部截断，畸形 XML 不伪装成空页面", () =>
   expect(() => compactSnapshot("<hierarchy><node></hierarchy>")).toThrow();
   expect(() => compactSnapshot("<not-a-hierarchy/>")).toThrow("android_invalid_snapshot");
 });
-beforeEach(() => { host.configure(false, ""); });
+beforeEach(() => { host.configure({ enabled: false, sdkPath: "", target: { kind: "managed" }, devices: [] }); });
 
 it("未安装或未启用时无 Android 工具，也无法直接调用", async () => {
   let plugin = createAndroidPlugin(host, "thread", true);
   expect(plugin.definitions()).toEqual([]);
   await expect(plugin.execute(call("android_device", { action: "start" }))).rejects.toThrow("android_not_available");
-  host.configure(true, "/sdk");
+  host.configure({ enabled: true, sdkPath: "/sdk", target: { kind: "managed" }, devices: [] });
   plugin = createAndroidPlugin(host, "thread", true);
   expect(plugin.definitions()).toEqual([]);
-  host.configure(false, "/sdk", environment);
+  host.configure({ enabled: false, sdkPath: "/sdk", environment, target: { kind: "managed" }, devices: [] });
   expect(createAndroidPlugin(host, "thread", true).definitions()).toEqual([]);
 });
 it("安装并启用后注册工具，截图只提供给视觉模型", () => {
-  host.configure(true, "/sdk", environment);
+  host.configure({ enabled: true, sdkPath: "/sdk", environment, target: { kind: "managed" }, devices: [] });
   expect(createAndroidPlugin(host, "thread", true).definitions().map((item) => item.name)).toEqual(["android_device", "android_snapshot", "android_screenshot", "android_act"]);
   expect(createAndroidPlugin(host, "thread", false).handles("android_screenshot")).toBe(false);
 });
 it("注册后停用也立即阻止调用和后续工具快照", async () => {
-  host.configure(true, "/sdk", environment);
+  host.configure({ enabled: true, sdkPath: "/sdk", environment, target: { kind: "managed" }, devices: [] });
   const plugin = createAndroidPlugin(host, "thread", true);
-  host.configure(false, "/sdk", environment);
+  host.configure({ enabled: false, sdkPath: "/sdk", environment, target: { kind: "managed" }, devices: [] });
   expect(plugin.definitions()).toEqual([]);
   await expect(plugin.execute(call("android_snapshot"))).rejects.toThrow("android_not_available");
 });
@@ -67,7 +79,7 @@ it("输入正确转义 Android shell，不错误宣称支持中文", () => {
   expect(() => actionArguments({ action: "text", text: "%s" })).toThrow("android_text_percent_s_unsupported");
 });
 it("停止信号不执行后续设备操作，未启动不读取或操作设备", async () => {
-  host.configure(true, "/sdk", environment);
+  host.configure({ enabled: true, sdkPath: "/sdk", environment, target: { kind: "managed" }, devices: [] });
   const controller = new AbortController();
   controller.abort();
   await expect(createAndroidPlugin(host, "thread", true, controller.signal).execute(call("android_act", { action: "key", key: "home" }))).rejects.toThrow();

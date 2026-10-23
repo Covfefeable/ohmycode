@@ -55,7 +55,7 @@ Object.defineProperty(window, "ohmycode", { configurable: true, value: {
   },
   projects: { list: async () => [project], searchConversations: async (query: string) => query === "needle" ? [{ projectId: project.id, projectName: project.name, conversation, messageId: "m-55", snippet: "needle evidence 55" }] : [] },
   capabilities: { onChanged: () => () => {}, listMcp: async () => [], listSkills: async () => [] },
-  android: { state: async () => ({ enabled: true, installed: true, sdkPath: "/sdk", phase: "stopped" }), onState: () => () => {}, detached: async () => false, onDetached: () => () => {} },
+  android: { state: async () => ({ enabled: true, installed: true, sdkPath: "/sdk", phase: "stopped", target: { kind: "managed" }, devices: [], adbReady: true, managedInstalled: true }), onState: () => () => {}, detached: async () => false, onDetached: () => () => {} },
   settings: { onModelsChanged: () => () => {}, listModels: async () => [] },
   speech: {
     getSettings: async () => ({ workspaceId: "llm-test", voice: "longanhuan_v3.1", autoPlay: false, hasApiKey: true }),

@@ -42,13 +42,13 @@ export function AndroidInstallDialog({ plan, chooseRoot, onClose }: { plan: Andr
   }
   return createPortal(<div className={styles.backdrop} onMouseDown={() => !busy && onClose()}>
     <section ref={dialog} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby={title} className={styles.dialog} onMouseDown={(event) => event.stopPropagation()}>
-      <header><h2 id={title}>{t("android.install.title")}</h2><IconButton disabled={busy} aria-label={t("common.close")} onClick={onClose}><X /></IconButton></header>
+      <header><h2 id={title}>{t(plan.mode === "tools" ? "android.devices.installTools" : "android.install.title")}</h2><IconButton disabled={busy} aria-label={t("common.close")} onClick={onClose}><X /></IconButton></header>
       <p>{t("android.install.summary", { size: size(plan.totalBytes), free: size(plan.requiredFreeBytes) })}</p>
       <ul>{plan.components.map((component) => <li key={component.id}><span>{t(`android.install.components.${component.id}`)} <small>{component.version}</small></span><span>{size(component.bytes)}</span></li>)}</ul>
       <div className={styles.location}><Tooltip content={plan.root}><span>{plan.root}</span></Tooltip><button disabled={busy} onClick={() => void perform(chooseRoot)}>{t("android.install.chooseLocation")}</button></div>
-      <p>{t("android.install.virtualizationHint")}</p>
+      {plan.mode === "runtime" && <p>{t("android.install.virtualizationHint")}</p>}
       <label className={styles.consent}><input type="checkbox" checked={consent} disabled={busy} onChange={(event) => setConsent(event.target.checked)} /><span>{t("android.install.consent")} <button className={styles.link} onClick={() => void perform(() => window.ohmycode.android.openLicense())}>{t("android.install.license")}</button></span></label>
-      <footer><button disabled={busy} onClick={onClose}>{t("common.cancel")}</button><button className={styles.primary} disabled={!consent || busy} onClick={() => void perform(() => window.ohmycode.android.install(true), true)}>{busy ? <LoaderCircle className={styles.spin} /> : <Download />}{t("android.install.now")}</button></footer>
+      <footer><button disabled={busy} onClick={onClose}>{t("common.cancel")}</button><button className={styles.primary} disabled={!consent || busy} onClick={() => void perform(() => window.ohmycode.android.install(true, plan.mode), true)}>{busy ? <LoaderCircle className={styles.spin} /> : <Download />}{t("android.install.now")}</button></footer>
     </section>
   </div>, document.body);
 }

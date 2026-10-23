@@ -8,7 +8,7 @@ const mocks = vi.hoisted(() => ({ check: vi.fn(), install: vi.fn(), installed: v
 vi.mock("electron", () => ({ net: { fetch: vi.fn() } }));
 vi.mock("@ohmycode/android-use", () => ({
   checkVirtualization: mocks.check, installRuntime: mocks.install,
-  runtimeComponents: () => [{ id: "emulator", version: "test", bytes: 100 }],
+  runtimeComponents: () => [{ id: "emulator", version: "test", bytes: 100 }, { id: "platformTools", version: "test", bytes: 10 }],
   REQUIRED_FREE_BYTES: 15 * 1024 ** 3, SDK_LICENSE_URL: "https://developer.android.com/studio/terms",
 }));
 let root: string;
@@ -35,7 +35,7 @@ it("立即返回安装状态，重复点击不会并发下载，完成后才激�
   job.start(true);
   await vi.waitFor(() => expect(job.state().phase).toBe("completed"));
   expect(mocks.install).toHaveBeenCalledOnce();
-  expect(mocks.installed).toHaveBeenCalledWith(path.join(root, "sdk"));
+  expect(mocks.installed).toHaveBeenCalledWith(path.join(root, "sdk"), "runtime");
   const receipt = JSON.parse(await readFile(path.join(root, "sdk-license.json"), "utf8"));
   expect(receipt.url).toBe(job.plan().licenseUrl);
 });
@@ -66,4 +66,15 @@ it("虚拟化预检失败不下载，最终运行检查失败不报成功", asyn
   job.start(true);
   await vi.waitFor(() => expect(job.state().error).toBe("android_install_acceleration_unavailable"));
   expect(job.state().phase).toBe("error");
+});
+
+it("仅安装连接组件不检测虚拟化，也不下载模拟器和镜像", async () => {
+  mocks.check.mockRejectedValue(new Error("android_install_virtualization"));
+  const plan = job.plan("tools");
+  expect(plan.components.map((component) => component.id)).toEqual(["platformTools"]);
+  job.start(true, "tools");
+  await vi.waitFor(() => expect(job.state().phase).toBe("completed"));
+  expect(mocks.check).not.toHaveBeenCalled();
+  expect(mocks.install.mock.calls[0][0].components).toEqual([expect.objectContaining({ id: "platformTools" })]);
+  expect(mocks.installed).toHaveBeenCalledWith(path.join(root, "sdk"), "tools");
 });

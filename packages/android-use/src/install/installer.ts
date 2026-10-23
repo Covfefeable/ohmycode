@@ -40,6 +40,7 @@ export async function installRuntime(options: {
   signal: AbortSignal;
   onProgress(progress: InstallProgress): void;
   fetcher?: RuntimeFetch;
+  requiredFreeBytes?: number;
 }): Promise<string> {
   const { root, components, signal, onProgress } = options;
   const sdk = path.join(root, "sdk");
@@ -59,7 +60,7 @@ export async function installRuntime(options: {
   }
   if (reusable.size !== components.length) {
     const disk = await statfs(root);
-    if (disk.bavail * disk.bsize < REQUIRED_FREE_BYTES) throw new Error("android_install_disk_space");
+    if (disk.bavail * disk.bsize < (options.requiredFreeBytes ?? REQUIRED_FREE_BYTES)) throw new Error("android_install_disk_space");
   }
   await mkdir(downloads, { recursive: true });
   for (const component of components) {

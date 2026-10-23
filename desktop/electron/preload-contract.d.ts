@@ -1,9 +1,12 @@
 interface DesktopBridge {
     android: {
-      installPlan(): Promise<import("@ohmycode/android-use/types").AndroidInstallPlan>;
+      installPlan(mode?: import("@ohmycode/android-use/types").AndroidInstallMode): Promise<import("@ohmycode/android-use/types").AndroidInstallPlan>;
       installation(): Promise<import("@ohmycode/android-use/types").AndroidInstallState>;
-      chooseInstallRoot(): Promise<import("@ohmycode/android-use/types").AndroidInstallPlan>;
-      install(consent: boolean): Promise<import("@ohmycode/android-use/types").AndroidInstallState>;
+      chooseInstallRoot(mode?: import("@ohmycode/android-use/types").AndroidInstallMode): Promise<import("@ohmycode/android-use/types").AndroidInstallPlan>;
+      install(consent: boolean, mode?: import("@ohmycode/android-use/types").AndroidInstallMode): Promise<import("@ohmycode/android-use/types").AndroidInstallState>;
+      selectTarget(target: import("@ohmycode/android-use/types").AndroidTarget): Promise<import("@ohmycode/android-use/types").AndroidState>;
+      connect(address: string, name: string): Promise<import("@ohmycode/android-use/types").AndroidState>;
+      removeDevice(serial: string): Promise<import("@ohmycode/android-use/types").AndroidState>;
       cancelInstall(): Promise<import("@ohmycode/android-use/types").AndroidInstallState>;
       openLicense(): Promise<void>;
       onInstallation(callback: (state: import("@ohmycode/android-use/types").AndroidInstallState) => void): () => void;
