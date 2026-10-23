@@ -1,7 +1,7 @@
 import type { WebContents } from "electron";
+import { redactUrl, SENSITIVE_FIELD } from "./diagnostic-format.js";
 
 const CAPACITY = 200;
-const SENSITIVE = /auth|cookie|token|secret|password|api[-_]?key|signature/i;
 type Headers = Record<string, string | number>;
 type Response = { url: string; status: number; mimeType: string; headers: Headers };
 type RequestEvent = { requestId: string; timestamp: number; wallTime: number; type?: string; request: { url: string; method: string; headers: Headers }; redirectResponse?: Response };
@@ -12,16 +12,7 @@ type RequestRecord = {
 };
 
 function redactHeaders(headers: Headers): Headers {
-  return Object.fromEntries(Object.entries(headers).slice(0, 50).map(([name, value]) => [name, SENSITIVE.test(name) || /^(referer|location)$/i.test(name) ? "[REDACTED]" : String(value).slice(0, 2000)]));
-}
-
-function redactUrl(value: string): string {
-  const url = new URL(value);
-  url.username = "";
-  url.password = "";
-  for (const key of [...url.searchParams.keys()]) if (SENSITIVE.test(key)) url.searchParams.set(key, "[REDACTED]");
-  url.hash = "";
-  return url.href.slice(0, 4000);
+  return Object.fromEntries(Object.entries(headers).slice(0, 50).map(([name, value]) => [name, SENSITIVE_FIELD.test(name) || /^(referer|location)$/i.test(name) ? "[REDACTED]" : String(value).slice(0, 2000)]));
 }
 
 /** Page-scoped metadata only. Chromium retains a bounded body cache for explicit reads. */

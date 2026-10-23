@@ -99,6 +99,7 @@ async function main() {
     await lifecycle(host, window, base, baseChildren);
     await require("./detached.cjs")(host, window, base);
     await require("./network.cjs").test(host, base);
+    await require("./console.cjs")(host, base);
     host.layout(null, null);
     await host.execute("background", "browser_navigate", { action: "navigate", url: base });
     await assert.rejects(host.execute("background", "browser_screenshot", {}), /browser_page_not_presented/);

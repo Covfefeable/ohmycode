@@ -253,6 +253,7 @@ export class BrowserHost {
     this.session(id).selectedId = tab.id;
     this.setOpened(id, true);
     if (tool === "browser_network") return tab.page.network.execute(args);
+    if (tool === "browser_console") return tab.page.console.read(args);
     if (tool === "browser_dialog") {
       if (args.action === "read") return { dialog: tab.page.dialog };
       if (args.action === "accept" || args.action === "dismiss") return tab.page.handleDialog(args.action === "accept");
