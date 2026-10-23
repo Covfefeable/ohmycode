@@ -1,7 +1,7 @@
 import { ipcMain } from "electron";
 import { authenticate, bootstrapAuth, clearTokens } from "../auth/auth-service.js";
 import type { AuthPayload } from "../auth/types.js";
-import { stopSpeech } from "./register-speech-ipc.js";
+import { stopSpeech } from "../speech/speech-host.js";
 import { closeBrowsers } from "../browser/browser-service.js";
 
 export function registerAuthIpc(): void {

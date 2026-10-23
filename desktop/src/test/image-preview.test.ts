@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { afterEach, expect, test, vi } from "vitest";
-import { previewWorkspaceImage } from "../../electron/runtime/image-preview";
+import { previewWorkspaceImage } from "../../electron/files/image-preview";
 import { executeViewImage } from "../../electron/files/image-tool";
 
 const { listProjects, getMultiAgentTask } = vi.hoisted(() => ({ listProjects: vi.fn(), getMultiAgentTask: vi.fn() }));

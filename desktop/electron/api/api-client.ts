@@ -102,3 +102,13 @@ export async function apiRequest<T>(pathname: string, init: RequestInit = {}): P
     throw new ApiError(502, "invalid_api_response");
   }
 }
+
+export async function getApiStatus(): Promise<{ online: boolean; url: string }> {
+  const url = getApiUrl();
+  try {
+    const response = await fetch(`${url}/api/health`, { signal: AbortSignal.timeout(3_000) });
+    return { online: response.ok, url };
+  } catch {
+    return { online: false, url };
+  }
+}

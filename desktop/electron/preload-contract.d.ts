@@ -63,7 +63,7 @@ interface DesktopBridge {
       openDevTools(): void;
     };
     openPath(targetPath: string, projectId?: string): Promise<void>;
-    previewImage(scope: import("./runtime/image-preview").ImageScope | undefined, reference: string): Promise<string>;
+    previewImage(scope: import("./files/image-preview").ImageScope | undefined, reference: string): Promise<string>;
     auth: {
       bootstrap(): Promise<
         | { authenticated: false }

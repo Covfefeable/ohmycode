@@ -26,10 +26,12 @@ electron/
   browser/          browser-use 包的宿主适配与状态发布
   api/              Flask API 客户端
   capabilities/     MCP 与 Skill 的本地加载和执行
-  files/            文件工具与图片查看
-  ipc/              Renderer 可访问的窄 IPC 接口
+  conversations/    会话消息提交、排队决策与传输
+  files/            文件工具、路径打开、粘贴图片与图片预览
+  ipc/              按 API、文件、窗口和业务领域注册窄 IPC 接口
   runtime/          Desktop Runtime Host、事件存储和工具插件
   terminal/         持久 PTY 终端管理
+  speech/           语音连接、任务及窗口实例生命周期
   window/           Electron 窗口创建与平台行为
 
 src/
@@ -42,6 +44,10 @@ src/
 
 平台无关的 Runtime、协议、工具契约和 Design Token 位于仓库根目录的 `packages/`，桌面端
 通过 workspace 依赖复用。共享包不得反向依赖 Electron 或 `desktop/`。
+
+IPC 注册模块只负责通道绑定和参数转交，不持有语音实例等长生命周期资源，也不决定消息是否排队。
+语音实例由 `speech-host` 按窗口维护，退出和注销直接调用领域模块；会话操作由 `conversation-actions` 编排。
+图片预览属于 `files`，不再依赖 Runtime 作为界面资源查询入口。
 
 ## 开发
 

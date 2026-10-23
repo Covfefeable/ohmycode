@@ -8,8 +8,10 @@ app.on("window-all-closed", () => {});
 app.whenReady().then(async () => {
   const load = (file) => import(pathToFileURL(resolve(app.getAppPath(), "dist-electron", file)).href);
   const { registerBrowserIpc } = await load("ipc/register-browser-ipc.js");
+  const { registerWindowIpc } = await load("ipc/register-window-ipc.js");
   const { browserContext } = await load("browser/browser-service.js");
   registerBrowserIpc();
+  registerWindowIpc();
   const owner = new BrowserWindow({ show: false });
   await owner.loadURL("about:blank");
   const context = browserContext(owner);

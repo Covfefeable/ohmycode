@@ -56,12 +56,12 @@ for (const mode of ["production", "development"]) test(`${mode}：独立浏览�
     ]);
     assert.equal(await application.evaluate(() => globalThis.browserTest.context.host.state("thread").detached), false);
     await application.evaluate(() => globalThis.browserTest.context.controller.detach("thread"));
-    assert.equal(await application.evaluate(({ BrowserWindow }) => {
-      const { owner, context } = globalThis.browserTest;
-      const detached = BrowserWindow.getAllWindows().find((window) => window !== owner);
-      detached.close();
-      return context.host.state("thread").tabs.length;
-    }), 1);
+    const reopened = application.windows().find((page) => page.url().includes("#/browser/"));
+    await Promise.all([
+      reopened.waitForEvent("close"),
+      reopened.evaluate(() => window.ohmycode.windowControls.close()),
+    ]);
+    assert.equal(await application.evaluate(() => globalThis.browserTest.context.host.state("thread").tabs.length), 1);
     assert.equal(await application.evaluate(() => globalThis.browserTest.context.host.state("thread").detached), false);
     await application.evaluate(() => globalThis.browserTest.context.controller.detach("thread"));
     assert.equal(await application.evaluate(({ BrowserWindow }) => {

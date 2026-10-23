@@ -1,5 +1,5 @@
 import path from "node:path";
-import { executeViewImage } from "../files/image-tool.js";
+import { executeViewImage } from "./image-tool.js";
 import { listProjects } from "../projects/projects-service.js";
 import { getMultiAgentTask } from "../multi-agents/multi-agent-service.js";
 

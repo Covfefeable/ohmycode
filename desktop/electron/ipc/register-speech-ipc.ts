@@ -1,6 +1,6 @@
-import { ipcMain, type WebContents } from "electron";
+import { ipcMain } from "electron";
 import { apiRequest } from "../api/api-client.js";
-import { SpeechService } from "../speech/speech-service.js";
+import { speechForWindow } from "../speech/speech-host.js";
 import type {
   SpeechMode,
   SpeechSettings,
@@ -8,27 +8,6 @@ import type {
   CustomVoice,
   VoiceCloneInput,
 } from "../speech/types.js";
-
-const services = new Map<number, SpeechService>();
-
-export function stopSpeech() {
-  for (const service of services.values()) service.stop();
-}
-
-function service(sender: WebContents) {
-  let current = services.get(sender.id);
-  if (!current) {
-    current = new SpeechService((id, event) => {
-      if (!sender.isDestroyed()) sender.send(`speech:event:${id}`, event);
-    });
-    services.set(sender.id, current);
-    sender.once("destroyed", () => {
-      services.get(sender.id)?.stop();
-      services.delete(sender.id);
-    });
-  }
-  return current;
-}
 
 export function registerSpeechIpc() {
   ipcMain.handle("speech:voices", () =>
@@ -63,17 +42,17 @@ export function registerSpeechIpc() {
     }),
   );
   ipcMain.handle("speech:start", ({ sender }, id: string, mode: SpeechMode) =>
-    service(sender).start(id, mode),
+    speechForWindow(sender).start(id, mode),
   );
   ipcMain.on(
     "speech:append",
     ({ sender }, id: string, value: string | Uint8Array) =>
-      service(sender).append(id, value),
+      speechForWindow(sender).append(id, value),
   );
   ipcMain.on("speech:finish", ({ sender }, id: string) =>
-    service(sender).finish(id),
+    speechForWindow(sender).finish(id),
   );
   ipcMain.on("speech:stop", ({ sender }, mode: SpeechMode) =>
-    service(sender).stop(mode),
+    speechForWindow(sender).stop(mode),
   );
 }
