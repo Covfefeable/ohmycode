@@ -6,6 +6,7 @@ import type { DesktopTurnExecution } from "../runtime/desktop-execution-adapter.
 import type { DesktopExecutionContext } from "../runtime/types.js";
 import { ConversationTransport } from "./conversation-transport.js";
 import { getModels } from "../settings/settings-service.js";
+import { getAndroidState } from "../android/android-service.js";
 
 export type ConversationStreamEvent = AgentStreamEvent;
 export type { AgentTask };
@@ -46,6 +47,7 @@ export async function streamMessage(
     ? models.find((item) => item.id === modelId)
     : models[0];
   const attachmentPaths = new Set((attachments ?? []).map((item) => item.path));
+  await getAndroidState();
   const registry = new DesktopToolRegistry({
     conversationId,
     execution,

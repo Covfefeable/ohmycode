@@ -1,8 +1,8 @@
 import { useTranslation } from "react-i18next";
-import { Bot, CircleUserRound, PackageOpen, PlugZap, RefreshCw, Timer, AudioLines } from "lucide-react";
+import { Bot, CircleUserRound, PackageOpen, PlugZap, RefreshCw, Timer, AudioLines, FlaskConical } from "lucide-react";
 import styles from "./SettingsSidebar.module.css";
 
-export type SettingsTab = "profile" | "models" | "speech" | "background" | "mcp" | "skills" | "updates";
+export type SettingsTab = "profile" | "models" | "speech" | "background" | "mcp" | "skills" | "updates" | "lab";
 export function SettingsSidebar({ tab, onChange }: { tab: SettingsTab; onChange(tab: SettingsTab): void }) {
   const { t } = useTranslation();
   return <aside className={styles.sidebar}>
@@ -15,6 +15,7 @@ export function SettingsSidebar({ tab, onChange }: { tab: SettingsTab; onChange(
       <button className={tab === "mcp" ? styles.active : ""} onClick={() => onChange("mcp")}><PlugZap />{t("settings.mcpTab")}</button>
       <button className={tab === "skills" ? styles.active : ""} onClick={() => onChange("skills")}><PackageOpen />{t("settings.skillsTab")}</button>
       <button className={tab === "updates" ? styles.active : ""} onClick={() => onChange("updates")}><RefreshCw />{t("settings.updatesTab")}</button>
+      <button className={tab === "lab" ? styles.active : ""} onClick={() => onChange("lab")}><FlaskConical />{t("lab.title")}</button>
     </nav>
   </aside>;
 }

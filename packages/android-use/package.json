@@ -1,0 +1,37 @@
+{
+  "name": "@ohmycode/android-use",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js",
+    "./types": "./dist/types.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "ohmycode": {
+    "platform": "electron"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint src"
+  },
+  "dependencies": {
+    "@ohmycode/tool-contracts": "workspace:*",
+    "@xmldom/xmldom": "0.9.12",
+    "unzipper": "0.12.5"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "26.2.0",
+    "@types/unzipper": "0.10.11",
+    "eslint": "10.9.0",
+    "globals": "17.11.0",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.67.0"
+  }
+}

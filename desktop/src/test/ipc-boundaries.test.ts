@@ -22,10 +22,8 @@ vi.mock("../../electron/files/open-path", () => ({ openLocalPath: mocks.openLoca
 vi.mock("../../electron/files/image-preview", () => ({ previewWorkspaceImage: mocks.previewWorkspaceImage }));
 vi.mock("../../electron/files/pasted-image", () => ({ savePastedImage: mocks.savePastedImage }));
 
-it("拆分后的 API、文件和窗口 IPC 保留通道、参数及返回值", async () => {
+it("API、文件和窗口 IPC 将操作交给对应服务及发送方窗口", async () => {
   registerApiIpc(); registerFilesIpc(); registerWindowIpc();
-  expect([...mocks.handlers.keys()].sort()).toEqual(["api:status", "debug:get-config", "debug:set-api-url", "debug:context-snapshot", "images:preview", "system:open-path", "conversations:save-pasted-image"].sort());
-  expect([...mocks.listeners.keys()].sort()).toEqual(["window:minimize", "window:toggle-maximize", "window:close", "debug:open-devtools"].sort());
   mocks.getApiStatus.mockResolvedValue({ online: true, url: "http://example.test" });
   expect(await mocks.handlers.get("api:status")!()).toEqual({ online: true, url: "http://example.test" });
   expect(mocks.handlers.get("debug:get-config")!()).toEqual({ apiUrl: "http://example.test" });

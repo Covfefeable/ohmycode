@@ -1,10 +1,8 @@
 import { BrowserHost } from "@ohmycode/browser-use";
 import { BrowserWindow } from "electron";
-import { BrowserWindowSpace } from "./browser-window-space.js";
 import { DetachedBrowserWindows } from "./detached-browser-window.js";
 
 const hosts = new Map<number, BrowserHost>();
-const spaces = new Map<number, BrowserWindowSpace>();
 const detached = new Map<number, DetachedBrowserWindows>();
 
 export function browserContext(window: BrowserWindow) {
@@ -14,16 +12,6 @@ export function browserContext(window: BrowserWindow) {
   }
   const host = browserForWindow(window);
   return { host, controller: detached.get(window.id)!, conversationId: undefined };
-}
-
-export function reserveBrowserSpace(window: BrowserWindow, width: number): number {
-  let space = spaces.get(window.id);
-  if (!space) {
-    space = new BrowserWindowSpace(window);
-    spaces.set(window.id, space);
-    window.once("closed", () => spaces.delete(window.id));
-  }
-  return space.reserve(width);
 }
 
 export function browserForWindow(window: BrowserWindow): BrowserHost {

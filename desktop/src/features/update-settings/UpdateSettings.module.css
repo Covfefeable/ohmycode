@@ -1,7 +1,6 @@
 .section { width: min(900px, 100%); display: grid; gap: var(--space-5); }
 .section button { height: var(--control-height); display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); border: 1px solid var(--color-border-strong); border-radius: var(--radius-md); background: var(--color-surface-2); color: var(--color-text); padding: 0 var(--space-4); font: inherit; white-space: nowrap; cursor: pointer; }
 .section button:hover { background: var(--color-surface-hover); }
-.section button:active { transform: translateY(1px); }
 .section button:disabled { color: var(--color-text-disabled); cursor: default; }
 .section button svg { width: 15px; height: 15px; }
 .statusPanel { min-height: 112px; display: grid; grid-template-columns: 42px minmax(0, 1fr) auto; align-items: center; gap: var(--space-4); border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: var(--color-surface-1); padding: var(--space-5); }

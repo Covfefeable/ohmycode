@@ -25,6 +25,8 @@ import { createTerminalPlugin } from "./tools/terminal-plugin.js";
 import { createToolResultPlugin } from "./tools/tool-result-plugin.js";
 import { createBrowserPlugin } from "@ohmycode/browser-use";
 import { activeBrowser } from "../browser/browser-service.js";
+import { createAndroidPlugin } from "@ohmycode/android-use";
+import { androidHost } from "../android/android-service.js";
 
 type RegistryOptions = {
   execution: DesktopTurnExecution;
@@ -72,6 +74,7 @@ export class DesktopToolRegistry implements ToolExecutor {
   constructor(private readonly options: RegistryOptions) {
     this.registry.register(createTaskPlanPlugin());
     this.registry.register(createBrowserPlugin(activeBrowser(), options.conversationId, options.supportsVision, options.execution.signal));
+    this.registry.register(createAndroidPlugin(androidHost(), options.conversationId, options.supportsVision, options.execution.signal));
     if (options.executionContext) {
       this.registry.register(createCollaborationPlugin(options.executionContext));
     }

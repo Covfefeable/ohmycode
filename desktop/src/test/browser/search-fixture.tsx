@@ -20,14 +20,21 @@ const conversation = { id: "thread", title: "Fixture conversation", createdAt: m
 const project: LocalProject = { id: "project", name: "Fixture project", path: "/fixture", deviceId: "test", deviceName: "Test", conversations: [conversation] };
 const listeners = new Set<(event: RuntimeEvent) => void>();
 let sequence = 3;
-declare global { interface Window { searchFixture: { emitDelta(): void } } }
-window.searchFixture = { emitDelta() { for (const listener of listeners) listener({ type: "item.delta", threadId: "thread", turnId: "live", sequence: ++sequence, itemId: "live-answer", delta: " background continues" }); } };
+declare global { interface Window { searchFixture: { emitDelta(): void; tool(tool: string): void } } }
+window.searchFixture = {
+  emitDelta() { for (const listener of listeners) listener({ type: "item.delta", threadId: "thread", turnId: "live", sequence: ++sequence, itemId: "live-answer", delta: " background continues" }); },
+  tool(tool) {
+    const event: RuntimeEvent = { type: "item.started", threadId: "thread", turnId: "live", sequence: ++sequence,
+      item: { id: `tool-${sequence}`, threadId: "thread", turnId: "live", kind: "tool", status: "in_progress", tool, input: {} } };
+    for (const listener of listeners) listener(event);
+  },
+};
 let browserState: BrowserState = { tabs: [], selectedId: null, opened: false, detached: false };
 const browserListeners = new Set<(state: BrowserState) => void>();
 
 Object.defineProperty(window, "ohmycode", { configurable: true, value: {
+  windowControls: { reservePanelSpace: async () => window.innerWidth },
   browser: {
-    reserveSpace: async () => window.innerWidth,
     state: async () => browserState,
     onState: (_id: string, listener: (state: BrowserState) => void) => { browserListeners.add(listener); return () => browserListeners.delete(listener); },
     setOpened: async (_id: string, opened: boolean) => {
@@ -48,6 +55,7 @@ Object.defineProperty(window, "ohmycode", { configurable: true, value: {
   },
   projects: { list: async () => [project], searchConversations: async (query: string) => query === "needle" ? [{ projectId: project.id, projectName: project.name, conversation, messageId: "m-55", snippet: "needle evidence 55" }] : [] },
   capabilities: { onChanged: () => () => {}, listMcp: async () => [], listSkills: async () => [] },
+  android: { state: async () => ({ enabled: true, installed: true, sdkPath: "/sdk", phase: "stopped", target: { kind: "managed" }, devices: [], adbReady: true, managedInstalled: true }), onState: () => () => {}, detached: async () => false, onDetached: () => () => {} },
   settings: { onModelsChanged: () => () => {}, listModels: async () => [] },
   speech: {
     getSettings: async () => ({ workspaceId: "llm-test", voice: "longanhuan_v3.1", autoPlay: false, hasApiKey: true }),

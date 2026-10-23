@@ -3,18 +3,39 @@ import { stat } from "node:fs/promises";
 import { isAbsolute } from "node:path";
 import { pointerAction, pressKey, targetPoint } from "./page-input.js";
 
-type AxNode = { ignored: boolean; role?: { value: string }; name?: { value: string }; value?: { value: unknown }; backendDOMNodeId?: number };
+type AxNode = { nodeId: string; childIds?: string[]; ignored: boolean; role?: { value: string }; name?: { value: string }; value?: { value: unknown }; properties?: { name: string; value: { value?: unknown } }[]; backendDOMNodeId?: number };
 
-export async function pageSnapshot(page: WebContents) {
+export async function pageSnapshot(page: WebContents, args: Record<string, unknown> = {}) {
+  if (args.nodeId !== undefined && !Number.isInteger(args.nodeId)) throw new Error("browser_node_required");
+  if (args.query !== undefined && typeof args.query !== "string") throw new Error("browser_invalid_query");
   if (!page.debugger.isAttached()) page.debugger.attach("1.3");
   const { nodes } = await page.debugger.sendCommand("Accessibility.getFullAXTree") as { nodes: AxNode[] };
-  const lines = nodes.filter((node) => !node.ignored).map((node) => ({
+  let selected = nodes;
+  if (args.nodeId !== undefined) {
+    const root = nodes.find((node) => node.backendDOMNodeId === args.nodeId);
+    if (!root) throw new Error("browser_snapshot_node_not_found");
+    const byId = new Map(nodes.map((node) => [node.nodeId, node]));
+    const subtree = new Set([root.nodeId]);
+    for (const id of subtree) for (const child of byId.get(id)?.childIds ?? []) subtree.add(child);
+    selected = nodes.filter((node) => subtree.has(node.nodeId));
+  }
+  const query = typeof args.query === "string" ? args.query.trim().toLowerCase() : "";
+  const lines = selected.filter((node) => {
+    if (node.ignored || node.role?.value === "InlineTextBox") return false;
+    const structural = ["generic", "none", "presentation"].includes(node.role?.value ?? "");
+    const focusable = node.properties?.some((property) => property.name === "focusable" && property.value.value === true);
+    if (structural && !node.name?.value?.trim() && !node.value && !focusable) return false;
+    return !query || [node.role?.value, node.name?.value, node.value?.value].some((value) => String(value ?? "").toLowerCase().includes(query));
+  }).map((node) => ({
     nodeId: node.backendDOMNodeId,
     role: node.role?.value,
     name: node.name?.value,
     ...(node.value ? { value: node.value.value } : {}),
+    ...Object.fromEntries((node.properties ?? []).filter((property) =>
+      ["checked", "expanded", "selected"].includes(property.name) || ["disabled", "focusable"].includes(property.name) && property.value.value === true,
+    ).map((property) => [property.name, property.value.value])),
   }));
-  return { url: page.getURL(), title: page.getTitle(), nodes: lines.slice(0, 500), truncated: lines.length > 500 };
+  return { url: page.getURL(), title: page.getTitle(), nodes: lines };
 }
 
 export async function pageAction(page: WebContents, args: Record<string, unknown>): Promise<void> {

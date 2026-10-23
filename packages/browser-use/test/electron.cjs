@@ -32,6 +32,10 @@ async function main() {
       return;
     }
     res.setHeader("Content-Type", "text/html");
+    if (req.url === "/snapshot") {
+      res.end(`<title>Snapshot fixture</title><main aria-label="Actions">${Array.from({ length: 650 }, (_, index) => `<div><button>Action ${index}</button></div>`).join("")}</main><input aria-label="Outside"><div tabindex="0"></div><input type="checkbox" aria-label="Option" checked disabled>`);
+      return;
+    }
     if (req.url === "/advanced") { res.end(advanced.html); return; }
     res.end(`<title>Browser fixture</title><h1>Local browser test</h1><input aria-label="Name"><button onclick="document.querySelector('h1').textContent=document.querySelector('input').value">Apply</button><a target="_blank" href="/popup">Popup</a>`);
   });
@@ -68,6 +72,19 @@ async function main() {
     const image = await host.execute("one", "browser_screenshot", {});
     assert.match(image.dataUrl, /^data:image\/png;base64,/);
     assert.ok(image.width > 0);
+    await host.execute("one", "browser_navigate", { action: "navigate", url: `${base}/snapshot` });
+    const compact = await host.execute("one", "browser_snapshot", {});
+    assert.equal(compact.nodes.filter((node) => node.role === "button").length, 650, "No hard truncation loses actionable elements");
+    assert.equal(compact.nodes.some((node) => node.role === "generic" && !node.name && !node.focusable), false);
+    assert.ok(compact.nodes.some((node) => node.role === "generic" && !node.name && node.focusable), "Unnamed keyboard targets are not removed as empty containers");
+    assert.ok(compact.nodes.some((node) => node.role === "checkbox" && node.checked === "true" && node.disabled === true));
+    assert.equal(compact.nodes.some((node) => node.role === "InlineTextBox"), false);
+    const main = compact.nodes.find((node) => node.role === "main");
+    const scoped = await host.execute("one", "browser_snapshot", { nodeId: main.nodeId, query: "action 649" });
+    assert.ok(scoped.nodes.some((node) => node.role === "button" && node.name === "Action 649"));
+    assert.equal(scoped.nodes.some((node) => node.name === "Outside"), false);
+    assert.equal((await host.execute("one", "browser_snapshot", { query: "not on this page" })).nodes.length, 0);
+    await assert.rejects(host.execute("one", "browser_snapshot", { nodeId: -1 }), /browser_snapshot_node_not_found/);
     console.log("Browser fixture: advanced interactions");
     window.focus();
     visiblePages().at(-1).webContents.focus();

@@ -1,6 +1,6 @@
 import { BrowserWindow, ipcMain, type IpcMainInvokeEvent } from "electron";
 import type { BrowserBounds, BrowserCommand } from "@ohmycode/browser-use/types";
-import { browserContext, reserveBrowserSpace } from "../browser/browser-service.js";
+import { browserContext } from "../browser/browser-service.js";
 
 function windowFor(event: IpcMainInvokeEvent) {
   const window = BrowserWindow.fromWebContents(event.sender);
@@ -15,7 +15,6 @@ function contextFor(event: IpcMainInvokeEvent, id: string) {
 }
 
 export function registerBrowserIpc(): void {
-  ipcMain.handle("browser:reserve-space", (event, width: number) => reserveBrowserSpace(windowFor(event), width));
   ipcMain.handle("browser:state", (event, id: string) => contextFor(event, id).host.state(id));
   ipcMain.handle("browser:open", (event, id: string, opened: boolean) => {
     const context = contextFor(event, id);

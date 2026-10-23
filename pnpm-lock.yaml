@@ -25,6 +25,9 @@ importers:
       '@ohmycode/agent-runtime':
         specifier: workspace:*
         version: link:../packages/agent-runtime
+      '@ohmycode/android-use':
+        specifier: workspace:*
+        version: link:../packages/android-use
       '@ohmycode/browser-use':
         specifier: workspace:*
         version: link:../packages/browser-use
@@ -301,6 +304,40 @@ importers:
       typescript:
         specifier: 5.9.3
         version: 5.9.3
+
+  packages/android-use:
+    dependencies:
+      '@ohmycode/tool-contracts':
+        specifier: workspace:*
+        version: link:../tool-contracts
+      '@xmldom/xmldom':
+        specifier: 0.9.12
+        version: 0.9.12
+      unzipper:
+        specifier: 0.12.5
+        version: 0.12.5
+    devDependencies:
+      '@eslint/js':
+        specifier: 10.0.1
+        version: 10.0.1(eslint@10.9.0(jiti@2.7.0))
+      '@types/node':
+        specifier: 26.2.0
+        version: 26.2.0
+      '@types/unzipper':
+        specifier: 0.10.11
+        version: 0.10.11
+      eslint:
+        specifier: 10.9.0
+        version: 10.9.0(jiti@2.7.0)
+      globals:
+        specifier: 17.11.0
+        version: 17.11.0
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+      typescript-eslint:
+        specifier: 8.67.0
+        version: 8.67.0(eslint@10.9.0(jiti@2.7.0))(typescript@5.9.3)
 
   packages/browser-use:
     dependencies:
@@ -2196,6 +2233,9 @@ packages:
 
   '@types/unist@3.0.3':
     resolution: {integrity: sha512-ko/gIFJRv177XgZsZcBwnqJN5x/Gien8qNOn0D5bQU/zAzVf9Zt3BlcUiLqhV9y4ARk0GbT3tnUiPNgnTXzc/Q==}
+
+  '@types/unzipper@0.10.11':
+    resolution: {integrity: sha512-D25im2zjyMCcgL9ag6N46+wbtJBnXIr7SI4zHf9eJD2Dw2tEB5e+p5MYkrxKIVRscs5QV0EhtU9rgXSPx90oJg==}
 
   '@types/webxr@0.5.24':
     resolution: {integrity: sha512-h8fgEd/DpoS9CBrjEQXR+dIDraopAEfu4wYVNY2tEPwk60stPWhvZMf4Foo5FakuQ7HFZoa8WceaWFervK2Ovg==}
@@ -9013,6 +9053,10 @@ snapshots:
   '@types/unist@2.0.11': {}
 
   '@types/unist@3.0.3': {}
+
+  '@types/unzipper@0.10.11':
+    dependencies:
+      '@types/node': 26.2.0
 
   '@types/webxr@0.5.24': {}
 

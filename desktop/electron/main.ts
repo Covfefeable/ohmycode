@@ -1,4 +1,6 @@
 import { app, BrowserWindow } from "electron";
+import { registerAndroidIpc } from "./ipc/register-android-ipc.js";
+import { closeAndroid } from "./android/android-service.js";
 import { registerAuthIpc } from "./ipc/register-auth-ipc.js";
 import { registerBrowserIpc } from "./ipc/register-browser-ipc.js";
 import { closeBrowsers } from "./browser/browser-service.js";
@@ -39,6 +41,7 @@ if (!hasSingleInstanceLock) {
     initializeAgentRuntime();
     registerAuthIpc();
     registerBrowserIpc();
+    registerAndroidIpc();
     registerCapabilitiesIpc();
     registerApiIpc();
     registerFilesIpc();
@@ -59,10 +62,15 @@ app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
 });
 
-app.on("before-quit", () => {
+let shuttingDown = false;
+app.on("before-quit", (event) => {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  event.preventDefault();
   closeBrowsers();
   stopSpeech();
   closeAgentRuntime();
   stopAllTerminals();
   void closeMcpSessions();
+  void closeAndroid().finally(() => app.quit());
 });
