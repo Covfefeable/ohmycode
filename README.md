@@ -395,8 +395,8 @@ GitHub Actions 自带的 `GITHUB_TOKEN`，分别构建 Windows x64、macOS arm64
 生成 SHA-256 校验文件并发布到当前仓库的 GitHub Releases：
 
 ```bash
-git tag v1.0.1
-git push origin v1.0.1
+git tag v1.0.2
+git push origin v1.0.2
 ```
 
 Tag 与客户端版本不一致时，Release workflow 会立即失败，不会发布错误版本。

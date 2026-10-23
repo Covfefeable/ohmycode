@@ -410,8 +410,8 @@ the GitHub Actions `GITHUB_TOKEN` to build Windows x64, macOS arm64 and macOS x6
 checksums, and publish them to GitHub Releases:
 
 ```bash
-git tag v1.0.1
-git push origin v1.0.1
+git tag v1.0.2
+git push origin v1.0.2
 ```
 
 The workflow fails immediately when the tag and client version differ.
