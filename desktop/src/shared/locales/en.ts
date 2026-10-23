@@ -342,6 +342,7 @@ export const en = {
     },
   },
   settings: {
+    mcpAvailability: "Service status", mcpEnabled: "Enabled", mcpDisabled: "Disabled",
     eyebrow: "PREFERENCES", title: "Settings", profileTab: "Personal profile", modelsTab: "Model configurations", backgroundTasksTab: "Background tasks", mcpTab: "MCP", skillsTab: "Skills", updatesTab: "Check for updates", loadFailed: "The settings could not be loaded.",
     profileEyebrow: "IDENTITY", profileTitle: "Personal profile", profileDescription: "Manage your OhMyCode identity.", save: "Save profile", saved: "Saved", profileSaved: "Profile saved.", saveFailed: "Settings could not be saved.", avatarStorageUnavailable: "The avatar storage service is unavailable. Check the MinIO configuration and try again.", changeAvatar: "Change avatar", avatarInvalid: "Choose a PNG, JPEG, or WebP image up to 5 MB.",
     modelsEyebrow: "PROVIDERS", modelsTitle: "Model configurations", modelsDescription: "Manage your OpenAI-compatible model providers.", addModel: "Add configuration", defaultModel: "Default model", configName: "Configuration name", modelName: "Model ID", contextLength: "Context length", supportsVision: "Multimodal", baseUrl: "API base URL", apiKey: "API key", keyStored: "Stored securely — enter to replace", test: "Test connection", testing: "Testing…", testSuccess: "Connected in {{latency}} ms", noModels: "No model configurations yet.", saveModels: "Save configurations",

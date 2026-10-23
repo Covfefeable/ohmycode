@@ -60,6 +60,22 @@ def test_editing_a_missing_mcp_does_not_create_a_different_server(users):
     assert list_mcp_servers(users[0]) == []
 
 
+def test_mcp_defaults_enabled_and_can_be_disabled_and_reenabled(users):
+    owner = users[0]
+    payload = http_server(headers={"Authorization": "test-private-value"})
+    saved = save_mcp_server(owner, payload)
+    assert saved["enabled"] is True
+    server_id = UUID(saved["id"])
+    disabled = save_mcp_server(owner, {**http_server(), "enabled": False}, server_id)
+    assert disabled["enabled"] is False
+    assert runtime_mcp_servers(owner) == []
+    assert list_mcp_servers(owner)[0]["enabled"] is False
+    save_mcp_server(owner, {**http_server(), "enabled": True}, server_id)
+    assert runtime_mcp_servers(owner)[0]["configuration"]["headers"] == {
+        "Authorization": "test-private-value"
+    }
+
+
 def test_mcp_configuration_cannot_be_changed_by_another_account(users):
     saved = save_mcp_server(users[0], http_server())
     with pytest.raises(ServiceError, match="not_found"):

@@ -9,6 +9,7 @@
 .serverInfo span { color: var(--color-text-dim); font-size: var(--font-xs); }
 .status { width: 18px; height: 18px; flex: none; display: grid; place-items: center; }.status svg { width: 17px; height: 17px; }
 .connected { color: var(--color-accent); }.failed { color: var(--color-danger); }
+.disabledTag { flex: none; border-radius: var(--radius-sm); padding: 3px var(--space-2); background: var(--color-surface-control); color: var(--color-text-muted); font-size: var(--font-xs); }
 .iconButton { width: 32px; height: 32px; flex: none; display: grid !important; place-items: center; border: 0 !important; border-radius: var(--radius-sm) !important; background: transparent !important; color: var(--color-text-muted); padding: 0 !important; cursor: pointer; }.iconButton svg { width: 16px; height: 16px; }
 .iconButton:hover { background: var(--color-surface-hover) !important; color: var(--color-text); }.iconButton.danger:hover { color: var(--color-danger); }.iconButton:disabled { opacity: .45; cursor: wait; }
 .empty { min-height: 260px; display: grid; place-content: center; justify-items: center; color: var(--color-text-dim); text-align: center; }.empty svg { width: 34px; }.empty p { margin: 4px 0 0; }

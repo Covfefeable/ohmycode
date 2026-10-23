@@ -30,6 +30,7 @@ export function McpSettings() {
   const [editing, setEditing] = useState<McpServerInput | null>(null);
   const [headersDraft, setHeadersDraft] = useState("{}");
   const [headersInvalid, setHeadersInvalid] = useState(false);
+  const [headersChanged, setHeadersChanged] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [viewing, setViewing] = useState<McpServerRecord | null>(null);
@@ -40,8 +41,9 @@ export function McpSettings() {
   }, []);
   function openEditor(server: McpServerInput) {
     setEditing(server);
-    setHeadersDraft(JSON.stringify(server.configuration.headers ?? {}, null, 2));
+    setHeadersDraft(JSON.stringify(Array.isArray(server.configuration.headers) ? {} : server.configuration.headers ?? {}, null, 2));
     setHeadersInvalid(false);
+    setHeadersChanged(false);
   }
   function closeEditor() {
     setEditing(null);
@@ -56,9 +58,12 @@ export function McpSettings() {
       return;
     }
     try {
-      const input = editing.transport === "http"
-        ? { ...editing, configuration: { ...editing.configuration, headers: headers ?? {} } }
-        : editing;
+      const configuration = { ...editing.configuration };
+      if (editing.transport === "http") {
+        if (editing.id && !headersChanged) delete configuration.headers;
+        else configuration.headers = headers ?? {};
+      }
+      const input = { ...editing, configuration };
       const saved = await window.ohmycode.capabilities.saveMcp(input);
       setServers((items) => [...items.filter((item) => item.id !== saved.id), saved]);
       closeEditor();
@@ -79,10 +84,11 @@ export function McpSettings() {
     <div className={styles.list}>{servers.map((server) => <article key={server.id}>
       <div className={styles.serverIcon}>{initials(server.name)}</div>
       <div className={styles.serverInfo}><strong>{server.name}</strong><span>{server.transport.toUpperCase()} · {server.tools.length} {t("settings.tools")}</span></div>
-      <div className={`${styles.status} ${styles[server.status]}`}>{server.status === "connected" ? <CheckCircle2 /> : server.status === "failed" ? <XCircle /> : <span />}</div>
+      {!server.enabled && <span className={styles.disabledTag}>{t("settings.mcpDisabled")}</span>}
+      <div className={`${styles.status} ${server.enabled ? styles[server.status] : ""}`}>{!server.enabled ? <span /> : server.status === "connected" ? <CheckCircle2 /> : server.status === "failed" ? <XCircle /> : <span />}</div>
       <Tooltip content={t("settings.viewMcpTools")}><button className={styles.iconButton} aria-label={t("settings.viewMcpTools")} onClick={() => setViewing(server)}><Eye /></button></Tooltip>
       <Tooltip content={t("common.edit")}><button className={styles.iconButton} aria-label={t("common.edit")} onClick={() => openEditor(server)}><Pencil /></button></Tooltip>
-      <Tooltip content={t("settings.reconnectMcp")}><button className={styles.iconButton} aria-label={t("settings.reconnectMcp")} disabled={busyId === server.id} onClick={() => void test(server.id)}><RefreshCw className={busyId === server.id ? styles.spin : ""} /></button></Tooltip>
+      <Tooltip content={t("settings.reconnectMcp")}><button className={styles.iconButton} aria-label={t("settings.reconnectMcp")} disabled={!server.enabled || busyId === server.id} onClick={() => void test(server.id)}><RefreshCw className={busyId === server.id ? styles.spin : ""} /></button></Tooltip>
       <Tooltip content={t("common.delete")}><button className={`${styles.iconButton} ${styles.danger}`} aria-label={t("common.delete")} onClick={() => setDeleteId(server.id)}><Trash2 /></button></Tooltip>
     </article>)}</div>
     {!servers.length && <div className={styles.empty}><strong>{t("settings.noMcp")}</strong><p>{t("settings.noMcpDescription")}</p></div>}
@@ -90,10 +96,11 @@ export function McpSettings() {
       <header><h2>{editing.id ? t("settings.editMcp") : t("settings.addMcp")}</h2></header>
       <label><span>{t("settings.mcpName")}</span><input value={editing.name} onChange={(event) => setEditing({ ...editing, name: event.target.value, identifier: editing.id ? editing.identifier : event.target.value.toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/^-|-$/g, "") })} /></label>
       <label><span>{t("settings.mcpIdentifier")}</span><input value={editing.identifier} onChange={(event) => setEditing({ ...editing, identifier: event.target.value })} /></label>
+      <label><span>{t("settings.mcpAvailability")}</span><Select ariaLabel={t("settings.mcpAvailability")} value={editing.enabled ? "enabled" : "disabled"} options={[{ value: "enabled", label: t("settings.mcpEnabled") }, { value: "disabled", label: t("settings.mcpDisabled") }]} onChange={(value) => setEditing({ ...editing, enabled: value === "enabled" })} /></label>
       <label><span>{t("settings.mcpTransport")}</span><Select ariaLabel={t("settings.mcpTransport")} value={editing.transport} options={[{ value: "http", label: "HTTP / SSE" }, { value: "stdio", label: "stdio" }]} onChange={(value) => setEditing({ ...editing, transport: value as "http" | "stdio", configuration: value === "http" ? { url: "", headers: {} } : { command: "", args: [], env: {} } })} /></label>
       {editing.transport === "http" ? <>
         <label><span>URL</span><input value={editing.configuration.url ?? ""} onChange={(event) => setEditing({ ...editing, configuration: { ...editing.configuration, url: event.target.value } })} /></label>
-        <label><span>{t("settings.mcpHeaders")}</span><textarea className={headersInvalid ? styles.invalid : ""} aria-invalid={headersInvalid} value={headersDraft} onChange={(event) => { setHeadersDraft(event.target.value); setHeadersInvalid(false); }} />{headersInvalid && <small className={styles.fieldError}>{t("settings.invalidMcpHeaders")}</small>}</label>
+        <label><span>{t("settings.mcpHeaders")}</span><textarea className={headersInvalid ? styles.invalid : ""} aria-invalid={headersInvalid} value={headersDraft} onChange={(event) => { setHeadersDraft(event.target.value); setHeadersInvalid(false); setHeadersChanged(true); }} />{headersInvalid && <small className={styles.fieldError}>{t("settings.invalidMcpHeaders")}</small>}</label>
       </> : <>
         <label><span>{t("settings.command")}</span><input value={editing.configuration.command ?? ""} onChange={(event) => setEditing({ ...editing, configuration: { ...editing.configuration, command: event.target.value } })} /></label>
         <label><span>{t("settings.arguments")}</span><input value={(editing.configuration.args ?? []).join(" ")} onChange={(event) => setEditing({ ...editing, configuration: { ...editing.configuration, args: event.target.value.split(/\s+/).filter(Boolean) } })} /></label>
