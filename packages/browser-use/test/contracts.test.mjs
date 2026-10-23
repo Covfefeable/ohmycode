@@ -16,7 +16,7 @@ test("native page bounds cannot cover space outside the content area", () => {
 });
 
 test("browser schemas are unique, upfront function definitions with strict property lists", () => {
-  assert.equal(new Set(BROWSER_TOOL_DEFINITIONS.map((tool) => tool.name)).size, 9);
+  assert.equal(new Set(BROWSER_TOOL_DEFINITIONS.map((tool) => tool.name)).size, BROWSER_TOOL_DEFINITIONS.length);
   for (const tool of BROWSER_TOOL_DEFINITIONS) {
     assert.ok(tool.description.length > 30);
     assert.equal(tool.inputSchema.type, "object");

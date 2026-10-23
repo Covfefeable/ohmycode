@@ -14,6 +14,7 @@ async function main() {
   mkdirSync(downloads);
   app.setPath("downloads", downloads);
   const server = createServer((req, res) => {
+    if (require("./network.cjs").respond(req, res)) return;
     if (req.url === "/slow-download") {
       res.setHeader("Content-Disposition", 'attachment; filename="slow.txt"');
       res.setHeader("Content-Type", "application/octet-stream");
@@ -46,7 +47,7 @@ async function main() {
     const base = `http://127.0.0.1:${server.address().port}`;
     const plugin = createBrowserPlugin(host, "one", true);
     const textPlugin = createBrowserPlugin(host, "one", false);
-    assert.equal(plugin.definitions().length, 9);
+    assert.equal(plugin.handles("browser_network"), true);
     assert.equal(textPlugin.handles("browser_screenshot"), false);
     console.log("Browser fixture: initial navigation");
     await host.execute("one", "browser_navigate", { action: "navigate", url: base });
@@ -97,6 +98,7 @@ async function main() {
     assert.equal(window.contentView.children.length, baseChildren);
     await lifecycle(host, window, base, baseChildren);
     await require("./detached.cjs")(host, window, base);
+    await require("./network.cjs").test(host, base);
     host.layout(null, null);
     await host.execute("background", "browser_navigate", { action: "navigate", url: base });
     await assert.rejects(host.execute("background", "browser_screenshot", {}), /browser_page_not_presented/);

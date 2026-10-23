@@ -1,4 +1,5 @@
 import type { WebContents } from "electron";
+import { NetworkDiagnostics } from "./network-diagnostics.js";
 
 type PageDialog = { type: string; message: string };
 
@@ -6,12 +7,14 @@ type PageDialog = { type: string; message: string };
 export class PageSession {
   dialog: PageDialog | null = null;
   private opened: (() => void) | undefined;
+  readonly network: NetworkDiagnostics;
 
-  constructor(private readonly page: WebContents) {}
+  constructor(private readonly page: WebContents) { this.network = new NetworkDiagnostics(page); }
 
   async initialize(): Promise<void> {
     this.page.debugger.attach("1.3");
     this.page.debugger.on("message", (_event, method, params) => {
+      this.network.handle(method, params);
       if (method === "Page.javascriptDialogOpening") {
         this.dialog = { type: params.type, message: params.message };
         this.opened?.();
@@ -19,6 +22,7 @@ export class PageSession {
     });
     await this.page.debugger.sendCommand("Page.enable");
     await this.page.debugger.sendCommand("Page.setInterceptFileChooserDialog", { enabled: true });
+    await this.network.initialize();
   }
 
   async handleDialog(accept: boolean): Promise<{ handled: boolean }> {

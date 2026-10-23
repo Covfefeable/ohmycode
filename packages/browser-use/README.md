@@ -28,6 +28,7 @@ host.layout(conversationId, { x: 600, y: 140, width: 600, height: 600 });
 | `browser_tabs` | 列出、新建、选择和关闭标签页 |
 | `browser_navigate` | HTTP(S) 导航、前进、后退、刷新 |
 | `browser_snapshot` | 获取页面文本、无障碍角色和可操作的 nodeId |
+| `browser_network` | 按 URL、资源类型、失败状态查询请求，按需读取详情和文本响应 |
 | `browser_act` | 元素/坐标点击、双击、右键、悬停、拖拽、填写/输入、组合键和双向滚动 |
 | `browser_evaluate` | 执行网页 JavaScript，支持 Promise、提取数据及修改 DOM/样式 |
 | `browser_upload` | 通过文件输入元素的 nodeId 设置本地文件，空数组清空选择 |
@@ -37,6 +38,9 @@ host.layout(conversationId, { x: 600, y: 140, width: 600, height: 600 });
 
 Schema 与文件工具一样随模型请求的 `tools` 字段提前提供，不需要 search/load。
 浏览器使用说明随工具 description 提供；网页内容不是系统指令。
+网页报错时优先筛选相关失败请求，再按需读取详情，不要默认输出全量网络日志。
+网络记录按标签页隔离，只保留最近 200 条 HTTP(S) 请求；认证头和敏感查询参数在保存前脱敏，
+请求正文不采集，响应正文按需从 Chromium 有界缓存读取，最多返回 32000 字符。页面关闭后释放记录。
 同会话内工具操作按序执行，不同会话不共享标签页。同一页面可以由用户与 Agent 操作。
 
 `browser_act` 的坐标使用网页视口 CSS 像素，不是桌面坐标；优先使用最新快照里的 nodeId。
