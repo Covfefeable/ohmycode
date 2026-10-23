@@ -2,7 +2,6 @@ import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from "ele
 
 const bridge: DesktopBridge = {
   browser: {
-    reserveSpace: (width) => ipcRenderer.invoke("browser:reserve-space", width),
     setDetached: (id, detached) => ipcRenderer.invoke("browser:detach", id, detached),
     state: (id) => ipcRenderer.invoke("browser:state", id),
     setOpened: (id, opened) => ipcRenderer.invoke("browser:open", id, opened),
@@ -99,6 +98,7 @@ const bridge: DesktopBridge = {
     logout: () => ipcRenderer.invoke("auth:logout"),
   },
   windowControls: {
+    reservePanelSpace: (width) => ipcRenderer.invoke("window:reserve-panel-space", width),
     minimize: () => ipcRenderer.send("window:minimize"),
     toggleMaximize: () => ipcRenderer.send("window:toggle-maximize"),
     close: () => ipcRenderer.send("window:close"),

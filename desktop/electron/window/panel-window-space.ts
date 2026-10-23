@@ -1,7 +1,7 @@
 import { screen, type BrowserWindow } from "electron";
 
-/** Reserve space for the browser without changing the existing conversation width. */
-export class BrowserWindowSpace {
+/** Reserve space for a side panel without changing the existing conversation width. */
+export class PanelWindowSpace {
   private added = 0;
   private originalX: number | undefined;
   private requested = 0;
@@ -12,7 +12,7 @@ export class BrowserWindowSpace {
   }
 
   reserve(width: number): number {
-    if (!Number.isFinite(width) || width < 0) throw new Error("browser_invalid_width");
+    if (!Number.isFinite(width) || width < 0) throw new Error("window_invalid_panel_width");
     this.requested = width;
     if (this.window.isMaximized() || this.window.isFullScreen()) {
       // The renderer fits both panels into the available width when the display cannot grow.
@@ -31,4 +31,15 @@ export class BrowserWindowSpace {
     if (width === 0) this.originalX = undefined;
     return this.window.getContentSize()[0] - this.added;
   }
+}
+
+const spaces = new Map<number, PanelWindowSpace>();
+export function reservePanelSpace(window: BrowserWindow, width: number): number {
+  let space = spaces.get(window.id);
+  if (!space) {
+    space = new PanelWindowSpace(window);
+    spaces.set(window.id, space);
+    window.once("closed", () => spaces.delete(window.id));
+  }
+  return space.reserve(width);
 }

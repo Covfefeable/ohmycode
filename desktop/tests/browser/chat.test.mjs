@@ -27,6 +27,32 @@ afterEach(async () => {
 
 const scroller = () => page.locator('[data-virtuoso-scroller="true"]');
 
+for (const name of ["Browser"]) test(`${name} 拖拽宽度在固定窗口中收起重开及刷新后保留`, async () => {
+  await page.goto(`${baseUrl}/tests/browser/search.html`);
+  await page.getByText("Live output", { exact: true }).waitFor();
+  const toggle = page.getByRole("button", { name, exact: true });
+  await toggle.click();
+  const panel = page.getByRole("complementary", { name, exact: true });
+  await panel.waitFor();
+  const handle = panel.getByRole("separator");
+  const grip = await handle.boundingBox();
+  await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(grip.x - 140, grip.y + grip.height / 2, { steps: 8 });
+  await page.mouse.up();
+  await settle();
+  const resized = (await panel.boundingBox()).width;
+  await toggle.click();
+  await toggle.click();
+  await panel.waitFor(); await settle();
+  assert.ok(Math.abs((await panel.boundingBox()).width - resized) < 2, "Reopening restores the dragged width without requiring a larger window");
+  await page.reload();
+  await page.getByText("Live output", { exact: true }).waitFor();
+  await toggle.click();
+  await panel.waitFor(); await settle();
+  assert.ok(Math.abs((await panel.boundingBox()).width - resized) < 2, "The saved width survives remounting the application");
+});
+
 test("Token 日历在不同窗口宽度下均保持正方形，宽屏填满可用宽度", async () => {
   await page.goto(`${baseUrl}/tests/browser/sidebar.html`);
   await page.getByRole("button", { name: "Settings", exact: true }).click();
@@ -128,7 +154,8 @@ test("聊天右侧浏览器面板独立开关，标题栏和输入框不被遮�
   await page.setViewportSize({ width: 1100, height: 800 });
   await settle();
   const constrained = await panel.boundingBox();
-  assert.ok(constrained.width < bounds.width && constrained.x + constrained.width <= 1101, "Browser shrinks to fit when the window cannot expand");
+  const preferred = await page.evaluate(() => Number(localStorage.getItem("ohmycode.browserPanelWidth")));
+  assert.ok(Math.abs(constrained.width - preferred) < 2 && constrained.x + constrained.width <= 1101, "The saved width is restored when it fits the constrained window");
   const outer = await panel.evaluate((element) => ({
     overflowX: getComputedStyle(element.parentElement).overflowX,
     scrollWidth: element.parentElement.scrollWidth,

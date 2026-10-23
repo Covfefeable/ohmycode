@@ -26,8 +26,8 @@ let browserState: BrowserState = { tabs: [], selectedId: null, opened: false, de
 const browserListeners = new Set<(state: BrowserState) => void>();
 
 Object.defineProperty(window, "ohmycode", { configurable: true, value: {
+  windowControls: { reservePanelSpace: async () => window.innerWidth },
   browser: {
-    reserveSpace: async () => window.innerWidth,
     state: async () => browserState,
     onState: (_id: string, listener: (state: BrowserState) => void) => { browserListeners.add(listener); return () => browserListeners.delete(listener); },
     setOpened: async (_id: string, opened: boolean) => {

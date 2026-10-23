@@ -10,8 +10,9 @@ const reserveSpace = vi.fn().mockResolvedValue(1024);
 const setDetached = vi.fn().mockResolvedValue(undefined);
 
 beforeEach(() => {
+  localStorage.removeItem("ohmycode.browserPanelWidth");
   command.mockClear(); layout.mockClear(); reserveSpace.mockClear(); setDetached.mockClear();
-  Object.defineProperty(window, "ohmycode", { configurable: true, value: { browser: { command, layout, reserveSpace, setDetached } } });
+  Object.defineProperty(window, "ohmycode", { configurable: true, value: { browser: { command, layout, setDetached }, windowControls: { reservePanelSpace: reserveSpace } } });
   vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} });
   vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({ x: 500, y: 140, width: 400, height: 500 } as DOMRect);
 });

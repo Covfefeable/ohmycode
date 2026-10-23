@@ -1,6 +1,6 @@
 import { beforeEach, expect, it, vi } from "vitest";
 import type { BrowserWindow } from "electron";
-import { BrowserWindowSpace } from "../../../electron/browser/browser-window-space";
+import { PanelWindowSpace } from "../../../electron/window/panel-window-space";
 
 const { display } = vi.hoisted(() => ({ display: vi.fn() }));
 vi.mock("electron", () => ({ screen: { getDisplayMatching: display } }));
@@ -16,7 +16,7 @@ function fixture() {
     getContentSize: () => [bounds.width, bounds.height],
     setBounds: vi.fn((next: typeof bounds) => { bounds = next; }),
   };
-  return { window, space: new BrowserWindowSpace(window as unknown as BrowserWindow) };
+  return { window, space: new PanelWindowSpace(window as unknown as BrowserWindow) };
 }
 
 it("adds browser width instead of consuming conversation space and restores on close", () => {

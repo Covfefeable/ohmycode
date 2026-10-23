@@ -1,6 +1,5 @@
 interface DesktopBridge {
     browser: {
-      reserveSpace(width: number): Promise<number>;
       setDetached(id: string, detached: boolean): Promise<void>;
       state(id: string): Promise<import("@ohmycode/browser-use/types").BrowserState>;
       setOpened(id: string, opened: boolean): Promise<import("@ohmycode/browser-use/types").BrowserState>;
@@ -74,6 +73,7 @@ interface DesktopBridge {
       logout(): Promise<void>;
     };
     windowControls: {
+      reservePanelSpace(width: number): Promise<number>;
       minimize(): void;
       toggleMaximize(): void;
       close(): void;
