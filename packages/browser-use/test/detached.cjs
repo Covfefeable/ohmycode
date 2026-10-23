@@ -23,6 +23,10 @@ module.exports = async function detached(host, owner, base) {
     assert.equal(view.getVisible(), true, "switching conversations must not hide a detached page");
     assert.equal(await page.executeJavaScript("window.detachedState"), "preserved");
     await host.execute(id, "browser_evaluate", { expression: "window.detachedState = 'agent updated'" });
+    await host.execute(id, "browser_evaluate", { expression: "console.info('detached diagnostics')" });
+    assert.equal((await host.execute(id, "browser_console", { level: "info" })).entries.some((entry) => entry.text === "detached diagnostics"), true);
+    const network = await host.execute(id, "browser_network", { action: "list", url: base });
+    assert.equal(network.requests.length > 0, true);
     await host.command(id, { action: "new", url: base });
     assert.equal(window.contentView.children.length, baseChildren + 2, "new tabs belong to the presentation window");
     await host.command(id, { action: "select", tabId });
@@ -35,6 +39,7 @@ module.exports = async function detached(host, owner, base) {
     assert.equal(view.getVisible(), true);
     assert.equal(window.contentView.children.length, baseChildren);
     assert.equal(await page.executeJavaScript("window.detachedState"), "agent updated");
+    assert.equal((await host.execute(id, "browser_network", { action: "detail", requestId: network.requests[0].id })).status, 200);
     host.setDetachedWindow(id, window);
     host.layoutDetached(id, bounds);
     host.closeSession(id);

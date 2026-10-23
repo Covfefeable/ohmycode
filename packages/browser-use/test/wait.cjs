@@ -1,0 +1,38 @@
+const assert = require("node:assert/strict");
+
+module.exports = async function waitConditions(host, owner, base) {
+  const id = "wait";
+  host.layout(id, { x: 0, y: 100, width: 700, height: 500 });
+  await host.command(id, { action: "new", url: base });
+  const evaluate = (expression) => host.execute(id, "browser_evaluate", { expression });
+  const wait = (args, signal) => host.execute(id, "browser_act", { action: "wait", ...args }, signal);
+  await evaluate("setTimeout(() => { const el=document.createElement('div'); el.id='ready'; el.textContent='async ready'; document.body.append(el); }, 150); true");
+  assert.equal((await wait({ condition: "text", text: "async ready" })).matched, true);
+  assert.equal((await wait({ condition: "selector", selector: "#ready" })).matched, true);
+  await evaluate("setTimeout(() => { document.querySelector('#ready').style.display='none'; }, 150); true");
+  assert.equal((await wait({ condition: "selector", selector: "#ready", state: "hidden" })).matched, true);
+  assert.equal((await wait({ condition: "text", text: "async ready", state: "hidden" })).matched, true);
+  await evaluate("setTimeout(() => { location.hash='finished'; }, 100); true");
+  assert.equal((await wait({ condition: "url", url: "#finished" })).matched, true);
+  const missing = await wait({ condition: "text", text: "does not exist", timeoutMs: 50 });
+  assert.equal(missing.matched, false);
+  assert.equal(missing.reason, "timeout");
+  await assert.rejects(wait({ condition: "selector", selector: "[" }), /browser_wait_condition_failed/);
+  const abort = new AbortController();
+  const cancelled = wait({ condition: "text", text: "missing" }, abort.signal);
+  const rejected = assert.rejects(cancelled, /user stopped/);
+  setTimeout(() => abort.abort(new Error("user stopped")), 50);
+  await rejected;
+  await evaluate("setTimeout(() => alert('wait interrupted'), 100); true");
+  const dialog = await wait({ condition: "text", text: "missing" });
+  assert.equal(dialog.dialog.message, "wait interrupted");
+  await host.execute(id, "browser_dialog", { action: "accept" });
+  await evaluate("setTimeout(() => { location.href='/wait-target'; }, 100); true");
+  assert.equal((await wait({ condition: "url", url: "/wait-target" })).matched, true);
+  const pending = wait({ condition: "text", text: "missing" });
+  const closed = assert.rejects(pending, /closed|destroyed|target/i);
+  const page = owner.contentView.children.find((view) => view.webContents !== owner.webContents && view.webContents.getURL().includes("/wait-target"));
+  setTimeout(() => page.webContents.close(), 50);
+  await closed;
+  host.closeSession(id);
+};

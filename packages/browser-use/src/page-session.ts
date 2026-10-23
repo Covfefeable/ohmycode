@@ -1,6 +1,7 @@
 import type { WebContents } from "electron";
 import { NetworkDiagnostics } from "./network-diagnostics.js";
 import { ConsoleDiagnostics } from "./console-diagnostics.js";
+import { pollPageCondition, prepareWait } from "./page-wait.js";
 
 type PageDialog = { type: string; message: string };
 
@@ -34,6 +35,22 @@ export class PageSession {
     await this.page.debugger.sendCommand("Page.handleJavaScriptDialog", { accept });
     this.dialog = null;
     return { handled: true };
+  }
+
+  async wait(args: Record<string, unknown>, signal?: AbortSignal): Promise<unknown> {
+    const { expression, timeoutMs } = prepareWait(args);
+    const timeout = new AbortController();
+    const waiting = signal ? AbortSignal.any([signal, timeout.signal]) : timeout.signal;
+    const timer = setTimeout(() => timeout.abort(new Error("browser_wait_timeout")), timeoutMs);
+    try {
+      return await this.run(() => pollPageCondition(this.page, expression, waiting), waiting);
+    } catch (error) {
+      if (timeout.signal.aborted && !signal?.aborted) return { matched: false, reason: "timeout", timeoutMs, message: "The requested condition was not met. Inspect the page or diagnostics before deciding what to do next; no action was retried." };
+      throw error;
+    } finally {
+      clearTimeout(timer);
+      timeout.abort();
+    }
   }
 
   async run<T>(operation: () => Promise<T>, signal?: AbortSignal): Promise<T | { dialog: PageDialog }> {

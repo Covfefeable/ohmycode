@@ -261,6 +261,7 @@ export class BrowserHost {
     }
     if (tool === "browser_download") return this.downloads.execute(id, tab.contents, args);
     if (tab.page.dialog) return { dialog: tab.page.dialog };
+    if (tool === "browser_act" && args.action === "wait") return tab.page.wait(args, signal);
     await waitForPage(tab.contents);
     if (tool === "browser_navigate") {
       if (args.action === "navigate") return this.command(id, { action: "navigate", url: String(args.url) });

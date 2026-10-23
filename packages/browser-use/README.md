@@ -30,7 +30,7 @@ host.layout(conversationId, { x: 600, y: 140, width: 600, height: 600 });
 | `browser_snapshot` | 获取页面文本、无障碍角色和可操作的 nodeId |
 | `browser_network` | 按 URL、资源类型、失败状态查询请求，按需读取详情和文本响应 |
 | `browser_console` | 按级别、游标读取 Console 摘要及未捕获的 JS 异常 |
-| `browser_act` | 元素/坐标点击、双击、右键、悬停、拖拽、填写/输入、组合键和双向滚动 |
+| `browser_act` | 鼠标键盘交互、双向滚动，以及文字/元素/URL 条件等待 |
 | `browser_evaluate` | 执行网页 JavaScript，支持 Promise、提取数据及修改 DOM/样式 |
 | `browser_upload` | 通过文件输入元素的 nodeId 设置本地文件，空数组清空选择 |
 | `browser_download` | 发起下载、查询进度和文件路径、取消下载；包含点击链接产生的下载 |
@@ -47,6 +47,10 @@ Console 按标签页保留最近 500 条，携带来源位置；对象只返回�
 同会话内工具操作按序执行，不同会话不共享标签页。同一页面可以由用户与 Agent 操作。
 
 `browser_act` 的坐标使用网页视口 CSS 像素，不是桌面坐标；优先使用最新快照里的 nodeId。
+异步操作后可调用 `action: "wait"`，`condition` 为 `text`、`selector` 或 `url`，分别填写
+`text`、CSS `selector` 或 URL 子串 `url`。文字、元素支持 `state: "visible" / "hidden"`。
+默认等待 10 秒，上限 30 秒；满足条件立即返回，超时返回 `matched: false`，不会自动重复原操作。
+等待支持任务停止、页面关闭和弹窗中断，在客户端内部检查条件，不产生额外模型往返。
 组合键使用 `Control+a` / macOS 的 `Meta+a` 等形式。滚动可指定元素或视口位置，
 便于操作内部滚动容器；拖拽通过真实鼠标按下、移动和释放实现。
 脚本结果按值返回，超过 32,000 字符时返回截断预览；应缩小查询，而不是反复请求整页数据。
