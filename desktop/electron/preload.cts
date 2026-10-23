@@ -1,6 +1,47 @@
 import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from "electron";
 
 const bridge: DesktopBridge = {
+  android: {
+    installPlan: () => ipcRenderer.invoke("android:install-plan"),
+    installation: () => ipcRenderer.invoke("android:installation"),
+    chooseInstallRoot: () => ipcRenderer.invoke("android:install-root"),
+    install: (consent) => ipcRenderer.invoke("android:install", consent),
+    cancelInstall: () => ipcRenderer.invoke("android:cancel-install"),
+    openLicense: () => ipcRenderer.invoke("android:license"),
+    onInstallation: (callback) => {
+      const listener = (_event: IpcRendererEvent, state: import("@ohmycode/android-use/types").AndroidInstallState) => callback(state);
+      ipcRenderer.on("android:installation", listener);
+      return () => ipcRenderer.removeListener("android:installation", listener);
+    },
+    state: () => ipcRenderer.invoke("android:state"),
+    refresh: () => ipcRenderer.invoke("android:refresh"),
+    chooseSdk: () => ipcRenderer.invoke("android:choose-sdk"),
+    setEnabled: (enabled) => ipcRenderer.invoke("android:enabled", enabled),
+    openGuide: () => ipcRenderer.invoke("android:guide"),
+    start: (conversationId) => ipcRenderer.invoke("android:start", conversationId),
+    stop: () => ipcRenderer.invoke("android:stop"),
+    detached: () => ipcRenderer.invoke("android:detached"),
+    setDetached: (value) => ipcRenderer.invoke("android:set-detached", value),
+    onDetached: (callback) => {
+      const listener = (_event: Electron.IpcRendererEvent, value: boolean) => callback(value);
+      ipcRenderer.on("android:detached", listener);
+      return () => ipcRenderer.removeListener("android:detached", listener);
+    },
+    startVideo: (id) => ipcRenderer.invoke("android:video-start", id),
+    stopVideo: (id) => ipcRenderer.invoke("android:video-stop", id),
+    onVideo: (id, callback) => {
+      const listener = (_event: Electron.IpcRendererEvent, session: string, packet: Parameters<typeof callback>[0]) => { if (id === session) callback(packet); };
+      ipcRenderer.on("android:video", listener);
+      return () => ipcRenderer.removeListener("android:video", listener);
+    },
+    act: (conversationId, action) => ipcRenderer.invoke("android:act", conversationId, action),
+    touch: (conversationId, events) => ipcRenderer.invoke("android:touch", conversationId, events),
+    onState: (callback) => {
+      const listener = (_event: IpcRendererEvent, state: import("@ohmycode/android-use/types").AndroidState) => callback(state);
+      ipcRenderer.on("android:state", listener);
+      return () => ipcRenderer.removeListener("android:state", listener);
+    },
+  },
   browser: {
     setDetached: (id, detached) => ipcRenderer.invoke("browser:detach", id, detached),
     state: (id) => ipcRenderer.invoke("browser:state", id),

@@ -68,6 +68,7 @@ jobs:
       - name: Browser package lint and boundary regression
         run: |
           pnpm --dir packages/browser-use lint
+          pnpm --dir packages/android-use lint
           node --test scripts/check-package-boundaries.test.mjs
       - name: Desktop build
         run: pnpm --dir desktop build
@@ -107,6 +108,8 @@ jobs:
         run: pnpm --dir desktop test:file-tools
       - name: Embedded browser regression
         run: pnpm --dir packages/browser-use test
+      - name: Android IPC regression
+        run: pnpm --dir desktop exec node --test tests/electron/android.test.mjs
 
   migrations:
     runs-on: ubuntu-latest

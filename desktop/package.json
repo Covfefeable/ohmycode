@@ -7,7 +7,7 @@
   "type": "module",
   "scripts": {
     "dev": "concurrently -k \"vite\" \"pnpm electron:dev\"",
-    "build:packages": "pnpm --filter @ohmycode/protocol build && pnpm --filter @ohmycode/tool-contracts build && pnpm --filter @ohmycode/agent-runtime build && pnpm --filter @ohmycode/browser-use build",
+    "build:packages": "pnpm --filter @ohmycode/protocol build && pnpm --filter @ohmycode/tool-contracts build && pnpm --filter @ohmycode/agent-runtime build && pnpm --filter @ohmycode/browser-use build && pnpm --filter @ohmycode/android-use build",
     "electron:dev": "wait-on tcp:5173 && pnpm prepare:node-pty && pnpm build:packages && tsc -p electron/tsconfig.json && cross-env VITE_DEV_SERVER_URL=http://127.0.0.1:5173 electron .",
     "build": "pnpm prepare:node-pty && pnpm build:packages && tsc -b && vite build && tsc -p electron/tsconfig.json",
     "test:file-tools": "pnpm build:packages && tsc -p electron/tsconfig.json && node electron/files/file-tools.smoke.mjs",
@@ -23,6 +23,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@ohmycode/android-use": "workspace:*",
     "@lexical/react": "0.49.0",
     "@lexical/utils": "0.49.0",
     "@modelcontextprotocol/sdk": "1.30.0",

@@ -27,7 +27,7 @@ afterEach(async () => {
 
 const scroller = () => page.locator('[data-virtuoso-scroller="true"]');
 
-for (const name of ["Browser"]) test(`${name} 拖拽宽度在固定窗口中收起重开及刷新后保留`, async () => {
+for (const name of ["Browser", "Android"]) test(`${name} 拖拽宽度在固定窗口中收起重开及刷新后保留`, async () => {
   await page.goto(`${baseUrl}/tests/browser/search.html`);
   await page.getByText("Live output", { exact: true }).waitFor();
   const toggle = page.getByRole("button", { name, exact: true });

@@ -1,4 +1,29 @@
 interface DesktopBridge {
+    android: {
+      installPlan(): Promise<import("@ohmycode/android-use/types").AndroidInstallPlan>;
+      installation(): Promise<import("@ohmycode/android-use/types").AndroidInstallState>;
+      chooseInstallRoot(): Promise<import("@ohmycode/android-use/types").AndroidInstallPlan>;
+      install(consent: boolean): Promise<import("@ohmycode/android-use/types").AndroidInstallState>;
+      cancelInstall(): Promise<import("@ohmycode/android-use/types").AndroidInstallState>;
+      openLicense(): Promise<void>;
+      onInstallation(callback: (state: import("@ohmycode/android-use/types").AndroidInstallState) => void): () => void;
+      state(): Promise<import("@ohmycode/android-use/types").AndroidState>;
+      refresh(): Promise<import("@ohmycode/android-use/types").AndroidState>;
+      chooseSdk(): Promise<import("@ohmycode/android-use/types").AndroidState>;
+      setEnabled(enabled: boolean): Promise<import("@ohmycode/android-use/types").AndroidState>;
+      openGuide(): Promise<void>;
+      start(conversationId: string): Promise<import("@ohmycode/android-use/types").AndroidState>;
+      stop(): Promise<import("@ohmycode/android-use/types").AndroidState>;
+      detached(): Promise<boolean>;
+      setDetached(value: boolean): Promise<void>;
+      onDetached(callback: (value: boolean) => void): () => void;
+      startVideo(id: string): Promise<void>;
+      stopVideo(id: string): Promise<void>;
+      onVideo(id: string, callback: (packet: import("@ohmycode/android-use").AndroidVideoPacket | { error: string }) => void): () => void;
+      act(conversationId: string, action: import("@ohmycode/android-use/types").AndroidAction): Promise<{ ok: true }>;
+      touch(conversationId: string, events: import("@ohmycode/android-use/types").AndroidTouch[]): Promise<void>;
+      onState(callback: (state: import("@ohmycode/android-use/types").AndroidState) => void): () => void;
+    };
     browser: {
       setDetached(id: string, detached: boolean): Promise<void>;
       state(id: string): Promise<import("@ohmycode/browser-use/types").BrowserState>;
