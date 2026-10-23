@@ -14,6 +14,7 @@
     "test:runtime": "pnpm build:packages && pnpm --filter @ohmycode/agent-runtime test && tsc -p electron/tsconfig.json && node electron/runtime/event-journal.smoke.mjs && node electron/runtime/sqlite-event-store.smoke.mjs",
     "test:ui": "vitest run",
     "test:browser": "node --test tests/browser/*.test.mjs",
+    "test:electron": "node --test tests/electron/*.test.mjs",
     "dist:win": "pnpm build && electron-builder --win nsis --x64",
     "dist:mac": "pnpm build && electron-builder --mac dmg --arm64 --x64",
     "typecheck": "tsc -b --pretty false",

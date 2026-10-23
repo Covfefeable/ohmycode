@@ -1,4 +1,5 @@
 import { HashRouter, Navigate, Outlet, Route, Routes } from "react-router-dom";
+import { BrowserWindowPage } from "../features/browser-panel/BrowserWindowPage";
 import { LoginPage } from "../pages/login";
 import { RegisterPage } from "../pages/register";
 import { AgentWorkspacePage } from "../pages/agent-workspace";
@@ -23,9 +24,8 @@ function PublicOnlyRoute() {
   return status === "guest" || status === "unavailable" ? <Outlet /> : <Navigate to="/" replace />;
 }
 
-export default function App() {
+function MainApplication() {
   return (
-    <HashRouter>
       <FeedbackProvider><AuthProvider>
         <WindowControls />
         <DebugPanel />
@@ -42,6 +42,12 @@ export default function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AuthProvider></FeedbackProvider>
-    </HashRouter>
   );
+}
+
+export default function App() {
+  return <HashRouter><Routes>
+    <Route path="/browser/:conversationId" element={<FeedbackProvider><BrowserWindowPage /></FeedbackProvider>} />
+    <Route path="*" element={<MainApplication />} />
+  </Routes></HashRouter>;
 }

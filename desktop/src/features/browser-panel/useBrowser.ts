@@ -3,7 +3,7 @@ import type { BrowserState } from "@ohmycode/browser-use/types";
 import { useTranslation } from "react-i18next";
 import { useFeedback } from "../feedback";
 
-const empty: BrowserState = { tabs: [], selectedId: null, opened: false };
+const empty: BrowserState = { tabs: [], selectedId: null, opened: false, detached: false };
 
 export function useBrowser(conversationId: string) {
   const { t } = useTranslation();

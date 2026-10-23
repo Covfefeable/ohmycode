@@ -238,5 +238,5 @@ export function ConversationChat({ conversationId, active, searchLocation, onUpd
       <FollowupStrip state={followups} running={sending} onSteer={(id) => void queueAction(() => window.ohmycode.conversations.steer(conversationId, id))} onWithdraw={(id) => void withdraw(id)} onResume={() => void queueAction(() => window.ohmycode.conversations.resumeQueue(conversationId))} />
       <TaskComposer sessionId={conversationId} onPasteImages={pasteImages} busy={sending} disabled={Boolean(editing)} models={controller.models} selectedModelId={controller.selectedModelId} contextUsage={controller.contextUsage} attachments={attachments} suggestions={controller.suggestions} restoredInput={restoredInput} onRemoveAttachment={(id) => setAttachments((items) => items.filter((item) => item.id !== id))} onModelChange={controller.setSelectedModelId} onSubmit={(content, items) => send(content, items)} onStop={controller.stop} />
     </div>
-  </section>{browser.state.opened && <BrowserPanel conversationId={conversationId} state={browser.state} active={active} onClose={() => void browser.toggle()} />}</div></ImageScopeContext.Provider>;
+  </section>{browser.state.opened && !browser.state.detached && <BrowserPanel conversationId={conversationId} state={browser.state} active={active} onClose={() => void browser.toggle()} />}</div></ImageScopeContext.Provider>;
 }

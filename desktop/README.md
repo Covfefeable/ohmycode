@@ -140,9 +140,11 @@ pnpm --dir desktop test:browser
 pnpm --dir desktop typecheck
 pnpm --dir desktop lint
 pnpm --dir desktop build
+pnpm --dir desktop test:electron
 ```
 
 涉及 Runtime、IPC、终端或文件工具的修改，应运行对应专项测试和完整构建。
+`test:electron` 在构建后运行，使用真实 Electron 检查浏览器独立窗口、返回面板及窗口清理，无需启动 API。
 组件测试覆盖输入、禁用状态、弹层交互与 Markdown 原文保真；测试边界和 CI 说明见
 [自动化测试](../docs/testing.md)。
 

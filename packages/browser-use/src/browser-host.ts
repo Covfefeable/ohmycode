@@ -6,8 +6,9 @@ import { waitForPage } from "./navigation.js";
 import { PageSession } from "./page-session.js";
 import { BrowserDownloads } from "./browser-downloads.js";
 
-type Tab = { id: string; view: WebContentsView; contents: WebContents; page: PageSession; presented: boolean; error?: string };
+type Tab = { id: string; view: WebContentsView; contents: WebContents; owner: BrowserWindow; page: PageSession; presented: boolean; error?: string };
 type BrowserSession = { tabs: Map<string, Tab>; selectedId: string | null; opened: boolean };
+type DetachedView = { window: BrowserWindow; bounds: BrowserBounds | null; mounted: WebContentsView | null };
 
 /** Owns only browser views. Never attaches a debugger to the application's renderer. */
 export class BrowserHost {
@@ -15,6 +16,7 @@ export class BrowserHost {
   private activeId: string | null = null;
   private bounds: BrowserBounds | null = null;
   private mounted: WebContentsView | null = null;
+  private readonly detached = new Map<string, DetachedView>();
   private readonly pending = new Map<string, Promise<unknown>>();
   private readonly downloads: BrowserDownloads;
 
@@ -37,6 +39,7 @@ export class BrowserHost {
     const session = this.sessions.get(id);
     return {
       opened: session?.opened ?? false,
+      detached: this.detached.has(id),
       selectedId: session?.selectedId ?? null,
       tabs: [...(session?.tabs.values() ?? [])].map((tab) => ({
         id: tab.id, title: tab.contents.getTitle(), url: tab.contents.getURL(),
@@ -51,6 +54,28 @@ export class BrowserHost {
   layout(id: string | null, bounds: BrowserBounds | null): void {
     this.activeId = id;
     this.bounds = bounds;
+    this.syncView();
+  }
+
+  /** Move the existing page views between windows without recreating their contents. */
+  setDetachedWindow(id: string, window: BrowserWindow | null): void {
+    const target = window ?? this.window;
+    for (const tab of this.session(id).tabs.values()) {
+      tab.view.setVisible(false);
+      if (!tab.owner.isDestroyed()) tab.owner.contentView.removeChildView(tab.view);
+      target.contentView.addChildView(tab.view);
+      tab.owner = target;
+      if (this.mounted === tab.view) this.mounted = null;
+    }
+    if (window) this.detached.set(id, { window, bounds: null, mounted: null });
+    else this.detached.delete(id);
+    this.changed(id);
+  }
+
+  layoutDetached(id: string, bounds: BrowserBounds | null): void {
+    const presentation = this.detached.get(id);
+    if (!presentation) return;
+    presentation.bounds = bounds;
     this.syncView();
   }
 
@@ -118,6 +143,9 @@ export class BrowserHost {
       this.detachView(tab);
       tab.contents.close();
     }
+    const presentation = this.detached.get(id);
+    this.detached.delete(id);
+    presentation?.window.close();
     this.syncView();
   }
 
@@ -152,9 +180,10 @@ export class BrowserHost {
 
   private detachView(tab: Tab): void {
     if (this.mounted === tab.view) this.mounted = null;
-    if (!this.window.isDestroyed()) {
+    for (const presentation of this.detached.values()) if (presentation.mounted === tab.view) presentation.mounted = null;
+    if (!tab.owner.isDestroyed()) {
       tab.view.setVisible(false);
-      this.window.contentView.removeChildView(tab.view);
+      tab.owner.contentView.removeChildView(tab.view);
     }
   }
 
@@ -165,11 +194,11 @@ export class BrowserHost {
       nodeIntegration: false, webSecurity: true,
     } });
     const page = view.webContents;
-    const tab: Tab = { id: crypto.randomUUID(), view, contents: page, page: new PageSession(page), presented: false };
+    const tab: Tab = { id: crypto.randomUUID(), view, contents: page, owner: this.detached.get(id)?.window ?? this.window, page: new PageSession(page), presented: false };
     const [width, height] = this.window.getContentSize();
     view.setBounds({ x: 0, y: 0, width, height });
     view.setVisible(false);
-    this.window.contentView.addChildView(view);
+    tab.owner.contentView.addChildView(view);
     const session = this.session(id);
     session.tabs.set(tab.id, tab);
     session.selectedId = tab.id;
@@ -268,7 +297,18 @@ export class BrowserHost {
 
   private syncView(): void {
     if (this.window.isDestroyed()) { this.mounted = null; return; }
-    const session = this.activeId ? this.sessions.get(this.activeId) : undefined;
+    for (const [id, presentation] of this.detached) {
+      const session = this.sessions.get(id);
+      const next = session?.opened && presentation.bounds && session.selectedId ? session.tabs.get(session.selectedId)?.view ?? null : null;
+      if (presentation.mounted !== next) {
+        presentation.mounted?.setVisible(false);
+        presentation.mounted = next;
+        next?.setVisible(true);
+        if (next && session?.selectedId) session.tabs.get(session.selectedId)!.presented = true;
+      }
+      if (next && presentation.bounds) next.setBounds(fitBounds(presentation.bounds, presentation.window.getContentSize()));
+    }
+    const session = this.activeId && !this.detached.has(this.activeId) ? this.sessions.get(this.activeId) : undefined;
     const next = session?.opened && this.bounds && session.selectedId ? session.tabs.get(session.selectedId)?.view ?? null : null;
     if (this.mounted !== next) {
       const previous = this.mounted;

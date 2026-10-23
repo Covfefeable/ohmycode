@@ -96,6 +96,7 @@ async function main() {
     assert.equal(host.state("one").tabs.length, 0);
     assert.equal(window.contentView.children.length, baseChildren);
     await lifecycle(host, window, base, baseChildren);
+    await require("./detached.cjs")(host, window, base);
     host.layout(null, null);
     await host.execute("background", "browser_navigate", { action: "navigate", url: base });
     await assert.rejects(host.execute("background", "browser_screenshot", {}), /browser_page_not_presented/);

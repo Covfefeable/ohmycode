@@ -22,12 +22,12 @@ export default tseslint.config(
     languageOptions: { globals: globals.node },
   },
   {
-    files: ["tests/browser/**/*.mjs"],
+    files: ["tests/**/*.mjs"],
     languageOptions: { globals: { ...globals.node, ...globals.browser } },
   },
   {
-    files: ["electron/**/*.cjs"],
-    languageOptions: { globals: globals.commonjs },
+    files: ["electron/**/*.cjs", "tests/**/*.cjs"],
+    languageOptions: { globals: { ...globals.node, ...globals.commonjs } },
     rules: { "@typescript-eslint/no-require-imports": "off" },
   },
 );

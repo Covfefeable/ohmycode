@@ -8,7 +8,7 @@ export type BrowserTab = {
   error?: string;
 };
 
-export type BrowserState = { tabs: BrowserTab[]; selectedId: string | null; opened: boolean };
+export type BrowserState = { tabs: BrowserTab[]; selectedId: string | null; opened: boolean; detached: boolean };
 export type BrowserBounds = { x: number; y: number; width: number; height: number };
 export type BrowserCommand =
   | { action: "new"; url?: string }

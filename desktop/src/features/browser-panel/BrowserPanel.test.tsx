@@ -3,14 +3,15 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { BrowserState } from "@ohmycode/browser-use/types";
 import { BrowserPanel } from "./BrowserPanel";
 
-const state: BrowserState = { opened: true, selectedId: "tab-1", tabs: [{ id: "tab-1", title: "Example", url: "https://example.com/", loading: false, canGoBack: false, canGoForward: false }] };
+const state: BrowserState = { opened: true, detached: false, selectedId: "tab-1", tabs: [{ id: "tab-1", title: "Example", url: "https://example.com/", loading: false, canGoBack: false, canGoForward: false }] };
 const command = vi.fn().mockResolvedValue(state);
 const layout = vi.fn().mockResolvedValue(undefined);
 const reserveSpace = vi.fn().mockResolvedValue(1024);
+const setDetached = vi.fn().mockResolvedValue(undefined);
 
 beforeEach(() => {
-  command.mockClear(); layout.mockClear(); reserveSpace.mockClear();
-  Object.defineProperty(window, "ohmycode", { configurable: true, value: { browser: { command, layout, reserveSpace } } });
+  command.mockClear(); layout.mockClear(); reserveSpace.mockClear(); setDetached.mockClear();
+  Object.defineProperty(window, "ohmycode", { configurable: true, value: { browser: { command, layout, reserveSpace, setDetached } } });
   vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} });
   vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({ x: 500, y: 140, width: 400, height: 500 } as DOMRect);
 });
@@ -61,4 +62,25 @@ it("displays navigation errors instead of leaving an unhandled rejection", async
   fireEvent.click(screen.getByRole("button", { name: "Reload" }));
   expect(await screen.findByRole("status")).toBeTruthy();
   expect(reserveSpace).not.toHaveBeenCalled();
+});
+
+it("offers detach before hide and docks from a standalone window without resizing the main window", async () => {
+  const view = render(<BrowserPanel conversationId="one" state={state} active onClose={() => undefined} />);
+  fireEvent.click(screen.getByRole("button", { name: "Open in separate window" }));
+  await waitFor(() => expect(setDetached).toHaveBeenCalledWith("one", true));
+  view.unmount();
+  reserveSpace.mockClear();
+  render(<BrowserPanel standalone conversationId="one" state={{ ...state, detached: true }} active onClose={() => undefined} />);
+  expect(screen.queryByRole("separator")).toBeNull();
+  expect(screen.queryByRole("button", { name: "Hide browser" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Return to panel" }));
+  await waitFor(() => expect(setDetached).toHaveBeenCalledWith("one", false));
+  expect(reserveSpace).not.toHaveBeenCalled();
+});
+
+it("does not report a window-switch failure as a web page loading error", async () => {
+  setDetached.mockRejectedValueOnce(new Error("No handler registered for browser:detach"));
+  render(<BrowserPanel conversationId="one" state={state} active={false} onClose={() => undefined} />);
+  fireEvent.click(screen.getByRole("button", { name: "Open in separate window" }));
+  expect((await screen.findByRole("status")).textContent).toBe("Could not switch the browser window. Please retry.");
 });

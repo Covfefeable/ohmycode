@@ -1,5 +1,5 @@
 import path from "node:path";
-import { app, BrowserWindow, shell } from "electron";
+import { app, BrowserWindow, shell, type BrowserWindowConstructorOptions } from "electron";
 
 function openExternalWebUrl(url: string): boolean {
   if (!/^https?:\/\//i.test(url)) return false;
@@ -12,6 +12,10 @@ export async function createMainWindow(): Promise<BrowserWindow> {
     app.dock.setIcon(path.join(app.getAppPath(), "build/icon.png"));
   }
 
+  return createApplicationWindow();
+}
+
+export async function createApplicationWindow(options: BrowserWindowConstructorOptions = {}, hash = "", initialize?: (window: BrowserWindow) => void): Promise<BrowserWindow> {
   const window = new BrowserWindow({
     width: 1380,
     height: 880,
@@ -21,6 +25,7 @@ export async function createMainWindow(): Promise<BrowserWindow> {
     backgroundColor: "#0b0d10",
     frame: false,
     autoHideMenuBar: true,
+    ...options,
     webPreferences: {
       preload: path.join(app.getAppPath(), "dist-electron/preload.cjs"),
       contextIsolation: true,
@@ -48,10 +53,19 @@ export async function createMainWindow(): Promise<BrowserWindow> {
     if (url !== window.webContents.getURL() && openExternalWebUrl(url)) event.preventDefault();
   });
 
-  if (process.env.VITE_DEV_SERVER_URL) {
-    await window.loadURL(process.env.VITE_DEV_SERVER_URL);
-  } else {
-    await window.loadFile(path.join(app.getAppPath(), "dist/index.html"));
+  initialize?.(window);
+
+  try {
+    if (process.env.VITE_DEV_SERVER_URL) {
+      const url = new URL(process.env.VITE_DEV_SERVER_URL);
+      url.hash = hash;
+      await window.loadURL(url.href);
+    } else {
+      await window.loadFile(path.join(app.getAppPath(), "dist/index.html"), { hash });
+    }
+  } catch (error) {
+    window.close();
+    throw error;
   }
   return window;
 }

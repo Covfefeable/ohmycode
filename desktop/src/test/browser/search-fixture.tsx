@@ -22,7 +22,7 @@ const listeners = new Set<(event: RuntimeEvent) => void>();
 let sequence = 3;
 declare global { interface Window { searchFixture: { emitDelta(): void } } }
 window.searchFixture = { emitDelta() { for (const listener of listeners) listener({ type: "item.delta", threadId: "thread", turnId: "live", sequence: ++sequence, itemId: "live-answer", delta: " background continues" }); } };
-let browserState: BrowserState = { tabs: [], selectedId: null, opened: false };
+let browserState: BrowserState = { tabs: [], selectedId: null, opened: false, detached: false };
 const browserListeners = new Set<(state: BrowserState) => void>();
 
 Object.defineProperty(window, "ohmycode", { configurable: true, value: {

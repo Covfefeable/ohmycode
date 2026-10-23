@@ -1,6 +1,6 @@
 export const zhCN = {
   browserResize: "调整浏览器宽度",
-  browser: { title: "浏览器", close: "收起浏览器", newTab: "新标签页", closeTab: "关闭标签页", back: "后退", forward: "前进", reload: "刷新", address: "输入网址", empty: "输入网址，或让 Agent 打开网页", failed: "网页加载失败，请检查网址或网络后重试。" },
+  browser: { title: "浏览器", close: "收起浏览器", detach: "独立窗口", dock: "返回面板", windowFailed: "浏览器窗口切换失败，请重试。", newTab: "新标签页", closeTab: "关闭标签页", back: "后退", forward: "前进", reload: "刷新", address: "输入网址", empty: "输入网址，或让 Agent 打开网页", failed: "网页加载失败，请检查网址或网络后重试。" },
   speech: {
     title: "语音配置", description: "配置阿里云百炼的实时语音输入与朗读。",
     addVoice: "添加自定义音色", createVoice: "创建音色", defaultVoice: "默认",
