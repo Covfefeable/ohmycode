@@ -64,7 +64,7 @@ export function ConversationChat({ conversationId, active, searchLocation, onUpd
     listRef.current?.scrollToIndex({ index: "LAST", align: "end", offset: composerClearance });
   }, [composerClearance, returnLatest]);
 
-  const controller = useConversationController({ conversationId, onUpdated, scrollToBottom: forceScrollToBottom });
+  const controller = useConversationController({ conversationId, onUpdated, scrollToBottom: forceScrollToBottom, onToolStarted: panels.onToolStarted });
   const conversation = search.view?.page ?? controller.conversation;
   const { sending } = controller;
   const openSearch = search.open;

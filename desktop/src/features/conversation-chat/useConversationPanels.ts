@@ -36,5 +36,10 @@ export function useConversationPanels(conversationId: string, active: boolean) {
     if (panel !== target || (target === "browser" ? browser.state.detached : androidDetached)) show(target);
     else close();
   };
-  return { browser: browser.state, android: android.state, panel, toggle, close };
+  const onToolStarted = useCallback((tool: string) => {
+    if (tool.startsWith("browser_")) show("browser");
+    else if (tool.startsWith("android_")) show("android");
+  }, [show]);
+
+  return { browser: browser.state, android: android.state, panel, toggle, close, onToolStarted };
 }

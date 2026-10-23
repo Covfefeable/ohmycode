@@ -10,9 +10,10 @@ type Options = {
   conversationId: string;
   onUpdated(): void;
   scrollToBottom(): void;
+  onToolStarted?(tool: string): void;
 };
 
-export function useConversationController({ conversationId, onUpdated, scrollToBottom }: Options) {
+export function useConversationController({ conversationId, onUpdated, scrollToBottom, onToolStarted }: Options) {
   const { t } = useTranslation();
   const { toast } = useFeedback();
   const [conversation, setConversation] = useState<LocalConversation | null>(null);
@@ -32,6 +33,7 @@ export function useConversationController({ conversationId, onUpdated, scrollToB
   const suggestionRequestRef = useRef(0);
   const conversationRef = useRef<LocalConversation | null>(null);
   const onUpdatedRef = useRef(onUpdated);
+  const onToolStartedRef = useRef(onToolStarted);
 
   const requestErrorMessage = useCallback((error: unknown) => {
     const kind = classifyRequestError(error);
@@ -46,6 +48,7 @@ export function useConversationController({ conversationId, onUpdated, scrollToB
 
   useEffect(() => { conversationRef.current = conversation; }, [conversation]);
   useEffect(() => { onUpdatedRef.current = onUpdated; }, [onUpdated]);
+  useEffect(() => { onToolStartedRef.current = onToolStarted; }, [onToolStarted]);
 
   useEffect(() => {
     let disposed = false;
@@ -148,10 +151,11 @@ export function useConversationController({ conversationId, onUpdated, scrollToB
       queuedEvents = [];
       applyRuntimeEvents(events);
     };
-    const enqueueRuntimeEvent = (event: RuntimeEvent) => {
+    const enqueueRuntimeEvent = (event: RuntimeEvent, live = true) => {
       const eventKey = `${event.turnId}:${event.sequence}`;
       if (disposed || handledEvents.has(eventKey)) return;
       handledEvents.add(eventKey);
+      if (live && event.type === "item.started" && event.item.kind === "tool" && event.item.tool) onToolStartedRef.current?.(event.item.tool);
       queuedEvents.push(event);
       if (eventFrame === null) eventFrame = window.requestAnimationFrame(flushRuntimeEvents);
     };
@@ -175,7 +179,8 @@ export function useConversationController({ conversationId, onUpdated, scrollToB
       activeTurnIdRef.current = snapshot?.status === "in_progress" ? snapshot.turnId : null;
       setSending(activeTurnIdRef.current !== null);
       const replay = snapshot?.status === "in_progress" ? snapshot.events : [];
-      for (const event of [...replay, ...pending].sort((left, right) => left.sequence - right.sequence)) enqueueRuntimeEvent(event);
+      for (const event of replay) enqueueRuntimeEvent(event, false);
+      for (const event of pending.sort((left, right) => left.sequence - right.sequence)) enqueueRuntimeEvent(event);
       snapshotLoaded = true;
     }).catch(() => {
       if (disposed) return;

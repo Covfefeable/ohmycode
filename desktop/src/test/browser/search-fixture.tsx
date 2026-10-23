@@ -20,8 +20,15 @@ const conversation = { id: "thread", title: "Fixture conversation", createdAt: m
 const project: LocalProject = { id: "project", name: "Fixture project", path: "/fixture", deviceId: "test", deviceName: "Test", conversations: [conversation] };
 const listeners = new Set<(event: RuntimeEvent) => void>();
 let sequence = 3;
-declare global { interface Window { searchFixture: { emitDelta(): void } } }
-window.searchFixture = { emitDelta() { for (const listener of listeners) listener({ type: "item.delta", threadId: "thread", turnId: "live", sequence: ++sequence, itemId: "live-answer", delta: " background continues" }); } };
+declare global { interface Window { searchFixture: { emitDelta(): void; tool(tool: string): void } } }
+window.searchFixture = {
+  emitDelta() { for (const listener of listeners) listener({ type: "item.delta", threadId: "thread", turnId: "live", sequence: ++sequence, itemId: "live-answer", delta: " background continues" }); },
+  tool(tool) {
+    const event: RuntimeEvent = { type: "item.started", threadId: "thread", turnId: "live", sequence: ++sequence,
+      item: { id: `tool-${sequence}`, threadId: "thread", turnId: "live", kind: "tool", status: "in_progress", tool, input: {} } };
+    for (const listener of listeners) listener(event);
+  },
+};
 let browserState: BrowserState = { tabs: [], selectedId: null, opened: false, detached: false };
 const browserListeners = new Set<(state: BrowserState) => void>();
 

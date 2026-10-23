@@ -53,6 +53,29 @@ for (const name of ["Browser", "Android"]) test(`${name} 拖拽宽度在固定�
   assert.ok(Math.abs((await panel.boundingBox()).width - resized) < 2, "The saved width survives remounting the application");
 });
 
+test("实时工具调用在浏览器和 Android 间切换，收起后再次调用会重新展示", async () => {
+  await page.goto(`${baseUrl}/tests/browser/search.html`);
+  await page.getByText("Live output", { exact: true }).waitFor();
+  const browserPanel = page.getByRole("complementary", { name: "Browser", exact: true });
+  const androidPanel = page.getByRole("complementary", { name: "Android", exact: true });
+  await page.evaluate(() => window.searchFixture.tool("browser_snapshot"));
+  await browserPanel.waitFor();
+  await page.evaluate(() => window.searchFixture.tool("android_snapshot"));
+  await androidPanel.waitFor();
+  assert.equal(await browserPanel.count(), 0);
+  await page.evaluate(() => window.searchFixture.tool("read_file"));
+  assert.ok(await androidPanel.isVisible());
+  await page.evaluate(() => window.searchFixture.tool("browser_navigate"));
+  await browserPanel.waitFor();
+  assert.equal(await androidPanel.count(), 0);
+  await page.getByRole("button", { name: "Browser", exact: true }).click();
+  await browserPanel.waitFor({ state: "detached" });
+  await page.evaluate(() => window.searchFixture.tool("browser_snapshot"));
+  await browserPanel.waitFor();
+  await page.evaluate(() => window.searchFixture.emitDelta());
+  await page.getByText("Live output background continues", { exact: true }).waitFor();
+});
+
 test("Token 日历在不同窗口宽度下均保持正方形，宽屏填满可用宽度", async () => {
   await page.goto(`${baseUrl}/tests/browser/sidebar.html`);
   await page.getByRole("button", { name: "Settings", exact: true }).click();

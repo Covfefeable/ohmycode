@@ -7,6 +7,26 @@ vi.mock("../feedback", () => ({ useFeedback: () => ({ toast }) }));
 const { toast } = vi.hoisted(() => ({ toast: vi.fn() }));
 const options = { conversationId: "thread", onUpdated: vi.fn(), scrollToBottom: vi.fn() };
 
+test("工具展示只跟随实时调用，不受历史回放或重复事件影响", async () => {
+  const bridge = controllerBridge();
+  const toolEvent: RuntimeEvent = { type: "item.started", threadId: "thread", turnId: "turn", sequence: 5,
+    item: { id: "browser-tool", threadId: "thread", turnId: "turn", kind: "tool", status: "in_progress", tool: "browser_snapshot", input: {} } };
+  bridge.conversations.threadSnapshot.mockResolvedValue({ threadId: "thread", turnId: "turn", status: "in_progress", lastSequence: 5, events: [...streamingEvents(), toolEvent] });
+  const onToolStarted = vi.fn();
+  const { result } = renderHook(() => useConversationController({ ...options, onToolStarted }));
+  await waitFor(() => expect(result.current.conversation).not.toBeNull());
+  bridge.flush();
+  expect(onToolStarted).not.toHaveBeenCalled();
+  act(() => {
+    bridge.emit(toolEvent);
+    const live: RuntimeEvent = { ...toolEvent, sequence: 6, item: { ...toolEvent.item, id: "android-tool", tool: "android_act" } };
+    bridge.emit(live);
+    bridge.emit(live);
+  });
+  bridge.flush();
+  expect(onToolStarted.mock.calls).toEqual([["android_act"]]);
+});
+
 test("排队请求失败不把正在运行的任务变为空闲", async () => {
   const bridge = controllerBridge();
   bridge.conversations.startTurn.mockRejectedValue(new Error("queue_failed"));
