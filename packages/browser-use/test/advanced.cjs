@@ -32,6 +32,7 @@ module.exports = { html, async test(host, base, profile) {
   const input = tree.nodes.find((node) => node.role === "textbox");
   const target = tree.nodes.find((node) => node.name === "Hover target" && node.role === "button");
   await act({ action: "fill", nodeId: input.nodeId, text: "original" });
+  await eventually(async () => (await evaluate("document.hasFocus() && document.activeElement?.getAttribute('aria-label') === 'Editable'")).value);
   await act({ action: "press", key: process.platform === "darwin" ? "Meta+a" : "Control+a" });
   await act({ action: "type", text: "replaced" });
   assert.equal((await evaluate("document.querySelector('input').value")).value, "replaced");

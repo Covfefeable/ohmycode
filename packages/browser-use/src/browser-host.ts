@@ -270,7 +270,7 @@ export class BrowserHost {
       if (args.action === "back" || args.action === "forward" || args.action === "reload") return this.command(id, { action: args.action });
       throw new Error("browser_invalid_navigation");
     }
-    if (tool === "browser_snapshot") return pageSnapshot(tab.contents);
+    if (tool === "browser_snapshot") return pageSnapshot(tab.contents, args);
     if (tool === "browser_evaluate") return tab.page.run(() => evaluatePage(tab.contents, args.expression), signal);
     if (tool === "browser_upload") return tab.page.run(() => uploadFiles(tab.contents, args.nodeId, args.paths), signal);
     if (tool === "browser_act") {
