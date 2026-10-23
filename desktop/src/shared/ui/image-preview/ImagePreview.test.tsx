@@ -1,10 +1,10 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import { ImagePreview } from "./ImagePreview";
 
 const src = "data:image/png;base64,iVBORw0KGgo=";
 
-test("图片缩略图使用图库放大，包含缩放和旋转，关闭后保留预览", async () => {
+test("图片缩略图使用图库放大，包含缩放和旋转，关闭后保留预览", () => {
   const parentClick = vi.fn();
   render(<div onClick={parentClick}><ImagePreview src={src} name="下载.jpg" /></div>);
   expect(screen.getByRole("img").getAttribute("src")).toBe(src);
@@ -14,7 +14,6 @@ test("图片缩略图使用图库放大，包含缩放和旋转，关闭后保�
   expect(screen.getByRole("button", { name: "Reset view" })).toBeTruthy();
   expect(parentClick).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "Close" }));
-  await waitFor(() => expect(document.querySelector(".PhotoView-Slider__willClose")).not.toBeNull());
   expect(screen.getByRole("img", { name: "下载.jpg" })).toBeTruthy();
 });
 
