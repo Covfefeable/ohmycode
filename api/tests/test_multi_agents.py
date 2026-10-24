@@ -1,11 +1,40 @@
 from types import SimpleNamespace
 from uuid import UUID
 
+import pytest
+
 from app import create_app
 from app.extensions import db
 from app.models import AgentEvent, AgentRun, Message
 from app.services.agent.context_history import mailbox_blocks
 from app.services.multi_agents import planner
+
+
+@pytest.mark.parametrize("model_id", ["not-a-uuid", "00000000-0000-0000-0000-000000000001"])
+def test_task_rejects_explicit_invalid_models(model_id):
+    app = create_app("testing")
+    with app.app_context():
+        db.create_all()
+    with app.test_client() as client:
+        headers = _setup(client)
+        agent = _create_team(client, headers)
+        team = agent["templateTeam"]
+        team["members"][0]["modelId"] = model_id
+        updated = client.patch(
+            f"/api/multi-agents/{agent['id']}", headers=headers, json={"templateTeam": team}
+        )
+        assert updated.status_code == 200
+        response = client.post(
+            f"/api/multi-agents/{agent['id']}/tasks",
+            headers=headers,
+            json={
+                "request": "Write an article",
+                "workspacePath": "/workspace",
+                "workspaceName": "workspace",
+            },
+        )
+        assert response.status_code == 422
+        assert response.get_json()["error"]["code"] == "model_not_configured"
 
 
 def test_planner_repairs_an_invalid_generated_team(monkeypatch):
@@ -215,9 +244,7 @@ def test_host_driven_group_chat_lifecycle(tmp_path):
             json={"content": "Revise the opening"},
         )
         assert follow_up.status_code == 201
-        resumed = client.get(
-            f"/api/multi-agents/tasks/{task['id']}", headers=headers
-        ).get_json()
+        resumed = client.get(f"/api/multi-agents/tasks/{task['id']}", headers=headers).get_json()
         assert resumed["status"] == "running"
         assert resumed["currentSpeakerId"] == writer["id"]
         assert resumed["messages"][-2]["toNodeId"] is None
@@ -331,9 +358,10 @@ def test_user_message_preserves_existing_handoff_order(tmp_path):
         )
         state = client.get(f"/api/multi-agents/tasks/{task['id']}", headers=headers).get_json()
         assert state["currentSpeakerId"] == writer["id"]
-        assert next(item for item in state["members"] if item["id"] == host["id"])[
-            "status"
-        ] == "queued"
+        assert (
+            next(item for item in state["members"] if item["id"] == host["id"])["status"]
+            == "queued"
+        )
 
         client.post(f"/api/multi-agents/nodes/{writer['id']}/start", headers=headers)
         client.post(
@@ -343,9 +371,10 @@ def test_user_message_preserves_existing_handoff_order(tmp_path):
         )
         state = client.get(f"/api/multi-agents/tasks/{task['id']}", headers=headers).get_json()
         assert state["currentSpeakerId"] == host["id"]
-        assert next(item for item in state["members"] if item["id"] == reviewer["id"])[
-            "status"
-        ] == "queued"
+        assert (
+            next(item for item in state["members"] if item["id"] == reviewer["id"])["status"]
+            == "queued"
+        )
 
         client.post(f"/api/multi-agents/nodes/{host['id']}/start", headers=headers)
         client.post(
@@ -393,9 +422,10 @@ def test_agent_pause_preserves_pending_speakers(tmp_path):
         assert paused.status_code == 201
         state = client.get(f"/api/multi-agents/tasks/{task['id']}", headers=headers).get_json()
         assert state["status"] == "waiting_user"
-        assert next(item for item in state["members"] if item["id"] == writer["id"])[
-            "status"
-        ] == "queued"
+        assert (
+            next(item for item in state["members"] if item["id"] == writer["id"])["status"]
+            == "queued"
+        )
 
         client.post(
             f"/api/multi-agents/nodes/{host['id']}/user-messages",
@@ -404,9 +434,10 @@ def test_agent_pause_preserves_pending_speakers(tmp_path):
         )
         state = client.get(f"/api/multi-agents/tasks/{task['id']}", headers=headers).get_json()
         assert state["currentSpeakerId"] == host["id"]
-        assert next(item for item in state["members"] if item["id"] == writer["id"])[
-            "status"
-        ] == "queued"
+        assert (
+            next(item for item in state["members"] if item["id"] == writer["id"])["status"]
+            == "queued"
+        )
 
         started = client.post(
             f"/api/multi-agents/nodes/{host['id']}/start", headers=headers
@@ -450,16 +481,12 @@ def test_user_message_resumes_failed_collaboration_without_resetting_history(tmp
             json={"content": "Try again with the existing context"},
         )
         assert response.status_code == 201
-        resumed = client.get(
-            f"/api/multi-agents/tasks/{task['id']}", headers=headers
-        ).get_json()
+        resumed = client.get(f"/api/multi-agents/tasks/{task['id']}", headers=headers).get_json()
         assert resumed["status"] == "running"
         assert resumed["currentSpeakerId"] == host["id"]
         assert resumed["executionCount"] == 0
         assert resumed["messages"][-1]["content"] == "Try again with the existing context"
-        resumed_host = next(
-            member for member in resumed["members"] if member["id"] == host["id"]
-        )
+        resumed_host = next(member for member in resumed["members"] if member["id"] == host["id"])
         assert resumed_host["finalOutput"] is None
 
 
@@ -479,9 +506,7 @@ def test_running_node_can_be_requeued_after_transient_transport_conflict(tmp_pat
         client.post(f"/api/multi-agents/tasks/{task['id']}/start", headers=headers)
         client.post(f"/api/multi-agents/nodes/{host['id']}/start", headers=headers)
 
-        retried = client.post(
-            f"/api/multi-agents/nodes/{host['id']}/retry", headers=headers
-        )
+        retried = client.post(f"/api/multi-agents/nodes/{host['id']}/retry", headers=headers)
         assert retried.status_code == 200
         state = retried.get_json()
         assert state["status"] == "running"
@@ -552,9 +577,7 @@ def test_execution_limit_forces_host_summary(tmp_path):
         assert state["executionCount"] == 2
         assert state["currentSpeakerId"] == host["id"]
 
-        forced_start = client.post(
-            f"/api/multi-agents/nodes/{host['id']}/start", headers=headers
-        )
+        forced_start = client.post(f"/api/multi-agents/nodes/{host['id']}/start", headers=headers)
         assert "with to='user'" in forced_start.get_json()["prompt"]
         delegation = client.post(
             f"/api/multi-agents/nodes/{host['id']}/messages",
@@ -568,8 +591,6 @@ def test_execution_limit_forces_host_summary(tmp_path):
             json={"to": "user", "content": "Best available launch post"},
         )
         assert finished_response.status_code == 201
-        finished = client.get(
-            f"/api/multi-agents/tasks/{task['id']}", headers=headers
-        ).get_json()
+        finished = client.get(f"/api/multi-agents/tasks/{task['id']}", headers=headers).get_json()
         assert finished["status"] == "waiting_user"
         assert finished["executionCount"] == 3

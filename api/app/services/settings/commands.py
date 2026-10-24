@@ -134,12 +134,10 @@ def save_models(user_id: UUID, inputs: list[dict]) -> None:
         item.name = str(payload.get("name") or "").strip()[:100]
         item.base_url = str(payload.get("baseUrl") or "").strip().rstrip("/")[:1024]
         item.model = str(payload.get("model") or "").strip()[:200]
-        item.supports_vision = str(payload.get("supportsVision", False)).lower() in {
-            "1",
-            "true",
-            "yes",
-            "on",
-        }
+        supports_vision = payload.get("supportsVision", False)
+        if not isinstance(supports_vision, bool):
+            raise ServiceError("validation_error", 422)
+        item.supports_vision = supports_vision
         try:
             item.context_length = int(payload.get("contextLength") or 262_144)
         except (TypeError, ValueError) as error:

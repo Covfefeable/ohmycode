@@ -5,7 +5,6 @@ from ...extensions import db
 from ...models import (
     AgentRun,
     Conversation,
-    ModelConfiguration,
     MultiAgent,
     MultiAgentMessage,
     MultiAgentNode,
@@ -15,6 +14,7 @@ from ...models import (
 from ..agent.result_references import protect_result_references
 from ..devices import DeviceContext
 from ..errors import ServiceError
+from ..settings.queries import get_model_configuration
 from .planner import validate_plan
 from .prompts import execution_prompt
 from .queries import get_task, owned_agent, owned_node, task_messages
@@ -97,13 +97,12 @@ def create_task(
     db.session.flush()
     nodes = []
     for index, item in enumerate(_team(agent)["members"]):
-        try:
-            model_id = UUID(item["modelId"]) if item.get("modelId") else None
-        except (TypeError, ValueError):
-            model_id = None
-        model = db.session.get(ModelConfiguration, model_id) if model_id else None
-        if model and model.user_id != user_id:
-            model_id = None
+        model_id = None
+        if item.get("modelId"):
+            model = get_model_configuration(user_id, item["modelId"])
+            if model is None:
+                raise ServiceError("model_not_configured", 422)
+            model_id = model.id
         conversation = Conversation(project_id=project.id, title=item["name"], kind="multi_agent")
         db.session.add(conversation)
         db.session.flush()
@@ -305,16 +304,18 @@ def complete_node(user_id: UUID, node_id: UUID, payload: dict) -> MultiAgentTask
     if node.task.execution_queue:
         activate_next(node.task)
     elif content:
-        db.session.add(MultiAgentMessage(
-            task_id=node.task_id,
-            sequence=next_message_sequence(node.task_id),
-            from_node_id=node.id,
-            run_id=run.id if (run := current_run(node)) else None,
-            to_node_id=None,
-            message_type="message",
-            sender_type="agent",
-            content=content,
-        ))
+        db.session.add(
+            MultiAgentMessage(
+                task_id=node.task_id,
+                sequence=next_message_sequence(node.task_id),
+                from_node_id=node.id,
+                run_id=run.id if (run := current_run(node)) else None,
+                to_node_id=None,
+                message_type="message",
+                sender_type="agent",
+                content=content,
+            )
+        )
         node.task.status = "waiting_user"
     else:
         enqueue(node.task, host_for(node.task))
