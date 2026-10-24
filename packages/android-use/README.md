@@ -39,11 +39,13 @@ Android 面板通过 scrcpy 3.3.4 的设备端服务输出 H.264，客户端使�
 
 ## 模块
 
-`android_snapshot` 读取常驻 UIAutomator 服务，返回紧凑节点、`snapshotId` 和 `screen`，不再运行 `adb shell uiautomator dump` 或写入中间 XML 文件。快照与截图的 `screen` 包含当前旋转方向下的屏幕像素宽高、rotation 和坐标约定。空布局被省略，大结果交由现有 `resultRef` 分页与检索处理。
+`android_snapshot` 读取常驻 UIAutomator 服务，返回紧凑节点、`snapshotId` 和 `screen`，不再运行 `adb shell uiautomator dump` 或写入中间 XML 文件。快照与截图的 `screen` 包含当前旋转方向下的屏幕像素宽高、rotation 和坐标约定。沿用原有空布局省略规则，不额外做语义折叠或按应用过滤；大结果交由现有 `resultRef` 分页与检索处理。只输出禁用状态 `enabled:false`，默认启用状态省略；实际操作仍检查实时控件的 enabled 状态。`editable` 仅在底层明确提供时输出布尔值，未提供则省略（未知），不依据控件类名推断，不逐节点输出 `null`；当前固定版本的层级通常不提供此属性。`checkable:true` 的节点始终包含 `checked:true/false`。其他压缩布尔标记仍仅在为 true 时输出。
 
-`android_act` 支持 `selector` 或 `snapshotId + nodeId` 定位。选择器支持 resourceId、text、textContains、description、className、packageName、focused，组合条件按 AND 匹配。操作前读取当前层级检查唯一性，再交给原生服务使用当前控件位置操作；不会默认选第一个重复控件。文本节点可向上寻找可点击父节点。执行操作、用户触控、断线或关闭都会使节点引用失效。没有控件属性的游戏等页面仍使用截图和坐标操作，快照无法保证没有键盘或覆盖层遮挡。
+`android_act` 支持 `selector` 或 `snapshotId + nodeId` 定位。选择器支持 resourceId、text、textContains、description、className、packageName、focused，组合条件按 AND 匹配。操作前读取当前层级检查唯一性，再交给原生服务使用当前控件位置操作；不会默认选第一个重复控件。歧义时返回 `error:android_node_ambiguous`、新的 `snapshotId`、`totalMatches`、`truncated` 和最多 10 个候选，每个候选带节点属性、bounds 和父节点上下文；调用方据此补充唯一条件，不自动选择或重试。
 
-`text` 设置（替换）目标输入框的 Unicode 文本，无目标时使用当前聚焦控件。返回 `executed`、回读 `text` 和 `verified`，但不承诺已保存到业务数据。控件可能把 hint 作为空值的可访问文字，因而清空后的 `verified` 可能为 false。用户在投屏画布上的普通按键则直接走 scrcpy 输入通道，不执行整框文本替换。
+节点 ID 是快照内的位置序号，不是跨快照稳定身份，不使用内容哈希伪装持久 ID。新快照、执行操作、用户输入、断线或关闭都会使旧引用失效；节点操作前还会检查引用节点及其祖先的属性、bounds 和旋转方向是否发生变化，变化则要求重新观察。该检查不是原子布局锁，不保证检测到所有应用内部变化。文本节点可向上寻找可点击父节点。没有控件属性的游戏等页面仍使用截图和坐标操作，快照无法保证没有键盘或覆盖层遮挡。
+
+点击、滑动和按键返回的 `executed` 仅表示指令已执行，不表示达到业务目标；不再返回恒为 false 的 `verified`。`text` 设置（替换）目标输入框的 Unicode 文本，无目标时使用当前聚焦控件。返回 `executed`、回读 `text` 和 `textMatched`，后者仅表示回读文字与输入一致，不代表应用接受、计算完成、提交成功或持久化。不推测 `accepted`，不增加自动操作闭环。回读有歧义时返回 `executed:true`、`textMatched:null` 及歧义候选，不能误认为文字未写入而重复执行。控件可能把 hint 作为空值的可访问文字，因而清空后的 `textMatched` 可能为 false。用户在投屏画布上的普通按键则直接走 scrcpy 输入通道，不执行整框文本替换。
 
 `wait` 支持选择器的 `present/absent`，默认 15 秒，可配置 0–120 秒。采用最长 500ms 的原生等待片段，可取消；超时返回 `matched:false`，RPC/读取失败仍返回错误，不被当成节点消失。等待不产生重复截图或模型往返。
 

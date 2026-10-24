@@ -9,6 +9,18 @@ import { matchingNodes, parseSelector, rpcSelector, timeout } from "./selector.j
 type DeviceInfo = { displayWidth: number; displayHeight: number; displayRotation: number };
 type NodeInfo = { text: string | null; resourceName: string; className: string; enabled: boolean; bounds: { left: number; top: number; right: number; bottom: number } };
 type Snapshot = ReturnType<typeof compactSnapshot> & { snapshotId: string };
+const MAX_AMBIGUOUS_CANDIDATES = 10;
+
+function sameReference(previous: Snapshot, current: ReturnType<typeof compactSnapshot>, nodeId: number): boolean {
+  if (previous.rotation !== current.rotation) return false;
+  let node = previous.nodes.find((item) => item.id === nodeId);
+  while (node) {
+    const live = current.nodes.find((item) => item.id === node!.id);
+    if (JSON.stringify(node) !== JSON.stringify(live)) return false;
+    node = node.parentId === undefined ? undefined : previous.nodes.find((item) => item.id === node!.parentId);
+  }
+  return true;
+}
 
 export class AndroidAutomation {
   private readonly server: UiAutomatorServer;
@@ -72,13 +84,27 @@ export class AndroidAutomation {
     } while (Date.now() < deadline);
     return false;
   }
-  private async resolve(selector: AndroidSelector, timeoutMs: number, signal?: AbortSignal) {
+  private async resolve(selector: AndroidSelector, timeoutMs: number, signal?: AbortSignal, reference?: { snapshot: Snapshot; nodeId: number }) {
     if (!await this.wait(selector, true, timeoutMs, signal)) throw new Error("android_node_not_found");
     const query = rpcSelector(selector);
-    const nodes = compactSnapshot(await this.server.call<string>("dumpWindowHierarchy", [false], signal)).nodes;
-    const count = matchingNodes(nodes, selector).length;
-    if (!count) throw new Error("android_node_not_found");
-    if (count > 1) throw new Error("android_node_ambiguous");
+    const hierarchy = compactSnapshot(await this.server.call<string>("dumpWindowHierarchy", [false], signal));
+    if (reference && (this.latest !== reference.snapshot || !sameReference(reference.snapshot, hierarchy, reference.nodeId))) {
+      this.invalidate();
+      throw new Error("android_snapshot_expired");
+    }
+    const matches = matchingNodes(hierarchy.nodes, selector);
+    if (!matches.length) throw new Error("android_node_not_found");
+    if (matches.length > 1) {
+      const snapshot = { ...hierarchy, snapshotId: randomUUID() };
+      this.latest = snapshot;
+      return {
+        error: "android_node_ambiguous" as const, snapshotId: snapshot.snapshotId, totalMatches: matches.length,
+        truncated: matches.length > MAX_AMBIGUOUS_CANDIDATES,
+        candidates: matches.slice(0, MAX_AMBIGUOUS_CANDIDATES).map((node) => ({
+          ...node, parent: hierarchy.nodes.find((item) => item.id === node.parentId),
+        })),
+      };
+    }
     const node = await this.server.call<NodeInfo>("objInfo", [query], signal);
     if (!node.enabled) throw new Error("android_node_disabled");
     return { query, node };
@@ -98,22 +124,26 @@ export class AndroidAutomation {
       if (args.x !== undefined || args.y !== undefined) throw new Error("android_invalid_action");
       if (args.action === "text" && (typeof args.text !== "string" || args.text.length > 20_000)) throw new Error("android_invalid_text");
       const selector = this.nodeSelector(args, selectorTap);
-      const { query, node } = await this.resolve(selector, timeout(args.timeoutMs), signal);
+      const reference = args.snapshotId !== undefined ? { snapshot: this.latest!, nodeId: args.nodeId as number } : undefined;
+      const resolved = await this.resolve(selector, timeout(args.timeoutMs), signal, reference);
+      if ("error" in resolved) return { executed: false, ...resolved };
+      const { query, node } = resolved;
       this.invalidate();
       if (selectorTap) {
         if (!await this.server.call<boolean>("click", [query], signal)) throw new Error("android_action_rejected");
-        return { executed: true, selector, target: { resourceId: node.resourceName, bounds: node.bounds }, verified: false };
+        return { executed: true, selector, target: { resourceId: node.resourceName, bounds: node.bounds } };
       }
       const text = args.text;
       if (!await this.server.call<boolean>("setText", [query, text], signal)) throw new Error("android_action_rejected");
       // Do not reuse text matching after changing the field's value.
       const readSelector = { ...selector }; delete readSelector.text; delete readSelector.textContains;
       const result = await this.resolve(Object.keys(readSelector).length ? readSelector : { focused: true }, 0, signal);
-      return { executed: true, text: result.node.text, verified: result.node.text === text };
+      if ("error" in result) return { executed: true, textMatched: null, ...result };
+      return { executed: true, text: result.node.text, textMatched: result.node.text === text };
     }
     const command = actionArguments(args);
     this.invalidate();
     await shell(command);
-    return { executed: true, verified: false };
+    return { executed: true };
   }
 }

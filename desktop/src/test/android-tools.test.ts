@@ -34,7 +34,27 @@ it("快照压缩去掉空布局，但保留可操作祖先、禁用状态与解�
   expect(row).toMatchObject({ clickable: true, enabled: false, bounds: "[0,0][300,100]" });
   expect(label).toMatchObject({ text: "保存 & 返回", resourceId: "example:id/save", parentId: row.id, actionableParentId: row.id });
   expect(input).toMatchObject({ focusable: true, focused: true, password: true, description: "密码" });
+  expect(label).not.toHaveProperty("enabled");
+  expect(label).not.toHaveProperty("editable");
   expect(JSON.stringify(snapshot).length).toBeLessThan(xml.length);
+});
+
+it("快照保留开关和禁用状态，省略默认启用与未知编辑能力", () => {
+  const nodes = compactSnapshot(`<hierarchy>
+    <node text="主题" checkable="true" checked="false" enabled="true"/>
+    <node text="主题" checkable="true" checked="true" enabled="false"/>
+    <node class="android.widget.EditText" resource-id="search" enabled="true" password="false"/>
+    <node resource-id="editable" editable="true" enabled="true"/>
+    <node text="说明" editable="false" enabled="true"/>
+  </hierarchy>`).nodes;
+  expect(nodes).toHaveLength(5);
+  expect(nodes[0]).toMatchObject({ checked: false });
+  expect(nodes[1]).toMatchObject({ checked: true, enabled: false });
+  expect(nodes.every((node, index) => index === 1 || !Object.hasOwn(node, "enabled"))).toBe(true);
+  expect(nodes[2]).not.toHaveProperty("editable");
+  expect(nodes[2]).not.toHaveProperty("checked");
+  expect(nodes[3]).toMatchObject({ editable: true });
+  expect(nodes[4]).toMatchObject({ editable: false });
 });
 
 it("大快照不在工具内部截断，畸形 XML 不伪装成空页面", () => {
