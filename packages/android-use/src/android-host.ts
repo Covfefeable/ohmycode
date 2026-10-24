@@ -25,6 +25,7 @@ export class AndroidHost {
   private video?: AndroidVideoStream;
   private automation?: AndroidAutomation;
   private releasing?: Promise<void>;
+  private releaseTimer?: ReturnType<typeof setTimeout>;
   private pendingAction: Promise<unknown> = Promise.resolve();
   private current: AndroidState = {
     enabled: false, installed: false, sdkPath: "", phase: "stopped",
@@ -36,7 +37,7 @@ export class AndroidHost {
   get available(): boolean { return this.current.enabled && this.current.installed; }
   private update(change: Partial<AndroidState>): void {
     this.current = { ...this.current, ...change };
-    if (change.phase === "stopped" || change.phase === "error") this.current.ownerConversationId = undefined;
+    if (change.phase === "stopped" || change.phase === "error") { this.cancelRelease(); this.current.ownerConversationId = undefined; }
     this.changed(this.state());
   }
   assertAccess(conversationId: string): void {
@@ -57,6 +58,7 @@ export class AndroidHost {
     if (!this.available) throw new Error("android_not_available");
     signal?.throwIfAborted();
     this.assertAccess(conversationId);
+    this.retainFor(conversationId);
     this.update({ ownerConversationId: conversationId });
     if (this.current.phase === "running") return;
     if (!this.boot) {
@@ -148,7 +150,19 @@ export class AndroidHost {
   }
   async stopFor(conversationId: string): Promise<void> { this.assertAccess(conversationId); await this.stop(); }
   async releaseFor(conversationId: string): Promise<void> {
-    if (this.current.ownerConversationId === conversationId) await this.stop();
+    if (this.current.ownerConversationId !== conversationId) return;
+    this.cancelRelease();
+    this.releaseTimer = setTimeout(() => {
+      this.releaseTimer = undefined;
+      void this.stop().catch((error: unknown) => this.update({ phase: "error", error: error instanceof Error ? error.message : "android_operation_failed" }));
+    }, 3 * 60 * 1000);
+  }
+  retainFor(conversationId: string): void {
+    if (this.current.ownerConversationId === conversationId) this.cancelRelease();
+  }
+  private cancelRelease(): void {
+    clearTimeout(this.releaseTimer);
+    this.releaseTimer = undefined;
   }
   type(conversationId: string, text: string): void {
     this.assertAccess(conversationId);
@@ -156,7 +170,7 @@ export class AndroidHost {
     this.automation?.invalidate();
     this.video.type(text);
   }
-  stop(): Promise<void> { return this.stopping ??= this.disconnect().finally(() => { this.stopping = undefined; }); }
+  stop(): Promise<void> { this.cancelRelease(); return this.stopping ??= this.disconnect().finally(() => { this.stopping = undefined; }); }
   private async disconnect(): Promise<void> {
     this.monitor?.abort(); this.monitor = undefined;
     this.update({ phase: "stopping", error: undefined });

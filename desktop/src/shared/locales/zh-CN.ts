@@ -21,7 +21,7 @@ export const zhCN = {
       android_invalid_address: "请输入有效的主机地址和端口，例如 127.0.0.1:16384。", android_device_connect_failed: "无法连接该设备，请检查 ADB 地址以及模拟器或手机的调试设置。",
       android_device_unauthorized: "设备尚未授权，请在手机上允许此电脑进行 USB 调试。", android_device_offline: "所选设备已离线，请重新连接并刷新设备。不会自动切换到其他设备。",
       android_stop_before_configure: "设备正在使用，请先在聊天面板断开或关闭，再更改配置。", android_install_in_progress: "连接组件或模拟器正在安装，请等待完成。",
-      android_in_use_by_another_conversation: "设备正被其他会话占用，暂时无法查看或操作。对方本轮结束后会自动释放。",
+      android_in_use_by_another_conversation: "设备正被其他会话占用，暂时无法查看或操作。对方本轮结束 3 分钟后会自动释放，也可由对方手动关闭。",
       android_emulator_exited: "内置模拟器已意外退出，请检查环境后重新启动。", android_not_available: "当前设备不可用，请检查设置中的设备和连接组件。", android_not_running: "设备尚未连接，请先连接设备。",
     },
     powerOff: "关闭模拟器",

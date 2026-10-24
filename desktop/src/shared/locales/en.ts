@@ -21,7 +21,7 @@ export const en = {
       android_invalid_address: "Enter a valid host and port, such as 127.0.0.1:16384.", android_device_connect_failed: "Could not connect. Check the ADB address and device debugging settings.",
       android_device_unauthorized: "Authorize USB debugging for this computer on your phone.", android_device_offline: "The selected device is offline. Reconnect it and refresh devices. No other device will be selected automatically.",
       android_stop_before_configure: "The device is in use. Disconnect or stop it in chat before changing settings.", android_install_in_progress: "Connection tools or the emulator are being installed. Wait for completion.",
-      android_in_use_by_another_conversation: "Another conversation is using this device. Viewing and control are unavailable until its current turn ends and releases the device.",
+      android_in_use_by_another_conversation: "Another conversation is using this device. It is released 3 minutes after its turn ends, or when that conversation disconnects it manually.",
       android_emulator_exited: "The built-in emulator exited unexpectedly. Check the environment and restart it.", android_not_available: "The current device is unavailable. Check the selected device and connection tools in Settings.", android_not_running: "Connect the selected device first.",
     },
     powerOff: "Power off emulator",

@@ -39,10 +39,11 @@ beforeEach(() => {
   host = new AndroidHost("/managed-android", vi.fn());
   host.configure({ enabled: true, sdkPath: "/sdk", environment, target: { kind: "managed" }, devices: [] });
 });
-afterEach(async () => { await host.close(); });
+afterEach(async () => { await host.close(); vi.useRealTimers(); });
 
-it("本轮工具注册表关闭时释放自己的设备，不释放其他会话的设备", async () => {
+it("本轮结束后三分钟释放设备，期间保持独占，新一轮取消旧计时", async () => {
   await host.start("owner");
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
   const other = new ToolRegistry();
   other.register(createAndroidPlugin(host, "other", true));
   await other.close();
@@ -51,9 +52,31 @@ it("本轮工具注册表关闭时释放自己的设备，不释放其他会话�
   const owner = new ToolRegistry();
   owner.register(createAndroidPlugin(host, "owner", true));
   await owner.close();
+  await vi.advanceTimersByTimeAsync(179_999);
+  expect(host.state().phase).toBe("running");
+  expect(() => host.assertAccess("other")).toThrow("android_in_use_by_another_conversation");
+  const next = new ToolRegistry();
+  next.register(createAndroidPlugin(host, "owner", true));
+  await vi.advanceTimersByTimeAsync(180_000);
+  expect(host.state().phase).toBe("running");
+  await next.close();
+  await vi.advanceTimersByTimeAsync(180_000);
   expect(host.state().phase).toBe("stopped");
   expect(host.state().ownerConversationId).toBeUndefined();
   expect(automation.close).toHaveBeenCalledOnce();
+});
+
+it("手动停止立即关闭设备并取消延迟释放，不影响之后的新连接", async () => {
+  await host.start("owner");
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+  await host.releaseFor("owner");
+  await host.stopFor("owner");
+  expect(host.state().phase).toBe("stopped");
+  child = new FakeChild();
+  mocks.spawn.mockReturnValue(child);
+  await host.start("other");
+  await vi.advanceTimersByTimeAsync(180_000);
+  expect(host.state()).toMatchObject({ phase: "running", ownerConversationId: "other" });
 });
 
 it("移除选中设备后没有默认目标，不会启动内置模拟器", async () => {

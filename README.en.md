@@ -15,7 +15,7 @@ models, local tools, and host-orchestrated multi-agent group chats. The desktop 
 
 - **Code and terminals**: file reading, strict patch editing, search, persistent PTY terminals, streaming Markdown, task plans, and context compaction.
 - **Browser automation**: built-in Chromium with page snapshots, clicks, typing, script execution, screenshots, and network diagnostics; resize the panel or detach it into a separate window.
-- **Android control**: connect a physical device or external emulator through ADB, or install the built-in emulator on demand. Live video, node targeting, Unicode input, and condition waits are supported; device ownership is exclusive to a conversation and released after each turn.
+- **Android control**: connect a physical device or external emulator through ADB, or install the built-in emulator on demand. Live video, node targeting, Unicode input, and condition waits are supported; device ownership is exclusive to a conversation and released 3 minutes after a turn ends, unless the same conversation starts another turn.
 - **Multi-agent collaboration**: configure host and member models, responsibilities, and prompts in reusable teams, with group chat and per-agent activity views.
 - **Voice and extensions**: streaming speech input, automatic read-aloud, voice chat, custom voices, MCP connections, and Skill installation and synchronization.
 
