@@ -34,6 +34,7 @@ module.exports = { html, async test(host, base, profile) {
   await act({ action: "fill", nodeId: input.nodeId, text: "original" });
   await eventually(async () => (await evaluate("document.hasFocus() && document.activeElement?.getAttribute('aria-label') === 'Editable'")).value);
   await act({ action: "press", key: process.platform === "darwin" ? "Meta+a" : "Control+a" });
+  assert.equal((await evaluate("document.querySelector('input').selectionStart===0 && document.querySelector('input').selectionEnd===document.querySelector('input').value.length")).value, true, "native select-all selects the existing value before typing");
   await act({ action: "type", text: "replaced" });
   assert.equal((await evaluate("document.querySelector('input').value")).value, "replaced");
   await act({ action: "hover", nodeId: target.nodeId });

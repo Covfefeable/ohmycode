@@ -1,6 +1,12 @@
 import type { WebContents } from "electron";
+import process from "node:process";
 
 type Point = { x: number; y: number };
+// CDP key events do not resolve macOS native editing shortcuts automatically.
+const macEditingCommands: Record<string, string> = {
+  "Meta+a": "selectAll", "Meta+c": "copy", "Meta+x": "cut",
+  "Meta+v": "paste", "Meta+z": "undo", "Meta+Shift+z": "redo",
+};
 
 export async function targetPoint(page: WebContents, nodeId: unknown, x: unknown, y: unknown, scroll = true): Promise<Point> {
   if (nodeId !== undefined) {
@@ -52,6 +58,7 @@ export async function pressKey(page: WebContents, value: unknown): Promise<void>
   const key = keyName === "Space" ? " " : keyName;
   const windowsVirtualKeyCode = codes[keyName] ?? (keyName.length === 1 ? keyName.toUpperCase().charCodeAt(0) : undefined);
   if (windowsVirtualKeyCode === undefined) throw new Error("browser_invalid_key");
-  await page.debugger.sendCommand("Input.dispatchKeyEvent", { type: "keyDown", key, modifiers, windowsVirtualKeyCode, ...(key.length === 1 && (modifiers & 7) === 0 ? { text: key } : {}) });
+  const command = process.platform === "darwin" ? macEditingCommands[[...parts].sort().concat(key.toLowerCase()).join("+")] : undefined;
+  await page.debugger.sendCommand("Input.dispatchKeyEvent", { type: "keyDown", key, modifiers, windowsVirtualKeyCode, ...(command ? { commands: [command] } : {}), ...(key.length === 1 && (modifiers & 7) === 0 ? { text: key } : {}) });
   await page.debugger.sendCommand("Input.dispatchKeyEvent", { type: "keyUp", key, modifiers, windowsVirtualKeyCode });
 }
