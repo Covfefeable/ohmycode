@@ -1,4 +1,4 @@
-# OhMyCode
+![OhMyCode · An open workspace for coding agents](docs/images/readme-header.svg)
 
 <p align="center"><a href="./README.md">简体中文</a> · <strong>English</strong></p>
 
