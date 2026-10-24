@@ -2,6 +2,7 @@ import { mkdtemp, readFile, realpath, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import process from "node:process";
+import assert from "node:assert/strict";
 import { executeFileTool } from "../../dist-electron/files/file-tools.js";
 
 const root = await mkdtemp(join(tmpdir(), "ohmycode-files-"));
@@ -54,6 +55,23 @@ const patch = await executeFileTool(
   inspectedPaths,
 );
 const value = await readFile(join(root, "demo.txt"), "utf8");
+
+for (const patch of [
+  "*** Begin Patch\n*** Update File: demo.txt\n@@\n-gamma\n+bad",
+  "*** Begin Patch\n*** Update File: demo.txt\n-gamma\n+bad\n*** End Patch",
+  "*** Begin Patch\n*** Add File: bad.txt\nunprefixed content\n*** End Patch",
+  "*** Begin Patch\n*** Delete File: demo.txt\nunexpected content\n*** End Patch",
+]) {
+  await assert.rejects(executeFileTool("apply_patch", { projectId: "test", patch }, root, inspectedPaths), /invalid_patch/);
+}
+assert.equal(await readFile(join(root, "demo.txt"), "utf8"), value);
+await writeFile(join(root, "repeated.txt"), "same\nsame\n", "utf8");
+const repeated = await executeFileTool("read_file", { projectId: "test", path: "repeated.txt" }, root);
+inspectedPaths.add(repeated.path);
+await assert.rejects(executeFileTool("apply_patch", {
+  projectId: "test", patch: "*** Begin Patch\n*** Update File: repeated.txt\n@@\n-same\n+changed\n*** End Patch",
+}, root, inspectedPaths), /patch_context_ambiguous/);
+assert.equal(await readFile(join(root, "repeated.txt"), "utf8"), "same\nsame\n");
 
 if (!search.output.includes("demo.txt:2")) throw new Error("Content search did not return the expected match");
 if (!listing.output.includes("file\tdemo.txt")) throw new Error("Directory listing omitted the test file");

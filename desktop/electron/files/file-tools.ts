@@ -134,16 +134,18 @@ type PatchOperation = { kind: "add" | "update" | "delete"; path: string; lines: 
 
 function parsePatch(value: string): PatchOperation[] {
   const lines = value.replace(/\r\n/g, "\n").split("\n");
+  if (lines.at(-1) === "") lines.pop();
   if (lines[0] !== "*** Begin Patch") throw new Error("invalid_patch_format: expected '*** Begin Patch'");
+  if (lines.at(-1) !== "*** End Patch") throw new Error("invalid_patch_format: expected '*** End Patch'");
   const operations: PatchOperation[] = [];
   let current: PatchOperation | null = null;
-  for (const line of lines.slice(1)) {
+  for (const line of lines.slice(1, -1)) {
     const header = line.match(/^\*\*\* (Add|Update|Delete) File: (.+)$/);
     if (header) {
       current = { kind: header[1].toLocaleLowerCase() as PatchOperation["kind"], path: header[2], lines: [] };
       operations.push(current);
-    } else if (line === "*** End Patch") break;
-    else if (current) current.lines.push(line);
+    } else if (current) current.lines.push(line);
+    else throw new Error("invalid_patch_format: expected file header");
   }
   if (!operations.length) throw new Error("empty_patch");
   return operations;
@@ -153,6 +155,7 @@ function applyUpdate(original: string, patchLines: string[]): string {
   const source = original.replace(/\r\n/g, "\n").split("\n");
   const hunks: string[][] = [];
   let hunk: string[] = [];
+  if (!patchLines[0]?.startsWith("@@")) throw new Error("invalid_patch_hunk");
   for (const line of patchLines) {
     if (line.startsWith("@@")) { if (hunk.length) hunks.push(hunk); hunk = []; }
     else hunk.push(line);
@@ -162,9 +165,10 @@ function applyUpdate(original: string, patchLines: string[]): string {
     if (!lines.length || lines.some((line) => !line || ![" ", "+", "-"].includes(line[0]))) throw new Error("invalid_patch_hunk");
     const before = lines.filter((line) => !line.startsWith("+")).map((line) => line.slice(1));
     const after = lines.filter((line) => !line.startsWith("-")).map((line) => line.slice(1));
-    const index = source.findIndex((_line, start) => before.every((value, offset) => source[start + offset] === value));
-    if (index < 0) throw new Error("patch_context_mismatch");
-    source.splice(index, before.length, ...after);
+    const matches = source.flatMap((_line, start) => before.every((value, offset) => source[start + offset] === value) ? [start] : []);
+    if (!matches.length) throw new Error("patch_context_mismatch");
+    if (matches.length > 1) throw new Error("patch_context_ambiguous");
+    source.splice(matches[0], before.length, ...after);
   }
   return source.join("\n");
 }
@@ -176,6 +180,7 @@ async function applyPatch(root: string, request: FileToolRequest, inspectedPaths
   const planned: Array<PatchOperation & { target: string; original: string; content?: string }> = [];
   for (const operation of operations) {
     if (operation.kind === "add") {
+      if (operation.lines.some((line) => !line.startsWith("+"))) throw new Error("invalid_patch_hunk");
       const target = await safeNewPath(root, operation.path);
       try {
         await stat(target);
@@ -183,10 +188,11 @@ async function applyPatch(root: string, request: FileToolRequest, inspectedPaths
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
       }
-      planned.push({ ...operation, target, original: "", content: operation.lines.map((line) => line.startsWith("+") ? line.slice(1) : line).join("\n") });
+      planned.push({ ...operation, target, original: "", content: operation.lines.map((line) => line.slice(1)).join("\n") });
       continue;
     }
     const target = await safeExistingPath(root, operation.path);
+    if (operation.kind === "delete" && operation.lines.length) throw new Error("invalid_patch_hunk");
     if (!(await stat(target)).isFile()) throw new Error(`not_a_file:${target}`);
     if (!inspectedPaths.has(target)) throw new Error(`inspection_required:${target}`);
     const original = await readFile(target, "utf8");
