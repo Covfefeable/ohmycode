@@ -15,7 +15,7 @@ import { SpeechProvider } from "../features/speech/SpeechProvider";
 
 function ProtectedRoute() {
   const { status } = useAuth();
-  if (status === "booting") return <FullScreenLoading />;
+  if (status === "booting") return <FullScreenLoading kind="workspace" />;
   return status === "authenticated" ? <SpeechProvider><Outlet /></SpeechProvider> : <Navigate to="/login" replace />;
 }
 

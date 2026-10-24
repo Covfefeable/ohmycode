@@ -43,9 +43,9 @@ export function SettingsPage() {
     return () => { active = false; };
   }, [location.pathname, reloadToken]);
   const independentTab = tab === "updates" || tab === "speech" || tab === "lab";
-  if (!independentTab && loadFailed) return <LoadError message={t("settings.loadFailed")} onRetry={() => { setLoadFailed(false); setReloadToken((value) => value + 1); }} />;
-  if (!independentTab && !settings) return <FullScreenLoading />;
-  const content = tab === "lab" ? <LabSettings /> : tab === "speech" ? <SpeechSettingsPanel /> : tab === "updates" ? <UpdateSettings />
+  const content = !independentTab && loadFailed ? <LoadError message={t("settings.loadFailed")} onRetry={() => { setLoadFailed(false); setReloadToken((value) => value + 1); }} />
+    : !independentTab && !settings ? <FullScreenLoading />
+    : tab === "lab" ? <LabSettings /> : tab === "speech" ? <SpeechSettingsPanel /> : tab === "updates" ? <UpdateSettings />
     : tab === "profile" ? <ProfileSettings initial={settings!.profile} tokenUsage={settings!.tokenUsage} />
       : tab === "models" ? <ModelSettings initial={settings!.models} />
         : tab === "background" ? <BackgroundTaskSettings initial={settings!.backgroundTasks} models={settings!.models} />

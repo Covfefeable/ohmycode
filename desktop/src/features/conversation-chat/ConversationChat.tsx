@@ -163,7 +163,7 @@ export function ConversationChat({ conversationId, active, searchLocation, onUpd
   }
 
   if (controller.loadFailed && !conversation) return <LoadError message={t("agent.loadFailed")} onRetry={controller.retry} />;
-  if (!conversation) return <FullScreenLoading />;
+  if (!conversation) return <FullScreenLoading kind="conversation" />;
   return <ImageScopeContext.Provider value={{ conversationId }}><div className={styles.layout}><section
     className={`${styles.chat} ${dragActive ? styles.dragActive : ""}`}
     onDragEnter={(event) => {
