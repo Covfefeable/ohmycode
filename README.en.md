@@ -1,50 +1,62 @@
-![OhMyCode · An open workspace for coding agents](docs/images/readme-header.svg)
+# OhMyCode
 
 <p align="center"><a href="./README.md">简体中文</a> · <strong>English</strong></p>
 
-![OhMyCode workspace and agent conversation](docs/images/workspace-chat.png)
+Let agents write code, operate a browser, and connect to your Android device.
 
-OhMyCode is a desktop-first workspace for coding agents, built with Electron, React, Flask,
-PostgreSQL, and Redis. It supports OpenAI-compatible models, streaming conversations,
-persistent terminals, file tools, context compaction, and host-orchestrated Multi-Agent collaboration.
+OhMyCode is an open-source, desktop-first agent workspace with your choice of OpenAI-compatible
+models, local tools, and host-orchestrated multi-agent group chats. The desktop app runs on Windows and macOS.
 
-This repository contains a runnable desktop app, an Expo mobile app, a standalone API service,
-and a production Compose stack. The project has shipped its official release. Its core execution path is
-operational, while approval for high-risk writes, background-task resilience, release security,
-and end-to-end coverage remain priorities. See [`docs/architecture.md`](docs/architecture.md)
-for architecture boundaries and [`docs/issues.md`](docs/issues.md) for the current improvement list.
+[Download](https://github.com/Covfefeable/ohmycode/releases/latest) · [Development](#development-environment) · [Architecture](docs/architecture.md)
 
-## Interface Preview
+![OhMyCode dark mode: agent conversation, voice chat, and an Android device side by side](docs/images/android-use.png)
 
-### Multi-Agent Collaboration
+## Highlights
 
-Create reusable agent teams and configure the responsibilities, models, and prompts for the host
-and every member.
+- **Code and terminals**: file reading, strict patch editing, search, persistent PTY terminals, streaming Markdown, task plans, and context compaction.
+- **Browser automation**: built-in Chromium with page snapshots, clicks, typing, script execution, screenshots, and network diagnostics; resize the panel or detach it into a separate window.
+- **Android control**: connect a physical device or external emulator through ADB, or install the built-in emulator on demand. Live video, node targeting, Unicode input, and condition waits are supported; device ownership is exclusive to a conversation and released after each turn.
+- **Multi-agent collaboration**: configure host and member models, responsibilities, and prompts in reusable teams, with group chat and per-agent activity views.
+- **Voice and extensions**: streaming speech input, automatic read-aloud, voice chat, custom voices, MCP connections, and Skill installation and synchronization.
 
-![Multi-Agent member and prompt configuration](docs/images/multi-agent-config.png)
+### Work in the browser
 
-When a collaboration task runs, the host schedules members while messages and execution states
-appear in the group chat in real time.
-
-![Multi-Agent group chat](docs/images/multi-agent-chat.png)
-
-Every Agent Run exposes duration, token usage, reasoning, file operations, and tool activity.
-
-![Agent Run details](docs/images/multi-agent-run-detail.png)
-
-### Built-in Browser
-
-Agents can carry out highly complex interactive tasks in the desktop's built-in browser. Results
-currently also depend on your model's capability.
+Keep the page beside the conversation, follow the agent's actions, or interact with the page yourself.
 
 ![Agent operating a page in the built-in browser](docs/images/browser-use.png)
 
-### Personal Settings
+### Collaborate in a group chat
 
-The desktop app provides unified settings for models, MCP, Skills, voice configuration, background
-tasks, update checks, and token usage history.
+The host schedules members and ends the collaboration. One agent runs at a time, with shared chat history and the same runtime used by ordinary conversations.
+
+![Multi-Agent group chat](docs/images/multi-agent-chat.png)
+
+<details>
+<summary>More screenshots: workspace, team configuration, run details, and settings</summary>
+
+### Workspace
+
+![OhMyCode workspace and agent conversation](docs/images/workspace-chat.png)
+
+### Team configuration
+
+![Multi-Agent member and prompt configuration](docs/images/multi-agent-config.png)
+
+### Run details
+
+Inspect duration, token usage, reasoning, file operations, and tool activity.
+
+![Agent Run details](docs/images/multi-agent-run-detail.png)
+
+### Personal settings
 
 ![Profile and token usage history](docs/images/settings-profile.png)
+
+</details>
+
+The repository also includes an Expo mobile app, a standalone Flask API, and production Compose.
+See the [architecture](docs/architecture.md) and [backlog](docs/issues.md) for boundaries such as Android
+image compatibility, desktop signing, and approval for high-risk operations.
 
 ## Technology Stack
 
@@ -60,7 +72,7 @@ tasks, update checks, and token usage history.
 ```text
 api/
   app/routes/          HTTP routes and protocol adaptation only
-  app/services/        Business logic, Agent Loop, context, and collaboration orchestration
+  app/services/        Business logic, model requests, context, and collaboration orchestration
   app/models/          PostgreSQL persistence models
   migrations/          Flask-Migrate / Alembic migrations
   tests/               Server tests
@@ -68,7 +80,7 @@ api/
 desktop/
   electron/runtime/    Persistent Agent Runtime and event Journal
   electron/terminal/   Persistent PTY terminal management
-  electron/files/      File tools and AGENTS.md loading
+  electron/files/      File operations, strict patches, and tool-result storage
   electron/ipc/        Narrow Renderer to Electron Main IPC boundary
   src/pages/           Page composition
   src/features/        Feature components
@@ -83,6 +95,7 @@ packages/
   design-tokens/       Shared semantic design variables for desktop and mobile
   web-effects/         Shared Three.js effects for desktop and mobile web
   browser-use/         Built-in browser sessions, page tools, and screenshots
+  android-use/         ADB device connections, live video, and UIAutomator actions
   protocol/            Thread / Turn / Item event protocol
   tool-contracts/      Platform-independent tool definitions and execution contracts
   agent-runtime/       Platform-independent event Journal, stream parsing, Tool Loop, and Turn execution
@@ -98,7 +111,7 @@ flowchart LR
     IPC[Preload / IPC<br/>Restricted client interface]
     RT[Desktop Runtime Host<br/>Shared Thread / Turn / Item Runtime]
     JOURNAL[Event Journal<br/>Ordering, subscriptions, and replay]
-    TOOLS[Local tools<br/>PTY Terminal / File Tools]
+    TOOLS[Local tools<br/>Terminal / Files / Browser / Android]
     API[Flask API<br/>Application services and SSE subscriptions]
     MODEL[OpenAI-compatible LLM]
     DB[(PostgreSQL)]

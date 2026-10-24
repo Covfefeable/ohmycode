@@ -1,47 +1,61 @@
-![OhMyCode · An open workspace for coding agents](docs/images/readme-header.svg)
+# OhMyCode
 
 <p align="center"><strong>简体中文</strong> · <a href="./README.en.md">English</a></p>
 
-![OhMyCode 工作空间与 Agent 对话](docs/images/workspace-chat.png)
+让 Agent 写代码、操作浏览器，也能连接你的 Android 设备。
 
-OhMyCode 是一个桌面优先的 Code Agent 工作空间，使用 Electron、React、Flask、
-PostgreSQL 和 Redis 构建。它支持 OpenAI-compatible 模型、流式对话、持久终端、
-文件工具、上下文压缩以及主持人调度的 Multi-Agent 协作。
+OhMyCode 是一个桌面优先的开源 Agent 工作空间，支持自选 OpenAI-compatible 模型、
+本地工具和主持人调度的多 Agent 群聊。桌面端支持 Windows 和 macOS。
 
-当前仓库同时包含可运行的桌面端、Expo 移动端、独立 API 服务和生产 Compose。
-项目已发布正式版；核心执行链路已经落地，但高风险写入审批、后台任务韧性、
-发布安全和端到端测试仍是后续重点。详细边界见
-[`docs/architecture.md`](docs/architecture.md)，当前改进清单见
-[`docs/issues.md`](docs/issues.md)。
+[下载客户端](https://github.com/Covfefeable/ohmycode/releases/latest) · [本地开发](#开发环境) · [架构说明](docs/architecture.md)
 
-## 界面预览
+![OhMyCode 深色模式：Agent 对话、语音聊天与 Android 设备画面](docs/images/android-use.png)
 
-### Multi-Agent 协作
+## 核心能力
 
-创建可复用的 Agent 团队，为主持人和各成员分别配置职责、模型与提示词。
+- **代码与终端**：文件读取、严格补丁编辑、搜索、持久 PTY 终端，支持流式 Markdown、任务清单和上下文压缩。
+- **浏览器操作**：内置 Chromium，支持页面快照、点击输入、脚本执行、截图及网络诊断；面板可拉伸或切换独立窗口。
+- **Android 操控**：通过 ADB 连接真机或外部模拟器，也可按需安装内置模拟器。支持实时投屏、节点定位、中文输入和条件等待；设备按会话独占，每轮结束自动释放。
+- **多 Agent 协作**：配置主持人与成员的模型、职责和提示词，以可复用团队开展群聊协作，查看各成员的执行活动。
+- **语音与扩展**：实时语音输入、自动朗读、聊天模式与自定义音色，以及 MCP 接入、Skill 安装和同步。
 
-![Multi-Agent 成员与提示词配置](docs/images/multi-agent-config.png)
+### 在浏览器中执行任务
 
-运行协作任务时，主持人负责调度成员，所有消息与执行状态在群聊中实时呈现。
-
-![Multi-Agent 群聊](docs/images/multi-agent-chat.png)
-
-每次 Agent Run 均可查看耗时、Token 用量、思考过程以及文件和工具活动。
-
-![Agent Run 运行详情](docs/images/multi-agent-run-detail.png)
-
-### 内置浏览器
-
-Agent 可以在桌面端内置浏览器中完成高复杂度的交互性任务，实际效果当前也取决于
-你的模型能力。
+网页和对话并排展示，可查看 Agent 的操作过程，也可以直接接管页面。
 
 ![Agent 在内置浏览器中操作页面](docs/images/browser-use.png)
 
+### 让团队在群聊中协作
+
+主持人负责调度与结束协作，同一时间由一个 Agent 执行，成员共享群聊记录并复用单 Agent 的运行时。
+
+![Multi-Agent 群聊](docs/images/multi-agent-chat.png)
+
+<details>
+<summary>更多界面：工作空间、成员配置、运行详情与设置</summary>
+
+### 工作空间
+
+![OhMyCode 工作空间与 Agent 对话](docs/images/workspace-chat.png)
+
+### 成员配置
+
+![Multi-Agent 成员与提示词配置](docs/images/multi-agent-config.png)
+
+### 运行详情
+
+查看耗时、Token 用量、思考过程以及文件和工具活动。
+
+![Agent Run 运行详情](docs/images/multi-agent-run-detail.png)
+
 ### 个人设置
 
-桌面端提供模型、MCP、Skills、语音配置、后台任务、更新检查以及 Token 使用记录等统一设置。
-
 ![个人信息与 Token 使用记录](docs/images/settings-profile.png)
+
+</details>
+
+仓库同时包含 Expo 移动端、独立 Flask API 与生产 Compose。Android 镜像兼容性、
+桌面分发签名和高风险操作审批等边界见 [架构文档](docs/architecture.md) 与 [待办清单](docs/issues.md)。
 
 ## 技术栈
 
@@ -57,7 +71,7 @@ Agent 可以在桌面端内置浏览器中完成高复杂度的交互性任务�
 ```text
 api/
   app/routes/          HTTP 路由，只处理协议适配
-  app/services/        业务逻辑、Agent Loop、上下文与协作调度
+  app/services/        业务逻辑、模型请求、上下文与协作调度
   app/models/          PostgreSQL 数据模型
   migrations/          Flask-Migrate / Alembic 迁移
   tests/               服务端测试
@@ -65,7 +79,7 @@ api/
 desktop/
   electron/runtime/    常驻 Agent Runtime、事件 Journal
   electron/terminal/   持久 PTY 终端管理
-  electron/files/      文件工具与 AGENTS.md 加载
+  electron/files/      文件读写、严格补丁与工具结果保存
   electron/ipc/        Renderer 与 Electron Main 的窄 IPC 边界
   src/pages/           页面组合
   src/features/        业务功能组件
@@ -80,6 +94,7 @@ packages/
   design-tokens/       桌面与移动端共享的语义设计变量
   web-effects/         桌面与移动 Web 共享的 Three.js 视觉效果
   browser-use/         内置浏览器会话、页面工具与截图能力
+  android-use/         ADB 设备连接、实时投屏与 UIAutomator 控件操作
   protocol/            Thread / Turn / Item 事件协议
   tool-contracts/      平台无关工具定义与执行契约
   agent-runtime/       平台无关事件 Journal、流式解析、Tool Loop 与 Turn 执行
@@ -95,7 +110,7 @@ flowchart LR
     IPC[Preload / IPC<br/>受限客户端接口]
     RT[Desktop Runtime Host<br/>共享 Thread / Turn / Item Runtime]
     JOURNAL[Event Journal<br/>顺序、订阅与重放]
-    TOOLS[本地工具<br/>PTY Terminal / File Tools]
+    TOOLS[本地工具<br/>Terminal / Files / Browser / Android]
     API[Flask API<br/>业务服务与 SSE 订阅]
     MODEL[OpenAI-compatible LLM]
     DB[(PostgreSQL)]
