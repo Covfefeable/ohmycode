@@ -59,7 +59,6 @@ async function runTurn(task: MultiAgentTask, memberId: string, requestId: string
           handedOff = true;
           void interruptTurn(turnId);
         }
-        void getMultiAgentTask(task.id).then((latest) => onEvent({ type: "task.updated", task: latest }));
       }
     });
   try {
