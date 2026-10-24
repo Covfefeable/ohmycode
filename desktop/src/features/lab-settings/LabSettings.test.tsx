@@ -63,6 +63,7 @@ it("运行时不能更换目录或停用，实验室不提供启动停止操作"
   mocks.state = { ...mocks.state, enabled: true, installed: true, sdkPath: "/sdk", phase: "running", issue: undefined, adbReady: true, managedInstalled: true };
   render(<LabSettings />);
   expect(screen.getByRole("button", { name: "Configure ADB" }).hasAttribute("disabled")).toBe(true);
+  expect(screen.getByRole("button", { name: "Refresh devices" }).hasAttribute("disabled")).toBe(false);
   expect(screen.getByRole("checkbox").hasAttribute("disabled")).toBe(true);
   expect(screen.queryByRole("button", { name: "Stop emulator" })).toBeNull();
   expect(screen.queryByRole("button", { name: "Start emulator" })).toBeNull();

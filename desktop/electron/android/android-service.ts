@@ -48,7 +48,12 @@ export function initializeAndroid(): Promise<void> {
 export async function refreshAndroid(next: Configuration = configuration): Promise<AndroidState> {
   if (installation?.active) throw new Error("android_install_in_progress");
   if (refreshing) return refreshing;
-  if (["starting", "running", "stopping"].includes(androidHost().state().phase)) return androidHost().state();
+  const state = androidHost().state();
+  if (state.phase === "starting" || state.phase === "stopping") return state;
+  if (state.phase === "running") {
+    androidHost().setDevices(await discoverDevices(next, state.adbPath));
+    return androidHost().state();
+  }
   refreshing = configure(next);
   try { return await refreshing; } finally { refreshing = undefined; }
 }
@@ -64,9 +69,23 @@ async function configure(next: Configuration): Promise<AndroidState> {
       }
     }
     if (!adb && !next.sdkPath) adb = (await checkAdb("")).adb;
+    const devices = await discoverDevices(next, adb);
+    androidHost().configure({ ...next, sdkPath: next.sdkPath || check.sdkPath, adb, environment: check.environment, devices,
+      issue: next.target.kind === "managed" ? check.issue : adb ? undefined : "adb_missing" });
+    configuration = next;
+    return androidHost().state();
+}
+async function discoverDevices(next: Configuration, adb?: string): Promise<AndroidDevice[]> {
     const devices = adb ? (await listDevices(adb)).filter((device) => !next.removedDevices.includes(device.serial)) : [];
     for (const connection of next.connections) {
-      const device = devices.find((device) => device.serial === connection.address);
+      let device = devices.find((device) => device.serial === connection.address);
+      if (adb && (!device || device.status === "offline")) {
+        try {
+          const connected = await connectDevice(adb, connection.address);
+          if (device) Object.assign(device, connected);
+          else { device = connected; devices.push(device); }
+        } catch { /* A saved endpoint may be offline; keep it visible for reconnection. */ }
+      }
       if (device) device.name = connection.name || device.name;
       else devices.push({ serial: connection.address, name: connection.name || connection.address, transport: "network", status: "offline" });
     }
@@ -74,10 +93,7 @@ async function configure(next: Configuration): Promise<AndroidState> {
       const selected = next.target;
       if (!devices.some((device) => device.serial === selected.serial)) devices.push({ serial: selected.serial, name: selected.name, transport: "local", status: "offline" });
     }
-    androidHost().configure({ ...next, sdkPath: next.sdkPath || check.sdkPath, adb, environment: check.environment, devices,
-      issue: next.target.kind === "managed" ? check.issue : adb ? undefined : "adb_missing" });
-    configuration = next;
-    return androidHost().state();
+    return devices;
 }
 
 export async function getAndroidState(): Promise<AndroidState> { await initializeAndroid(); return androidHost().state(); }
@@ -133,7 +149,10 @@ export async function removeAndroidDevice(serial: unknown): Promise<AndroidState
 }
 export async function rediscoverAndroidDevices(): Promise<AndroidState> {
   await initializeAndroid();
-  return save({ ...configuration, removedDevices: [] });
+  const state = await refreshAndroid({ ...configuration, removedDevices: [] });
+  configuration = { ...configuration, removedDevices: [] };
+  await writeFile(configPath(), JSON.stringify(configuration));
+  return state;
 }
 export const openAndroidGuide = () => shell.openExternal("https://developer.android.com/studio/run/device");
 export const openAndroidLicense = () => shell.openExternal("https://developer.android.com/studio/terms");

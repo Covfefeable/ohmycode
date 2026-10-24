@@ -10,13 +10,13 @@ import type { useAndroidInstallation } from "./useAndroidInstallation";
 import { IconButton } from "../../shared/ui/icon-button";
 import { ConfirmDialog } from "../../shared/ui/confirm-dialog";
 
-export function AndroidDevices({ state, locked, select, installation, configureAdb, refresh, remove }: { state: AndroidState; locked: boolean; select(target: AndroidTarget): void; installation: ReturnType<typeof useAndroidInstallation>; configureAdb(): void; refresh(): void; remove(serial: string): Promise<boolean> }) {
+export function AndroidDevices({ state, locked, refreshLocked, select, installation, configureAdb, refresh, remove }: { state: AndroidState; locked: boolean; refreshLocked: boolean; select(target: AndroidTarget): void; installation: ReturnType<typeof useAndroidInstallation>; configureAdb(): void; refresh(): void; remove(serial: string): Promise<boolean> }) {
   const { t } = useTranslation();
   const [adding, setAdding] = useState(false);
   const [removing, setRemoving] = useState<string>();
   return <section className={styles.section} aria-label={t("android.devices.title")}>
     <header><h4>{t("android.devices.title")}</h4><div className={styles.actions}>
-      <Tooltip content={t("android.devices.refresh")}><IconButton disabled={locked} aria-label={t("android.devices.refresh")} onClick={refresh}><RefreshCw /></IconButton></Tooltip>
+      <Tooltip content={t("android.devices.refresh")}><IconButton disabled={refreshLocked} aria-label={t("android.devices.refresh")} onClick={refresh}><RefreshCw /></IconButton></Tooltip>
       <Tooltip content={t("android.devices.configureAdb")}><IconButton disabled={locked} aria-label={t("android.devices.configureAdb")} onClick={configureAdb}><FolderCog /></IconButton></Tooltip>
       <Tooltip content={t("android.devices.add")}><IconButton disabled={locked || !state.adbReady} aria-label={t("android.devices.add")} onClick={() => setAdding(true)}><Plus /></IconButton></Tooltip>
     </div></header>

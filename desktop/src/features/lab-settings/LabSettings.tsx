@@ -17,7 +17,7 @@ import { androidErrorKey } from "../android/android-error";
 
 export function LabSettings() {
   const { t } = useTranslation();
-  const { state, failed, retry } = useAndroidState();
+  const { state, failed, retry } = useAndroidState(true);
   if (failed) return <LoadError message={t("android.loadFailed")} onRetry={retry} />;
   if (!state) return <FullScreenLoading />;
   return <AndroidSetup state={state} />;
@@ -55,7 +55,7 @@ function AndroidSetup({ state }: { state: AndroidState }) {
       <div className={styles.actions}><button disabled={!state.adbReady || locked} onClick={() => setStep("devices")}>{t("android.devices.next")}</button></div>
       </> : <>
         <p>{t("android.devices.description")}</p>
-        <AndroidDevices state={state} locked={locked || running} installation={installation} configureAdb={() => setStep("adb")} refresh={() => void perform(() => window.ohmycode.android.refresh())} remove={(serial) => perform(() => window.ohmycode.android.removeDevice(serial))} select={(target) => void perform(() => window.ohmycode.android.selectTarget(target))} />
+        <AndroidDevices state={state} locked={locked || running} refreshLocked={locked} installation={installation} configureAdb={() => setStep("adb")} refresh={() => void perform(() => window.ohmycode.android.refresh())} remove={(serial) => perform(() => window.ohmycode.android.removeDevice(serial))} select={(target) => void perform(() => window.ohmycode.android.selectTarget(target))} />
       </>}
       {state.error && <p className={styles.error} role="alert">{t(`android.errors.${state.error}`, { defaultValue: t("android.operationFailed") })}</p>}
     </div>

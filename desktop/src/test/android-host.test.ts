@@ -108,6 +108,34 @@ it("设置中的设备未授权时不回退到其他在线设备", async () => {
   expect(host.state()).toMatchObject({ phase: "error", target: { serial: "phone-b" } });
   expect(host.state().ownerConversationId).toBeUndefined();
   expect(mocks.spawn).not.toHaveBeenCalled();
+  expect(mocks.run.mock.calls.some(([, args]) => args[0] === "connect")).toBe(false);
+});
+
+it("网络设备重启后只重连已选地址一次，并更新缓存中的离线状态", async () => {
+  let connected = false;
+  mocks.run.mockImplementation(async (_file: string, args: string[]) => {
+    if (args[0] === "connect") { connected = true; return Buffer.from("connected"); }
+    if (args[0] === "devices") return Buffer.from(`other device\n${connected ? "127.0.0.1:5555 device model:Phone" : ""}\n`);
+    return Buffer.alloc(0);
+  });
+  host.configure({ enabled: true, sdkPath: "/sdk", adb: environment.adb, target: { kind: "external", serial: "127.0.0.1:5555", name: "Phone" }, devices: [{ serial: "127.0.0.1:5555", name: "Phone", transport: "network", status: "offline" }] });
+  await host.start("thread");
+  expect(mocks.run.mock.calls.filter(([, args]) => args[0] === "connect").map(([, args]) => args)).toEqual([["connect", "127.0.0.1:5555"]]);
+  expect(host.state()).toMatchObject({ phase: "running", devices: [{ serial: "127.0.0.1:5555", status: "device" }] });
+  await host.stopFor("thread");
+  connected = false;
+  await host.start("thread");
+  expect(host.state().phase).toBe("running");
+  expect(mocks.run.mock.calls.filter(([, args]) => args[0] === "connect")).toHaveLength(2);
+});
+
+it("网络设备重连失败不循环尝试、不改用其他在线设备", async () => {
+  mocks.run.mockResolvedValue(Buffer.from("other device\n127.0.0.1:5555 offline\n"));
+  host.configure({ enabled: true, sdkPath: "/sdk", adb: environment.adb, target: { kind: "external", serial: "127.0.0.1:5555", name: "Phone" }, devices: [] });
+  await expect(host.start("thread")).rejects.toThrow("android_device_connect_failed");
+  expect(mocks.run.mock.calls.filter(([, args]) => args[0] === "connect")).toHaveLength(1);
+  expect(automation.start).not.toHaveBeenCalled();
+  expect(host.state()).toMatchObject({ phase: "error", target: { serial: "127.0.0.1:5555" } });
 });
 
 it("外部设备掉线释放会话占用，不切换目标或继续执行", async () => {

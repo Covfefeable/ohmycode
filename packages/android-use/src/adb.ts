@@ -5,8 +5,8 @@ export function adbArguments(target: AdbTarget): string[] {
   return [...(target.serverPort === undefined ? [] : ["-P", String(target.serverPort)]), "-s", target.serial];
 }
 
-export async function listDevices(adb: string, run: CommandRunner = runCommand): Promise<AndroidDevice[]> {
-  const output = (await run(adb, ["devices", "-l"])).toString();
+export async function listDevices(adb: string, run: CommandRunner = runCommand, signal?: AbortSignal): Promise<AndroidDevice[]> {
+  const output = (await run(adb, ["devices", "-l"], signal)).toString();
   return output.split(/\r?\n/).flatMap((line) => {
     const match = /^(\S+)\s+(device|offline|unauthorized|no permissions)\b(.*)$/.exec(line.trim());
     if (!match) return [];
@@ -27,10 +27,10 @@ export function networkAddress(value: unknown): string {
   return address;
 }
 
-export async function connectDevice(adb: string, address: unknown): Promise<AndroidDevice> {
+export async function connectDevice(adb: string, address: unknown, signal?: AbortSignal): Promise<AndroidDevice> {
   const endpoint = networkAddress(address);
-  await runCommand(adb, ["connect", endpoint]);
-  const device = (await listDevices(adb)).find((device) => device.serial === endpoint);
+  await runCommand(adb, ["connect", endpoint], signal);
+  const device = (await listDevices(adb, runCommand, signal)).find((device) => device.serial === endpoint);
   if (!device || device.status !== "device") throw new Error(device?.status === "unauthorized" ? "android_device_unauthorized" : "android_device_connect_failed");
   return device;
 }

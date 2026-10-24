@@ -1,7 +1,7 @@
 import { setTimeout as delay } from "node:timers/promises";
 import path from "node:path";
 import { runCommand } from "./command.js";
-import { adbArguments, listDevices } from "./adb.js";
+import { adbArguments, connectDevice, listDevices } from "./adb.js";
 import { ManagedEmulator } from "./managed-emulator.js";
 import { AndroidAutomation } from "./automation/automation.js";
 import type { AdbTarget, AndroidDevice, AndroidEnvironment, AndroidState, AndroidTarget, AndroidTouch } from "./types.js";
@@ -35,6 +35,7 @@ export class AndroidHost {
   constructor(private readonly dataRoot: string, private readonly changed: (state: AndroidState) => void, private readonly fetcher: typeof fetch = fetch) {}
   state(): AndroidState { return { ...this.current, target: { ...this.current.target }, devices: this.current.devices.map((device) => ({ ...device })) }; }
   get available(): boolean { return this.current.enabled && this.current.installed; }
+  setDevices(devices: AndroidDevice[]): void { this.update({ devices }); }
   private update(change: Partial<AndroidState>): void {
     this.current = { ...this.current, ...change };
     if (change.phase === "stopped" || change.phase === "error") { this.cancelRelease(); this.current.ownerConversationId = undefined; }
@@ -85,9 +86,11 @@ export class AndroidHost {
         this.target = await this.managed.start(signal);
       } else if (setup.target.kind === "external") {
         const serial = setup.target.serial;
-        const selected = (await listDevices(setup.adb!)).find((item) => item.serial === serial);
+        let selected = (await listDevices(setup.adb!, runCommand, signal)).find((item) => item.serial === serial);
+        if ((!selected || selected.status === "offline") && /:\d+$/.test(serial)) selected = await connectDevice(setup.adb!, serial, signal);
         if (!selected || selected.status !== "device") throw new Error(selected?.status === "unauthorized" ? "android_device_unauthorized" : "android_device_offline");
         this.target = { adb: setup.adb!, serial };
+        this.update({ devices: this.current.devices.map((device) => device.serial === serial ? { ...device, status: "device" } : device) });
       }
       this.automation = new AndroidAutomation(this.target!, path.join(this.dataRoot, "automation"), this.fetcher);
       await this.automation.start(signal);

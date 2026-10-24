@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { AndroidState } from "@ohmycode/android-use/types";
 
-export function useAndroidState() {
+export function useAndroidState(refreshOnMount = false) {
   const [state, setState] = useState<AndroidState | null>(null);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
@@ -13,10 +13,11 @@ export function useAndroidState() {
       setFailed(false);
       setState(next);
     });
-    void window.ohmycode.android.state().then((next) => {
+    const request = refreshOnMount ? window.ohmycode.android.refresh() : window.ohmycode.android.state();
+    void request.then((next) => {
       if (active && !received) { setState(next); setFailed(false); }
     }).catch(() => { if (active) setFailed(true); });
     return () => { active = false; unsubscribe(); };
-  }, [attempt]);
+  }, [attempt, refreshOnMount]);
   return { state, failed, retry: () => setAttempt((value) => value + 1) };
 }
