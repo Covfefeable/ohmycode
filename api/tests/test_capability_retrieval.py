@@ -49,6 +49,7 @@ def add_capabilities(user: User) -> tuple[McpServer, SkillPackage]:
     )
     db.session.add_all([server, skill])
     db.session.commit()
+    sync_capability_index(user.id, enqueue=False)
     return server, skill
 
 
@@ -103,10 +104,43 @@ def test_disabled_capability_is_removed_from_index():
         server.enabled = False
         skill.enabled = False
         db.session.commit()
+        assert search_capabilities(user.id, "github release") == []
+        # Searching filters stale entries but does not repair or write the index.
+        assert db.session.query(RetrievalDocument).count() == 3
         sync_capability_index(user.id)
 
         assert db.session.query(RetrievalDocument).count() == 0
         assert search_capabilities(user.id, "github") == []
+
+
+def test_incremental_index_update_leaves_other_capabilities_untouched(monkeypatch):
+    app = create_test_app()
+    with app.app_context():
+        user = add_user("incremental@example.com", "Incremental")
+        server, skill = add_capabilities(user)
+        server.name = "Updated GitHub"
+        db.session.commit()
+        sync_capability_index(user.id, capability_id=server.id, enqueue=False)
+        documents = db.session.scalars(db.select(RetrievalDocument)).all()
+        assert len(documents) == 3
+        assert {item.capability_name for item in documents if item.capability_id == server.id} == {
+            "Updated GitHub"
+        }
+        assert (
+            next(item for item in documents if item.capability_id == skill.id).capability_name
+            == skill.name
+        )
+
+        def reject_sync(*args, **kwargs):
+            raise AssertionError("search must not sync")
+
+        monkeypatch.setattr(
+            "app.services.capabilities.retrieval.sync_capability_index", reject_sync
+        )
+        assert search_capabilities(user.id, "github")
+        db.session.delete(server)
+        db.session.commit()
+        assert not any(item["type"] == "mcp" for item in search_capabilities(user.id, "github"))
 
 
 def test_content_hash_avoids_duplicate_embedding_calls(monkeypatch):

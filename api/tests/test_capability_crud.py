@@ -24,9 +24,11 @@ def users(monkeypatch):
         ]
         db.session.add_all(owners)
         db.session.commit()
-        monkeypatch.setattr("app.services.capabilities.mcp.sync_capability_index", lambda _: None)
         monkeypatch.setattr(
-            "app.services.capabilities.skills.sync_capability_index", lambda _: None
+            "app.services.capabilities.mcp.sync_capability_index", lambda _, **kwargs: None
+        )
+        monkeypatch.setattr(
+            "app.services.capabilities.skills.sync_capability_index", lambda _, **kwargs: None
         )
         yield [owner.id for owner in owners]
 

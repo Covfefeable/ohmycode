@@ -67,7 +67,7 @@ def save_skill(user_id: UUID, payload: dict) -> dict:
     skill.enabled = bool(payload.get("enabled", True))
     db.session.add(skill)
     db.session.commit()
-    sync_capability_index(user_id)
+    sync_capability_index(user_id, capability_id=skill.id)
     if previous_key and previous_key != key:
         try:
             delete_object(previous_key)
@@ -91,7 +91,7 @@ def delete_skill(user_id: UUID, skill_id: UUID) -> None:
     key = skill.archive_key
     db.session.delete(skill)
     db.session.commit()
-    sync_capability_index(user_id)
+    sync_capability_index(user_id, capability_id=skill_id)
     try:
         delete_object(key)
     except ServiceError:

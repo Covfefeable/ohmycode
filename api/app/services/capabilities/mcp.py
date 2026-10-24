@@ -142,7 +142,7 @@ def save_mcp_server(user_id: UUID, payload: dict, server_id: UUID | None = None)
     server.last_error = None
     db.session.add(server)
     db.session.commit()
-    sync_capability_index(user_id)
+    sync_capability_index(user_id, capability_id=server.id)
     return _public(server)
 
 
@@ -156,7 +156,7 @@ def update_mcp_tools(
     server.status = "failed" if error else "connected"
     server.last_error = error[:1000] if error else None
     db.session.commit()
-    sync_capability_index(user_id)
+    sync_capability_index(user_id, capability_id=server.id)
     return _public(server)
 
 
@@ -166,4 +166,4 @@ def delete_mcp_server(user_id: UUID, server_id: UUID) -> None:
         raise ServiceError("not_found", 404)
     db.session.delete(server)
     db.session.commit()
-    sync_capability_index(user_id)
+    sync_capability_index(user_id, capability_id=server_id)

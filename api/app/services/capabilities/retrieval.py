@@ -44,11 +44,14 @@ class DesiredDocument:
         return hashlib.sha256(self.content.encode()).hexdigest()
 
 
-def _desired_documents(user_id: UUID) -> list[DesiredDocument]:
+def _desired_documents(user_id: UUID, capability_id: UUID | None) -> list[DesiredDocument]:
     documents: list[DesiredDocument] = []
-    servers = db.session.scalars(
-        db.select(McpServer).where(McpServer.user_id == user_id, McpServer.enabled.is_(True))
+    server_query = db.select(McpServer).where(
+        McpServer.user_id == user_id, McpServer.enabled.is_(True)
     )
+    if capability_id is not None:
+        server_query = server_query.where(McpServer.id == capability_id)
+    servers = db.session.scalars(server_query)
     for server in servers:
         for tool in server.tools or []:
             name = str(tool.get("name") or "").strip()
@@ -69,11 +72,12 @@ def _desired_documents(user_id: UUID) -> list[DesiredDocument]:
                     metadata={"transport": server.transport},
                 )
             )
-    skills = db.session.scalars(
-        db.select(SkillPackage).where(
-            SkillPackage.user_id == user_id, SkillPackage.enabled.is_(True)
-        )
+    skill_query = db.select(SkillPackage).where(
+        SkillPackage.user_id == user_id, SkillPackage.enabled.is_(True)
     )
+    if capability_id is not None:
+        skill_query = skill_query.where(SkillPackage.id == capability_id)
+    skills = db.session.scalars(skill_query)
     for skill in skills:
         content = f"Skill: {skill.name}\nDescription: {skill.description}"
         documents.append(
@@ -92,14 +96,15 @@ def _desired_documents(user_id: UUID) -> list[DesiredDocument]:
     return documents
 
 
-def sync_capability_index(user_id: UUID, *, enqueue: bool = True) -> None:
+def sync_capability_index(
+    user_id: UUID, *, enqueue: bool = True, capability_id: UUID | None = None
+) -> None:
     embedder = embedding_provider()
-    desired = {item.key: item for item in _desired_documents(user_id)}
-    existing = list(
-        db.session.scalars(
-            db.select(RetrievalDocument).where(RetrievalDocument.user_id == user_id)
-        )
-    )
+    desired = {item.key: item for item in _desired_documents(user_id, capability_id)}
+    query = db.select(RetrievalDocument).where(RetrievalDocument.user_id == user_id)
+    if capability_id is not None:
+        query = query.where(RetrievalDocument.capability_id == capability_id)
+    existing = list(db.session.scalars(query))
     by_key = {(item.kind, item.capability_id, item.item_key): item for item in existing}
     for key, document in by_key.items():
         if key not in desired:
@@ -220,10 +225,29 @@ def search_capabilities(
         return []
     embedder = embedder or embedding_provider()
     reranker = reranker or rerank_provider()
-    sync_capability_index(user_id)
     documents = list(
         db.session.scalars(
-            db.select(RetrievalDocument).where(RetrievalDocument.user_id == user_id)
+            db.select(RetrievalDocument).where(
+                RetrievalDocument.user_id == user_id,
+                db.or_(
+                    db.and_(
+                        RetrievalDocument.kind == "mcp_tool",
+                        RetrievalDocument.capability_id.in_(
+                            db.select(McpServer.id).where(
+                                McpServer.user_id == user_id, McpServer.enabled.is_(True)
+                            )
+                        ),
+                    ),
+                    db.and_(
+                        RetrievalDocument.kind == "skill",
+                        RetrievalDocument.capability_id.in_(
+                            db.select(SkillPackage.id).where(
+                                SkillPackage.user_id == user_id, SkillPackage.enabled.is_(True)
+                            )
+                        ),
+                    ),
+                ),
+            )
         )
     )
     lexical = {document.id: _lexical_score(query, document) for document in documents}
