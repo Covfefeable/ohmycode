@@ -17,11 +17,11 @@ interface DesktopBridge {
       setEnabled(enabled: boolean): Promise<import("@ohmycode/android-use/types").AndroidState>;
       openGuide(): Promise<void>;
       start(conversationId: string): Promise<import("@ohmycode/android-use/types").AndroidState>;
-      stop(): Promise<import("@ohmycode/android-use/types").AndroidState>;
+      stop(conversationId: string): Promise<import("@ohmycode/android-use/types").AndroidState>;
       detached(): Promise<boolean>;
-      setDetached(value: boolean): Promise<void>;
+      setDetached(value: boolean, conversationId: string): Promise<void>;
       onDetached(callback: (value: boolean) => void): () => void;
-      startVideo(id: string): Promise<void>;
+      startVideo(id: string, conversationId: string): Promise<void>;
       stopVideo(id: string): Promise<void>;
       onVideo(id: string, callback: (packet: import("@ohmycode/android-use").AndroidVideoPacket | { error: string }) => void): () => void;
       act(conversationId: string, action: import("@ohmycode/android-use/types").AndroidAction): Promise<{ ok: true }>;

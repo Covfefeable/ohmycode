@@ -21,15 +21,15 @@ export function registerAndroidIpc(): void {
   ipcMain.handle("android:touch", (event, conversationId: string, events: AndroidTouch[]) => { windowFor(event); touchAndroid(event.sender, conversationId, events); });
   ipcMain.handle("android:type", (event, conversationId: string, text: string) => { windowFor(event); typeAndroid(event.sender, conversationId, text); });
   ipcMain.handle("android:detached", (event) => { windowFor(event); return androidDetached(); });
-  ipcMain.handle("android:set-detached", (event, value: boolean) => {
+  ipcMain.handle("android:set-detached", (event, value: boolean, conversationId: string) => {
     const window = windowFor(event);
     if (typeof value !== "boolean") throw new Error("android_invalid_configuration");
-    return setAndroidDetached(window, value);
+    return setAndroidDetached(window, value, conversationId);
   });
-  ipcMain.handle("android:video-start", (event, id: string) => {
+  ipcMain.handle("android:video-start", (event, id: string, conversationId: string) => {
     windowFor(event);
     if (typeof id !== "string" || id.length > 100) throw new Error("android_invalid_configuration");
-    return startAndroidVideo(event.sender, id);
+    return startAndroidVideo(event.sender, id, conversationId);
   });
   ipcMain.handle("android:video-stop", (event, id: string) => { windowFor(event); return stopAndroidVideo(event.sender, id); });
   ipcMain.handle("android:state", (event) => { windowFor(event); return getAndroidState(); });
@@ -48,6 +48,6 @@ export function registerAndroidIpc(): void {
   ipcMain.handle("android:install", (event, consent: boolean, mode: unknown) => { windowFor(event); return installAndroid(consent, installMode(mode)); });
   ipcMain.handle("android:cancel-install", async (event) => { windowFor(event); return (await androidInstallation()).cancel(); });
   ipcMain.handle("android:start", (event, conversationId: string) => { windowFor(event); return startAndroid(conversationId); });
-  ipcMain.handle("android:stop", async (event) => { windowFor(event); await androidHost().stop(); return androidHost().state(); });
+  ipcMain.handle("android:stop", async (event, conversationId: string) => { windowFor(event); await androidHost().stopFor(conversationId); return androidHost().state(); });
   ipcMain.handle("android:act", (event, conversationId: string, action: AndroidAction) => { windowFor(event); return androidHost().act(conversationId, action); });
 }

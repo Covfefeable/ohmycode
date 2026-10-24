@@ -2,6 +2,8 @@ import { EventEmitter } from "node:events";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { AndroidHost } from "../../../packages/android-use/src/android-host";
 import { actionArguments } from "../../../packages/android-use/src/command";
+import { createAndroidPlugin } from "../../../packages/android-use/src/index";
+import { ToolRegistry } from "../../../packages/agent-runtime/src/tool-registry";
 
 const mocks = vi.hoisted(() => ({ spawn: vi.fn(), run: vi.fn(), mkdir: vi.fn(), writeFile: vi.fn() }));
 const automation = vi.hoisted(() => ({ controller: new AbortController(), start: vi.fn(), close: vi.fn(), act: vi.fn(), snapshot: vi.fn(), screen: vi.fn(), invalidate: vi.fn() }));
@@ -38,6 +40,21 @@ beforeEach(() => {
   host.configure({ enabled: true, sdkPath: "/sdk", environment, target: { kind: "managed" }, devices: [] });
 });
 afterEach(async () => { await host.close(); });
+
+it("本轮工具注册表关闭时释放自己的设备，不释放其他会话的设备", async () => {
+  await host.start("owner");
+  const other = new ToolRegistry();
+  other.register(createAndroidPlugin(host, "other", true));
+  await other.close();
+  expect(host.state().ownerConversationId).toBe("owner");
+  await expect(host.openVideo("other", "/video.jar", vi.fn(), vi.fn(), new AbortController().signal)).rejects.toThrow("android_in_use_by_another_conversation");
+  const owner = new ToolRegistry();
+  owner.register(createAndroidPlugin(host, "owner", true));
+  await owner.close();
+  expect(host.state().phase).toBe("stopped");
+  expect(host.state().ownerConversationId).toBeUndefined();
+  expect(automation.close).toHaveBeenCalledOnce();
+});
 
 it("移除选中设备后没有默认目标，不会启动内置模拟器", async () => {
   host.configure({ enabled: true, sdkPath: "/sdk", adb: environment.adb, environment, target: { kind: "none" }, devices: [] });

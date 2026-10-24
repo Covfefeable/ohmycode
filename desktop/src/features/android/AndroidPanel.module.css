@@ -19,6 +19,8 @@
 .empty button { display: flex; align-items: center; gap: var(--space-2); border: 1px solid var(--color-border-strong); border-radius: var(--radius-md); background: var(--color-surface-2); color: var(--color-text); min-height: var(--control-height); padding: 0 var(--space-4); font: inherit; cursor: pointer; }
 .navigation { display: flex; justify-content: center; gap: var(--space-5); padding: var(--space-3); border-top: 1px solid var(--color-border); }
 .power:enabled:hover { color: var(--color-danger); }
-.error { display: flex; align-items: center; justify-content: center; gap: var(--space-2); padding: var(--space-2); color: var(--color-danger); font-size: var(--font-xs); }
+.errorState { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-3); max-width: 24rem; padding: var(--space-6); text-align: center; color: var(--color-text-muted); font-size: var(--font-sm); line-height: 1.6; }
+.errorState > svg { width: 32px; height: 32px; stroke-width: 1.5; }
+.errorState > p { margin: 0; }
 .spin { animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }

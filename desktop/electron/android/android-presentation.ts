@@ -5,8 +5,9 @@ import { androidHost, getAndroidState } from "./android-service.js";
 import { createApplicationWindow } from "../window/create-main-window.js";
 
 let detached: BrowserWindow | undefined;
+let detachedConversationId: string | undefined;
 let detaching: Promise<void> | undefined;
-let viewer: { sender: WebContents; id: string; abort: AbortController; close?: () => Promise<void> } | undefined;
+let viewer: { sender: WebContents; id: string; conversationId: string; abort: AbortController; close?: () => Promise<void> } | undefined;
 
 function publish() {
   for (const window of BrowserWindow.getAllWindows()) window.webContents.send("android:detached", Boolean(detached));
@@ -14,24 +15,27 @@ function publish() {
 export const androidDetached = () => Boolean(detached);
 
 export function touchAndroid(sender: WebContents, conversationId: string, events: AndroidTouch[]): void {
-  if (viewer?.sender !== sender) throw new Error("android_video_not_connected");
+  if (viewer?.sender !== sender || viewer.conversationId !== conversationId) throw new Error("android_video_not_connected");
   androidHost().touch(conversationId, events);
 }
 export function typeAndroid(sender: WebContents, conversationId: string, text: string): void {
-  if (viewer?.sender !== sender) throw new Error("android_video_not_connected");
+  if (viewer?.sender !== sender || viewer.conversationId !== conversationId) throw new Error("android_video_not_connected");
   androidHost().type(conversationId, text);
 }
 
-export async function setAndroidDetached(owner: BrowserWindow, value: boolean): Promise<void> {
+export async function setAndroidDetached(owner: BrowserWindow, value: boolean, conversationId: string): Promise<void> {
   if (detaching) await detaching;
   if (!value) { detached?.close(); return; }
-  if (detached) { detached.show(); detached.focus(); return; }
+  androidHost().assertAccess(conversationId);
+  if (detached && detachedConversationId === conversationId) { detached.show(); detached.focus(); return; }
+  detached?.close();
   detaching = (async () => {
-    const window = await createApplicationWindow({ width: 760, height: 880, minWidth: 360, show: false }, "/android", (window) => {
+    const window = await createApplicationWindow({ width: 760, height: 880, minWidth: 360, show: false }, `/android?conversationId=${encodeURIComponent(conversationId)}`, (window) => {
       detached = window;
+      detachedConversationId = conversationId;
       const close = () => { if (!window.isDestroyed()) window.destroy(); };
       owner.once("closed", close);
-      window.once("closed", () => { detached = undefined; owner.removeListener("closed", close); publish(); });
+      window.once("closed", () => { if (detached === window) { detached = undefined; detachedConversationId = undefined; } owner.removeListener("closed", close); publish(); });
     });
     if (!window.isDestroyed()) window.show();
     publish();
@@ -46,11 +50,12 @@ export async function stopAndroidVideo(sender: WebContents, id: string): Promise
   await current.close?.();
 }
 
-export async function startAndroidVideo(sender: WebContents, id: string): Promise<void> {
+export async function startAndroidVideo(sender: WebContents, id: string, conversationId: string): Promise<void> {
   const state = await getAndroidState();
+  androidHost().assertAccess(conversationId);
   if (!state.enabled || !state.installed || state.phase !== "running") throw new Error("android_not_running");
   const previous = viewer;
-  const current = { sender, id, abort: new AbortController(), close: undefined as (() => Promise<void>) | undefined };
+  const current = { sender, id, conversationId, abort: new AbortController(), close: undefined as (() => Promise<void>) | undefined };
   viewer = current;
   if (previous) { previous.abort.abort(); await previous.close?.(); }
   const destroyed = () => { void stopAndroidVideo(sender, id); };
@@ -62,7 +67,7 @@ export async function startAndroidVideo(sender: WebContents, id: string): Promis
   try {
     const server = await ensureVideoServer(path.join(app.getPath("userData"), "android", "video"), net.fetch as typeof fetch, current.abort.signal);
     current.abort.signal.throwIfAborted();
-    current.close = await androidHost().openVideo(server, (packet) => {
+    current.close = await androidHost().openVideo(conversationId, server, (packet) => {
       if (!current.abort.signal.aborted && !sender.isDestroyed()) sender.send("android:video", id, packet);
     }, fail, current.abort.signal);
     if (current.abort.signal.aborted) await current.close();

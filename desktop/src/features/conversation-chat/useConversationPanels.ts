@@ -11,6 +11,7 @@ export function useConversationPanels(conversationId: string, active: boolean) {
   const browser = useBrowser(conversationId);
   const android = useAndroidState();
   const androidDetached = useAndroidPresentation();
+  const androidOwner = android.state?.ownerConversationId;
   const { t } = useTranslation();
   const { toast } = useFeedback();
   const [selection, setSelection] = useState<Panel | null>();
@@ -23,9 +24,10 @@ export function useConversationPanels(conversationId: string, active: boolean) {
       ? browser.state.detached
         ? window.ohmycode.browser.setDetached(conversationId, true)
         : window.ohmycode.browser.setOpened(conversationId, true)
-      : androidDetached ? window.ohmycode.android.setDetached(true) : Promise.resolve();
+      : androidDetached && (!androidOwner || androidOwner === conversationId)
+        ? window.ohmycode.android.setDetached(true, conversationId) : Promise.resolve();
     void request.catch(() => toast({ type: "error", message: t(target === "browser" ? "browser.failed" : "android.operationFailed") }));
-  }, [active, androidDetached, browser.state.detached, conversationId, t, toast]);
+  }, [active, androidDetached, androidOwner, browser.state.detached, conversationId, t, toast]);
 
   const close = () => {
     setSelection(null);

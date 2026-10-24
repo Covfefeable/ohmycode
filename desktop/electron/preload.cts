@@ -23,15 +23,15 @@ const bridge: DesktopBridge = {
     setEnabled: (enabled) => ipcRenderer.invoke("android:enabled", enabled),
     openGuide: () => ipcRenderer.invoke("android:guide"),
     start: (conversationId) => ipcRenderer.invoke("android:start", conversationId),
-    stop: () => ipcRenderer.invoke("android:stop"),
+    stop: (conversationId) => ipcRenderer.invoke("android:stop", conversationId),
     detached: () => ipcRenderer.invoke("android:detached"),
-    setDetached: (value) => ipcRenderer.invoke("android:set-detached", value),
+    setDetached: (value, conversationId) => ipcRenderer.invoke("android:set-detached", value, conversationId),
     onDetached: (callback) => {
       const listener = (_event: Electron.IpcRendererEvent, value: boolean) => callback(value);
       ipcRenderer.on("android:detached", listener);
       return () => ipcRenderer.removeListener("android:detached", listener);
     },
-    startVideo: (id) => ipcRenderer.invoke("android:video-start", id),
+    startVideo: (id, conversationId) => ipcRenderer.invoke("android:video-start", id, conversationId),
     stopVideo: (id) => ipcRenderer.invoke("android:video-stop", id),
     onVideo: (id, callback) => {
       const listener = (_event: Electron.IpcRendererEvent, session: string, packet: Parameters<typeof callback>[0]) => { if (id === session) callback(packet); };

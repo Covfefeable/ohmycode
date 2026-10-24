@@ -5,25 +5,38 @@ import { startAndroidVideo, stopAndroidVideo } from "../../electron/android/andr
 import { ScrcpyProtocol } from "../../../packages/android-use/src/video/protocol";
 import { encodeTouch } from "../../../packages/android-use/src/video/touch";
 
-const mocks = vi.hoisted(() => ({ ensureServer: vi.fn(), openVideo: vi.fn() }));
+const mocks = vi.hoisted(() => ({ ensureServer: vi.fn(), openVideo: vi.fn(), assertAccess: vi.fn() }));
 vi.mock("electron", () => ({ app: { getPath: () => "/profile" }, BrowserWindow: {}, net: { fetch: vi.fn() } }));
 vi.mock("@ohmycode/android-use", () => ({ ensureVideoServer: mocks.ensureServer }));
-vi.mock("../../electron/android/android-service", () => ({ getAndroidState: async () => ({ enabled: true, installed: true, phase: "running" }), androidHost: () => ({ openVideo: mocks.openVideo }) }));
+vi.mock("../../electron/android/android-service", () => ({ getAndroidState: async () => ({ enabled: true, installed: true, phase: "running" }), androidHost: () => ({ openVideo: mocks.openVideo, assertAccess: mocks.assertAccess }) }));
 vi.mock("../../electron/window/create-main-window", () => ({ createApplicationWindow: vi.fn() }));
 
 it("切页取消视频初始化属于正常停止，不上报失败；真实初始化错误仍返回", async () => {
   const sender = Object.assign(new EventEmitter(), { isDestroyed: () => false, send: vi.fn() }) as unknown as WebContents;
   mocks.ensureServer.mockImplementation((_path, _fetch, signal: AbortSignal) => new Promise((_resolve, reject) => signal.addEventListener("abort", () => reject(signal.reason), { once: true })));
-  const starting = startAndroidVideo(sender, "cancelled");
+  const starting = startAndroidVideo(sender, "cancelled", "thread");
   await vi.waitFor(() => expect(mocks.ensureServer).toHaveBeenCalled());
   await stopAndroidVideo(sender, "cancelled");
   await expect(starting).resolves.toBeUndefined();
   expect(sender.send).not.toHaveBeenCalled();
   expect(mocks.openVideo).not.toHaveBeenCalled();
   mocks.ensureServer.mockRejectedValueOnce(new Error("download failed"));
-  await expect(startAndroidVideo(sender, "failed")).rejects.toThrow("download failed");
+  await expect(startAndroidVideo(sender, "failed", "thread")).rejects.toThrow("download failed");
   expect(sender.send).toHaveBeenCalledWith("android:video", "failed", { error: "android_video_failed" });
   expect(sender.listenerCount("destroyed")).toBe(0);
+});
+
+it("其他会话不能订阅画面，也不会中断所有者的投屏", async () => {
+  const sender = Object.assign(new EventEmitter(), { isDestroyed: () => false, send: vi.fn() }) as unknown as WebContents;
+  const close = vi.fn();
+  mocks.ensureServer.mockResolvedValue("/server.jar");
+  mocks.openVideo.mockResolvedValue(close);
+  await startAndroidVideo(sender, "owner-video", "owner");
+  mocks.assertAccess.mockImplementationOnce(() => { throw new Error("android_in_use_by_another_conversation"); });
+  await expect(startAndroidVideo(sender, "other-video", "other")).rejects.toThrow("android_in_use_by_another_conversation");
+  expect(close).not.toHaveBeenCalled();
+  await stopAndroidVideo(sender, "owner-video");
+  expect(close).toHaveBeenCalledOnce();
 });
 
 it("投屏协议跨分包还原视频并完整编码触摸轨迹，拒绝无效数据", () => {

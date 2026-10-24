@@ -55,7 +55,7 @@ test("真实 Android 视频、操作、拖拽与独立窗口共用一台设备",
       application.waitForEvent("window"),
       page.getByRole("button", { name: "Open in separate window" }).click(),
     ]);
-    await detached.waitForURL("**/#/android");
+    await detached.waitForURL((url) => url.hash === "#/android?conversationId=thread");
     detached.on("pageerror", (error) => console.error("Android detached renderer:", error.message));
     await detached.waitForFunction(() => document.querySelector("canvas")?.width === 720, { timeout: 30_000 }).catch(async (error) => {
       console.error("Detached state:", await detached.locator("body").innerText());

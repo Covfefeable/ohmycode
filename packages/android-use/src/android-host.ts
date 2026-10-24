@@ -125,10 +125,12 @@ export class AndroidHost {
     if (!target || target !== this.target) throw new Error("android_not_running");
     return runCommand(target.adb, [...adbArguments(target), ...args], signal);
   }
-  async openVideo(server: string, packet: (packet: AndroidVideoPacket) => void, failed: () => void, signal: AbortSignal): Promise<() => Promise<void>> {
+  async openVideo(conversationId: string, server: string, packet: (packet: AndroidVideoPacket) => void, failed: () => void, signal: AbortSignal): Promise<() => Promise<void>> {
+    this.assertAccess(conversationId);
     if (!this.available || this.current.phase !== "running" || !this.target) throw new Error("android_not_running");
     const target = this.target;
     await this.video?.close(); signal.throwIfAborted();
+    this.assertAccess(conversationId);
     if (this.target !== target || this.current.phase !== "running") throw new Error("android_not_running");
     const stream = new AndroidVideoStream(target.adb, adbArguments(target));
     this.video = stream;
@@ -145,6 +147,9 @@ export class AndroidHost {
     this.video.touch(events);
   }
   async stopFor(conversationId: string): Promise<void> { this.assertAccess(conversationId); await this.stop(); }
+  async releaseFor(conversationId: string): Promise<void> {
+    if (this.current.ownerConversationId === conversationId) await this.stop();
+  }
   type(conversationId: string, text: string): void {
     this.assertAccess(conversationId);
     if (!this.available || this.current.phase !== "running" || !this.video) throw new Error("android_video_not_connected");
