@@ -7,6 +7,7 @@ import { Tooltip } from "../../shared/ui/tooltip";
 import { useBrowserViewport } from "./useBrowserViewport";
 import { useBrowserResize } from "./useBrowserResize";
 import { browserAddress } from "./browser-address";
+import { BrowserDownloads } from "./BrowserDownloads";
 import styles from "./BrowserPanel.module.css";
 
 export function BrowserPanel({ conversationId, state, active, onClose, standalone = false }: { conversationId: string; state: BrowserState; active: boolean; onClose(): void; standalone?: boolean }) {
@@ -65,6 +66,7 @@ export function BrowserPanel({ conversationId, state, active, onClose, standalon
       }}><input key={`${selected?.id}:${selected?.url}`} name="url" defaultValue={selected?.url === "about:blank" ? "" : selected?.url} aria-label={t("browser.address")} placeholder={t("browser.address")} spellCheck={false} /></form>
     </div>
     {(failure || selected?.error) && <p className={styles.error} role="status">{t(failure === "window" ? "browser.windowFailed" : "browser.failed")}</p>}
+    <BrowserDownloads downloads={state.downloads ?? []} onShow={(downloadId) => void command({ action: "show-download", downloadId })} onDismiss={(downloadId) => void command({ action: "dismiss-download", downloadId })} />
     <div ref={viewport} className={styles.viewport}>
       {!selected && <div className={styles.empty}><Globe /><span>{t("browser.empty")}</span></div>}
     </div>

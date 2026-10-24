@@ -1,15 +1,14 @@
-import { app, type DownloadItem, type Session, type WebContents } from "electron";
+import { app, shell, type DownloadItem, type Session, type WebContents } from "electron";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { browserUrl } from "./types.js";
-
-type Download = { id: string; pageId: string; filename: string; path: string; state: string; receivedBytes: number; totalBytes: number; error?: string };
+import type { BrowserDownload } from "./types.js";
 
 /** Track only this host's pages, including downloads initiated by page clicks. */
 export class BrowserDownloads {
-  private readonly records = new Map<string, { owner: string; item?: DownloadItem; info: Download }>();
+  private readonly records = new Map<string, { owner: string; item?: DownloadItem; info: BrowserDownload }>();
 
-  constructor(private readonly session: Session, private readonly owner: (page: WebContents) => { conversationId: string; pageId: string } | undefined) {
+  constructor(private readonly session: Session, private readonly owner: (page: WebContents) => { conversationId: string; pageId: string } | undefined, private readonly changed: (id: string) => void) {
     session.on("will-download", this.onDownload);
   }
 
@@ -19,19 +18,36 @@ export class BrowserDownloads {
     const id = crypto.randomUUID();
     const filename = [...item.getFilename()].map((char) => char.charCodeAt(0) < 32 ? "_" : char).join("").replace(/[<>:"/\\|?*]/g, "_").replace(/[. ]+$/, "") || "download";
     const directory = join(app.getPath("downloads"), "OhMyCode", id);
-    const info: Download = { id, pageId: owner.pageId, filename, path: join(directory, filename), state: "progressing", receivedBytes: 0, totalBytes: item.getTotalBytes() };
-    const record: { owner: string; item?: DownloadItem; info: Download } = { owner: owner.conversationId, info };
+    const info: BrowserDownload = { id, pageId: owner.pageId, filename, path: join(directory, filename), state: "progressing", receivedBytes: 0, totalBytes: item.getTotalBytes() };
+    const record: { owner: string; item?: DownloadItem; info: BrowserDownload } = { owner: owner.conversationId, info };
     this.records.set(id, record);
     try { mkdirSync(directory, { recursive: true }); }
-    catch (error) { info.state = "failed"; info.error = String(error); item.cancel(); return; }
+    catch (error) { info.state = "failed"; info.error = String(error); item.cancel(); this.changed(owner.conversationId); return; }
     item.setSavePath(info.path);
     record.item = item;
-    item.on("updated", (_event, state) => { info.state = state; info.receivedBytes = item.getReceivedBytes(); info.totalBytes = item.getTotalBytes(); });
-    item.once("done", (_event, state) => { info.state = state; info.receivedBytes = item.getReceivedBytes(); record.item = undefined; });
+    item.on("updated", (_event, state) => { info.state = state; info.receivedBytes = item.getReceivedBytes(); info.totalBytes = item.getTotalBytes(); this.changed(owner.conversationId); });
+    item.once("done", (_event, state) => { info.state = state; info.receivedBytes = item.getReceivedBytes(); record.item = undefined; this.changed(owner.conversationId); });
+    this.changed(owner.conversationId);
   };
 
+  list(id: string): BrowserDownload[] {
+    return [...this.records.values()].filter((record) => record.owner === id).map(({ info }) => ({ ...info }));
+  }
+
+  show(id: string, downloadId: string): void {
+    const record = this.records.get(downloadId);
+    if (!record || record.owner !== id || record.info.state !== "completed") throw new Error("browser_download_not_found");
+    shell.showItemInFolder(record.info.path);
+  }
+
+  dismiss(id: string, downloadId: string): void {
+    const record = this.records.get(downloadId);
+    if (!record || record.owner !== id) throw new Error("browser_download_not_found");
+    this.records.delete(downloadId);
+  }
+
   execute(id: string, page: WebContents, args: Record<string, unknown>): unknown {
-    if (args.action === "list") return { downloads: [...this.records.values()].filter((record) => record.owner === id).map(({ info }) => ({ ...info })) };
+    if (args.action === "list") return { downloads: this.list(id) };
     if (args.action === "start") {
       const url = browserUrl(String(args.url));
       if (url === "about:blank") throw new Error("browser_download_url_required");

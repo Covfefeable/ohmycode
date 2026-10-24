@@ -1,4 +1,4 @@
-import { app, nativeImage, session, WebContentsView, type BrowserWindow, type WebContents } from "electron";
+import { app, nativeImage, session, WebContentsView, type BrowserWindow, type WebContents, type WebPreferences } from "electron";
 import type { BrowserBounds, BrowserCommand, BrowserState } from "./types.js";
 import { browserUrl, fitBounds } from "./types.js";
 import { evaluatePage, pageAction, pageSnapshot, uploadFiles } from "./page-tools.js";
@@ -30,7 +30,7 @@ export class BrowserHost {
       for (const [conversationId, session] of this.sessions) {
         for (const tab of session.tabs.values()) if (tab.contents === page) return { conversationId, pageId: tab.id };
       }
-    });
+    }, (id) => this.changed(id));
     window.webContents.on("did-start-navigation", (_event, _url, _inPlace, isMainFrame) => {
       if (isMainFrame) this.layout(null, null);
     });
@@ -43,6 +43,7 @@ export class BrowserHost {
       opened: session?.opened ?? false,
       detached: this.detached.has(id),
       selectedId: session?.selectedId ?? null,
+      downloads: this.downloads.list(id),
       tabs: [...(session?.tabs.values() ?? [])].map((tab) => ({
         id: tab.id, title: tab.contents.getTitle(), url: tab.contents.getURL(),
         loading: tab.contents.isLoading(),
@@ -98,6 +99,10 @@ export class BrowserHost {
       const tab = this.tab(id, command.tabId);
       this.removeTab(id, tab);
       tab.contents.close();
+    } else if (command.action === "show-download") {
+      this.downloads.show(id, command.downloadId);
+    } else if (command.action === "dismiss-download") {
+      this.downloads.dismiss(id, command.downloadId);
     } else {
       const tab = this.tab(id);
       if (command.action === "navigate") await this.navigate(tab, command.url);
@@ -191,7 +196,17 @@ export class BrowserHost {
 
   private async newTab(id: string, url: string): Promise<Tab> {
     const target = browserUrl(url);
-    const view = new WebContentsView({ webPreferences: {
+    const tab = this.createTab(id);
+    await tab.contents.loadURL("about:blank");
+    await tab.page.initialize();
+    await this.navigate(tab, target);
+    tab.contents.setBackgroundThrottling(false);
+    return tab;
+  }
+
+  private createTab(id: string, preferences?: WebPreferences, contents?: WebContents): Tab {
+    const view = new WebContentsView({ ...(contents ? { webContents: contents } : {}), webPreferences: {
+      ...preferences,
       partition: "persist:ohmycode-browser", contextIsolation: true, sandbox: true,
       nodeIntegration: false, webSecurity: true,
     } });
@@ -207,11 +222,21 @@ export class BrowserHost {
     session.opened = true;
     page.once("destroyed", () => this.removeTab(id, tab));
     page.setWindowOpenHandler(({ url: popup }) => {
-      void this.newTab(id, popup).catch((error: unknown) => { tab.error = String(error); this.changed(id); });
-      return { action: "deny" };
+      try {
+        if (new URL(popup).protocol !== "blob:") browserUrl(popup);
+      } catch { return { action: "deny" }; }
+      return { action: "allow", createWindow: (options) => {
+        // Electron supplies the guest contents here, although its public options type omits it.
+        const guest = options as typeof options & { webContents: WebContents };
+        const child = this.createTab(id, options.webPreferences, guest.webContents);
+        setImmediate(() => {
+          if (!child.contents.isDestroyed()) void child.page.initialize().catch((error: unknown) => { child.error = String(error); this.changed(id); });
+        });
+        return child.contents;
+      } };
     });
     const validateNavigation = (event: Electron.Event, location: string) => {
-      try { browserUrl(location); } catch { event.preventDefault(); }
+      try { if (new URL(location).protocol !== "blob:") browserUrl(location); } catch { event.preventDefault(); }
     };
     page.on("will-navigate", validateNavigation);
     page.on("will-redirect", validateNavigation);
@@ -224,12 +249,8 @@ export class BrowserHost {
     page.on("did-navigate", changed);
     page.on("did-navigate-in-page", changed);
     page.on("page-title-updated", changed);
+    page.once("did-finish-load", () => page.setBackgroundThrottling(false));
     this.changed(id);
-    await page.loadURL("about:blank");
-    await tab.page.initialize();
-    await this.navigate(tab, target);
-    // Enable background painting after the renderer exists, including never-shown tabs.
-    page.setBackgroundThrottling(false);
     return tab;
   }
 

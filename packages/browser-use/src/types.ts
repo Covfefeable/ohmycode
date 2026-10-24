@@ -8,12 +8,14 @@ export type BrowserTab = {
   error?: string;
 };
 
-export type BrowserState = { tabs: BrowserTab[]; selectedId: string | null; opened: boolean; detached: boolean };
+export type BrowserDownload = { id: string; pageId: string; filename: string; path: string; state: string; receivedBytes: number; totalBytes: number; error?: string };
+export type BrowserState = { tabs: BrowserTab[]; selectedId: string | null; opened: boolean; detached: boolean; downloads?: BrowserDownload[] };
 export type BrowserBounds = { x: number; y: number; width: number; height: number };
 export type BrowserCommand =
   | { action: "new"; url?: string }
   | { action: "select" | "close"; tabId: string }
   | { action: "navigate"; url: string }
+  | { action: "show-download" | "dismiss-download"; downloadId: string }
   | { action: "back" | "forward" | "reload" };
 
 export function browserUrl(value: string): string {

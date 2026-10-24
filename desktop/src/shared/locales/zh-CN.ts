@@ -56,7 +56,7 @@ export const zhCN = {
     issues: { unsupported_platform: "目前支持 Windows 和 macOS。", sdk_missing: "未找到 Android SDK，请选择已安装的 SDK 目录。", emulator_missing: "SDK 中缺少 Android Emulator。", adb_missing: "SDK 中缺少 Platform Tools（ADB）。", image_missing: "未找到与本机架构匹配的 Android 手机系统镜像。", acceleration_unavailable: "硬件加速不可用，请检查系统虚拟化设置。", tools_invalid: "无法执行模拟器或 ADB，请检查安装是否完整。", configuration_invalid: "本机 Android 配置无法读取，请重新选择 SDK 目录。" },
   },
   browserResize: "调整浏览器宽度",
-  browser: { title: "浏览器", close: "收起浏览器", detach: "独立窗口", dock: "返回面板", windowFailed: "浏览器窗口切换失败，请重试。", newTab: "新标签页", closeTab: "关闭标签页", back: "后退", forward: "前进", reload: "刷新", address: "输入网址", empty: "输入网址，或让 Agent 打开网页", failed: "网页加载失败，请检查网址或网络后重试。" },
+  browser: { title: "浏览器", close: "收起浏览器", detach: "独立窗口", dock: "返回面板", windowFailed: "浏览器窗口切换失败，请重试。", newTab: "新标签页", closeTab: "关闭标签页", back: "后退", forward: "前进", reload: "刷新", address: "输入网址", empty: "输入网址，或让 Agent 打开网页", failed: "网页加载失败，请检查网址或网络后重试。", downloading: "下载中", downloadCompleted: "已下载", downloadFailed: "下载已中断", showDownload: "在文件夹中显示", dismissDownload: "移除记录，保留文件" },
   speech: {
     title: "语音配置", description: "配置阿里云百炼的实时语音输入与朗读。",
     addVoice: "添加自定义音色", createVoice: "创建音色", defaultVoice: "默认",

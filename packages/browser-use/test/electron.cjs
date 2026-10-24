@@ -6,6 +6,8 @@ const { join } = require("node:path");
 const advanced = require("./advanced.cjs");
 const lifecycle = require("./lifecycle.cjs");
 
+process.on("uncaughtException", (error) => { console.error(error); app.exit(1); });
+
 // Real Chromium regression test. No provider, external site, or installed Chrome needed.
 async function main() {
   app.setName("Browser Agent Fixture");

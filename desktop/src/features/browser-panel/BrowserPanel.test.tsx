@@ -43,6 +43,22 @@ it("sends address-bar search text to Baidu in both an existing and an empty tab"
   await waitFor(() => expect(command).toHaveBeenCalledWith("one", { action: "new", url: "https://www.baidu.com/s?wd=hello%20world" }));
 });
 
+it("shows download progress and reveals completed files through the browser command", async () => {
+  const download = { id: "download-1", pageId: "tab-1", filename: "file.zip", path: "/downloads/file.zip", state: "progressing", receivedBytes: 50, totalBytes: 100 };
+  const view = render(<BrowserPanel conversationId="one" state={{ ...state, downloads: [download] }} active onClose={() => undefined} />);
+  expect(screen.getByText("file.zip")).toBeTruthy();
+  expect(screen.getByText(/50%/)).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Show in folder" })).toBeNull();
+  view.rerender(<BrowserPanel conversationId="one" state={{ ...state, downloads: [{ ...download, state: "completed" }, { ...download, id: "download-2", filename: "second.zip" }] }} active onClose={() => undefined} />);
+  expect(screen.getByText("file.zip")).toBeTruthy();
+  expect(screen.getByText("second.zip")).toBeTruthy();
+  expect(screen.getAllByRole("status")).toHaveLength(2);
+  fireEvent.click(screen.getByRole("button", { name: "Show in folder" }));
+  await waitFor(() => expect(command).toHaveBeenCalledWith("one", { action: "show-download", downloadId: "download-1" }));
+  fireEvent.click(screen.getAllByRole("button", { name: "Remove record (keep file)" })[0]);
+  await waitFor(() => expect(command).toHaveBeenCalledWith("one", { action: "dismiss-download", downloadId: "download-1" }));
+});
+
 it("detaches the native page on unmount and masks it while a modal is open", async () => {
   const view = render(<BrowserPanel conversationId="one" state={state} active onClose={() => undefined} />);
   await waitFor(() => expect(layout).toHaveBeenLastCalledWith("one", { x: 500, y: 140, width: 400, height: 500 }));
