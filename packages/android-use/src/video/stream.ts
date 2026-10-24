@@ -76,6 +76,13 @@ export class AndroidVideoStream {
       this.controller.signal.throwIfAborted();
     } catch (error) { await this.close(); throw error; }
   }
+  type(text: string): void {
+    if (!this.control?.writable || this.controller.signal.aborted) throw new Error("android_video_not_connected");
+    if (typeof text !== "string" || !text.length || text.length > 2000 || /[^\x20-\x7e]/.test(text)) throw new Error("android_invalid_text");
+    const bytes = Buffer.from(text, "utf8");
+    const header = Buffer.alloc(5); header[0] = 1; header.writeUInt32BE(bytes.length, 1);
+    this.control.write(Buffer.concat([header, bytes]));
+  }
   touch(events: AndroidTouch[]): void {
     if (!this.control?.writable || this.controller.signal.aborted) throw new Error("android_video_not_connected");
     if (!Array.isArray(events) || events.length > 256) throw new Error("android_invalid_touch");

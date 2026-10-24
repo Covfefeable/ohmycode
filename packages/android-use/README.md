@@ -14,7 +14,7 @@ Agent 只操作设置中选择的设备，没有选择设备的工具参数。�
 
 - 支持 Windows 和 macOS，检测本机 SDK 中的 Emulator、Platform Tools、原生 CPU 架构手机镜像和硬件加速。
 - 内置模拟器只管理 OhMyCode 创建的一台 AVD，使用独立 ADB server 端口；外部设备使用共享 ADB 并显式指定 serial。
-- 支持启动、停止、UI 层级、截图、点击、滑动、导航按键、ASCII 输入。中文输入尚不支持，不会悄悄转换或丢字。
+- 支持启动、停止、UI 层级、截图、节点/选择器点击、坐标滑动、导航按键、Unicode 文本设值及条件等待。
 - 截图使用现有 Runtime 图像结果结构；只有视觉模型能获得截图工具，文本模型可读取 UI 层级。
 - 用户鼠标走独立的 scrcpy 控制通道，实时传递按下、每段移动轨迹和抬起，支持长按、拖动、曲线和绘图；失焦、取消、收起或切换窗口会释放按压。仅支持单指鼠标，不把复杂手势扩展为 Agent 工具。
 - 工具仅在环境检查通过且用户启用后注册；执行时再次检查启用状态。关闭面板不停止设备，停止设备不删除应用数据。
@@ -31,11 +31,21 @@ Agent 只操作设置中选择的设备，没有选择设备的工具参数。�
 
 Android 面板通过 scrcpy 3.3.4 的设备端服务输出 H.264，客户端使用 Chromium WebCodecs 解码，不使用截图轮询。首次打开画面从官方 GitHub Release 下载约 91KB 服务文件，验证固定 SHA-256 后缓存到 `<userData>/android/video/`，后续可离线使用；无需安装桌面版 scrcpy、Java 或 FFmpeg。该服务采用 Apache-2.0 许可，来源见 https://github.com/Genymobile/scrcpy/tree/v3.3.4 。
 
+控件自动化使用 openatx UIAutomator2 3.7.1 的设备端 JAR。首次连接从固定的官方 PyPI wheel 提取约 3.7MB JAR，分别核对 wheel 和 JAR 的 SHA-256，缓存到 `<userData>/android/automation/`。电脑不需要 Python/Java，不安装辅助 APK、输入法或修改用户无障碍设置。连接时通过 ADB 部署独立进程与随机端口，停止时只清理本应用创建的进程、转发和设备端临时 JAR，不重启共享 ADB。下载使用宿主网络设置；本机 RPC 使用 loopback，不走外部代理。
+
+注意：上游设备端 HTTP 服务没有认证，且监听设备网络接口。随机端口不是安全隔离；不要在不可信局域网中的真机上保持运行，也不要将设备服务端口对外转发。结束任务后应停止连接。源码来源与 MIT 许可见 [第三方说明](THIRD_PARTY_NOTICES.md)。
+
 面板支持拖动左侧边界、切换独立窗口和返回面板，均操作同一台模拟器。隐藏面板或切换会话只关闭视频连接，不停止设备；Agent 截图工具独立按需执行。启动必须指定会话 ID，设备启动期间和运行期间均由该会话独占；所有 Android 工具检查所有权，其他会话不能读取、操作或关闭它。所属 Agent 关闭或用户点击面板底部关机按钮后释放占用；启动失败和设备异常退出也释放占用。首次启动最长等待约两分钟，可通过对话面板关机按钮取消。退出应用会先停止自有模拟器，再关闭自有 ADB server。
 
 ## 模块
 
-`android_snapshot` 返回紧凑的结构化节点而非 XML，保留文字、resourceId、bounds 和状态。`parentId` 指向最近保留的祖先，`actionableParentId` 指向支持点击、长按、滚动或聚焦的祖先；ID 仅用于当前快照内关联，执行操作仍使用当前坐标。空布局被省略，大结果不在工具内部截断，由现有 `resultRef` 分页与检索读取。快照不能证明元素未被键盘或弹窗遮挡，必要时用截图核实。
+`android_snapshot` 读取常驻 UIAutomator 服务，返回紧凑节点、`snapshotId` 和 `screen`，不再运行 `adb shell uiautomator dump` 或写入中间 XML 文件。快照与截图的 `screen` 包含当前旋转方向下的屏幕像素宽高、rotation 和坐标约定。空布局被省略，大结果交由现有 `resultRef` 分页与检索处理。
+
+`android_act` 支持 `selector` 或 `snapshotId + nodeId` 定位。选择器支持 resourceId、text、textContains、description、className、packageName、focused，组合条件按 AND 匹配。操作前读取当前层级检查唯一性，再交给原生服务使用当前控件位置操作；不会默认选第一个重复控件。文本节点可向上寻找可点击父节点。执行操作、用户触控、断线或关闭都会使节点引用失效。没有控件属性的游戏等页面仍使用截图和坐标操作，快照无法保证没有键盘或覆盖层遮挡。
+
+`text` 设置（替换）目标输入框的 Unicode 文本，无目标时使用当前聚焦控件。返回 `executed`、回读 `text` 和 `verified`，但不承诺已保存到业务数据。控件可能把 hint 作为空值的可访问文字，因而清空后的 `verified` 可能为 false。用户在投屏画布上的普通按键则直接走 scrcpy 输入通道，不执行整框文本替换。
+
+`wait` 支持选择器的 `present/absent`，默认 15 秒，可配置 0–120 秒。采用最长 500ms 的原生等待片段，可取消；超时返回 `matched:false`，RPC/读取失败仍返回错误，不被当成节点消失。等待不产生重复截图或模型往返。
 
 操作说明要求按当前目标观察，不预先遍历所有应用；操作无变化时先诊断再重试，保存后回读，缺少必需应用时报告而不擅自换成其他数据写入位置。
 
@@ -43,9 +53,10 @@ Android 面板通过 scrcpy 3.3.4 的设备端服务输出 H.264，客户端使�
 - `android-host.ts`：目标连接、会话所有权及设备操作。
 - `adb.ts`：设备发现、网络连接与目标参数。
 - `managed-emulator.ts`：自有 AVD、模拟器进程及独立 ADB 生命周期。
-- `command.ts`：受控子进程和 Android shell 输入转义。
+- `command.ts`：受控子进程、坐标手势及导航；不再提供 shell 文本输入。
 - `snapshot.ts`：UI XML 解析、空布局过滤与操作祖先关联。
 - `index.ts`：Runtime 工具插件。
 - `install/`：固定版本清单、虚拟化预检、流式下载与解压、组件安装；不依赖 Electron UI。
+- `automation/`：固定版本资源、设备端服务生命周期、选择器协议及控件动作/等待。
 
 模拟器真实启动、应用兼容性及 Windows/macOS 画面操作需要在安装 SDK 的设备上验收。单元测试不代替这部分验收。

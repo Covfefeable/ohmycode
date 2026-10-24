@@ -60,7 +60,7 @@ export function AndroidPanel({ state, active, onClose, standalone = false, conve
         {...pointer}
         onKeyDown={(event) => {
           if (event.key === "Enter" || event.key === "Backspace") { event.preventDefault(); void act({ action: "key", key: event.key === "Enter" ? "enter" : "delete" }); }
-          else if (event.key.length === 1 && /^[\x20-\x7e]$/.test(event.key) && !event.ctrlKey && !event.metaKey && !event.nativeEvent.isComposing) { event.preventDefault(); void act({ action: "text", text: event.key }); }
+          else if (event.key.length === 1 && /^[\x20-\x7e]$/.test(event.key) && !event.ctrlKey && !event.metaKey && !event.nativeEvent.isComposing) { event.preventDefault(); void window.ohmycode.android.type(conversationId ?? state.ownerConversationId ?? "", event.key).catch(inputFailed); }
         }} />}
       {(!running || !video.size) && <div className={styles.empty}>{(state.phase === "starting" || state.phase === "stopping" || running) && <><LoaderCircle className={styles.spin} /><span>{t(running || external ? "android.connecting" : `android.phases.${state.phase}`)}</span></>}{conversationId && !running && state.phase !== "starting" && state.phase !== "stopping" && (state.installed ? <button disabled={busy} onClick={() => void start()}><Play />{t(external ? "android.devices.connect" : "android.start")}</button> : <span>{t("android.devices.chooseInSettings")}</span>)}</div>}
     </div>

@@ -7,6 +7,7 @@ interface DesktopBridge {
       selectTarget(target: import("@ohmycode/android-use/types").AndroidTarget): Promise<import("@ohmycode/android-use/types").AndroidState>;
       connect(address: string, name: string): Promise<import("@ohmycode/android-use/types").AndroidState>;
       removeDevice(serial: string): Promise<import("@ohmycode/android-use/types").AndroidState>;
+      type(conversationId: string, text: string): Promise<void>;
       cancelInstall(): Promise<import("@ohmycode/android-use/types").AndroidInstallState>;
       openLicense(): Promise<void>;
       onInstallation(callback: (state: import("@ohmycode/android-use/types").AndroidInstallState) => void): () => void;

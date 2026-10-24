@@ -1,5 +1,7 @@
 import { DOMParser, type Node } from "@xmldom/xmldom";
 
+const flagNames = ["clickable", "long-clickable", "scrollable", "focusable", "focused", "checkable", "checked", "selected", "password"] as const;
+
 /** Keep actionable ancestry while omitting empty layout wrappers and XML boilerplate. */
 export function compactSnapshot(xml: string) {
   const document = new DOMParser({ onError() { throw new Error("android_invalid_snapshot"); } }).parseFromString(xml, "application/xml");
@@ -11,8 +13,7 @@ export function compactSnapshot(xml: string) {
     const text = element.getAttribute("text");
     const description = element.getAttribute("content-desc");
     const resourceId = element.getAttribute("resource-id");
-    const flags = Object.fromEntries(["clickable", "long-clickable", "scrollable", "focusable", "focused", "checkable", "checked", "selected", "password"]
-      .filter((name) => element.getAttribute(name) === "true").map((name) => [name, true]));
+    const flags = Object.fromEntries(flagNames.filter((name) => element.getAttribute(name) === "true").map((name) => [name, true])) as Partial<Record<typeof flagNames[number], true>>;
     const actionable = flags.clickable || flags["long-clickable"] || flags.scrollable || flags.focusable;
     if (!text?.trim() && !description?.trim() && !resourceId && !Object.keys(flags).length) {
       ancestry.set(element, parent);
@@ -21,7 +22,7 @@ export function compactSnapshot(xml: string) {
     const id = index + 1;
     ancestry.set(element, { parentId: id, actionableParentId: actionable ? id : parent.actionableParentId });
     return [{ id, ...parent,
-      class: element.getAttribute("class"), bounds: element.getAttribute("bounds"),
+      class: element.getAttribute("class"), packageName: element.getAttribute("package"), bounds: element.getAttribute("bounds"),
       ...(text ? { text } : {}), ...(description ? { description } : {}), ...(resourceId ? { resourceId } : {}),
       ...flags, ...(element.getAttribute("enabled") === "false" ? { enabled: false } : {}),
     }];

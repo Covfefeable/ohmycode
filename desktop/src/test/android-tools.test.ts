@@ -73,10 +73,8 @@ it("Android 导航保持窄接口，不允许任意 shell 命令", () => {
   expect(() => actionArguments({ action: "shell", command: "ls" })).toThrow("android_invalid_action");
   expect(() => actionArguments({ action: "tap", x: NaN, y: 1 })).toThrow("android_invalid_coordinates");
 });
-it("输入正确转义 Android shell，不错误宣称支持中文", () => {
-  expect(actionArguments({ action: "text", text: "hi '; touch /sdcard/test" })).toEqual(["shell", "input", "text", "'hi%s'\\'';%stouch%s/sdcard/test'"]);
-  expect(() => actionArguments({ action: "text", text: "中文" })).toThrow("android_text_ascii_only");
-  expect(() => actionArguments({ action: "text", text: "%s" })).toThrow("android_text_percent_s_unsupported");
+it("文本操作不再走 shell 输入旧路径", () => {
+  expect(() => actionArguments({ action: "text", text: "中文" })).toThrow("android_invalid_action");
 });
 it("停止信号不执行后续设备操作，未启动不读取或操作设备", async () => {
   host.configure({ enabled: true, sdkPath: "/sdk", environment, target: { kind: "managed" }, devices: [] });

@@ -1,8 +1,13 @@
 import { EventEmitter } from "node:events";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { AndroidHost } from "../../../packages/android-use/src/android-host";
+import { actionArguments } from "../../../packages/android-use/src/command";
 
 const mocks = vi.hoisted(() => ({ spawn: vi.fn(), run: vi.fn(), mkdir: vi.fn(), writeFile: vi.fn() }));
+const automation = vi.hoisted(() => ({ start: vi.fn(), close: vi.fn(), act: vi.fn(), snapshot: vi.fn(), screen: vi.fn(), invalidate: vi.fn() }));
+vi.mock("../../../packages/android-use/src/automation/automation", () => ({ AndroidAutomation: class {
+  start = automation.start; close = automation.close; act = automation.act; snapshot = automation.snapshot; screen = automation.screen; invalidate = automation.invalidate;
+} }));
 vi.mock("node:child_process", () => ({ spawn: mocks.spawn }));
 vi.mock("node:fs/promises", () => ({ mkdir: mocks.mkdir, writeFile: mocks.writeFile }));
 vi.mock("../../../packages/android-use/src/command", async (original) => ({ ...await original<object>(), runCommand: mocks.run }));
@@ -17,6 +22,9 @@ let child: FakeChild;
 let host: AndroidHost;
 beforeEach(() => {
   vi.clearAllMocks();
+  automation.start.mockResolvedValue(undefined);
+  automation.close.mockResolvedValue(undefined);
+  automation.act.mockImplementation(async (args, shell) => { await shell(actionArguments(args)); return { executed: true }; });
   child = new FakeChild();
   mocks.spawn.mockReturnValue(child);
   mocks.run.mockImplementation(async (_file: string, args: string[]) => {
@@ -74,17 +82,14 @@ it("外部设备掉线释放会话占用，不切换目标或继续执行", asyn
   expect(mocks.run.mock.calls.filter(([, args]) => args[0] === "-s").every(([, args]) => args[1] === "phone")).toBe(true);
 });
 
-it("设备快照走真实 XML 解析链路，保留末尾内容与状态而不是返回截断 XML", async () => {
+it("设备快照交给 UIAutomator，不再通过 ADB dump 或中间 XML 文件读取", async () => {
   await host.start("thread");
-  const xml = `<hierarchy>${Array.from({ length: 1000 }, (_, index) => `<node text="Row ${index}" clickable="true" enabled="false" bounds="[0,0][100,100]"/>`).join("")}</hierarchy>`;
-  mocks.run.mockImplementation(async (_file: string, args: string[]) => {
-    if (args.includes("cat")) return Buffer.from(xml);
-    if (args.includes("kill")) child.kill();
-    return Buffer.alloc(0);
-  });
-  const snapshot = await host.snapshot("thread");
-  expect(snapshot.nodes).toHaveLength(1000);
-  expect(snapshot.nodes.at(-1)).toMatchObject({ text: "Row 999", clickable: true, enabled: false });
+  automation.snapshot.mockResolvedValue({ snapshotId: "current", nodes: [{ id: 1, text: "Search" }] });
+  expect(await host.snapshot("thread")).toMatchObject({ snapshotId: "current" });
+  expect(automation.snapshot).toHaveBeenCalledOnce();
+  expect(mocks.run.mock.calls.some(([, args]) => args.includes("uiautomator") || args.includes("cat"))).toBe(false);
+  await host.stop();
+  expect(automation.close).toHaveBeenCalled();
 });
 
 it("并发启动只启动一个进程，使用自有 AVD 和独立 ADB server", async () => {

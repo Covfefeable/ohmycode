@@ -15,19 +15,13 @@ function coordinate(value: unknown): string {
   return String(value);
 }
 
-/** ADB joins shell arguments remotely; quote text for the Android shell, not the host shell. */
+/** Coordinate gestures and navigation only. Widget actions belong to UIAutomator. */
 export function actionArguments(input: unknown): string[] {
   if (!input || typeof input !== "object") throw new Error("android_invalid_action");
   const args = input as Record<string, unknown>;
   if (args.action === "key") {
     if (typeof args.key !== "string" || !Object.hasOwn(keys, args.key)) throw new Error("android_invalid_key");
     return ["shell", "input", "keyevent", keys[args.key as keyof typeof keys]];
-  }
-  if (args.action === "text") {
-    if (typeof args.text !== "string" || !args.text || args.text.length > 2000 || /[^\x20-\x7e]/.test(args.text)) throw new Error("android_text_ascii_only");
-    if (args.text.includes("%s")) throw new Error("android_text_percent_s_unsupported");
-    const text = args.text.replaceAll(" ", "%s").replaceAll("'", "'\\''");
-    return ["shell", "input", "text", `'${text}'`];
   }
   if (args.action === "tap") return ["shell", "input", "tap", coordinate(args.x), coordinate(args.y)];
   if (args.action === "swipe") {

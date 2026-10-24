@@ -10,7 +10,8 @@
     "./types": "./dist/types.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "THIRD_PARTY_NOTICES.md"
   ],
   "ohmycode": {
     "platform": "electron"

@@ -1,8 +1,9 @@
 import { setTimeout as delay } from "node:timers/promises";
-import { actionArguments, runCommand } from "./command.js";
+import path from "node:path";
+import { runCommand } from "./command.js";
 import { adbArguments, listDevices } from "./adb.js";
 import { ManagedEmulator } from "./managed-emulator.js";
-import { compactSnapshot } from "./snapshot.js";
+import { AndroidAutomation } from "./automation/automation.js";
 import type { AdbTarget, AndroidDevice, AndroidEnvironment, AndroidState, AndroidTarget, AndroidTouch } from "./types.js";
 import { AndroidVideoStream } from "./video/stream.js";
 import type { AndroidVideoPacket } from "./video/protocol.js";
@@ -22,13 +23,15 @@ export class AndroidHost {
   private stopping?: Promise<void>;
   private monitor?: AbortController;
   private video?: AndroidVideoStream;
+  private automation?: AndroidAutomation;
+  private releasing?: Promise<void>;
   private pendingAction: Promise<unknown> = Promise.resolve();
   private current: AndroidState = {
     enabled: false, installed: false, sdkPath: "", phase: "stopped",
     target: { kind: "managed" }, devices: [], adbReady: false, managedInstalled: false,
   };
 
-  constructor(private readonly dataRoot: string, private readonly changed: (state: AndroidState) => void) {}
+  constructor(private readonly dataRoot: string, private readonly changed: (state: AndroidState) => void, private readonly fetcher: typeof fetch = fetch) {}
   state(): AndroidState { return { ...this.current, target: { ...this.current.target }, devices: this.current.devices.map((device) => ({ ...device })) }; }
   get available(): boolean { return this.current.enabled && this.current.installed; }
   private update(change: Partial<AndroidState>): void {
@@ -50,6 +53,7 @@ export class AndroidHost {
   }
   async start(conversationId: string, signal?: AbortSignal): Promise<void> {
     if (this.stopping) await this.stopping;
+    if (this.releasing) await this.releasing;
     if (!this.available) throw new Error("android_not_available");
     signal?.throwIfAborted();
     this.assertAccess(conversationId);
@@ -83,10 +87,13 @@ export class AndroidHost {
         if (!selected || selected.status !== "device") throw new Error(selected?.status === "unauthorized" ? "android_device_unauthorized" : "android_device_offline");
         this.target = { adb: setup.adb!, serial };
       }
+      this.automation = new AndroidAutomation(this.target!, path.join(this.dataRoot, "automation"), this.fetcher);
+      await this.automation.start(signal);
       signal.throwIfAborted();
       this.update({ phase: "running", error: undefined });
       if (setup.target.kind === "external") this.watchTarget();
     } catch (error) {
+      await this.automation?.close(); this.automation = undefined;
       await this.managed?.close(); this.managed = undefined; this.target = undefined;
       this.update({ phase: signal.aborted ? "stopped" : "error", error: signal.aborted ? undefined : error instanceof Error ? error.message : "android_start_failed" });
       throw error;
@@ -95,6 +102,7 @@ export class AndroidHost {
   private disconnected(error: string): void {
     this.monitor?.abort();
     this.target = undefined;
+    this.releasing = this.automation?.close(); this.automation = undefined;
     void this.video?.close();
     this.video = undefined;
     this.update({ phase: "error", error });
@@ -133,15 +141,24 @@ export class AndroidHost {
   touch(conversationId: string, events: AndroidTouch[]): void {
     this.assertAccess(conversationId);
     if (!this.available || this.current.phase !== "running" || !this.video) throw new Error("android_video_not_connected");
+    this.automation?.invalidate();
     this.video.touch(events);
   }
   async stopFor(conversationId: string): Promise<void> { this.assertAccess(conversationId); await this.stop(); }
+  type(conversationId: string, text: string): void {
+    this.assertAccess(conversationId);
+    if (!this.available || this.current.phase !== "running" || !this.video) throw new Error("android_video_not_connected");
+    this.automation?.invalidate();
+    this.video.type(text);
+  }
   stop(): Promise<void> { return this.stopping ??= this.disconnect().finally(() => { this.stopping = undefined; }); }
   private async disconnect(): Promise<void> {
     this.monitor?.abort(); this.monitor = undefined;
     this.update({ phase: "stopping", error: undefined });
     this.bootController?.abort();
     if (this.boot) await this.boot.catch(() => undefined);
+    await this.releasing; this.releasing = undefined;
+    await this.automation?.close(); this.automation = undefined;
     await this.video?.close(); this.video = undefined;
     await this.pendingAction.catch(() => undefined);
     await this.managed?.close(); this.managed = undefined;
@@ -149,34 +166,35 @@ export class AndroidHost {
     this.update({ phase: "stopped" });
   }
   async screenshot(conversationId: string, signal?: AbortSignal) {
-    this.assertAccess(conversationId);
-    if (!this.available || this.current.phase !== "running") throw new Error("android_not_running");
-    const png = await this.adb(["exec-out", "screencap", "-p"], signal);
-    if (png.length < 24 || png.subarray(0, 8).toString("hex") !== "89504e470d0a1a0a") throw new Error("android_invalid_screenshot");
-    return { contentKind: "image" as const, dataUrl: `data:image/png;base64,${png.toString("base64")}`, mimeType: "image/png", byteLength: png.length, width: png.readUInt32BE(16), height: png.readUInt32BE(20) };
+    return this.enqueue(conversationId, async (automation, target) => {
+      const before = await automation.screen(signal);
+      const png = await this.adb(["exec-out", "screencap", "-p"], signal, target);
+      if (png.length < 24 || png.subarray(0, 8).toString("hex") !== "89504e470d0a1a0a") throw new Error("android_invalid_screenshot");
+      const screen = await automation.screen(signal);
+      const width = png.readUInt32BE(16), height = png.readUInt32BE(20);
+      if (before.rotation !== screen.rotation || screen.width !== width || screen.height !== height) throw new Error("android_layout_changed");
+      return { contentKind: "image" as const, dataUrl: `data:image/png;base64,${png.toString("base64")}`, mimeType: "image/png", byteLength: png.length, width, height, screen };
+    }, signal);
   }
   async snapshot(conversationId: string, signal?: AbortSignal) {
-    this.assertAccess(conversationId);
-    if (!this.available || this.current.phase !== "running") throw new Error("android_not_running");
-    const target = this.target;
-    await this.adb(["shell", "uiautomator", "dump", "/sdcard/ohmycode-window.xml"], signal, target);
-    const xml = (await this.adb(["exec-out", "cat", "/sdcard/ohmycode-window.xml"], signal, target)).toString();
-    return compactSnapshot(xml);
+    return this.enqueue(conversationId, (automation) => automation.snapshot(signal), signal);
   }
-  async act(conversationId: string, args: unknown, signal?: AbortSignal): Promise<{ ok: true }> {
+  async act(conversationId: string, args: unknown, signal?: AbortSignal): Promise<unknown> {
+    return this.enqueue(conversationId, (automation, target) => automation.act(args, (command) => this.adb(command, signal, target), signal), signal);
+  }
+  private enqueue<T>(conversationId: string, execute: (automation: AndroidAutomation, target: AdbTarget) => Promise<T>, signal?: AbortSignal): Promise<T> {
     this.assertAccess(conversationId);
     const target = this.target;
-    if (!target || this.current.phase !== "running") throw new Error("android_not_running");
-    const command = actionArguments(args);
+    const automation = this.automation;
+    if (!target || !automation || this.current.phase !== "running") throw new Error("android_not_running");
     const operation = this.pendingAction.then(() => {
       this.assertAccess(conversationId);
-      if (!this.available || this.current.phase !== "running") throw new Error("android_not_running");
+      if (!this.available || this.current.phase !== "running" || this.target !== target || this.automation !== automation) throw new Error("android_not_running");
       signal?.throwIfAborted();
-      return this.adb(command, signal, target);
+      return execute(automation, target);
     });
     this.pendingAction = operation.catch(() => undefined);
-    await operation;
-    return { ok: true };
+    return operation;
   }
 
   async close(): Promise<void> { await this.stop(); }

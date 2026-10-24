@@ -9,6 +9,7 @@ const bridge: DesktopBridge = {
     selectTarget: (target) => ipcRenderer.invoke("android:select-target", target),
     connect: (address, name) => ipcRenderer.invoke("android:connect", address, name),
     removeDevice: (serial) => ipcRenderer.invoke("android:remove-device", serial),
+    type: (conversationId, text) => ipcRenderer.invoke("android:type", conversationId, text),
     cancelInstall: () => ipcRenderer.invoke("android:cancel-install"),
     openLicense: () => ipcRenderer.invoke("android:license"),
     onInstallation: (callback) => {

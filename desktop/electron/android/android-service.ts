@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, shell } from "electron";
+import { app, BrowserWindow, dialog, net, shell } from "electron";
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { AndroidHost, checkEnvironment, checkAdb, sdkCandidates, listDevices, connectDevice, networkAddress, type AndroidDevice, type AndroidTarget, type AndroidState, type AndroidInstallMode } from "@ohmycode/android-use";
@@ -15,7 +15,7 @@ const configPath = () => path.join(app.getPath("userData"), "android.json");
 export function androidHost(): AndroidHost {
   return host ??= new AndroidHost(path.join(app.getPath("userData"), "android"), (state) => {
     for (const window of BrowserWindow.getAllWindows()) window.webContents.send("android:state", state);
-  });
+  }, net.fetch as typeof fetch);
 }
 function targetFrom(value: unknown): AndroidTarget {
   if (!value || typeof value !== "object" || !("kind" in value)) throw new Error("android_invalid_configuration");

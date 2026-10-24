@@ -1,7 +1,7 @@
 import { BrowserWindow, ipcMain, type IpcMainInvokeEvent } from "electron";
 import { androidHost, androidInstallation, chooseAndroidInstallRoot, chooseAndroidSdk, getAndroidState, installAndroid, openAndroidGuide, openAndroidLicense, rediscoverAndroidDevices, setAndroidEnabled, startAndroid, selectAndroidTarget, addAndroidConnection, removeAndroidDevice } from "../android/android-service.js";
 import type { AndroidAction, AndroidTouch, AndroidInstallMode } from "@ohmycode/android-use";
-import { androidDetached, setAndroidDetached, startAndroidVideo, stopAndroidVideo, touchAndroid } from "../android/android-presentation.js";
+import { androidDetached, setAndroidDetached, startAndroidVideo, stopAndroidVideo, touchAndroid, typeAndroid } from "../android/android-presentation.js";
 
 function windowFor(event: IpcMainInvokeEvent): BrowserWindow {
   const window = BrowserWindow.fromWebContents(event.sender);
@@ -19,6 +19,7 @@ export function registerAndroidIpc(): void {
   ipcMain.handle("android:connect", (event, address: unknown, name: unknown) => { windowFor(event); return addAndroidConnection(address, name); });
   ipcMain.handle("android:remove-device", (event, serial: unknown) => { windowFor(event); return removeAndroidDevice(serial); });
   ipcMain.handle("android:touch", (event, conversationId: string, events: AndroidTouch[]) => { windowFor(event); touchAndroid(event.sender, conversationId, events); });
+  ipcMain.handle("android:type", (event, conversationId: string, text: string) => { windowFor(event); typeAndroid(event.sender, conversationId, text); });
   ipcMain.handle("android:detached", (event) => { windowFor(event); return androidDetached(); });
   ipcMain.handle("android:set-detached", (event, value: boolean) => {
     const window = windowFor(event);

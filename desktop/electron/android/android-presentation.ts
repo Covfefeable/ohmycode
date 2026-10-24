@@ -17,6 +17,10 @@ export function touchAndroid(sender: WebContents, conversationId: string, events
   if (viewer?.sender !== sender) throw new Error("android_video_not_connected");
   androidHost().touch(conversationId, events);
 }
+export function typeAndroid(sender: WebContents, conversationId: string, text: string): void {
+  if (viewer?.sender !== sender) throw new Error("android_video_not_connected");
+  androidHost().type(conversationId, text);
+}
 
 export async function setAndroidDetached(owner: BrowserWindow, value: boolean): Promise<void> {
   if (detaching) await detaching;

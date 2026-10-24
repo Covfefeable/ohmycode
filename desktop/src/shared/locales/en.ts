@@ -13,6 +13,10 @@ export const en = {
       transports: { usb: "USB", network: "Network", local: "Local ADB" }, states: { device: "Available", offline: "Offline", unauthorized: "Awaiting phone authorization", unavailable: "Unavailable" },
     },
     errors: {
+      android_automation_download_failed: "Could not download the automation service. Check your network and retry.", android_automation_checksum_failed: "Automation service checksum failed. Download it again.",
+      android_automation_start_failed: "Could not start the automation service. Check for another automation session on this device.", android_automation_unavailable: "The automation service disconnected. Disconnect and reconnect the device.", android_automation_failed: "Widget operation failed. Inspect the current screen before retrying.",
+      android_snapshot_expired: "Node reference expired. Obtain a new device snapshot.", android_node_not_found: "Target widget not found. Inspect the current screen.", android_node_ambiguous: "Multiple widgets match. Refine the selector.", android_node_disabled: "The target widget is disabled.", android_node_requires_selector: "This node has no identifying attributes. Use a selector or screenshot coordinates.",
+      android_invalid_selector: "Invalid widget selector.", android_invalid_timeout: "Invalid wait timeout.", android_invalid_text: "Invalid text or input mode.", android_action_rejected: "The device rejected this widget action.", android_layout_changed: "Device orientation changed. Obtain a fresh snapshot or screenshot.",
       android_operation_failed: "Android operation failed. Check the device connection and retry.", android_adb_missing: "ADB was not found. Install connection tools or choose an existing folder.",
       android_invalid_address: "Enter a valid host and port, such as 127.0.0.1:16384.", android_device_connect_failed: "Could not connect. Check the ADB address and device debugging settings.",
       android_device_unauthorized: "Authorize USB debugging for this computer on your phone.", android_device_offline: "The selected device is offline. Reconnect it and refresh devices. No other device will be selected automatically.",
