@@ -165,8 +165,10 @@ export class AndroidHost {
     this.target = undefined;
     this.update({ phase: "stopped" });
   }
-  async screenshot(conversationId: string, signal?: AbortSignal) {
+  async screenshot(conversationId: string, signal?: AbortSignal, delayMs = 0) {
+    if (!Number.isInteger(delayMs) || delayMs < 0 || delayMs > 5000) throw new Error("android_invalid_timeout");
     return this.enqueue(conversationId, async (automation, target) => {
+      if (delayMs > 0) await delay(delayMs, undefined, { signal: signal ? AbortSignal.any([signal, automation.signal]) : automation.signal });
       const before = await automation.screen(signal);
       const png = await this.adb(["exec-out", "screencap", "-p"], signal, target);
       if (png.length < 24 || png.subarray(0, 8).toString("hex") !== "89504e470d0a1a0a") throw new Error("android_invalid_screenshot");

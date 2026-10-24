@@ -14,6 +14,7 @@ export class AndroidAutomation {
   private readonly server: UiAutomatorServer;
   private latest?: Snapshot;
   constructor(target: AdbTarget, root: string, fetcher: typeof fetch = fetch) { this.server = new UiAutomatorServer(target, root, fetcher); }
+  get signal(): AbortSignal { return this.server.signal; }
   start(signal?: AbortSignal) { return this.server.start(signal); }
   close() { this.invalidate(); return this.server.close(); }
   invalidate(): void { this.latest = undefined; }

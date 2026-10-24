@@ -4,8 +4,9 @@ import { AndroidHost } from "../../../packages/android-use/src/android-host";
 import { actionArguments } from "../../../packages/android-use/src/command";
 
 const mocks = vi.hoisted(() => ({ spawn: vi.fn(), run: vi.fn(), mkdir: vi.fn(), writeFile: vi.fn() }));
-const automation = vi.hoisted(() => ({ start: vi.fn(), close: vi.fn(), act: vi.fn(), snapshot: vi.fn(), screen: vi.fn(), invalidate: vi.fn() }));
+const automation = vi.hoisted(() => ({ controller: new AbortController(), start: vi.fn(), close: vi.fn(), act: vi.fn(), snapshot: vi.fn(), screen: vi.fn(), invalidate: vi.fn() }));
 vi.mock("../../../packages/android-use/src/automation/automation", () => ({ AndroidAutomation: class {
+  get signal() { return automation.controller.signal; }
   start = automation.start; close = automation.close; act = automation.act; snapshot = automation.snapshot; screen = automation.screen; invalidate = automation.invalidate;
 } }));
 vi.mock("node:child_process", () => ({ spawn: mocks.spawn }));
@@ -22,8 +23,9 @@ let child: FakeChild;
 let host: AndroidHost;
 beforeEach(() => {
   vi.clearAllMocks();
+  automation.controller = new AbortController();
   automation.start.mockResolvedValue(undefined);
-  automation.close.mockResolvedValue(undefined);
+  automation.close.mockImplementation(async () => { automation.controller.abort(); });
   automation.act.mockImplementation(async (args, shell) => { await shell(actionArguments(args)); return { executed: true }; });
   child = new FakeChild();
   mocks.spawn.mockReturnValue(child);
@@ -90,6 +92,46 @@ it("设备快照交给 UIAutomator，不再通过 ADB dump 或中间 XML 文件�
   expect(mocks.run.mock.calls.some(([, args]) => args.includes("uiautomator") || args.includes("cat"))).toBe(false);
   await host.stop();
   expect(automation.close).toHaveBeenCalled();
+});
+
+it.each([0, 20])("截图延迟 %ims 后才采集，保持图片和坐标元数据", async (delayMs) => {
+  await host.start("thread");
+  const png = Buffer.alloc(24);
+  Buffer.from("89504e470d0a1a0a", "hex").copy(png);
+  png.writeUInt32BE(1080, 16); png.writeUInt32BE(1920, 20);
+  const screen = { width: 1080, height: 1920, rotation: 0, coordinates: "screen-pixels" };
+  automation.screen.mockResolvedValue(screen);
+  mocks.run.mockImplementation(async (_file: string, args: string[]) => {
+    if (args.includes("kill")) child.kill();
+    return args.includes("screencap") ? png : Buffer.alloc(0);
+  });
+  const capture = host.screenshot("thread", undefined, delayMs);
+  if (delayMs) {
+    await Promise.resolve();
+    expect(automation.screen).not.toHaveBeenCalled();
+  }
+  expect(await capture).toMatchObject({ contentKind: "image", width: 1080, height: 1920, screen, dataUrl: `data:image/png;base64,${png.toString("base64")}` });
+  expect(mocks.run.mock.calls.filter(([, args]) => args.includes("screencap"))).toHaveLength(1);
+});
+
+it.each([-1, 5001, 0.5, NaN, Infinity])("非法截图延迟 %s 不执行设备命令", async (delayMs) => {
+  await host.start("thread");
+  mocks.run.mockClear();
+  await expect(host.screenshot("thread", undefined, delayMs)).rejects.toThrow("android_invalid_timeout");
+  expect(mocks.run).not.toHaveBeenCalled();
+});
+
+it.each(["turn", "device"])("%s 停止会立即取消截图延迟，不继续采集", async (source) => {
+  await host.start("thread");
+  const controller = new AbortController();
+  const capture = host.screenshot("thread", controller.signal, 5000);
+  const rejected = expect(capture).rejects.toMatchObject({ name: "AbortError" });
+  await Promise.resolve();
+  if (source === "turn") controller.abort();
+  else await host.stop();
+  await rejected;
+  expect(automation.screen).not.toHaveBeenCalled();
+  expect(mocks.run.mock.calls.some(([, args]) => args.includes("screencap"))).toBe(false);
 });
 
 it("并发启动只启动一个进程，使用自有 AVD 和独立 ADB server", async () => {

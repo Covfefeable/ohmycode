@@ -21,6 +21,8 @@ export class UiAutomatorServer {
 
   constructor(private readonly target: AdbTarget, private readonly root: string, private readonly fetcher: typeof fetch = fetch) {}
 
+  get signal(): AbortSignal { return this.controller.signal; }
+
   private command(args: string[], signal?: AbortSignal) {
     return runCommand(this.target.adb, [...adbArguments(this.target), ...args], signal);
   }

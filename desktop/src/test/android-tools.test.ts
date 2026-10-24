@@ -60,6 +60,17 @@ it("安装并启用后注册工具，截图只提供给视觉模型", () => {
   expect(createAndroidPlugin(host, "thread", true).definitions().map((item) => item.name)).toEqual(["android_device", "android_snapshot", "android_screenshot", "android_act"]);
   expect(createAndroidPlugin(host, "thread", false).handles("android_screenshot")).toBe(false);
 });
+it("截图工具透传可选延迟，未填写时保持立即截图", async () => {
+  host.configure({ enabled: true, sdkPath: "/sdk", environment, target: { kind: "managed" }, devices: [] });
+  const screenshot = vi.spyOn(host, "screenshot").mockResolvedValue({} as Awaited<ReturnType<AndroidHost["screenshot"]>>);
+  try {
+    const plugin = createAndroidPlugin(host, "thread", true);
+    await plugin.execute(call("android_screenshot", { delayMs: 800 }));
+    expect(screenshot).toHaveBeenLastCalledWith("thread", undefined, 800);
+    await plugin.execute(call("android_screenshot"));
+    expect(screenshot).toHaveBeenLastCalledWith("thread", undefined, undefined);
+  } finally { screenshot.mockRestore(); }
+});
 it("注册后停用也立即阻止调用和后续工具快照", async () => {
   host.configure({ enabled: true, sdkPath: "/sdk", environment, target: { kind: "managed" }, devices: [] });
   const plugin = createAndroidPlugin(host, "thread", true);
