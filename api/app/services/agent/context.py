@@ -27,7 +27,6 @@ from .context_history import (
     ContextBlock,
     _conversation_blocks,
     _message_index,
-    _protected_run_ids,
     mailbox_blocks,
 )
 from .image_context import text_only_images
@@ -37,8 +36,6 @@ from .runs import append_event
 from .tokens import estimate_tokens, request_tokens
 from .tool_history import tool_batches
 from .tool_results import slice_to_token_budget
-
-COMPACTION_RATIO = 0.70
 
 
 @dataclass(frozen=True)
@@ -53,6 +50,7 @@ def latest_checkpoint(conversation_id: UUID) -> ContextCheckpoint | None:
         db.select(ContextCheckpoint)
         .where(ContextCheckpoint.conversation_id == conversation_id)
         .order_by(ContextCheckpoint.created_at.desc())
+        .limit(1)
     )
 
 
@@ -105,7 +103,7 @@ def iter_prepare_context(
     threshold = int(model.context_length * background_settings.context_compaction_ratio)
     factor = _token_calibration(model)
     source_start = _message_index(messages, checkpoint.covered_message_id if checkpoint else None)
-    blocks = _conversation_blocks(messages[source_start:], _protected_run_ids(messages), checkpoint)
+    blocks = _conversation_blocks(messages[source_start:], checkpoint)
     mailbox_cursor = int(checkpoint.state.get("mailboxSequence", 0)) if checkpoint else 0
     blocks = [*mailbox_blocks(run.conversation_id, mailbox_cursor), *blocks]
     after_sequence = (

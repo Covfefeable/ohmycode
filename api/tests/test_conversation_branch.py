@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from app import create_app
 from app.extensions import db
 from app.models import AgentEvent, AgentRun, Conversation, Message
-from app.services.agent.context_history import _render_messages
+from app.services.agent.context_history import _render_messages, history_runs
 
 
 def test_branch_deep_copies_messages_without_usage_or_runtime_state():
@@ -132,7 +132,7 @@ def test_branch_deep_copies_messages_without_usage_or_runtime_state():
             snapshot = copied.messages[1].context_snapshot
             assert snapshot and "Complete AgentEvent history" in snapshot[0]["content"]
             assert '"usedTokens"' not in snapshot[0]["content"]
-            rendered = _render_messages(copied.messages, set())
+            rendered = _render_messages(copied.messages, set(), history_runs(copied.messages))
             assert snapshot[0] in rendered
 
         # A branch's model context remains usable after removing its source.
@@ -144,7 +144,9 @@ def test_branch_deep_copies_messages_without_usage_or_runtime_state():
         )
         with app.app_context():
             copied = db.session.get(Conversation, uuid.UUID(branch["id"]))
-            assert snapshot[0] in _render_messages(copied.messages, set())
+            assert snapshot[0] in _render_messages(
+                copied.messages, set(), history_runs(copied.messages)
+            )
 
 
 def test_branch_rejects_a_message_from_another_conversation():

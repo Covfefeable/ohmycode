@@ -2,6 +2,8 @@ import json
 from dataclasses import dataclass
 from uuid import UUID
 
+from sqlalchemy.orm import selectinload
+
 from ...extensions import db
 from ...models import AgentRun, ContextCheckpoint, Message, MultiAgentMessage, MultiAgentNode
 from .config import RECENT_FULL_TURNS
@@ -99,21 +101,54 @@ def branch_context_snapshot(message: Message) -> list[dict] | None:
     return None
 
 
-def _protected_run_ids(messages: list[Message]) -> set[UUID]:
+def _protected_run_ids(messages: list[Message], runs: dict[UUID, AgentRun]) -> set[UUID]:
     completed = [
         message.agent_run_id
         for message in messages
         if message.role == "assistant"
         and message.agent_run_id
-        and (run := db.session.get(AgentRun, message.agent_run_id))
-        and run.status == "completed"
+        and message.agent_run_id in runs
     ]
     return set(completed[-RECENT_FULL_TURNS:])
+
+
+def history_runs(messages: list[Message]) -> dict[UUID, AgentRun]:
+    """Batch-load completed runs, skipping full events when a summary can be used."""
+    identifiers = {
+        message.agent_run_id
+        for message in messages
+        if message.role == "assistant" and message.agent_run_id
+    }
+    if not identifiers:
+        return {}
+    runs = {
+        run.id: run
+        for run in db.session.scalars(
+            db.select(AgentRun)
+            .where(AgentRun.id.in_(identifiers), AgentRun.status == "completed")
+            .options(selectinload(AgentRun.summary))
+        )
+    }
+    protected = _protected_run_ids(messages, runs)
+    full_history = [
+        run.id
+        for run in runs.values()
+        if run.id in protected
+        or not (run.summary and run.summary.status == "completed" and run.summary.summary)
+    ]
+    if full_history:
+        db.session.scalars(
+            db.select(AgentRun)
+            .where(AgentRun.id.in_(full_history))
+            .options(selectinload(AgentRun.events))
+        ).all()
+    return runs
 
 
 def _render_messages(
     messages: list[Message],
     protected_run_ids: set[UUID],
+    runs: dict[UUID, AgentRun],
     checkpoint: ContextCheckpoint | None = None,
 ) -> list[dict]:
     rendered: list[dict] = []
@@ -121,8 +156,8 @@ def _render_messages(
         if message.context_snapshot:
             rendered.extend(message.context_snapshot)
         if message.role == "assistant" and message.agent_run_id:
-            run = db.session.get(AgentRun, message.agent_run_id)
-            if run and run.status == "completed":
+            run = runs.get(message.agent_run_id)
+            if run:
                 after_sequence = (
                     checkpoint.covered_event_sequence
                     if checkpoint and checkpoint.covered_run_id == run.id
@@ -136,15 +171,17 @@ def _render_messages(
 
 
 def _conversation_blocks(
-    messages: list[Message], protected: set[UUID], checkpoint: ContextCheckpoint | None
+    messages: list[Message], checkpoint: ContextCheckpoint | None
 ) -> list[ContextBlock]:
+    runs = history_runs(messages)
+    protected = _protected_run_ids(messages, runs)
     blocks = []
     pending = []
     for message in messages:
         if message.role == "user" and pending:
             blocks.append(
                 ContextBlock(
-                    _render_messages(pending, protected, checkpoint),
+                    _render_messages(pending, protected, runs, checkpoint),
                     {"covered_message_id": pending[-1].id},
                 )
             )
@@ -153,13 +190,15 @@ def _conversation_blocks(
         if message.role == "assistant":
             blocks.append(
                 ContextBlock(
-                    _render_messages(pending, protected, checkpoint),
+                    _render_messages(pending, protected, runs, checkpoint),
                     {"covered_message_id": message.id},
                 )
             )
             pending = []
     if pending:
-        blocks.append(ContextBlock(_render_messages(pending, protected, checkpoint), {}, keep=True))
+        blocks.append(
+            ContextBlock(_render_messages(pending, protected, runs, checkpoint), {}, keep=True)
+        )
     return blocks
 
 

@@ -5,6 +5,7 @@ from types import SimpleNamespace
 
 import httpx
 from openai import APIStatusError
+from sqlalchemy import event
 
 from app import create_app
 from app.extensions import db
@@ -19,11 +20,11 @@ from app.models import (
     User,
 )
 from app.services.agent import turn_summaries
-from app.services.agent.context import COMPACTION_RATIO
 from app.services.agent.context_history import (
     _protected_run_ids,
     _render_messages,
     _run_context_message,
+    history_runs,
 )
 from app.services.agent.prompts import AGENT_SYSTEM_INSTRUCTIONS
 from app.services.agent.provider_stream import PreparedCompletion, _payload, provider_payloads
@@ -97,8 +98,7 @@ def test_history_with_only_ui_and_lifecycle_events_is_not_injected():
     assert turn_summaries.serialized_run_events(run) == "[]"
 
 
-def test_context_defaults_and_multilingual_token_estimate():
-    assert COMPACTION_RATIO == 0.70
+def test_multilingual_token_estimate():
     assert estimate_tokens("a" * 400) == 100
     assert estimate_tokens("你好世界") == 4
 
@@ -210,7 +210,22 @@ def test_turn_context_uses_summaries_only_before_the_latest_two_turns(monkeypatc
         )
         db.session.commit()
 
-        rendered = _render_messages(messages, _protected_run_ids(messages))
+        db.session.expire_all()
+        messages = list(db.session.scalars(db.select(Message).order_by(Message.created_at)))
+        queries = []
+
+        def capture_query(_connection, _cursor, statement, _parameters, _context, _many):
+            queries.append(statement)
+
+        event.listen(db.engine, "before_cursor_execute", capture_query)
+        try:
+            loaded_runs = history_runs(messages)
+            rendered = _render_messages(
+                messages, _protected_run_ids(messages, loaded_runs), loaded_runs
+            )
+        finally:
+            event.remove(db.engine, "before_cursor_execute", capture_query)
+        assert len(queries) == 4  # Runs + summaries + full-history runs + their events.
         system_messages = [item["content"] for item in rendered if item["role"] == "system"]
 
         assert "summary-one" in system_messages[0]
