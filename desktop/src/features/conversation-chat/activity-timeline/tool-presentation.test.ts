@@ -25,6 +25,8 @@ test("浏览器截图复用图片查看器，不把 Base64 展示成 JSON", () =
   expect(value.viewer).toBe("image");
   expect(value.imageSource).toBe(result.dataUrl);
   expect(value.result).not.toContain("base64");
+  const imageRef = `ohmycode-image://00000000-0000-0000-0000-000000000001/${"a".repeat(64)}`;
+  expect(presentToolActivity("browser_screenshot", {}, { contentKind: "image", imageRef }).imageSource).toBe(imageRef);
 });
 
 test("工具的文本结果按原文展示，不再猜测它是否为 JSON 对象", () => {

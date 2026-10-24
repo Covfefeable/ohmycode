@@ -12,6 +12,7 @@ from ...models import (
     Project,
 )
 from ..errors import ServiceError
+from ..image_assets import store_images
 from .config import CANCEL_SUMMARY_TOKEN_BUDGET
 from .prompts import STOPPED_RUN_CONTEXT
 from .result_references import protect_result_references
@@ -202,7 +203,7 @@ def cancel_run(
         db.select(Message.id).where(Message.agent_run_id == run.id)
     ):
         content = str(partial_message.get("content") or "").strip()
-        activity = partial_message.get("activity")
+        activity = store_images(user_id, partial_message.get("activity"))
         protect_result_references(content, activity)
         db.session.add(
             Message(

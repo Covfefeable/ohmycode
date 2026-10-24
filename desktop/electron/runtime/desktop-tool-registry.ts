@@ -27,6 +27,7 @@ import { createBrowserPlugin } from "@ohmycode/browser-use";
 import { activeBrowser } from "../browser/browser-service.js";
 import { createAndroidPlugin } from "@ohmycode/android-use";
 import { androidHost } from "../android/android-service.js";
+import { storeImages } from "../files/image-assets.js";
 
 type RegistryOptions = {
   execution: DesktopTurnExecution;
@@ -106,7 +107,7 @@ export class DesktopToolRegistry implements ToolExecutor {
           "repeated_failed_tool_call: this exact operation has already failed twice; diagnose the cause and choose a different approach",
         );
       }
-      result = (await this.registry.execute(request)).result;
+      result = await storeImages((await this.registry.execute(request)).result, this.options.execution.signal);
       this.failedToolCalls.delete(signature);
     } catch (error) {
       this.failedToolCalls.set(signature, (this.failedToolCalls.get(signature) ?? 0) + 1);

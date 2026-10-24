@@ -4,6 +4,7 @@ from .agent_runs import agent_runs_bp
 from .auth import auth_bp
 from .capabilities import capabilities_bp
 from .health import health_bp
+from .images import images_bp
 from .mobile_chats import mobile_chats_bp
 from .multi_agents import multi_agents_bp
 from .projects import projects_bp
@@ -21,3 +22,4 @@ def register_routes(app: Flask) -> None:
     app.register_blueprint(projects_bp, url_prefix="/api/projects")
     app.register_blueprint(sessions_bp, url_prefix="/api/sessions")
     app.register_blueprint(settings_bp, url_prefix="/api/settings")
+    app.register_blueprint(images_bp, url_prefix="/api/images")

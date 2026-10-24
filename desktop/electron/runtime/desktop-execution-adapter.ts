@@ -2,16 +2,18 @@ import { TurnExecution, type ExecutionStore, type RuntimeExecutionState, type Tu
 import { ApiError, apiRequest } from "../api/api-client.js";
 import type { LocalMessage } from "../projects/types.js";
 import { executeTerminalAction } from "../terminal/terminal-manager.js";
+import { storeImages } from "../files/image-assets.js";
 
 const adapter: TurnExecutionAdapter<LocalMessage> = {
   async stopResource(terminalId) {
     await executeTerminalAction({ action: "stop", terminalId });
   },
   async cancelRemoteRun(runId, partialMessage) {
+    const storedMessage = await storeImages(partialMessage);
     await apiRequest(`/api/agent-runs/${runId}/cancel`, {
       method: "POST",
       signal: AbortSignal.timeout(8_000),
-      body: JSON.stringify({ partialMessage }),
+      body: JSON.stringify({ partialMessage: storedMessage }),
     });
   },
   isMissingRemoteRunError(error) {

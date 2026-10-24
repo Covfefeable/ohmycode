@@ -2,10 +2,12 @@ import path from "node:path";
 import { executeViewImage } from "./image-tool.js";
 import { listProjects } from "../projects/projects-service.js";
 import { getMultiAgentTask } from "../multi-agents/multi-agent-service.js";
+import { previewImageAsset } from "./image-assets.js";
 
 export type ImageScope = { conversationId: string } | { taskId: string };
 
 export async function previewWorkspaceImage(scope: ImageScope | undefined, reference: string): Promise<string> {
+  if (reference.startsWith("ohmycode-image://")) return previewImageAsset(reference);
   if (/^https?:\/\//i.test(reference)) throw new Error("local_image_required");
   if (path.isAbsolute(reference) || /^file:/i.test(reference)) {
     return (await executeViewImage({ projectId: "", imageUrl: reference })).dataUrl;

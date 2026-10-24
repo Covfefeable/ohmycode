@@ -79,6 +79,8 @@ uv run flask --app manage:app db upgrade
 
 API、Celery Worker 和 Celery Beat 应分别在独立终端中运行。
 
+工具返回的图片保存在私有 MinIO 对象中，消息和事件仅保存图片引用；预览通过已登录的 API 读取。调用视觉模型前才在内存中恢复图片，诊断快照不保存图片 Base64。单张图片上传限制为 16 MiB。
+
 聊天模型请求由 Worker 执行，API 只提交任务并通过 SSE 订阅 PostgreSQL 中的输出。
 断开 HTTP 不会终止推理，重连会重放当前请求，客户端按事件 ID 去重。
 Beat 每 30 秒补发未执行的任务并检查执行租约；Worker 丢失会明确失败，不会偷偷重跑模型。

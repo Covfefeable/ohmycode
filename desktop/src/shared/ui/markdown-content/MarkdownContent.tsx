@@ -21,6 +21,7 @@ function SearchCode({ children, className }: { children?: ReactNode; className?:
 const markdownUrlTransform: UrlTransform = (url, key, node) => {
   const image = key === "src" && node.tagName === "img";
   if (image && /^data:image\//i.test(url)) return url;
+  if (image && /^ohmycode-image:\/\/[0-9a-f-]{36}\/[0-9a-f]{64}$/.test(url)) return url;
   const localPath = /^(?:file:|[a-z]:[\\/])/i.test(url);
   if (localPath && (image || key === "href" && node.tagName === "a" && isLocalImageLink(url, window.location.href))) return url;
   return defaultUrlTransform(url);

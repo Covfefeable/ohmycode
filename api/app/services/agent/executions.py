@@ -11,6 +11,7 @@ from ...extensions import db
 from ...models import AgentRun, Conversation, Message, ModelExecution, ModelStreamEvent
 from ..conversations import get_conversation
 from ..errors import ServiceError
+from ..image_assets import store_images
 from .preparation import create_completion_run
 from .prompts import AGENT_SYSTEM_INSTRUCTIONS
 from .result_references import protect_result_references
@@ -155,6 +156,7 @@ def resume_execution(
         raise ServiceError("invalid_run_state", 409)
     if not results or len(identifiers) != len(expected) or set(identifiers) != expected:
         raise ServiceError("invalid_tool_results", 422)
+    results = store_images(user_id, results)
     append_event(run, "tool.output", {"results": results})
     run.status = "running"
     run.tool_snapshot = tools

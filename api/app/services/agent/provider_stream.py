@@ -3,6 +3,7 @@ from uuid import UUID
 
 from openai import APIStatusError, OpenAI
 
+from ..image_assets import hydrate_images
 from .config import MODEL_REQUEST_TIMEOUT_SECONDS, MODEL_STREAM_ATTEMPTS
 from .request_snapshots import record_request, record_request_usage
 
@@ -37,7 +38,7 @@ def _payload(chunk: object) -> dict:
 
 
 def provider_payloads(prepared: PreparedCompletion):
-    request_payload = dict(prepared.payload)
+    request_payload = hydrate_images(dict(prepared.payload))
     with OpenAI(
         api_key=prepared.api_key,
         base_url=_base_url(prepared.endpoint),

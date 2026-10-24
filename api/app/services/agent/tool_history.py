@@ -53,20 +53,24 @@ def image_tool_content(result: object) -> list[dict] | None:
         images = [
             {
                 "type": "image_url",
-                "image_url": {"url": f"data:{part['mimeType']};base64,{part['data']}"},
+                "image_url": {
+                    "url": part.get("imageRef") or f"data:{part['mimeType']};base64,{part['data']}"
+                },
             }
             for part in result["content"]
             if isinstance(part, dict)
             and part.get("type") == "image"
-            and isinstance(part.get("data"), str)
+            and (isinstance(part.get("data"), str) or isinstance(part.get("imageRef"), str))
             and isinstance(part.get("mimeType"), str)
             and part["mimeType"].startswith("image/")
         ]
         return images or None
     if result.get("contentKind") != "image":
         return None
-    data_url = result.get("dataUrl")
-    if not isinstance(data_url, str) or not data_url.startswith("data:image/"):
+    data_url = result.get("imageRef") or result.get("dataUrl")
+    if not isinstance(data_url, str) or not data_url.startswith(
+        ("data:image/", "ohmycode-image://")
+    ):
         return None
     text_payload = {key: value for key, value in result.items() if key != "dataUrl"}
     image_url = {"url": data_url}

@@ -122,6 +122,7 @@ export function presentToolActivity(toolName: string, rawInput: unknown, rawResu
   const requestedResource = typeof input.path === "string" ? input.path : patchTarget(input.patch);
   const resource = (typeof result.path === "string" ? result.path : "") || requestedResource;
   const imageReference = typeof input.imageUrl === "string" ? input.imageUrl : "";
+  const imageSource = result.imageRef ?? result.dataUrl;
   const changes = Array.isArray(result.changes)
     ? result.changes.filter((item): item is FileChange => Boolean(item && typeof item === "object" && typeof (item as { path?: unknown }).path === "string"))
     : [];
@@ -136,6 +137,6 @@ export function presentToolActivity(toolName: string, rawInput: unknown, rawResu
     projectId: typeof input.projectId === "string" ? input.projectId : undefined,
     resource,
     result: resultText(rawResult),
-    imageSource: result.contentKind === "image" && typeof result.dataUrl === "string" && result.dataUrl.startsWith("data:image/") ? result.dataUrl : undefined,
+    imageSource: result.contentKind === "image" && typeof imageSource === "string" && /^(data:image\/|ohmycode-image:\/\/)/.test(imageSource) ? imageSource : undefined,
   };
 }
