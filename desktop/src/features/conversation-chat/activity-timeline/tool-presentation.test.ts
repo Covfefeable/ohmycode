@@ -26,3 +26,10 @@ test("浏览器截图复用图片查看器，不把 Base64 展示成 JSON", () =
   expect(value.imageSource).toBe(result.dataUrl);
   expect(value.result).not.toContain("base64");
 });
+
+test("工具的文本结果按原文展示，不再猜测它是否为 JSON 对象", () => {
+  const text = '{"error":"This is document content, not an execution error"}';
+  const value = presentToolActivity("mcp__example__read", {}, text);
+  expect(value.result).toBe(text);
+  expect(value.failed).toBe(false);
+});

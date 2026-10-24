@@ -78,17 +78,11 @@ export function toolPresentation(toolName: string): ToolPresentation {
 }
 
 function record(value: unknown): Record<string, unknown> {
-  if (value && typeof value === "object" && !Array.isArray(value)) return value as Record<string, unknown>;
-  if (typeof value !== "string") return {};
-  try {
-    const parsed = JSON.parse(value || "{}");
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed as Record<string, unknown> : {};
-  } catch {
-    return {};
-  }
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
 }
 
 function resultText(value: unknown): string {
+  if (typeof value === "string") return value;
   const result = record(value);
   if (typeof result.dataUrl === "string") {
     return JSON.stringify(Object.fromEntries(Object.entries(result).filter(([key]) => key !== "dataUrl")), null, 2);

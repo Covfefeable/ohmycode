@@ -101,10 +101,6 @@ export async function deleteSkill(id: string): Promise<void> {
   await removeLocalSkill(id);
 }
 
-export function enabledSkillCatalog(): Promise<SkillRecord[]> {
-  return listSkills().then((skills) => skills.filter((skill) => skill.enabled && skill.installed));
-}
-
 export async function loadSkillInstructions(id: string): Promise<string> {
   return readFile(path.join(skillDirectory(id), "SKILL.md"), "utf8");
 }

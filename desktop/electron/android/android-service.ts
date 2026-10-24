@@ -54,8 +54,8 @@ export async function refreshAndroid(next: Configuration = configuration): Promi
 }
 async function configure(next: Configuration): Promise<AndroidState> {
     const candidates = next.sdkPath ? [next.sdkPath] : [path.join(next.installRoot ?? path.join(app.getPath("userData"), "android"), "sdk"), ...sdkCandidates()];
-    let check = await checkEnvironment(candidates[0]);
-    let adb = check.environment?.adb;
+    let check: Awaited<ReturnType<typeof checkEnvironment>> = { sdkPath: candidates[0], issue: "sdk_missing" };
+    let adb: string | undefined;
     for (const candidate of candidates) {
       if (!adb) adb = (await checkAdb(candidate)).adb;
       if (!check.environment) {
