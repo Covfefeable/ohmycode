@@ -18,7 +18,7 @@
 .taskListLabel { display: flex; align-items: center; gap: var(--space-2); padding: 3px 6px 6px; color: var(--color-text-dim); font-size: var(--font-xs); }
 .taskListLabel svg, .taskHead svg { width: 14px; height: 14px; flex: none; }
 .taskHead { width: 100%; min-width: 0; display: flex; align-items: center; gap: var(--space-2); color: var(--color-text-muted); padding: 6px; font-size: var(--font-sm); }
-.taskHead span { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.taskText { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .progressMessage { padding: 5px 8px; color: var(--color-text-muted); font-size: var(--font-chat); line-height: 1.65; }
 .progressMessage, .reasoning { --color-text: var(--color-text-muted); --color-text-soft: var(--color-text-muted); }
 .progressMessage > :first-child { margin-top: 0; }

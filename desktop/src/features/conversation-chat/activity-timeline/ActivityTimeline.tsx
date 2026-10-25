@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { Check, ChevronDown, Circle, ListChecks, LoaderCircle } from "lucide-react";
+import { Check, ChevronDown, Circle, CirclePause, ListChecks, LoaderCircle } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ActivitySequence } from "./ActivitySequence";
 import { useActivityExpansion } from "./expansion-state";
+import { Tooltip } from "../../../shared/ui/tooltip";
 import styles from "./ActivityTimeline.module.css";
 
 function RunSection({ steps, active, duration }: { steps: AgentActivityStep[]; active: boolean; duration?: string }) {
@@ -19,10 +20,12 @@ function RunSection({ steps, active, duration }: { steps: AgentActivityStep[]; a
       {plan && <div className={styles.taskList}>
         <div className={styles.taskListLabel}><ListChecks /><span>{t("agent.taskList")}</span></div>
         {plan.tasks.map((task) => {
-          const StatusIcon = task.status === "completed" ? Check : task.status === "in_progress" ? LoaderCircle : Circle;
+          const running = active && task.status === "in_progress";
+          const StatusIcon = task.status === "completed" ? Check : running ? LoaderCircle : task.status === "in_progress" ? CirclePause : Circle;
+          const statusLabel = t(task.status === "completed" ? "agent.taskCompleted" : running ? "agent.taskRunning" : active ? "agent.taskPending" : "agent.taskUnfinished");
           return <div key={task.id} className={styles.taskHead}>
-            <StatusIcon className={task.status === "in_progress" ? styles.spinner : undefined} />
-            <span>{task.content}</span>
+            <Tooltip content={statusLabel}><StatusIcon role="img" aria-hidden={false} aria-label={statusLabel} className={running ? styles.spinner : undefined} /></Tooltip>
+            <span className={styles.taskText}>{task.content}</span>
           </div>;
         })}
       </div>}

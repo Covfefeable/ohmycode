@@ -53,3 +53,24 @@ it("preserves run boundaries and shows plan status without regrouping activity b
   expect(screen.getByRole("button", { name: "Ran commands" }).getAttribute("aria-expanded")).toBe("false");
   expect(screen.getByRole("button", { name: "Used browser" }).getAttribute("aria-expanded")).toBe("false");
 });
+
+it("stops plan spinners when a turn ends without claiming unfinished tasks succeeded", () => {
+  const plan: Extract<AgentActivityStep, { type: "task_plan" }> = { id: "plan", type: "task_plan", tasks: [
+    { id: "done", content: "Finished work", status: "completed" },
+    { id: "current", content: "Unconfirmed work", status: "in_progress" },
+    { id: "pending", content: "Remaining work", status: "pending" },
+  ] };
+  const plannedSteps = [plan];
+  const view = render(<ActivityTimeline steps={plannedSteps} active />);
+  expect(screen.getByRole("img", { name: "In progress" })).toBeTruthy();
+  view.rerender(<ActivityTimeline steps={plannedSteps} active={false} durationMs={230000} />);
+  fireEvent.click(screen.getByRole("button", { name: "Took 3m 50s" }));
+  expect(screen.queryByRole("img", { name: "In progress" })).toBeNull();
+  expect(screen.getByRole("img", { name: "Completed" })).toBeTruthy();
+  expect(screen.getAllByRole("img", { name: "Unfinished (turn ended)" })).toHaveLength(2);
+  expect(plan.tasks[1].status).toBe("in_progress");
+  view.unmount();
+  render(<ActivityTimeline steps={plannedSteps} active={false} durationMs={230000} />);
+  fireEvent.click(screen.getByRole("button", { name: "Took 3m 50s" }));
+  expect(screen.queryByRole("img", { name: "In progress" })).toBeNull();
+});
