@@ -385,16 +385,15 @@ test("聊天模式切换为语音界面，未选择模型不开麦，退出保�
     const svg = document.querySelector('section[aria-label="Chat mode"] [aria-hidden="true"] svg');
     return svg.innerHTML !== before;
   }, idleFrame);
-  const silentTransform = await orb.evaluate((element) => getComputedStyle(element).transform);
   await page.evaluate(async () => {
     const { SpeechPlayback } = await import("/src/features/speech/speech-playback.ts");
     SpeechPlayback.prototype.readLevel = () => 0.25;
   });
-  await page.waitForFunction((before) => {
+  await page.waitForFunction(() => {
     const panel = document.querySelector('section[aria-label="Chat mode"]');
     const orb = panel.querySelector('[aria-hidden="true"] > div');
-    return getComputedStyle(orb).transform !== before;
-  }, silentTransform);
+    return Number(getComputedStyle(orb).transform.match(/^matrix\(([^,]+)/)[1]) > 1;
+  });
   const speakingTransform = await orb.evaluate((element) => getComputedStyle(element).transform);
   assert.ok(Number(speakingTransform.match(/^matrix\(([^,]+)/)[1]) > 1, "Speaking enlarges the orb");
   await page.evaluate(async () => {
