@@ -28,9 +28,10 @@ export type AndroidState = {
 };
 export type AndroidSelector = { resourceId?: string; text?: string; textContains?: string; description?: string; className?: string; packageName?: string; focused?: boolean };
 export type AndroidNodeTarget = { selector: AndroidSelector; snapshotId?: never; nodeId?: never } | { selector?: never; snapshotId: string; nodeId: number };
+export type AndroidImageCoordinates = { screenshotId: string; coordinateSpace: import("./coordinates.js").CoordinateSpace };
 export type AndroidAction =
-  | ({ action: "tap"; timeoutMs?: number } & (AndroidNodeTarget | { x: number; y: number }))
-  | { action: "swipe"; x: number; y: number; endX: number; endY: number; durationMs?: number }
+  | ({ action: "tap"; timeoutMs?: number } & (AndroidNodeTarget | ({ x: number; y: number } & Partial<AndroidImageCoordinates>)))
+  | ({ action: "swipe"; x: number; y: number; endX: number; endY: number; durationMs?: number } & Partial<AndroidImageCoordinates>)
   | ({ action: "text"; text: string; timeoutMs?: number } & Partial<AndroidNodeTarget>)
   | { action: "key"; key: "back" | "home" | "recent" | "enter" | "delete" }
   | { action: "wait"; selector: AndroidSelector; state: "present" | "absent"; timeoutMs?: number };

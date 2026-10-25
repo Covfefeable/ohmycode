@@ -2,12 +2,14 @@ import { EventEmitter } from "node:events";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { AndroidHost } from "../../../packages/android-use/src/android-host";
 import { actionArguments } from "../../../packages/android-use/src/command";
+import { ScreenshotCoordinates } from "../../../packages/android-use/src/coordinates";
 import { createAndroidPlugin } from "../../../packages/android-use/src/index";
 import { ToolRegistry } from "../../../packages/agent-runtime/src/tool-registry";
 
 const mocks = vi.hoisted(() => ({ spawn: vi.fn(), run: vi.fn(), mkdir: vi.fn(), writeFile: vi.fn() }));
 const automation = vi.hoisted(() => ({ controller: new AbortController(), start: vi.fn(), close: vi.fn(), act: vi.fn(), snapshot: vi.fn(), screen: vi.fn(), invalidate: vi.fn() }));
 vi.mock("../../../packages/android-use/src/automation/automation", () => ({ AndroidAutomation: class {
+  screenshots = new ScreenshotCoordinates();
   get signal() { return automation.controller.signal; }
   start = automation.start; close = automation.close; act = automation.act; snapshot = automation.snapshot; screen = automation.screen; invalidate = automation.invalidate;
 } }));
@@ -215,7 +217,7 @@ it.each([0, 20])("截图延迟 %ims 后才采集，保持图片和坐标元数�
     await Promise.resolve();
     expect(automation.screen).not.toHaveBeenCalled();
   }
-  expect(await capture).toMatchObject({ contentKind: "image", width: 1080, height: 1920, screen, dataUrl: `data:image/png;base64,${png.toString("base64")}` });
+  expect(await capture).toMatchObject({ contentKind: "image", screenshotId: expect.any(String), width: 1080, height: 1920, screen, dataUrl: `data:image/png;base64,${png.toString("base64")}` });
   expect(mocks.run.mock.calls.filter(([, args]) => args.includes("screencap"))).toHaveLength(1);
 });
 

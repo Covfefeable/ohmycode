@@ -44,6 +44,25 @@ it("操作反馈携带设备屏幕尺寸，复用节点 bounds 和命令坐标�
   expect(shell).toHaveBeenCalledWith(["shell", "input", "swipe", "10", "20", "90", "120", "400"]);
 });
 
+it("视觉动作执行转换后的坐标，结果与遮罩共用坐标，旋转后不执行", async () => {
+  const reference = automation.screenshots.capture(960, 540, { width: 1920, height: 1080, rotation: 1 });
+  await automation.snapshot();
+  const args = { action: "tap", screenshotId: reference.screenshotId, coordinateSpace: "image-pixels", x: 120, y: 200 };
+  const shell = vi.fn();
+  const feedback = vi.fn();
+  await expect(automation.act(null, shell, undefined, feedback, true)).rejects.toThrow("android_invalid_action");
+  await expect(automation.act({ action: "tap", x: 1, y: 2 }, shell, undefined, feedback, true)).rejects.toThrow("android_screenshot_required");
+  await expect(automation.act({ ...args, coordinateSpace: undefined }, shell, undefined, feedback, true)).rejects.toThrow("android_invalid_coordinate_space");
+  expect(await automation.act(args, shell, undefined, feedback, true)).toMatchObject({ executed: true, coordinates: { screenshotId: reference.screenshotId, points: [{ x: 240, y: 400 }] } });
+  expect(shell).toHaveBeenCalledWith(["shell", "input", "tap", "240", "400"]);
+  expect(feedback).toHaveBeenCalledWith([{ x: 240, y: 400 }], undefined, { width: 1920, height: 1080 });
+  await expect(automation.act({ ...args, selector: { text: "搜索" } }, shell)).rejects.toThrow("android_invalid_action");
+  const call = mocks.call.getMockImplementation()!;
+  mocks.call.mockImplementation(async (method, params) => method === "deviceInfo" ? { displayWidth: 1080, displayHeight: 1920, displayRotation: 0 } : call(method, params));
+  await expect(automation.act(args, shell)).rejects.toThrow("android_layout_changed");
+  expect(shell).toHaveBeenCalledTimes(1);
+});
+
 it("选择器歧义或禁用控件不执行点击，失败不自动换坐标", async () => {
   mocks.call.mockImplementation(async (method) => method === "waitForExists" ? true : method === "dumpWindowHierarchy" ? '<hierarchy><node text="发送"/><node text="发送"/></hierarchy>' : undefined);
   expect(await automation.act({ action: "tap", selector: { text: "发送" } }, vi.fn())).toMatchObject({ executed: false, error: "android_node_ambiguous", totalMatches: 2, truncated: false, snapshotId: expect.any(String), candidates: [{ id: 1, text: "发送" }, { id: 2, text: "发送" }] });

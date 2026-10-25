@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { OperationPoint, PointerFeedback } from "@ohmycode/tool-contracts";
 import { setTimeout as delay } from "node:timers/promises";
 import { actionArguments } from "../command.js";
+import { ScreenshotCoordinates } from "../coordinates.js";
 import { compactSnapshot } from "../snapshot.js";
 import type { AdbTarget, AndroidSelector } from "../types.js";
 import { UiAutomatorServer } from "./server.js";
@@ -24,19 +25,20 @@ function sameReference(previous: Snapshot, current: ReturnType<typeof compactSna
 }
 
 export class AndroidAutomation {
+  readonly screenshots = new ScreenshotCoordinates();
   private readonly server: UiAutomatorServer;
   private latest?: Snapshot;
   constructor(target: AdbTarget, root: string, fetcher: typeof fetch = fetch) { this.server = new UiAutomatorServer(target, root, fetcher); }
   get signal(): AbortSignal { return this.server.signal; }
   start(signal?: AbortSignal) { return this.server.start(signal); }
   close() { this.invalidate(); return this.server.close(); }
-  invalidate(): void { this.latest = undefined; }
+  invalidate(): void { this.latest = undefined; this.screenshots.invalidate(); }
   async screen(signal?: AbortSignal) {
     const info = await this.server.call<DeviceInfo>("deviceInfo", [], signal);
     return { width: info.displayWidth, height: info.displayHeight, rotation: info.displayRotation, coordinates: "screen-pixels" as const };
   }
   async snapshot(signal?: AbortSignal) {
-    this.invalidate();
+    this.latest = undefined;
     const xml = await this.server.call<string>("dumpWindowHierarchy", [false], signal);
     const parsed = compactSnapshot(xml);
     const screen = await this.screen(signal);
@@ -115,9 +117,14 @@ export class AndroidAutomation {
     const { width, height } = await this.screen(signal);
     feedback(points, durationMs, { width, height });
   }
-  async act(input: unknown, shell: (args: string[]) => Promise<unknown>, signal?: AbortSignal, feedback?: PointerFeedback): Promise<unknown> {
+  async act(input: unknown, shell: (args: string[]) => Promise<unknown>, signal?: AbortSignal, feedback?: PointerFeedback, requireScreenshot = false): Promise<unknown> {
     if (!input || typeof input !== "object" || Array.isArray(input)) throw new Error("android_invalid_action");
     const args = input as Record<string, unknown>;
+    const coordinateAction = args.action === "swipe" || (args.action === "tap" && args.selector === undefined && args.nodeId === undefined && args.snapshotId === undefined);
+    if (requireScreenshot && coordinateAction && (typeof args.screenshotId !== "string" || !args.screenshotId)) throw new Error("android_screenshot_required");
+    if (requireScreenshot && coordinateAction && args.coordinateSpace !== "image-pixels" && args.coordinateSpace !== "normalized-1000") throw new Error("android_invalid_coordinate_space");
+    const visual = args.screenshotId !== undefined || args.coordinateSpace !== undefined;
+    if (visual && (!(args.action === "tap" || args.action === "swipe") || args.selector !== undefined || args.snapshotId !== undefined || args.nodeId !== undefined)) throw new Error("android_invalid_action");
     if (args.action === "wait") {
       if (args.state !== "present" && args.state !== "absent") throw new Error("android_invalid_action");
       const selector = parseSelector(args.selector);
@@ -148,14 +155,17 @@ export class AndroidAutomation {
       if ("error" in result) return { executed: true, textMatched: null, ...result };
       return { executed: true, text: result.node.text, textMatched: result.node.text === text };
     }
-    const command = actionArguments(args);
+    const mapped = visual
+      ? this.screenshots.resolve(args, await this.screen(signal)) : undefined;
+    const command = actionArguments(mapped?.command ?? args);
     if (args.action === "tap" || args.action === "swipe") {
       const points = [{ x: Number(command[3]), y: Number(command[4]) }];
       if (args.action === "swipe") points.push({ x: Number(command[5]), y: Number(command[6]) });
       await this.reportPointer(feedback, points, args.action === "swipe" ? Number(command[7]) : undefined, signal);
     }
-    this.invalidate();
+    this.latest = undefined;
+    if (!mapped) this.screenshots.invalidate();
     await shell(command);
-    return { executed: true };
+    return { executed: true, ...(mapped ? { coordinates: mapped.coordinates } : {}) };
   }
 }

@@ -203,7 +203,8 @@ export class AndroidHost {
       const screen = await automation.screen(signal);
       const width = png.readUInt32BE(16), height = png.readUInt32BE(20);
       if (before.rotation !== screen.rotation || screen.width !== width || screen.height !== height) throw new Error("android_layout_changed");
-      return { contentKind: "image" as const, dataUrl: `data:image/png;base64,${png.toString("base64")}`, mimeType: "image/png", byteLength: png.length, width, height, screen };
+      const reference = automation.screenshots.capture(width, height, screen);
+      return { contentKind: "image" as const, dataUrl: `data:image/png;base64,${png.toString("base64")}`, mimeType: "image/png", byteLength: png.length, ...reference, screen };
     }, signal);
   }
   async snapshot(conversationId: string, signal?: AbortSignal) {
@@ -217,7 +218,7 @@ export class AndroidHost {
       try {
         return await automation.act(args, (command) => this.adb(command, signal, target), signal, (points, durationMs = 350, size) => {
           this.update({ operation: { active: true, pointer: { id: ++this.pointerSequence, points, durationMs, size } } });
-        });
+        }, true);
       } finally { this.update({ operation: { ...this.current.operation, active: false } }); }
     }, signal);
   }
