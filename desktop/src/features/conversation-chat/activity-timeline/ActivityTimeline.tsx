@@ -1,128 +1,16 @@
 import { useEffect, useState } from "react";
-import { mcpToolDisplayName } from "@ohmycode/tool-contracts";
-import { Check, ChevronDown, Circle, CircleX, FilePenLine, FileSearch, FileText, FolderOpen, Image, ListChecks, LoaderCircle, TerminalSquare, Wrench } from "lucide-react";
+import { Check, ChevronDown, Circle, ListChecks, LoaderCircle } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { MarkdownContent } from "../../../shared/ui/markdown-content";
-import styles from "./ActivityTimeline.module.css";
-import { presentToolActivity } from "./tool-presentation";
+import { ActivitySequence } from "./ActivitySequence";
 import { useActivityExpansion } from "./expansion-state";
-import { ToolResultView } from "./ToolResultView";
-
-function ToolStep({ step }: { step: Extract<AgentActivityStep, { type: "tool" }> }) {
-  const { t } = useTranslation();
-  const [open, setOpen] = useActivityExpansion(`${step.id}-${step.status}`, step.status === "running");
-  const presentation = presentToolActivity(step.tool, step.input, step.result);
-  const { command, displayResource: displayedFilePath, failed, projectId, resource: clickableFilePath, result } = presentation;
-  const fileLabelKey = step.status === "running"
-    ? presentation.labels?.running
-    : failed ? presentation.labels?.failed : presentation.labels?.completed;
-  const FileIcon = presentation.icon === "file" ? FileText : presentation.icon === "edit" ? FilePenLine : presentation.icon === "search" ? FileSearch : presentation.icon === "image" ? Image : FolderOpen;
-  if (presentation.kind === "file") return <div className={styles.step}>
-    <div
-      className={styles.fileStepHead}
-      role="button"
-      tabIndex={0}
-      aria-expanded={open}
-      onClick={() => setOpen((value) => !value)}
-      onKeyDown={(event) => {
-        if (event.key !== "Enter" && event.key !== " ") return;
-        event.preventDefault();
-        setOpen((value) => !value);
-      }}
-    >
-      {step.status === "running" ? <LoaderCircle className={styles.spinner} /> : failed ? <CircleX className={styles.failed} /> : <Check />}
-      <FileIcon />
-      <span>{t(fileLabelKey ?? "agent.usingFileTool")}</span>
-      {clickableFilePath
-        ? <button
-            className={styles.pathLink}
-            type="button"
-            title={clickableFilePath}
-            onClick={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              void window.ohmycode.openPath(clickableFilePath, projectId);
-            }}
-          >{displayedFilePath}</button>
-        : displayedFilePath ? <span>{displayedFilePath}</span> : null}
-      <button className={styles.expandButton} type="button" aria-expanded={open} onClick={(event) => { event.stopPropagation(); setOpen((value) => !value); }}><ChevronDown className={`${styles.chevron} ${open ? styles.chevronOpen : ""}`} /></button>
-    </div>
-    {open && <ToolResultView presentation={presentation} completed={step.status === "completed"} />}
-  </div>;
-  const genericTool = presentation.kind === "generic";
-  const GenericIcon = genericTool ? Wrench : TerminalSquare;
-  return <div className={styles.step}>
-    <button className={styles.stepHead} type="button" onClick={() => setOpen((value) => !value)}>
-      {step.status === "running" ? <LoaderCircle className={styles.spinner} /> : failed ? <CircleX className={styles.failed} /> : <Check />}
-      <GenericIcon />
-      <span>{genericTool
-        ? t(step.status === "running" ? "agent.usingTool" : failed ? "agent.toolFailed" : "agent.usedTool")
-        : t(step.status === "running" ? "agent.runningCommand" : failed ? "agent.commandFailed" : "agent.ranCommand")}</span>
-      <code>{genericTool ? mcpToolDisplayName(step.tool) : command}</code>
-      <ChevronDown className={`${styles.chevron} ${open ? styles.chevronOpen : ""}`} />
-    </button>
-    {open && result && <pre className={styles.output}>{result}</pre>}
-  </div>;
-}
-
-function ReasoningStep({ step }: { step: Extract<AgentActivityStep, { type: "reasoning" }> }) {
-  const { t } = useTranslation();
-  const [open, setOpen] = useActivityExpansion(`${step.id}-${step.status}`, step.status === "running");
-  return <div className={styles.step}>
-    <button className={styles.stepHead} type="button" onClick={() => setOpen((value) => !value)}>
-      {step.status === "running" ? <LoaderCircle className={styles.spinner} /> : <Check />}
-      <span>{t(step.status === "running" ? "agent.thinking" : "agent.thought")}</span>
-      <ChevronDown className={`${styles.chevron} ${open ? styles.chevronOpen : ""}`} />
-    </button>
-    {open && <div className={styles.reasoning}><MarkdownContent>{step.content}</MarkdownContent></div>}
-  </div>;
-}
-
-function MessageStep({ step }: { step: Extract<AgentActivityStep, { type: "message" }> }) {
-  if (!step.content) return null;
-  return <div className={styles.progressMessage}><MarkdownContent>{step.content}</MarkdownContent></div>;
-}
-
-function ContextStep({ step }: { step: Extract<AgentActivityStep, { type: "context" }> }) {
-  const { t } = useTranslation();
-  return <div className={styles.step}>
-    <div className={styles.contextStep}>
-      {step.status === "running" ? <LoaderCircle className={styles.spinner} /> : <Check />}
-      <span>{t(step.status === "running" ? "agent.compactingContext" : "agent.compactedContext")}</span>
-    </div>
-  </div>;
-}
-
-function ActivityStep({ step }: { step: AgentActivityStep }) {
-  if (step.type === "run" || step.type === "task_plan") return null;
-  if (step.type === "reasoning") return <ReasoningStep step={step} />;
-  if (step.type === "message") return <MessageStep step={step} />;
-  if (step.type === "context") return <ContextStep step={step} />;
-  return <ToolStep step={step} />;
-}
-
-function TaskGroup({ task, steps }: { task: AgentTask; steps: AgentActivityStep[] }) {
-  const [manuallyOpen, setManuallyOpen] = useActivityExpansion(`task-${steps[0]?.id ?? task.id}`, false);
-  const open = task.status === "in_progress" || manuallyOpen;
-  const StatusIcon = task.status === "completed" ? Check : task.status === "in_progress" ? LoaderCircle : Circle;
-  return <div className={styles.taskGroup}>
-    <button className={styles.taskHead} type="button" onClick={() => setManuallyOpen((value) => !value)}>
-      <StatusIcon className={task.status === "in_progress" ? styles.spinner : undefined} />
-      <span>{task.content}</span>
-      {steps.length > 0 && <ChevronDown className={`${styles.chevron} ${open ? styles.chevronOpen : ""}`} />}
-    </button>
-    {open && steps.length > 0 && <div className={styles.taskSteps}>{steps.map((step) => <ActivityStep key={`${step.id}-${"status" in step ? step.status : "plan"}`} step={step} />)}</div>}
-  </div>;
-}
+import styles from "./ActivityTimeline.module.css";
 
 function RunSection({ steps, active, duration }: { steps: AgentActivityStep[]; active: boolean; duration?: string }) {
   const { t } = useTranslation();
-  const [manuallyOpen, setManuallyOpen] = useActivityExpansion(`run-${steps[0]?.id}`, false);
-  const open = active || manuallyOpen;
+  const [open, setOpen] = useActivityExpansion(`run-${steps[0]?.id}-${active ? "active" : "completed"}`, active);
   const plan = [...steps].reverse().find((step): step is Extract<AgentActivityStep, { type: "task_plan" }> => step.type === "task_plan");
-  const ordinarySteps = steps.filter((step) => step.type !== "task_plan" && !step.taskId && step.type !== "run");
   return <div className={styles.runSection}>
-    <button className={styles.summary} type="button" onClick={() => setManuallyOpen((value) => !value)}>
+    <button className={styles.runStatus} type="button" aria-expanded={open} onClick={() => setOpen((value) => !value)}>
       {active ? <LoaderCircle className={styles.spinner} /> : <Check />}
       <span>{active ? t("agent.working") : duration ?? t("agent.steps")}</span>
       <ChevronDown className={`${styles.chevron} ${open ? styles.chevronOpen : ""}`} />
@@ -130,9 +18,15 @@ function RunSection({ steps, active, duration }: { steps: AgentActivityStep[]; a
     {open && <div className={styles.steps}>
       {plan && <div className={styles.taskList}>
         <div className={styles.taskListLabel}><ListChecks /><span>{t("agent.taskList")}</span></div>
-        {plan.tasks.map((task) => <TaskGroup key={task.id} task={task} steps={steps.filter((step) => step.type !== "task_plan" && step.type !== "run" && step.taskId === task.id)} />)}
+        {plan.tasks.map((task) => {
+          const StatusIcon = task.status === "completed" ? Check : task.status === "in_progress" ? LoaderCircle : Circle;
+          return <div key={task.id} className={styles.taskHead}>
+            <StatusIcon className={task.status === "in_progress" ? styles.spinner : undefined} />
+            <span>{task.content}</span>
+          </div>;
+        })}
       </div>}
-      {ordinarySteps.map((step) => <ActivityStep key={`${step.id}-${"status" in step ? step.status : "plan"}`} step={step} />)}
+      <ActivitySequence steps={steps} />
     </div>}
   </div>;
 }
@@ -163,6 +57,6 @@ export function ActivityTimeline({ steps, active, durationMs, startedAt }: { ste
   const visibleRuns = runs.filter((run) => run.length > 0);
   return <div className={styles.timeline}>{visibleRuns.map((run, index) => {
     const isLast = index === visibleRuns.length - 1;
-    return <RunSection key={`${run[0]?.id ?? "run"}-${index}`} steps={run} active={active && isLast} duration={isLast && hasDuration ? duration : undefined} />;
+    return <RunSection key={`${run[0]?.id ?? "run"}-${index}-${active && isLast ? "active" : "completed"}`} steps={run} active={active && isLast} duration={isLast && hasDuration ? duration : undefined} />;
   })}</div>;
 }

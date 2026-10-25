@@ -1,19 +1,26 @@
 .timeline { width: 100%; display: grid; gap: var(--space-4); margin-bottom: var(--space-3); color: var(--color-text-muted); }
 .runSection { min-width: 0; display: grid; gap: var(--space-1); }
 .runSection + .runSection { border-top: 1px solid var(--color-border); padding-top: var(--space-3); }
-.summary { width: max-content; max-width: 100%; display: inline-flex; align-items: center; gap: var(--space-2); border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--color-text-muted); padding: 6px 8px; font: inherit; font-size: var(--font-sm); cursor: pointer; }
-.summary:hover { background: var(--color-surface-icon-hover); color: var(--color-text); }
-.summary svg { width: 15px; height: 15px; }
+.runStatus { width: max-content; max-width: 100%; display: flex; align-items: center; gap: var(--space-2); padding: 6px 8px; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--color-text-muted); font: inherit; font-size: var(--font-sm); cursor: pointer; }
+.runStatus:hover { background: var(--color-surface-icon-hover); color: var(--color-text); }
+.runStatus svg { width: 15px; height: 15px; }
 .steps { display: grid; gap: var(--space-1); }
+.executionGroup { min-width: 0; }
+.groupSteps { position: relative; padding-left: 23px; }
+.groupSteps::before { content: ""; position: absolute; top: 0; bottom: 0; left: 15px; width: 1px; background: var(--color-border-strong); pointer-events: none; }
+.groupHead { display: flex; align-items: center; gap: var(--space-2); max-width: 100%; border: 0; border-radius: var(--radius-sm); padding: 6px 8px; background: transparent; color: var(--color-text-muted); font: inherit; font-size: var(--font-sm); line-height: 1.6; text-align: left; cursor: pointer; }
+.groupHead:hover { background: var(--color-surface-icon-hover); color: var(--color-text); }
+.groupHead span { min-width: 0; }
+.groupHead svg { width: 15px; height: 15px; flex: none; }
+.groupChevron { transform: rotate(-90deg); transition: transform var(--transition-fast); }
+.groupChevron.chevronOpen { transform: rotate(0); }
 .taskList { display: grid; gap: 2px; margin: 2px 8px var(--space-2); border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface-soft); padding: var(--space-2); }
 .taskListLabel { display: flex; align-items: center; gap: var(--space-2); padding: 3px 6px 6px; color: var(--color-text-dim); font-size: var(--font-xs); }
 .taskListLabel svg, .taskHead svg { width: 14px; height: 14px; flex: none; }
-.taskGroup { min-width: 0; }
-.taskHead { width: 100%; min-width: 0; display: flex; align-items: center; gap: var(--space-2); border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--color-text-soft); padding: 6px; font: inherit; font-size: var(--font-sm); text-align: left; cursor: pointer; }
-.taskHead:hover { background: var(--color-surface-icon-hover); color: var(--color-text); }
+.taskHead { width: 100%; min-width: 0; display: flex; align-items: center; gap: var(--space-2); color: var(--color-text-muted); padding: 6px; font-size: var(--font-sm); }
 .taskHead span { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.taskSteps { display: grid; gap: 1px; margin-left: 13px; border-left: 1px solid var(--color-border); padding-left: 7px; }
-.progressMessage { padding: 5px 8px; color: var(--color-text-soft); font-size: var(--font-chat); line-height: 1.65; }
+.progressMessage { padding: 5px 8px; color: var(--color-text-muted); font-size: var(--font-chat); line-height: 1.65; }
+.progressMessage, .reasoning { --color-text: var(--color-text-muted); --color-text-soft: var(--color-text-muted); }
 .progressMessage > :first-child { margin-top: 0; }
 .progressMessage > :last-child { margin-bottom: 0; }
 .step { min-width: 0; }
@@ -36,9 +43,9 @@
 .failed { color: var(--color-danger); }
 .chevron { margin-left: auto; transition: transform var(--transition-fast); }
 .chevronOpen { transform: rotate(180deg); }
-.reasoning, .output { max-height: 320px; overflow: auto; margin: 2px 8px var(--space-2) 30px; border-left: 1px solid var(--color-border-strong); padding: var(--space-2) var(--space-4); color: var(--color-text-dim); font-size: var(--font-sm); line-height: 1.65; }
+.reasoning, .output { max-height: 320px; overflow: auto; margin: 2px 8px var(--space-2); padding: var(--space-2) 0; color: var(--color-text-dim); font-size: var(--font-sm); line-height: 1.65; }
 .reasoning > :first-child { margin-top: 0; }
 .reasoning > :last-child { margin-bottom: 0; }
 .output { border-radius: var(--radius-sm); border-left: 0; background: var(--color-surface-deep); white-space: pre-wrap; overflow-wrap: anywhere; }
-.diffLoading { margin: 2px 8px var(--space-2) 30px; padding: var(--space-4); color: var(--color-text-dim); font-size: var(--font-sm); }
+.diffLoading { margin: 2px 8px var(--space-2); padding: var(--space-4); color: var(--color-text-dim); font-size: var(--font-sm); }
 @keyframes spin { to { transform: rotate(360deg); } }

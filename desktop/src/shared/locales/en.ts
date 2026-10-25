@@ -249,6 +249,13 @@ export const en = {
     durationHours: "Took {{hours}}h {{minutes}}m {{seconds}}s",
     steps: "Activity",
     taskList: "Task list",
+    groupReads: "Read files",
+    groupEdits: "Edited files",
+    groupCommands: "Ran commands",
+    groupBrowser: "Used browser",
+    groupAndroid: "Used Android device",
+    groupTools: "Called tools",
+    groupSeparator: ", ",
   },
   multiAgent: {
     title: "Agent collaboration",

@@ -97,8 +97,8 @@ function resultText(value: unknown): string {
   return value ? JSON.stringify(value, null, 2) : "";
 }
 
-function failed(value: unknown): boolean {
-  if (Array.isArray(value)) return value.some(failed);
+export function toolResultFailed(value: unknown): boolean {
+  if (Array.isArray(value)) return value.some(toolResultFailed);
   const result = record(value);
   return typeof result.error === "string"
     || (typeof result.exitCode === "number" && result.exitCode !== 0);
@@ -132,7 +132,7 @@ export function presentToolActivity(toolName: string, rawInput: unknown, rawResu
     changes,
     command: input.command ? String(input.command) : `${action} ${String(input.terminalId || "")}`.trim(),
     displayResource: resourceName(resource || imageReference),
-    failed: failed(rawResult),
+    failed: toolResultFailed(rawResult),
     input,
     projectId: typeof input.projectId === "string" ? input.projectId : undefined,
     resource,

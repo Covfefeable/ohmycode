@@ -248,6 +248,13 @@ export const zhCN = {
     durationHours: "耗时 {{hours}}小时{{minutes}}分{{seconds}}秒",
     steps: "执行步骤",
     taskList: "任务清单",
+    groupReads: "读取了文件",
+    groupEdits: "编辑了文件",
+    groupCommands: "执行了命令",
+    groupBrowser: "操作了浏览器",
+    groupAndroid: "操作了安卓设备",
+    groupTools: "调用了工具",
+    groupSeparator: "，",
   },
   multiAgent: {
     title: "Agent 协作",
