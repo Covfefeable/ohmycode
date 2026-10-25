@@ -1,6 +1,7 @@
 import { BrowserHost } from "@ohmycode/browser-use";
 import { BrowserWindow } from "electron";
 import { DetachedBrowserWindows } from "./detached-browser-window.js";
+import { NativeOperationOverlay } from "./operation-overlay.js";
 
 const hosts = new Map<number, BrowserHost>();
 const detached = new Map<number, DetachedBrowserWindows>();
@@ -20,7 +21,7 @@ export function browserForWindow(window: BrowserWindow): BrowserHost {
     host = new BrowserHost(window, (id, state) => {
       window.webContents.send(`browser:state:${id}`, state);
       detached.get(window.id)?.publish(id, state);
-    });
+    }, () => new NativeOperationOverlay());
     hosts.set(window.id, host);
     detached.set(window.id, new DetachedBrowserWindows(window, host));
     window.once("closed", () => { hosts.delete(window.id); detached.delete(window.id); });

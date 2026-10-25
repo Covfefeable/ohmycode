@@ -41,6 +41,43 @@ beforeEach(() => {
 });
 afterEach(async () => { await host.close(); vi.useRealTimers(); });
 
+it("控件服务失联不再保持运行中，不重放操作，重新连接会重建服务", async () => {
+  await host.start("owner");
+  automation.act.mockRejectedValueOnce(new Error("android_automation_unavailable"));
+  await expect(host.act("owner", { action: "tap", x: 10, y: 20 }, undefined, "agent")).rejects.toThrow("android_automation_unavailable");
+  expect(host.state()).toMatchObject({ phase: "error", error: "android_automation_unavailable" });
+  expect(host.state().ownerConversationId).toBeUndefined();
+  expect(automation.act).toHaveBeenCalledOnce();
+  expect(automation.close).toHaveBeenCalledOnce();
+  expect(automation.start).toHaveBeenCalledOnce();
+  automation.controller = new AbortController();
+  await host.start("owner");
+  expect(automation.start).toHaveBeenCalledTimes(2);
+  expect(host.state()).toMatchObject({ phase: "running", ownerConversationId: "owner" });
+  expect(host.state().error).toBeUndefined();
+});
+
+it("Agent 操作期间拦截人工输入，异常后解锁且不改变工具结果", async () => {
+  await host.start("owner");
+  let finish!: () => void;
+  automation.act.mockImplementationOnce(async (_args, _shell, _signal, feedback) => {
+    feedback([{ x: 10, y: 20 }]);
+    await new Promise<void>((resolve) => { finish = resolve; });
+    throw new Error("action_failed");
+  });
+  const operation = host.act("owner", { action: "tap", x: 10, y: 20 }, undefined, "agent");
+  const rejected = expect(operation).rejects.toThrow("action_failed");
+  await vi.waitFor(() => expect(host.state().operation).toMatchObject({ active: true, pointer: { points: [{ x: 10, y: 20 }] } }));
+  host.type("owner", "blocked");
+  host.touch("owner", []);
+  await host.act("owner", { action: "key", key: "home" });
+  expect(automation.act).toHaveBeenCalledTimes(1);
+  finish();
+  await rejected;
+  expect(host.state().operation?.active).toBe(false);
+  expect(await host.act("owner", { action: "key", key: "home" })).toEqual({ executed: true });
+});
+
 it("本轮结束后三分钟释放设备，期间保持独占，新一轮取消旧计时", async () => {
   await host.start("owner");
   vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });

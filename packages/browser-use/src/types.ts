@@ -9,7 +9,7 @@ export type BrowserTab = {
 };
 
 export type BrowserDownload = { id: string; pageId: string; filename: string; path: string; state: string; receivedBytes: number; totalBytes: number; error?: string };
-export type BrowserState = { tabs: BrowserTab[]; selectedId: string | null; opened: boolean; detached: boolean; downloads?: BrowserDownload[] };
+export type BrowserState = { tabs: BrowserTab[]; selectedId: string | null; opened: boolean; detached: boolean; downloads?: BrowserDownload[]; operating?: boolean };
 export type BrowserBounds = { x: number; y: number; width: number; height: number };
 export type BrowserCommand =
   | { action: "new"; url?: string }

@@ -1,4 +1,5 @@
 export const zhCN = {
+  operationFeedback: { operating: "Agent 正在操作中" },
   lab: { title: "实验室", description: "尝试仍在完善中的本机能力。", experimental: "实验性" },
   android: {
     devices: {
@@ -14,7 +15,7 @@ export const zhCN = {
     },
     errors: {
       android_automation_download_failed: "控件服务下载失败，请检查网络后重试。", android_automation_checksum_failed: "控件服务校验失败，请重新下载。",
-      android_automation_start_failed: "控件服务启动失败，请检查设备是否被其他自动化程序占用。", android_automation_unavailable: "控件服务连接已中断，请断开并重新连接设备。", android_automation_failed: "控件操作失败，请重新查看当前界面后重试。",
+      android_automation_start_failed: "控件服务启动失败，请检查设备是否被其他自动化程序占用。", android_automation_unavailable: "控件服务连接已中断，请重新连接设备。", android_automation_failed: "控件操作失败，请重新查看当前界面后重试。",
       android_snapshot_expired: "节点引用已失效，请重新获取设备快照。", android_node_not_found: "未找到目标控件，请重新查看当前界面。", android_node_ambiguous: "有多个匹配控件，请补充定位条件。", android_node_disabled: "目标控件当前不可用。", android_node_requires_selector: "该节点缺少可定位属性，请使用选择器或截图坐标。",
       android_invalid_selector: "控件定位条件无效。", android_invalid_timeout: "等待时长无效。", android_invalid_text: "输入文本或输入方式无效。", android_action_rejected: "设备未接受此次控件操作。", android_layout_changed: "设备方向已变化，请重新获取快照或截图。",
       android_operation_failed: "Android 操作失败，请检查设备连接后重试。", android_adb_missing: "未找到 ADB，请先安装连接组件或选择已有目录。",

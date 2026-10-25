@@ -1,5 +1,6 @@
 import type { WebContents } from "electron";
 import process from "node:process";
+import type { PointerFeedback } from "@ohmycode/tool-contracts";
 
 type Point = { x: number; y: number };
 // CDP key events do not resolve macOS native editing shortcuts automatically.
@@ -21,7 +22,7 @@ export async function targetPoint(page: WebContents, nodeId: unknown, x: unknown
   return { x, y };
 }
 
-export async function pointerAction(page: WebContents, args: Record<string, unknown>): Promise<void> {
+export async function pointerAction(page: WebContents, args: Record<string, unknown>, feedback?: PointerFeedback): Promise<void> {
   const start = await targetPoint(page, args.nodeId, args.x, args.y);
   await page.debugger.sendCommand("Input.dispatchMouseEvent", { type: "mouseMoved", ...start });
   if (args.action === "hover") return;
@@ -29,6 +30,7 @@ export async function pointerAction(page: WebContents, args: Record<string, unkn
   if (args.action === "drag") {
     // Both endpoints must share the viewport; do not scroll after resolving the source.
     const end = await targetPoint(page, args.targetNodeId, args.targetX, args.targetY, false);
+    feedback?.([start, end]);
     await page.debugger.sendCommand("Input.dispatchMouseEvent", { type: "mousePressed", ...start, button, clickCount: 1 });
     try {
       for (let step = 1; step <= 12; step++) {
@@ -38,6 +40,7 @@ export async function pointerAction(page: WebContents, args: Record<string, unkn
     return;
   }
   const count = args.action === "double_click" ? 2 : 1;
+  feedback?.([start]);
   for (let clickCount = 1; clickCount <= count; clickCount++) {
     await page.debugger.sendCommand("Input.dispatchMouseEvent", { type: "mousePressed", ...start, button, clickCount });
     await page.debugger.sendCommand("Input.dispatchMouseEvent", { type: "mouseReleased", ...start, button, clickCount });

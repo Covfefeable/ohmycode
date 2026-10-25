@@ -44,7 +44,10 @@ export class UiAutomatorServer {
       if (line) this.pid = line[1];
     });
     this.child.once("error", (error) => { this.processError = error; this.exited = true; });
-    this.child.once("exit", () => { this.exited = true; });
+    this.child.once("exit", (code, signal) => {
+      this.exited = true;
+      if (!this.controller.signal.aborted) console.warn("[android] Automation process exited", { code, signal });
+    });
     this.port = (await this.command(["forward", "tcp:0", `tcp:${devicePort}`], active)).toString().trim();
     const deadline = Date.now() + 30_000;
     let ready = false;
@@ -74,9 +77,13 @@ export class UiAutomatorServer {
     try { response = await fetch(`http://127.0.0.1:${this.port}/jsonrpc/0`, { method: "POST", headers: { "Content-Type": "application/json; charset=utf-8" }, body, signal: active }); }
     catch (error) {
       if (this.controller.signal.aborted || signal?.aborted) throw error;
+      console.warn("[android] Automation RPC connection failed", { method, error });
       throw new Error("android_automation_unavailable", { cause: error });
     }
-    if (!response.ok) throw new Error("android_automation_unavailable");
+    if (!response.ok) {
+      console.warn("[android] Automation RPC HTTP error", { method, status: response.status });
+      throw new Error("android_automation_unavailable");
+    }
     const reply = await response.json() as { result: T; error?: { code: number; message: string } };
     if (reply.error) throw new Error(reply.error.message === "androidx.test.uiautomator.UiObjectNotFoundException" ? "android_node_not_found" : "android_automation_failed");
     return reply.result;

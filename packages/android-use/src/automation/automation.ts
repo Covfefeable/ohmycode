@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import type { OperationPoint, PointerFeedback } from "@ohmycode/tool-contracts";
 import { setTimeout as delay } from "node:timers/promises";
 import { actionArguments } from "../command.js";
 import { compactSnapshot } from "../snapshot.js";
@@ -109,7 +110,12 @@ export class AndroidAutomation {
     if (!node.enabled) throw new Error("android_node_disabled");
     return { query, node };
   }
-  async act(input: unknown, shell: (args: string[]) => Promise<unknown>, signal?: AbortSignal): Promise<unknown> {
+  private async reportPointer(feedback: PointerFeedback | undefined, points: OperationPoint[], durationMs?: number, signal?: AbortSignal): Promise<void> {
+    if (!feedback) return;
+    const { width, height } = await this.screen(signal);
+    feedback(points, durationMs, { width, height });
+  }
+  async act(input: unknown, shell: (args: string[]) => Promise<unknown>, signal?: AbortSignal, feedback?: PointerFeedback): Promise<unknown> {
     if (!input || typeof input !== "object" || Array.isArray(input)) throw new Error("android_invalid_action");
     const args = input as Record<string, unknown>;
     if (args.action === "wait") {
@@ -130,6 +136,7 @@ export class AndroidAutomation {
       const { query, node } = resolved;
       this.invalidate();
       if (selectorTap) {
+        await this.reportPointer(feedback, [{ x: (node.bounds.left + node.bounds.right) / 2, y: (node.bounds.top + node.bounds.bottom) / 2 }], undefined, signal);
         if (!await this.server.call<boolean>("click", [query], signal)) throw new Error("android_action_rejected");
         return { executed: true, selector, target: { resourceId: node.resourceName, bounds: node.bounds } };
       }
@@ -142,6 +149,11 @@ export class AndroidAutomation {
       return { executed: true, text: result.node.text, textMatched: result.node.text === text };
     }
     const command = actionArguments(args);
+    if (args.action === "tap" || args.action === "swipe") {
+      const points = [{ x: Number(command[3]), y: Number(command[4]) }];
+      if (args.action === "swipe") points.push({ x: Number(command[5]), y: Number(command[6]) });
+      await this.reportPointer(feedback, points, args.action === "swipe" ? Number(command[7]) : undefined, signal);
+    }
     this.invalidate();
     await shell(command);
     return { executed: true };

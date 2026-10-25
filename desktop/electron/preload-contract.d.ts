@@ -1,4 +1,8 @@
 interface DesktopBridge {
+    operationFeedback: {
+      hide(): void;
+      onState(callback: (state: import("@ohmycode/tool-contracts").OperationFeedback) => void): () => void;
+    };
     android: {
       installPlan(mode?: import("@ohmycode/android-use/types").AndroidInstallMode): Promise<import("@ohmycode/android-use/types").AndroidInstallPlan>;
       installation(): Promise<import("@ohmycode/android-use/types").AndroidInstallState>;

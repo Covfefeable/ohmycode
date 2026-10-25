@@ -11,6 +11,7 @@ export type AndroidDevice = { serial: string; name: string; status: "device" | "
 export type AdbTarget = { adb: string; serial: string; serverPort?: number };
 export type AndroidInstallMode = "runtime" | "tools";
 export type AndroidState = {
+  operation?: import("@ohmycode/tool-contracts").OperationFeedback;
   enabled: boolean;
   installed: boolean;
   sdkPath: string;

@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { AndroidState } from "@ohmycode/android-use/types";
 import { AndroidPanel } from "../features/android/AndroidPanel";
 import type { useAndroidVideo } from "../features/android/useAndroidVideo";
@@ -8,6 +8,9 @@ const video = vi.hoisted(() => vi.fn<typeof useAndroidVideo>(() => ({ size: { wi
 vi.mock("../features/android/useAndroidVideo", () => ({ useAndroidVideo: video }));
 vi.mock("../features/android/useAndroidPresentation", () => ({ useAndroidPresentation: () => false }));
 vi.mock("../shared/hooks/useSidePanelResize", () => ({ useSidePanelResize: () => ({ width: 400 }) }));
+
+beforeEach(() => vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} }));
+afterEach(() => vi.unstubAllGlobals());
 
 it("切换到被占用的会话立即隐藏画面并禁用订阅和控制，释放后恢复连接入口", () => {
   const state: AndroidState = { phase: "running", ownerConversationId: "owner", enabled: true, installed: true, sdkPath: "/sdk", adbReady: true, managedInstalled: false, target: { kind: "external", serial: "phone", name: "Phone" }, devices: [] };

@@ -27,6 +27,7 @@ export class AndroidHost {
   private releasing?: Promise<void>;
   private releaseTimer?: ReturnType<typeof setTimeout>;
   private pendingAction: Promise<unknown> = Promise.resolve();
+  private pointerSequence = 0;
   private current: AndroidState = {
     enabled: false, installed: false, sdkPath: "", phase: "stopped",
     target: { kind: "managed" }, devices: [], adbReady: false, managedInstalled: false,
@@ -38,7 +39,7 @@ export class AndroidHost {
   setDevices(devices: AndroidDevice[]): void { this.update({ devices }); }
   private update(change: Partial<AndroidState>): void {
     this.current = { ...this.current, ...change };
-    if (change.phase === "stopped" || change.phase === "error") { this.cancelRelease(); this.current.ownerConversationId = undefined; }
+    if (change.phase === "stopped" || change.phase === "error") { this.cancelRelease(); this.current.ownerConversationId = undefined; this.current.operation = undefined; }
     this.changed(this.state());
   }
   assertAccess(conversationId: string): void {
@@ -79,10 +80,13 @@ export class AndroidHost {
     this.update({ phase: "starting", error: undefined });
     try {
       if (setup.target.kind === "managed") {
-        await this.managed?.close();
-        this.managed = new ManagedEmulator(this.dataRoot, setup.environment!, () => {
-          if (this.current.phase === "starting" || this.current.phase === "running") this.disconnected("android_emulator_exited");
+        const previous = this.managed;
+        this.managed = undefined;
+        await previous?.close();
+        const managed = new ManagedEmulator(this.dataRoot, setup.environment!, () => {
+          if (this.managed === managed && (this.current.phase === "starting" || this.current.phase === "running")) this.disconnected("android_emulator_exited");
         });
+        this.managed = managed;
         this.target = await this.managed.start(signal);
       } else if (setup.target.kind === "external") {
         const serial = setup.target.serial;
@@ -147,6 +151,7 @@ export class AndroidHost {
   }
   touch(conversationId: string, events: AndroidTouch[]): void {
     this.assertAccess(conversationId);
+    if (this.current.operation?.active) return;
     if (!this.available || this.current.phase !== "running" || !this.video) throw new Error("android_video_not_connected");
     this.automation?.invalidate();
     this.video.touch(events);
@@ -169,6 +174,7 @@ export class AndroidHost {
   }
   type(conversationId: string, text: string): void {
     this.assertAccess(conversationId);
+    if (this.current.operation?.active) return;
     if (!this.available || this.current.phase !== "running" || !this.video) throw new Error("android_video_not_connected");
     this.automation?.invalidate();
     this.video.type(text);
@@ -203,19 +209,35 @@ export class AndroidHost {
   async snapshot(conversationId: string, signal?: AbortSignal) {
     return this.enqueue(conversationId, (automation) => automation.snapshot(signal), signal);
   }
-  async act(conversationId: string, args: unknown, signal?: AbortSignal): Promise<unknown> {
-    return this.enqueue(conversationId, (automation, target) => automation.act(args, (command) => this.adb(command, signal, target), signal), signal);
+  async act(conversationId: string, args: unknown, signal?: AbortSignal, origin: "user" | "agent" = "user"): Promise<unknown> {
+    if (origin === "user" && this.current.operation?.active) return;
+    return this.enqueue(conversationId, async (automation, target) => {
+      if (origin === "user") return automation.act(args, (command) => this.adb(command, signal, target), signal);
+      this.update({ operation: { active: true } });
+      try {
+        return await automation.act(args, (command) => this.adb(command, signal, target), signal, (points, durationMs = 350, size) => {
+          this.update({ operation: { active: true, pointer: { id: ++this.pointerSequence, points, durationMs, size } } });
+        });
+      } finally { this.update({ operation: { ...this.current.operation, active: false } }); }
+    }, signal);
   }
   private enqueue<T>(conversationId: string, execute: (automation: AndroidAutomation, target: AdbTarget) => Promise<T>, signal?: AbortSignal): Promise<T> {
     this.assertAccess(conversationId);
     const target = this.target;
     const automation = this.automation;
     if (!target || !automation || this.current.phase !== "running") throw new Error("android_not_running");
-    const operation = this.pendingAction.then(() => {
+    const operation = this.pendingAction.then(async () => {
       this.assertAccess(conversationId);
       if (!this.available || this.current.phase !== "running" || this.target !== target || this.automation !== automation) throw new Error("android_not_running");
       signal?.throwIfAborted();
-      return execute(automation, target);
+      try {
+        return await execute(automation, target);
+      } catch (error) {
+        if (error instanceof Error && error.message === "android_automation_unavailable" && this.automation === automation) {
+          this.disconnected(error.message);
+        }
+        throw error;
+      }
     });
     this.pendingAction = operation.catch(() => undefined);
     return operation;

@@ -14,6 +14,14 @@ export type ToolResult = {
   result: unknown;
 };
 
+/** Transient host presentation only; never part of a tool result or model context. */
+export type OperationPoint = { x: number; y: number };
+export type PointerFeedback = (points: OperationPoint[], durationMs?: number, size?: { width: number; height: number }) => void;
+export type OperationFeedback = {
+  active: boolean;
+  pointer?: { id: number; points: OperationPoint[]; durationMs: number; size?: { width: number; height: number } };
+};
+
 export type ToolDefinition = {
   name: string;
   description: string;

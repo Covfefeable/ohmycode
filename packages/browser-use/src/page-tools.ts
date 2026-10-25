@@ -38,7 +38,7 @@ export async function pageSnapshot(page: WebContents, args: Record<string, unkno
   return { url: page.getURL(), title: page.getTitle(), nodes: lines };
 }
 
-export async function pageAction(page: WebContents, args: Record<string, unknown>): Promise<void> {
+export async function pageAction(page: WebContents, args: Record<string, unknown>, feedback?: import("@ohmycode/tool-contracts").PointerFeedback): Promise<void> {
   if (!page.debugger.isAttached()) page.debugger.attach("1.3");
   if (args.action === "press") {
     return pressKey(page, args.key);
@@ -50,7 +50,7 @@ export async function pageAction(page: WebContents, args: Record<string, unknown
     await page.debugger.sendCommand("Input.dispatchMouseEvent", { type: "mouseWheel", ...point, deltaX, deltaY });
     return;
   }
-  if (["click", "double_click", "right_click", "hover", "drag"].includes(String(args.action))) return pointerAction(page, args);
+  if (["click", "double_click", "right_click", "hover", "drag"].includes(String(args.action))) return pointerAction(page, args, feedback);
   if (args.action === "type") {
     if (typeof args.text !== "string") throw new Error("browser_text_required");
     await page.debugger.sendCommand("Input.insertText", { text: args.text });

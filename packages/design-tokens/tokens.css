@@ -28,6 +28,7 @@
   --color-text-toolbar: #989fa8;
   --color-text-empty: #8a929c;
   --color-accent: #7dff98;
+  --color-operation: #60a5fa;
   --color-accent-soft: #24422c;
   --color-accent-ink: #071009;
   --color-danger: #e36a6a;
@@ -115,6 +116,7 @@
   --color-text-toolbar: #68706a;
   --color-text-empty: #858c87;
   --color-accent: #18843a;
+  --color-operation: #2563eb;
   --color-accent-soft: #e4f3e8;
   --color-accent-ink: #ffffff;
   --color-danger: #c63f49;

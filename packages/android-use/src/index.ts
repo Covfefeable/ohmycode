@@ -46,7 +46,7 @@ export function createAndroidPlugin(host: AndroidHost, conversationId: string, s
         result = { target: state.target, phase: state.phase, enabled: state.enabled, installed: state.installed, error: state.error, ownerConversationId: state.ownerConversationId };
       } else if (call.tool === "android_screenshot") result = await host.screenshot(conversationId, signal, (call.arguments as { delayMs?: number })?.delayMs);
       else if (call.tool === "android_snapshot") result = await host.snapshot(conversationId, signal);
-      else result = await host.act(conversationId, call.arguments, signal);
+      else result = await host.act(conversationId, call.arguments, signal, "agent");
       return { callId: call.callId, result };
     },
     close: () => host.releaseFor(conversationId),

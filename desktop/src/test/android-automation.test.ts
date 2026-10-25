@@ -32,6 +32,18 @@ it("快照输出坐标系，nodeId 复用当前选择器并在操作后失效", 
   await expect(automation.act({ action: "tap", snapshotId: snapshot.snapshotId, nodeId: 2 }, vi.fn())).rejects.toThrow("android_snapshot_expired");
 });
 
+it("操作反馈携带设备屏幕尺寸，复用节点 bounds 和命令坐标且不进入结果", async () => {
+  const feedback = vi.fn();
+  const result = await automation.act({ action: "tap", selector: { resourceId: "app:id/row" } }, vi.fn(), undefined, feedback);
+  expect(feedback).toHaveBeenCalledWith([{ x: 100, y: 50 }], undefined, { width: 1920, height: 1080 });
+  expect(result).not.toHaveProperty("pointer");
+  expect(mocks.call.mock.calls.map(([method]) => method)).toEqual(["waitForExists", "dumpWindowHierarchy", "objInfo", "deviceInfo", "click"]);
+  const shell = vi.fn();
+  await automation.act({ action: "swipe", x: 10, y: 20, endX: 90, endY: 120, durationMs: 400 }, shell, undefined, feedback);
+  expect(feedback).toHaveBeenLastCalledWith([{ x: 10, y: 20 }, { x: 90, y: 120 }], 400, { width: 1920, height: 1080 });
+  expect(shell).toHaveBeenCalledWith(["shell", "input", "swipe", "10", "20", "90", "120", "400"]);
+});
+
 it("选择器歧义或禁用控件不执行点击，失败不自动换坐标", async () => {
   mocks.call.mockImplementation(async (method) => method === "waitForExists" ? true : method === "dumpWindowHierarchy" ? '<hierarchy><node text="发送"/><node text="发送"/></hierarchy>' : undefined);
   expect(await automation.act({ action: "tap", selector: { text: "发送" } }, vi.fn())).toMatchObject({ executed: false, error: "android_node_ambiguous", totalMatches: 2, truncated: false, snapshotId: expect.any(String), candidates: [{ id: 1, text: "发送" }, { id: 2, text: "发送" }] });

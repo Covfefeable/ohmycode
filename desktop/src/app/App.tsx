@@ -1,6 +1,7 @@
 import { HashRouter, Navigate, Outlet, Route, Routes } from "react-router-dom";
 import { BrowserWindowPage } from "../features/browser-panel/BrowserWindowPage";
 import { AndroidWindowPage } from "../features/android/AndroidWindowPage";
+import { OperationOverlayPage } from "../shared/ui/operation-overlay/OperationOverlay";
 import { LoginPage } from "../pages/login";
 import { RegisterPage } from "../pages/register";
 import { AgentWorkspacePage } from "../pages/agent-workspace";
@@ -48,6 +49,7 @@ function MainApplication() {
 
 export default function App() {
   return <HashRouter><Routes>
+    <Route path="/operation-overlay" element={<OperationOverlayPage />} />
     <Route path="/android" element={<FeedbackProvider><AndroidWindowPage /></FeedbackProvider>} />
     <Route path="/browser/:conversationId" element={<FeedbackProvider><BrowserWindowPage /></FeedbackProvider>} />
     <Route path="*" element={<MainApplication />} />

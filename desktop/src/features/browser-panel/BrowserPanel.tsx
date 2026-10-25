@@ -47,14 +47,14 @@ export function BrowserPanel({ conversationId, state, active, onClose, standalon
         {!standalone && <Tooltip content={t("browser.close")}><IconButton aria-label={t("browser.close")} onClick={onClose}><X /></IconButton></Tooltip>}
       </div>
     </header>
-    <div className={styles.tabs}>
+    <div className={styles.tabs} inert={state.operating}>
       {state.tabs.map((tab) => <div key={tab.id} className={`${styles.tab} ${tab.id === state.selectedId ? styles.selected : ""}`}>
         <button className={styles.tabTitle} title={tab.title || tab.url} onClick={() => void command({ action: "select", tabId: tab.id })}>{tab.title || t("browser.newTab")}</button>
         <Tooltip className={styles.tabClose} content={t("browser.closeTab")}><IconButton aria-label={t("browser.closeTab")} onClick={() => void command({ action: "close", tabId: tab.id })}><X /></IconButton></Tooltip>
       </div>)}
       <Tooltip content={t("browser.newTab")}><IconButton aria-label={t("browser.newTab")} onClick={() => void command({ action: "new" })}><Plus /></IconButton></Tooltip>
     </div>
-    <div className={styles.toolbar}>
+    <div className={styles.toolbar} inert={state.operating}>
       <Tooltip content={t("browser.back")}><IconButton disabled={!selected?.canGoBack} aria-label={t("browser.back")} onClick={() => void command({ action: "back" })}><ArrowLeft /></IconButton></Tooltip>
       <Tooltip content={t("browser.forward")}><IconButton disabled={!selected?.canGoForward} aria-label={t("browser.forward")} onClick={() => void command({ action: "forward" })}><ArrowRight /></IconButton></Tooltip>
       <Tooltip content={t("browser.reload")}><IconButton disabled={!selected} aria-label={t("browser.reload")} onClick={() => void command({ action: "reload" })}>{selected?.loading ? <LoaderCircle className={styles.spin} /> : <RotateCw />}</IconButton></Tooltip>

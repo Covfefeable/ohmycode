@@ -10,6 +10,7 @@ import { useAndroidPresentation } from "./useAndroidPresentation";
 import { useSidePanelResize } from "../../shared/hooks/useSidePanelResize";
 import { useAndroidPointer } from "./useAndroidPointer";
 import { androidErrorKey } from "./android-error";
+import { OperationOverlay } from "../../shared/ui/operation-overlay/OperationOverlay";
 
 export function AndroidPanel({ state, active, onClose, standalone = false, conversationId }: { state: AndroidState; active: boolean; onClose(): void; standalone?: boolean; conversationId: string }) {
   const { t } = useTranslation();
@@ -30,7 +31,8 @@ export function AndroidPanel({ state, active, onClose, standalone = false, conve
   const inputFailed = useCallback((error: unknown) => {
     setFailure({ context, key: androidErrorKey(error) });
   }, [context]);
-  const pointer = useAndroidPointer(conversationId, video.size, visible && running && !errorKey, inputFailed);
+  const operating = Boolean(state.operation?.active);
+  const pointer = useAndroidPointer(conversationId, video.size, visible && running && !errorKey && !operating, inputFailed);
   async function act(action: AndroidAction) {
     try { await window.ohmycode.android.act(conversationId, action); setFailure(null); }
     catch (error) { inputFailed(error); }
@@ -60,18 +62,26 @@ export function AndroidPanel({ state, active, onClose, standalone = false, conve
       {!standalone && <Tooltip content={t("android.hide")}><IconButton aria-label={t("android.hide")} onClick={onClose}><X /></IconButton></Tooltip>}
     </div></header>
     <div className={styles.screen}>
-      {!errorKey && running && <canvas ref={canvas} aria-label={t("android.screen")} tabIndex={0} style={{ visibility: video.size ? "visible" : "hidden", aspectRatio: video.size ? `${video.size.width} / ${video.size.height}` : undefined }}
+      {!errorKey && running && <div className={styles.video} style={{ "--video-ratio": video.size ? video.size.width / video.size.height : 1 } as CSSProperties}><canvas ref={canvas} aria-label={t("android.screen")} tabIndex={operating ? -1 : 0} style={{ visibility: video.size ? "visible" : "hidden" }}
         {...pointer}
         onKeyDown={(event) => {
+          if (operating) { event.preventDefault(); return; }
           if (event.key === "Enter" || event.key === "Backspace") { event.preventDefault(); void act({ action: "key", key: event.key === "Enter" ? "enter" : "delete" }); }
           else if (event.key.length === 1 && /^[\x20-\x7e]$/.test(event.key) && !event.ctrlKey && !event.metaKey && !event.nativeEvent.isComposing) { event.preventDefault(); void window.ohmycode.android.type(conversationId, event.key).catch(inputFailed); }
-        }} />}
+        }} /><OperationOverlay feedback={state.operation} /></div>}
       {errorKey ? <div role="alert" className={styles.errorState}>
         {occupied ? <LockKeyhole /> : <CircleAlert />}
         <p>{t(errorKey, { defaultValue: t("android.operationFailed") })}</p>
         {!occupied && <Tooltip content={t("common.retry")}><IconButton disabled={busy || state.phase === "starting" || state.phase === "stopping"} aria-label={t("common.retry")} onClick={() => { setFailure(null); if (!running) void start(); else setAttempt((value) => value + 1); }}>{busy ? <LoaderCircle className={styles.spin} /> : <RefreshCw />}</IconButton></Tooltip>}
       </div> : (!running || !video.size) && <div className={styles.empty}>{(state.phase === "starting" || state.phase === "stopping" || running) && <><LoaderCircle className={styles.spin} /><span>{t(running || external ? "android.connecting" : `android.phases.${state.phase}`)}</span></>}{conversationId && !running && state.phase !== "starting" && state.phase !== "stopping" && (state.installed ? <button disabled={busy} onClick={() => void start()}><Play />{t(external ? "android.devices.connect" : "android.start")}</button> : <span>{t("android.devices.chooseInSettings")}</span>)}</div>}
     </div>
-    <footer className={styles.navigation}>{([{ key: "back", Icon: ArrowLeft }, { key: "home", Icon: Circle }, { key: "recent", Icon: Square }] as const).map(({ key, Icon }) => <Tooltip key={key} content={t(`android.keys.${key}`)}><IconButton disabled={!running || Boolean(errorKey)} aria-label={t(`android.keys.${key}`)} onClick={() => void act({ action: "key", key })}><Icon /></IconButton></Tooltip>)}<Tooltip content={t(external ? "android.devices.disconnect" : "android.powerOff")}><IconButton className={styles.power} disabled={occupied || (busy && state.phase !== "starting") || (state.phase !== "running" && state.phase !== "starting")} aria-label={t(external ? "android.devices.disconnect" : "android.powerOff")} onClick={() => void powerOff()}>{external ? <Unplug /> : <Power />}</IconButton></Tooltip></footer>
+    <footer className={styles.navigation}>
+      {([{ key: "back", Icon: ArrowLeft }, { key: "home", Icon: Circle }, { key: "recent", Icon: Square }] as const).map(({ key, Icon }) => <Tooltip key={key} content={t(`android.keys.${key}`)}>
+        <IconButton disabled={!running || Boolean(errorKey) || operating} aria-label={t(`android.keys.${key}`)} onClick={() => void act({ action: "key", key })}><Icon /></IconButton>
+      </Tooltip>)}
+      <Tooltip content={t(external ? "android.devices.disconnect" : "android.powerOff")}>
+        <IconButton className={styles.power} disabled={occupied || (busy && state.phase !== "starting") || (state.phase !== "running" && state.phase !== "starting")} aria-label={t(external ? "android.devices.disconnect" : "android.powerOff")} onClick={() => void powerOff()}>{external ? <Unplug /> : <Power />}</IconButton>
+      </Tooltip>
+    </footer>
   </aside>;
 }

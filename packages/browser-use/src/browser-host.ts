@@ -6,9 +6,11 @@ import { waitForPage } from "./navigation.js";
 import { PageSession } from "./page-session.js";
 import { BrowserDownloads } from "./browser-downloads.js";
 import { browserUserAgent } from "./user-agent.js";
+import type { OperationFeedback } from "@ohmycode/tool-contracts";
+import type { BrowserOperationOverlay } from "./operation-overlay.js";
 
 type Tab = { id: string; view: WebContentsView; contents: WebContents; owner: BrowserWindow; page: PageSession; presented: boolean; error?: string };
-type BrowserSession = { tabs: Map<string, Tab>; selectedId: string | null; opened: boolean };
+type BrowserSession = { tabs: Map<string, Tab>; selectedId: string | null; opened: boolean; feedback?: OperationFeedback; overlay?: BrowserOperationOverlay };
 type DetachedView = { window: BrowserWindow; bounds: BrowserBounds | null; mounted: WebContentsView | null };
 
 /** Owns only browser views. Never attaches a debugger to the application's renderer. */
@@ -20,8 +22,9 @@ export class BrowserHost {
   private readonly detached = new Map<string, DetachedView>();
   private readonly pending = new Map<string, Promise<unknown>>();
   private readonly downloads: BrowserDownloads;
+  private pointerSequence = 0;
 
-  constructor(private readonly window: BrowserWindow, private readonly onChange: (id: string, state: BrowserState) => void) {
+  constructor(private readonly window: BrowserWindow, private readonly onChange: (id: string, state: BrowserState) => void, private readonly createOverlay?: () => BrowserOperationOverlay) {
     const browserSession = session.fromPartition("persist:ohmycode-browser");
     browserSession.setUserAgent(browserUserAgent(browserSession.getUserAgent(), app.getName()));
     browserSession.setPermissionRequestHandler((_page, _permission, callback) => callback(false));
@@ -44,6 +47,7 @@ export class BrowserHost {
       detached: this.detached.has(id),
       selectedId: session?.selectedId ?? null,
       downloads: this.downloads.list(id),
+      operating: session?.feedback?.active ?? false,
       tabs: [...(session?.tabs.values() ?? [])].map((tab) => ({
         id: tab.id, title: tab.contents.getTitle(), url: tab.contents.getURL(),
         loading: tab.contents.isLoading(),
@@ -130,10 +134,19 @@ export class BrowserHost {
       };
       signal?.addEventListener("abort", stopLoading, { once: true });
       try {
+        session.feedback = { active: true };
+        session.overlay ??= this.createOverlay?.();
+        if (session.overlay) await session.overlay.ready;
+        signal?.throwIfAborted();
+        this.changed(id);
         const result = await this.executeTool(id, tool, args, signal);
         signal?.throwIfAborted();
         return result;
-      } finally { signal?.removeEventListener("abort", stopLoading); }
+      } finally {
+        signal?.removeEventListener("abort", stopLoading);
+        session.feedback = { ...session.feedback, active: false };
+        this.changed(id);
+      }
     });
     this.pending.set(id, current);
     void current.finally(() => { if (this.pending.get(id) === current) this.pending.delete(id); }).catch(() => undefined);
@@ -143,6 +156,7 @@ export class BrowserHost {
   closeSession(id: string): void {
     this.downloads.closeSession(id);
     const session = this.sessions.get(id);
+    session?.overlay?.close();
     this.sessions.delete(id);
     const tabs = [...(session?.tabs.values() ?? [])];
     session?.tabs.clear();
@@ -296,7 +310,10 @@ export class BrowserHost {
     if (tool === "browser_upload") return tab.page.run(() => uploadFiles(tab.contents, args.nodeId, args.paths), signal);
     if (tool === "browser_act") {
       return tab.page.run(async () => {
-        await pageAction(tab.contents, args);
+        await pageAction(tab.contents, args, (points, durationMs = 350) => {
+          this.session(id).feedback = { active: true, pointer: { id: ++this.pointerSequence, points, durationMs } };
+          this.syncView();
+        });
         await waitForPage(tab.contents);
         return this.state(id);
       }, signal);
@@ -346,5 +363,10 @@ export class BrowserHost {
       }
     }
     if (next && this.bounds) next.setBounds(fitBounds(this.bounds, this.window.getContentSize()));
+    for (const session of this.sessions.values()) {
+      const tab = session.selectedId ? session.tabs.get(session.selectedId) : undefined;
+      const visible = tab && tab.view.getVisible() && session.opened ? tab : undefined;
+      session.overlay?.update(visible?.owner ?? null, visible?.view.getBounds() ?? null, session.feedback ?? { active: false }, tab?.contents);
+    }
   }
 }

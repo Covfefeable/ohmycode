@@ -1,6 +1,21 @@
 import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from "electron";
 
+let operationState: import("@ohmycode/tool-contracts").OperationFeedback = { active: false };
+const operationListeners = new Set<(state: typeof operationState) => void>();
+ipcRenderer.on("operation:state", (_event, state: typeof operationState) => {
+  operationState = state;
+  for (const listener of operationListeners) listener(state);
+});
+
 const bridge: DesktopBridge = {
+  operationFeedback: {
+    hide: () => ipcRenderer.send("operation:hide"),
+    onState(callback) {
+      operationListeners.add(callback);
+      callback(operationState);
+      return () => { operationListeners.delete(callback); };
+    },
+  },
   android: {
     installPlan: (mode) => ipcRenderer.invoke("android:install-plan", mode),
     installation: () => ipcRenderer.invoke("android:installation"),
