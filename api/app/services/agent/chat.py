@@ -125,16 +125,17 @@ def stream_completion(
                 str(tool.get("function", {}).get("name") or "")
                 for tool in prepared.payload.get("tools", [])
             }
-            if not conversation or any(
-                call["function"]["name"] not in allowed_tool_names for call in calls
-            ):
+            if not conversation:
                 fail_run(run, "unsupported_tool")
                 yield {"type": "run.failed", "errorCode": "unsupported_tool"}
                 return
             requests = []
             current_tasks = latest_task_plan(run)
             for call in calls:
-                if call["function"]["name"] != "update_tasks":
+                if (
+                    call["function"]["name"] != "update_tasks"
+                    or "update_tasks" not in allowed_tool_names
+                ):
                     continue
                 try:
                     raw_plan = json.loads(call["function"]["arguments"] or "{}")
@@ -155,6 +156,15 @@ def stream_completion(
                     return
                 tool_name = call["function"]["name"]
                 request = {"callId": call["id"], "tool": tool_name, "arguments": arguments}
+                if tool_name not in allowed_tool_names:
+                    request["rejection"] = {
+                        "error": "unsupported_tool",
+                        "message": (
+                            "This tool is not available in the current request. "
+                            "Use the tools provided in this request; for additional capabilities, "
+                            "search_capabilities and load_capability first if available."
+                        ),
+                    }
                 if tool_name != "update_tasks" and current_task_id:
                     request["taskId"] = current_task_id
                 requests.append(request)

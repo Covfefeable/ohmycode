@@ -188,6 +188,46 @@ def test_duplicate_delivery_and_tool_ack_are_idempotent(workspace, monkeypatch):
     assert run.input_tokens == 120 and run.output_tokens == 4
 
 
+def test_unavailable_tool_is_rejected_without_failing_turn(workspace, monkeypatch):
+    w = workspace
+
+    def provider(prepared):
+        payload = next(tool_provider(prepared))
+        payload["choices"][0]["delta"]["tool_calls"].append(
+            {
+                "index": 1,
+                "id": "unloaded-1",
+                "function": {"name": "unloaded_mcp_tool", "arguments": "{}"},
+            }
+        )
+        yield payload
+
+    monkeypatch.setattr("app.services.agent.chat.provider_payloads", provider)
+    execution_id, run_id = submit(w)
+    execute_execution(execution_id)
+    frames = "".join(subscribe_execution(execution_id))
+    events = [json.loads(line[6:]) for line in frames.splitlines() if line.startswith("data: {")]
+    requests = [event for event in events if event["type"] == "tool.requested"]
+    assert len(requests) == 2
+    assert "rejection" not in requests[0]
+    rejection = requests[1]["rejection"]
+    assert rejection["error"] == "unsupported_tool"
+    assert "load_capability" in rejection["message"]
+    assert db.session.get(AgentRun, run_id).status == "waiting_tool"
+    second = resume_execution(
+        w.user,
+        run_id,
+        [
+            {"callId": "read-1", "result": "ok"},
+            {"callId": "unloaded-1", "result": rejection},
+        ],
+        tool_snapshot=TOOLS,
+    )
+    monkeypatch.setattr("app.services.agent.chat.provider_payloads", text_provider)
+    execute_execution(second)
+    assert db.session.get(AgentRun, run_id).status == "completed"
+
+
 def test_cancel_queued_job_prevents_provider_call(workspace, monkeypatch):
     w = workspace
     monkeypatch.setattr(

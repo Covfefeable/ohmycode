@@ -11,6 +11,29 @@ const options = (overrides = {}) => ({
   onEvent() {}, ...overrides,
 });
 
+test("未提供的工具只回传拒绝结果，同批可用工具照常执行并继续", async () => {
+  const rejection = { error: "unsupported_tool", message: "Load the capability first." };
+  const executed = [];
+  const events = [];
+  await runToolLoop(options({
+    response: stream(
+      frame("step:1", { type: "tool.requested", runId: "turn", callId: "bad", tool: "unloaded", arguments: {}, rejection }) +
+      frame("step:2", { type: "tool.requested", runId: "turn", callId: "read", tool: "read_file", arguments: {} }),
+    ),
+    tools: { async execute(request) { executed.push(request.tool); return { callId: request.callId, result: "ok" }; } },
+    onEvent: (event) => events.push(event),
+    transport: { async resume(_runId, results) {
+      assert.deepEqual(results, [{ callId: "bad", result: rejection }, { callId: "read", result: "ok" }]);
+      return stream(frame("step:3", { type: "message.delta", content: "Recovered" }));
+    } },
+  }));
+  assert.deepEqual(executed, ["read_file"]);
+  assert.deepEqual(events.find((event) => event.type === "tool.completed"), {
+    type: "tool.completed", callId: "bad", result: rejection,
+  });
+  assert.equal(events.at(-1).content, "Recovered");
+});
+
 test("连接意外结束后重放已有片段，不重复文字并继续后续输出", async () => {
   const partial = frame("step:1", { type: "message.delta", content: "Hello " });
   const events = [];

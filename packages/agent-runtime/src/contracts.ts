@@ -10,6 +10,7 @@ export type ToolRequestEvent = {
   tool: string;
   arguments: unknown;
   taskId?: string;
+  rejection?: { error: string; message: string };
 };
 
 export type AgentStreamEvent =

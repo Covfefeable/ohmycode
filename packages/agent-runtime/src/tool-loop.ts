@@ -82,7 +82,12 @@ export async function runToolLoop(options: ToolLoopOptions): Promise<void> {
       continue;
     }
     if (!requests.length) return;
-    const results = await Promise.all(requests.map((request) => options.tools.execute(request)));
+    const results = await Promise.all(requests.map((request) => {
+      if (!request.rejection) return options.tools.execute(request);
+      const result = { callId: request.callId, result: request.rejection };
+      options.onEvent({ type: "tool.completed", ...result });
+      return result;
+    }));
     pendingResults = results;
     if (options.execution.signal.aborted) return;
     try {
