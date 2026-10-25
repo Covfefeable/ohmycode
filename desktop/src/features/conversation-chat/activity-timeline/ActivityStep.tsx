@@ -11,7 +11,7 @@ function ToolStep({ step }: { step: Extract<AgentActivityStep, { type: "tool" }>
   const { t } = useTranslation();
   const [open, setOpen] = useActivityExpansion(`${step.id}-${step.status}`, step.status === "running");
   const presentation = presentToolActivity(step.tool, step.input, step.result);
-  const { command, displayResource: displayedFilePath, failed, projectId, resource: clickableFilePath, result } = presentation;
+  const { command, displayResource: displayedFilePath, failed, projectId, resource: clickableFilePath } = presentation;
   const fileLabelKey = step.status === "running"
     ? presentation.labels?.running
     : failed ? presentation.labels?.failed : presentation.labels?.completed;
@@ -60,7 +60,7 @@ function ToolStep({ step }: { step: Extract<AgentActivityStep, { type: "tool" }>
       <code>{genericTool ? mcpToolDisplayName(step.tool) : command}</code>
       <ChevronDown className={`${styles.chevron} ${open ? styles.chevronOpen : ""}`} />
     </button>
-    {open && result && <pre className={styles.output}>{result}</pre>}
+    {open && <ToolResultView presentation={presentation} completed={step.status === "completed"} />}
   </div>;
 }
 

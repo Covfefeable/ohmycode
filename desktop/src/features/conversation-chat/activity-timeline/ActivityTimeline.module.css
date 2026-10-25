@@ -43,9 +43,8 @@
 .failed { color: var(--color-danger); }
 .chevron { margin-left: auto; transition: transform var(--transition-fast); }
 .chevronOpen { transform: rotate(180deg); }
-.reasoning, .output { max-height: 320px; overflow: auto; margin: 2px 8px var(--space-2); padding: var(--space-2) 0; color: var(--color-text-dim); font-size: var(--font-sm); line-height: 1.65; }
+.reasoning { max-height: 320px; overflow: auto; margin: 2px 8px var(--space-2); padding: var(--space-2) 0; color: var(--color-text-dim); font-size: var(--font-sm); line-height: 1.65; }
 .reasoning > :first-child { margin-top: 0; }
 .reasoning > :last-child { margin-bottom: 0; }
-.output { border-radius: var(--radius-sm); border-left: 0; background: var(--color-surface-deep); white-space: pre-wrap; overflow-wrap: anywhere; }
 .diffLoading { margin: 2px 8px var(--space-2); padding: var(--space-4); color: var(--color-text-dim); font-size: var(--font-sm); }
 @keyframes spin { to { transform: rotate(360deg); } }

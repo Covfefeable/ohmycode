@@ -1,0 +1,21 @@
+.blocks { display: grid; gap: var(--space-3); }
+.text p, .text li { white-space: pre-wrap; }
+.caption { margin: var(--space-2) 0; color: var(--color-text-dim); font-size: var(--font-xs); }
+.terminal { display: grid; gap: var(--space-3); }
+.command, .output { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font: 12px/1.7 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.command { padding-bottom: var(--space-3); border-bottom: 1px solid var(--color-border); color: var(--color-text-soft); }
+.output { color: var(--color-text-muted); }
+.metadata { border-top: 1px solid var(--color-border); padding-top: var(--space-2); font-size: var(--font-xs); color: var(--color-text-dim); }
+.metadata summary { cursor: pointer; margin-bottom: var(--space-2); }
+.error { color: var(--color-danger); white-space: pre-wrap; }
+.output :global(.ansi-red-fg), .output :global(.ansi-bright-red-fg) { color: var(--color-danger); }
+.output :global(.ansi-green-fg), .output :global(.ansi-bright-green-fg) { color: var(--color-accent); }
+.output :global(.ansi-yellow-fg), .output :global(.ansi-bright-yellow-fg) { color: var(--color-warning); }
+.output :global(.ansi-blue-fg), .output :global(.ansi-bright-blue-fg), .output :global(.ansi-cyan-fg), .output :global(.ansi-bright-cyan-fg), .output :global(.ansi-magenta-fg), .output :global(.ansi-bright-magenta-fg) { color: var(--color-accent); }
+.output :global(.ansi-white-fg), .output :global(.ansi-bright-white-fg) { color: var(--color-text-soft); }
+.output :global(.ansi-black-fg), .output :global(.ansi-bright-black-fg) { color: var(--color-text-dim); }
+.output :global(.ansi-bold) { font-weight: 700; }
+.output :global(.ansi-dim) { opacity: .65; }
+.output :global(.ansi-italic) { font-style: italic; }
+.output :global(.ansi-underline) { text-decoration: underline; }
+.output :global(.ansi-strikethrough) { text-decoration: line-through; }

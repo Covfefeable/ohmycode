@@ -26,6 +26,7 @@ export type ToolActivityPresentation = ToolPresentation & {
   projectId?: string;
   resource: string;
   result: string;
+  rawResult: unknown;
   imageSource?: string;
 };
 
@@ -87,20 +88,14 @@ function resultText(value: unknown): string {
   if (typeof result.dataUrl === "string") {
     return JSON.stringify(Object.fromEntries(Object.entries(result).filter(([key]) => key !== "dataUrl")), null, 2);
   }
-  if (typeof result.operation === "string" && typeof result.output === "string") return result.output;
-  if (typeof result.output === "string") {
-    const suffix = result.status === "running"
-      ? `\n\n[${String(result.status)} · terminal ${String(result.terminalId || "")}]`
-      : `\n\n[exit ${String(result.exitCode ?? "-")}]`;
-    return `${result.output}${suffix}`.trim();
-  }
-  return value ? JSON.stringify(value, null, 2) : "";
+  if (typeof result.output === "string") return result.output;
+  return value == null ? "" : JSON.stringify(value, null, 2);
 }
 
 export function toolResultFailed(value: unknown): boolean {
   if (Array.isArray(value)) return value.some(toolResultFailed);
   const result = record(value);
-  return typeof result.error === "string"
+  return result.isError === true || typeof result.error === "string"
     || (typeof result.exitCode === "number" && result.exitCode !== 0);
 }
 
@@ -137,6 +132,7 @@ export function presentToolActivity(toolName: string, rawInput: unknown, rawResu
     projectId: typeof input.projectId === "string" ? input.projectId : undefined,
     resource,
     result: resultText(rawResult),
+    rawResult,
     imageSource: result.contentKind === "image" && typeof imageSource === "string" && /^(data:image\/|ohmycode-image:\/\/)/.test(imageSource) ? imageSource : undefined,
   };
 }

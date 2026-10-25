@@ -28,6 +28,11 @@ function contentWithoutToolLineNumbers(output: string, startLine: number): strin
   }).join("\n");
 }
 
+function editorHeight(...contents: string[]): string {
+  const lines = Math.max(...contents.map((content) => content.split("\n").length));
+  return `min(var(--tool-editor-max-height, 360px), ${Math.max(120, lines * 18 + 24)}px)`;
+}
+
 
 export function FileContentViewer({ content, path, startLine = 1 }: { content: string; path: string; startLine?: number }) {
   const theme = useMonacoTheme();
@@ -35,7 +40,7 @@ export function FileContentViewer({ content, path, startLine = 1 }: { content: s
   const value = useMemo(() => contentWithoutToolLineNumbers(content, startLine), [content, startLine]);
   return <div className={styles.root}>
     <Editor
-      height="360px"
+      height={editorHeight(value)}
       language={language}
       options={{ automaticLayout: true, domReadOnly: true, fontSize: 12, lineNumbers: (line) => String(line + startLine - 1), lineNumbersMinChars: 3, minimap: { enabled: false }, readOnly: true, scrollBeyondLastLine: false }}
       theme={theme}
@@ -57,7 +62,7 @@ export function FileDiffViewer({ changes }: { changes: FileChange[] }) {
       : <>
           <div className={styles.labels}><span>{t("agent.originalContent")}</span><span>{t("agent.currentContent")}</span></div>
           <DiffEditor
-            height="360px"
+            height={editorHeight(change.original ?? "", change.modified ?? "")}
             language={language}
             modified={change.modified ?? ""}
             original={change.original ?? ""}

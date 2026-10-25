@@ -27,6 +27,45 @@ afterEach(async () => {
 
 const scroller = () => page.locator('[data-virtuoso-scroller="true"]');
 
+test("工具详情在真实浏览器中切换参数、查看全部节点并展开原生弹窗", async () => {
+  await page.goto(`${baseUrl}/tests/browser/tool-details.html`);
+  const snapshot = page.getByRole("region", { name: "Snapshot" });
+  await snapshot.getByText("Control 0", { exact: true }).waitFor();
+  assert.equal(await snapshot.getByText("Control 119", { exact: true }).count(), 0);
+  await snapshot.getByRole("button", { name: "Show more (70 remaining)" }).click();
+  await snapshot.getByRole("button", { name: "Show more (20 remaining)" }).click();
+  await snapshot.getByText("Control 119", { exact: true }).waitFor();
+  await snapshot.getByRole("tab", { name: "Input parameters" }).click();
+  await snapshot.getByRole("button", { name: "Raw data" }).click();
+  assert.equal(await snapshot.getByRole("tabpanel").innerText(), JSON.stringify({ query: "settings" }, null, 2));
+  await snapshot.getByRole("button", { name: "Expand view" }).click();
+  const dialog = page.getByRole("dialog", { name: "Tool details" });
+  await dialog.waitFor();
+  assert.equal(await dialog.getByRole("tab", { name: "Input parameters" }).getAttribute("aria-selected"), "true");
+  assert.ok((await dialog.boundingBox()).width > 900);
+  await page.keyboard.press("Escape");
+  await dialog.waitFor({ state: "hidden" });
+  assert.equal(await snapshot.getByRole("tab", { name: "Input parameters" }).getAttribute("aria-selected"), "true");
+  await page.getByRole("region", { name: "Command" }).locator(".ansi-red-fg").filter({ hasText: "Build failed" }).waitFor();
+  const structured = page.getByRole("region", { name: "Structured result" });
+  await structured.getByRole("table").first().waitFor();
+  await structured.getByText("惠州市", { exact: false }).waitFor();
+  assert.equal(await structured.getByText("isError", { exact: true }).count(), 0);
+  const multiline = page.getByRole("region", { name: "Multiline result" });
+  const continuedItem = multiline.locator("li").filter({ hasText: "Second record" });
+  assert.equal(await continuedItem.evaluate((element) => getComputedStyle(element).whiteSpace), "pre-wrap");
+  const lines = await continuedItem.evaluate((element) => {
+    const text = [...element.childNodes].find((node) => node.nodeType === Node.TEXT_NODE && node.textContent.includes("Second record"));
+    const position = text.textContent.indexOf("Second record");
+    const range = document.createRange();
+    range.setStart(text, 0); range.setEnd(text, 1);
+    const first = range.getBoundingClientRect().top;
+    range.setStart(text, position); range.setEnd(text, position + 1);
+    return { first, second: range.getBoundingClientRect().top };
+  });
+  assert.ok(lines.second > lines.first + 5, "A following record must start on a new visual line");
+});
+
 for (const name of ["Browser", "Android"]) test(`${name} 拖拽宽度在固定窗口中收起重开及刷新后保留`, async () => {
   await page.goto(`${baseUrl}/tests/browser/search.html`);
   await page.getByText("Live output", { exact: true }).waitFor();
