@@ -2,7 +2,7 @@ import json
 from dataclasses import dataclass
 
 from ...models import AgentRun
-from .config import TOOL_RESULT_TOKEN_BUDGET
+from .config import RECENT_TOOL_IMAGE_BATCHES, TOOL_RESULT_TOKEN_BUDGET
 from .image_context import text_only_images
 from .tokens import estimate_tokens
 from .tool_results import render_tool_result, slice_to_token_budget
@@ -134,4 +134,19 @@ def tool_batches(
                     event.sequence, [{"role": "assistant", "content": event.payload["content"]}]
                 )
             )
+    # Budget observations independently of text compaction. Keep every image in
+    # the most recent batches together (e.g. a multi-image MCP response).
+    image_batches = [
+        batch
+        for batch in batches
+        if any(
+            isinstance(message.get("content"), list)
+            and any(part.get("type") == "image_url" for part in message["content"])
+            for message in batch.messages
+        )
+    ]
+    for batch in image_batches[:-RECENT_TOOL_IMAGE_BATCHES]:
+        for message in batch.messages:
+            if isinstance(message.get("content"), list):
+                message["content"] = text_only_images(message["content"])
     return batches

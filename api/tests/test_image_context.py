@@ -178,3 +178,45 @@ def test_mcp_text_only_result_and_error_are_preserved():
     messages = tool_batches(run, supports_vision=True)[0].messages
     assert len(messages) == 2
     assert json.loads(messages[1]["content"]) == result
+
+
+@pytest.mark.parametrize("stored", [False, True])
+def test_only_recent_tool_image_batches_are_visual_without_mutating_events(stored):
+    result = mcp_result()
+    reference = f"ohmycode-image://{uuid.uuid4()}/{'a' * 64}"
+    if stored:
+        for part in result["content"]:
+            if part["type"] == "image":
+                part.pop("data")
+                part["imageRef"] = reference
+    run = image_run(result)
+    for index in range(1, 4):
+        pair = copy.deepcopy(run.events[:2])
+        for event in pair:
+            event.sequence += index * 2
+        run.events.extend(pair)
+    original = copy.deepcopy(run.events)
+    batches = tool_batches(run, supports_vision=True)
+    for index, batch in enumerate(batches):
+        content = batch.messages[-1]["content"]
+        assert len(content) == 2  # A multi-image response stays together.
+        assert all(part["type"] == ("text" if index < 2 else "image_url") for part in content)
+        assert batch.messages[1]["tool_call_id"] == "shot"
+        if stored and index < 2:
+            assert all(part["text"] == reference for part in content)
+    assert run.events == original
+    # Compaction's event cursor does not revive older visual input.
+    after_checkpoint = tool_batches(run, after_sequence=2, supports_vision=True)
+    assert all(part["type"] == "text" for part in after_checkpoint[0].messages[-1]["content"])
+    assert len(tool_batches(run, supports_vision=False)[0].messages) == 2
+
+
+def test_recent_image_budget_does_not_depend_on_subsequent_text_tool_calls():
+    run = image_run(mcp_result())
+    for index in range(1, 5):
+        other = image_run({"content": [{"type": "text", "text": "Still working"}]})
+        for event in other.events:
+            event.sequence += index * 2
+        run.events.extend(other.events)
+    batches = tool_batches(run, supports_vision=True)
+    assert all(part["type"] == "image_url" for part in batches[0].messages[-1]["content"])

@@ -45,11 +45,23 @@ export async function storeImages(value: unknown, signal?: AbortSignal): Promise
   return walk(value);
 }
 
-export async function previewImageAsset(reference: string): Promise<string> {
+async function fetchImageAsset(reference: string): Promise<Response> {
   const match = /^ohmycode-image:\/\/[0-9a-f-]{36}\/([0-9a-f]{64})$/.exec(reference);
   if (!match) throw new Error("invalid_image_reference");
   const response = await apiFetch(`/api/images/${match[1]}`);
   if (!response.ok) throw await apiErrorFromResponse(response);
+  return response;
+}
+
+/** Reattach an owned image without uploading its bytes again. */
+export async function viewImageAsset(reference: string, detail?: "low" | "high") {
+  const response = await fetchImageAsset(reference);
+  const content = await response.arrayBuffer();
+  return { contentKind: "image" as const, imageRef: reference, mimeType: response.headers.get("Content-Type"), byteLength: content.byteLength, ...(detail ? { detail } : {}) };
+}
+
+export async function previewImageAsset(reference: string): Promise<string> {
+  const response = await fetchImageAsset(reference);
   const content = Buffer.from(await response.arrayBuffer());
   return `data:${response.headers.get("Content-Type")};base64,${content.toString("base64")}`;
 }

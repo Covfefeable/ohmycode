@@ -1,5 +1,6 @@
 import { beforeEach, expect, it, vi } from "vitest";
 import { storeImages, previewImageAsset } from "../../electron/files/image-assets";
+import { createImagePlugin } from "../../electron/runtime/tools/image-plugin";
 
 const api = vi.hoisted(() => ({ apiRequest: vi.fn(), apiFetch: vi.fn(), apiErrorFromResponse: vi.fn() }));
 vi.mock("../../electron/api/api-client", () => api);
@@ -27,4 +28,17 @@ it("图片上传失败不回退到持久化 Base64，私有预览通过认证接
   expect(await previewImageAsset(reference)).toBe("data:image/png;base64,aGVsbG8=");
   expect(api.apiFetch).toHaveBeenCalledWith(`/api/images/${"a".repeat(64)}`);
   await expect(previewImageAsset("https://example.com/image.png")).rejects.toThrow("invalid_image_reference");
+});
+
+it("图片工具按私有引用重新附图，保留鉴权且不重新上传图片", async () => {
+  api.apiFetch.mockResolvedValueOnce(new Response("hello", { headers: { "Content-Type": "image/png" } }));
+  const plugin = createImagePlugin({ projectId: "project" });
+  const call = { runId: "run", callId: "view", tool: "view_image", arguments: { imageUrl: reference, detail: "high" } };
+  expect(await plugin.execute(call)).toEqual({ callId: "view", result: { contentKind: "image", imageRef: reference, mimeType: "image/png", byteLength: 5, detail: "high" } });
+  expect(api.apiFetch).toHaveBeenCalledWith(`/api/images/${"a".repeat(64)}`);
+  expect(api.apiRequest).not.toHaveBeenCalled();
+  const denied = new Error("not_found");
+  api.apiFetch.mockResolvedValueOnce(new Response(null, { status: 404 }));
+  api.apiErrorFromResponse.mockResolvedValueOnce(denied);
+  await expect(plugin.execute(call)).rejects.toThrow("not_found");
 });
