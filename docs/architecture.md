@@ -294,6 +294,15 @@ Electron, React Native, Expo, Node built-ins, or application directories;
 
 ## Electron desktop host
 
+Public desktop DTOs, the Renderer Bridge, and invoke-channel signatures live in
+`desktop/contracts/`. Both preload and main-process handlers use these types;
+`preload-contract.d.ts` only declares Renderer globals. Credentials remain in
+the main-process authentication and speech services.
+
+The chat Controller delegates event loading, replay, deduplication, and frame
+batching to `conversation-subscription.ts`. `runtime-messages.ts` projects those
+events into messages without React state or IPC calls.
+
 The Electron host is implemented in
 `desktop/electron/runtime/desktop-runtime-host.ts`. It binds the shared Runtime
 to Electron IPC, SQLite persistence, desktop tools, terminal ownership, and
@@ -304,8 +313,9 @@ Electron main.
 Responsibilities:
 
 - Allocate `turnId` and create a Turn in `EventJournal`.
-- Translate provider-level SSE events (`ConversationStreamEvent`) into
-  `RuntimeEvent` with proper item lifecycles.
+- Use the shared per-Turn `TurnEventProjector` to translate provider-level SSE
+  events into `RuntimeEvent`; the projector owns Item lifecycles, while the host
+  owns persistence and publication.
 - Persist execution metadata (`remoteRunId`, phase, pending tool calls, owned
   terminals) alongside the event journal.
 - Invoke the shared Tool Loop and dispatch local capabilities through the
@@ -376,8 +386,9 @@ Flow:
    Completions transport, SSE decoding, standard retries, and HTTP errors. It
    automatically retries once without `stream_options` when a provider rejects
    that optional field; this is protocol negotiation, not a user setting.
-3. `stream_completion()` consumes structured provider chunks, accumulates
-   reasoning/message/tool-call deltas, and yields Runtime events.
+3. `stream_completion()` coordinates streaming. `provider_completion.py`
+   accumulates reasoning/message/tool-call deltas without I/O;
+   `completion_finalization.py` persists usage, tool requests, and final answers.
 4. If tool calls are requested, the run moves to `waiting_tool`. The Runtime
    executes them and calls `resume_completion()`.
 5. Initial requests, `resume_completion()`, and recovery use the same streaming
