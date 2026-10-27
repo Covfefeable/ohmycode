@@ -1,11 +1,10 @@
 import path from "node:path";
 import { app, BrowserWindow } from "electron";
-import { EventJournal, type EventPublisher } from "@ohmycode/agent-runtime";
-import type { RuntimeEvent, RuntimeEventPayload, RuntimeItem, TurnSnapshot } from "@ohmycode/protocol";
+import { EventJournal, TurnEventProjector, type EventPublisher } from "@ohmycode/agent-runtime";
+import type { RuntimeEvent, RuntimeEventPayload, TurnSnapshot } from "@ohmycode/protocol";
 import type { LocalConversation, LocalMessage, MessageAttachment } from "../projects/types.js";
 import {
   streamMessage,
-  type ConversationStreamEvent,
 } from "../conversations/conversation-service.js";
 import { SqliteEventStore } from "./sqlite-event-store.js";
 import type { DesktopExecutionContext } from "./types.js";
@@ -34,11 +33,8 @@ const executions = new Map<string, DesktopTurnExecution>();
 let stopCancellationRecovery: (() => void) | undefined;
 const activeThreads = new Map<string, string>();
 export const activeThreadTurn = (threadId: string): string | undefined => activeThreads.get(threadId);
-const itemState = new Map<string, RuntimeItem>();
 const listeners = new Map<string, Set<(event: RuntimeEvent) => void>>();
 const interrupting = new Set<string>();
-const activeTaskByTurn = new Map<string, string>();
-const stateKey = (turnId: string, itemId: string): string => `${turnId}:${itemId}`;
 
 const publisher: EventPublisher = {
   publish(event) {
@@ -100,104 +96,13 @@ export function closeAgentRuntime(): void {
   runtimeStore = null;
 }
 
-function translate(threadId: string, turnId: string, event: ConversationStreamEvent): void {
-  if (interrupting.has(turnId)) return;
-  if (event.type === "run.started") return;
-  if (event.type === "run.continue" || event.type === "input.received") {
-    for (const item of itemState.values()) {
-      if (item.turnId === turnId && item.status === "in_progress" && item.kind !== "tool") {
-        item.status = "completed";
-        append(turnId, { type: "item.completed", threadId, turnId, item: { ...item } });
-      }
-    }
-    if (event.type === "input.received") {
-      publishUserMessage(threadId, turnId, event.messageId, event.content, event.attachments);
-      void followupReceived(threadId, event.inputId).catch(console.error);
-    }
-    return;
-  }
-  if (event.type === "context.usage") {
-    append(turnId, { type: "context.updated", threadId, turnId, usedTokens: event.usedTokens, contextLength: event.contextLength, source: event.source });
-    return;
-  }
-  if (event.type === "task.plan.updated") {
-    const activeTask = event.tasks.find((task) => task.status === "in_progress");
-    if (activeTask) activeTaskByTurn.set(turnId, activeTask.id);
-    else activeTaskByTurn.delete(turnId);
-    append(turnId, { type: "task.updated", threadId, turnId, tasks: event.tasks });
-    return;
-  }
-  if (event.type === "context.compaction.started") {
-    const item: RuntimeItem = { id: `context-${turnId}`, threadId, turnId, kind: "context", status: "in_progress" };
-    itemState.set(stateKey(turnId, item.id), item);
-    append(turnId, { type: "item.started", threadId, turnId, item });
-    return;
-  }
-  if (event.type === "context.compaction.completed") {
-    const item = itemState.get(stateKey(turnId, `context-${turnId}`));
-    if (item) {
-      item.status = "completed";
-      append(turnId, { type: "item.completed", threadId, turnId, item: { ...item } });
-    }
-    return;
-  }
-  if (event.type === "reasoning.started") {
-    const item: RuntimeItem = { id: event.stepId, threadId, turnId, kind: "reasoning", status: "in_progress", content: "", taskId: activeTaskByTurn.get(turnId) };
-    itemState.set(stateKey(turnId, item.id), item);
-    append(turnId, { type: "item.started", threadId, turnId, item });
-    return;
-  }
-  if (event.type === "reasoning.delta") {
-    const item = [...itemState.values()].reverse().find((entry) => entry.turnId === turnId && entry.kind === "reasoning" && entry.status === "in_progress");
-    if (item) { item.content = `${item.content ?? ""}${event.content}`; append(turnId, { type: "item.delta", threadId, turnId, itemId: item.id, delta: event.content }); }
-    return;
-  }
-  if (event.type === "message.started") {
-    const item: RuntimeItem = { id: `message-${turnId}-${crypto.randomUUID()}`, threadId, turnId, kind: "agent_message", status: "in_progress", content: "", taskId: activeTaskByTurn.get(turnId) };
-    itemState.set(stateKey(turnId, item.id), item);
-    append(turnId, { type: "item.started", threadId, turnId, item });
-    return;
-  }
-  if (event.type === "message.delta") {
-    const item = [...itemState.values()].reverse().find((entry) => entry.turnId === turnId && entry.kind === "agent_message" && entry.status === "in_progress");
-    if (item) { item.content = `${item.content ?? ""}${event.content}`; append(turnId, { type: "item.delta", threadId, turnId, itemId: item.id, delta: event.content }); }
-    return;
-  }
-  if (event.type === "tool.requested") {
-    for (const item of itemState.values()) {
-      if (item.turnId === turnId && item.status === "in_progress" && item.kind !== "tool") {
-        item.status = "completed";
-        append(turnId, { type: "item.completed", threadId, turnId, item: { ...item } });
-      }
-    }
-    if (event.tool === "update_tasks") return;
-    const item: RuntimeItem = { id: event.callId, threadId, turnId, kind: "tool", status: "in_progress", tool: event.tool, input: event.arguments, taskId: event.taskId ?? activeTaskByTurn.get(turnId) };
-    itemState.set(stateKey(turnId, item.id), item);
-    append(turnId, { type: "item.started", threadId, turnId, item });
-    return;
-  }
-  if (event.type === "tool.completed") {
-    const item = itemState.get(stateKey(turnId, event.callId));
-    if (item) {
-      item.status = "completed";
-      item.output = event.result;
-      append(turnId, { type: "item.completed", threadId, turnId, item: { ...item } });
-    }
-    return;
-  }
-  if (event.type === "run.failed") append(turnId, { type: "turn.failed", threadId, turnId, errorCode: event.errorCode });
-}
-
-function publishUserMessage(threadId: string, turnId: string, id: string, content: string, attachments: MessageAttachment[] = [], initial = false): void {
-  append(turnId, { type: "item.completed", threadId, turnId, item: { id, threadId, turnId, kind: "user_message", status: "completed", content, input: { attachments, initial } } });
-}
-
 export function startTurn(input: StartTurnInput): { turnId: string } {
   if (activeThreads.has(input.threadId)) throw new Error("turn_already_running");
   const turnId = input.turnId ?? crypto.randomUUID();
   requireJournal().create(input.threadId, turnId);
   if (!runtimeStore) throw new Error("runtime_not_initialized");
   const execution = createDesktopTurnExecution(turnId, runtimeStore);
+  const projector = new TurnEventProjector(input.threadId, turnId);
   executions.set(turnId, execution);
   activeThreads.set(input.threadId, turnId);
   append(turnId, { type: "turn.started", threadId: input.threadId, turnId });
@@ -209,10 +114,12 @@ export function startTurn(input: StartTurnInput): { turnId: string } {
     input.attachments,
     (event) => {
       if (event.type === "run.started") {
-        if (!input.editMessageId) publishUserMessage(input.threadId, turnId, event.messageId ?? `user-${turnId}`, input.content, input.attachments, true);
+        if (!input.editMessageId) append(turnId, projector.userMessage(event.messageId ?? `user-${turnId}`, input.content, input.attachments, true));
         if (input.followupId) void followupReceived(input.threadId, input.followupId).catch(console.error);
       }
-      translate(input.threadId, turnId, event);
+      if (interrupting.has(turnId)) return;
+      if (event.type === "input.received") void followupReceived(input.threadId, event.inputId).catch(console.error);
+      for (const projected of projector.project(event)) append(turnId, projected);
     },
     execution,
     input.executionContext,
@@ -220,12 +127,7 @@ export function startTurn(input: StartTurnInput): { turnId: string } {
   ).then((conversation) => {
     const snapshot = requireJournal().snapshot(turnId);
     if (snapshot?.status === "in_progress" && !interrupting.has(turnId)) {
-      for (const item of itemState.values()) {
-        if (item.turnId === turnId && item.status === "in_progress") {
-          item.status = "completed";
-          append(turnId, { type: "item.completed", threadId: input.threadId, turnId, item: { ...item } });
-        }
-      }
+      for (const event of projector.finish()) append(turnId, event);
       append(turnId, { type: "turn.completed", threadId: input.threadId, turnId });
     }
     return conversation;
@@ -238,8 +140,6 @@ export function startTurn(input: StartTurnInput): { turnId: string } {
     completion.delete(turnId);
     executions.delete(turnId);
     execution.complete();
-    for (const key of itemState.keys()) if (key.startsWith(`${turnId}:`)) itemState.delete(key);
-    activeTaskByTurn.delete(turnId);
     activeThreads.delete(input.threadId);
     if (!input.executionContext) void finishFollowups(input.threadId, completed).catch(console.error);
   });

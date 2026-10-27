@@ -1,3 +1,4 @@
+export { TurnEventProjector } from "./turn-event-projector.js";
 export * from "./contracts.js";
 export * from "./followup-queue.js";
 export * from "./event-journal.js";
