@@ -1,7 +1,7 @@
-import { ipcMain } from "electron";
+import { handleInvoke } from "./handle-invoke.js";
 import { checkForDesktopUpdate, openDesktopReleases } from "../updates/github-release-service.js";
 
 export function registerUpdateIpc(): void {
-  ipcMain.handle("updates:check", checkForDesktopUpdate);
-  ipcMain.handle("updates:open-download", openDesktopReleases);
+  handleInvoke("updates:check", checkForDesktopUpdate);
+  handleInvoke("updates:open-download", openDesktopReleases);
 }

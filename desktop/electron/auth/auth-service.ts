@@ -1,6 +1,7 @@
 import { getApiUrl } from "../config.js";
 import { clearTokens, readTokens, storeTokens } from "./token-store.js";
 import type { ApiResult, AuthPayload, AuthTokens } from "./types.js";
+import type { AuthBootstrap, AuthResponse } from "../../contracts/domain.js";
 
 async function authRequest(pathname: string, init: RequestInit = {}): Promise<ApiResult> {
   const timeoutSignal = AbortSignal.timeout(8_000);
@@ -28,23 +29,26 @@ async function authRequest(pathname: string, init: RequestInit = {}): Promise<Ap
 export async function authenticate(
   pathname: "/login" | "/register",
   payload: AuthPayload,
-): Promise<ApiResult> {
+): Promise<AuthResponse> {
   const result = await authRequest(pathname, { method: "POST", body: JSON.stringify(payload) });
   if (result.ok) {
     const tokens = result.payload.tokens as AuthTokens;
     await storeTokens(tokens);
   }
-  return result;
+  return { ok: result.ok, status: result.status, payload: { user: result.payload.user, error: result.payload.error } };
 }
 
-export async function bootstrapAuth() {
+export async function bootstrapAuth(): Promise<AuthBootstrap> {
   let tokens = await readTokens();
   if (!tokens) return { authenticated: false };
 
   let result = await authRequest("/me", {
     headers: { Authorization: `Bearer ${tokens.accessToken}` },
   });
-  if (result.ok) return { authenticated: true, user: result.payload.user };
+  if (result.ok) {
+    if (!result.payload.user) throw new Error("invalid_api_response");
+    return { authenticated: true, user: result.payload.user };
+  }
 
   result = await authRequest("/refresh", {
     method: "POST",
@@ -64,6 +68,7 @@ export async function bootstrapAuth() {
     await clearTokens();
     return { authenticated: false };
   }
+  if (!currentUser.payload.user) throw new Error("invalid_api_response");
   return { authenticated: true, user: currentUser.payload.user };
 }
 

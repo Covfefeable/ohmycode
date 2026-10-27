@@ -2,7 +2,7 @@ import { once } from "node:events";
 import { WebSocketServer } from "ws";
 import { expect, test } from "vitest";
 import { DashscopeSession } from "../../electron/speech/dashscope-session";
-import type { SpeechEvent } from "../../electron/speech/types";
+import type { SpeechEvent } from "../../contracts/domain";
 
 async function provider() {
   const server = new WebSocketServer({ port: 0, host: "127.0.0.1" });

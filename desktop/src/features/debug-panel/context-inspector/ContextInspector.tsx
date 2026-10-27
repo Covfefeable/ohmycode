@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { Copy, RefreshCw, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import type { ContextSnapshot } from "../../../../electron/debug/types";
+import type { ContextSnapshot } from "../../../../contracts/domain";
 import { IconButton } from "../../../shared/ui/icon-button";
 import { Tooltip } from "../../../shared/ui/tooltip";
 import { useFeedback } from "../../feedback";

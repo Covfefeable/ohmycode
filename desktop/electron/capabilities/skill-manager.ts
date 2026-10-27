@@ -4,7 +4,7 @@ import { mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { readSkillArchive } from "./skill-archive.js";
 import { apiFetch, apiRequest } from "../api/api-client.js";
-import type { SkillRecord } from "./types.js";
+import type { SkillRecord } from "../../contracts/domain.js";
 
 const skillRoot = (): string => path.join(app.getPath("userData"), "skills");
 const skillDirectory = (id: string): string => path.join(skillRoot(), createHash("sha256").update(id).digest("hex"));

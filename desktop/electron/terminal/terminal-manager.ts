@@ -7,7 +7,7 @@ import { commandRequiresApproval } from "./command-policy.js";
 import { TERMINAL_CONFIG } from "./config.js";
 import { shellLaunch } from "./platform.js";
 import { ensureNodePtyHelperExecutable } from "./node-pty-helper.js";
-import type { TerminalAction, TerminalResult, TerminalStatus } from "./types.js";
+import type { TerminalAction, TerminalResult, TerminalStatus } from "../../contracts/domain.js";
 
 type Session = {
   id: string;

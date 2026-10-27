@@ -1,4 +1,4 @@
 import { createContext } from "react";
-import type { ImageScope } from "../../../../electron/files/image-preview";
+import type { ImageScope } from "../../../../contracts/domain";
 
 export const ImageScopeContext = createContext<ImageScope | undefined>(undefined);

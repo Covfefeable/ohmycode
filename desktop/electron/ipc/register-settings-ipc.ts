@@ -1,4 +1,5 @@
-import { BrowserWindow, ipcMain } from "electron";
+import { handleInvoke } from "./handle-invoke.js";
+import { BrowserWindow } from "electron";
 import {
   getPublicSettings,
   getModels,
@@ -8,11 +9,11 @@ import {
   saveProfile,
   testModel,
 } from "../settings/settings-service.js";
-import type { BackgroundTaskSettings, ModelInput } from "../settings/types.js";
+import type { BackgroundTaskSettings, ModelInput } from "../../contracts/domain.js";
 
 export function registerSettingsIpc(): void {
-  ipcMain.handle("settings:get", getPublicSettings);
-  ipcMain.handle("settings:list-models", getModels);
+  handleInvoke("settings:get", getPublicSettings);
+  handleInvoke("settings:list-models", getModels);
   const publishProfile = async () => {
     const profile = (await getPublicSettings()).profile;
     for (const window of BrowserWindow.getAllWindows()) {
@@ -20,15 +21,15 @@ export function registerSettingsIpc(): void {
     }
     return profile;
   };
-  ipcMain.handle("settings:save-profile", async (_event, displayName: string) => {
+  handleInvoke("settings:save-profile", async (_event, displayName: string) => {
     await saveProfile(displayName);
     return publishProfile();
   });
-  ipcMain.handle("settings:save-avatar", async (_event, data: string, contentType: string) => {
+  handleInvoke("settings:save-avatar", async (_event, data: string, contentType: string) => {
     await saveAvatar(data, contentType);
     return publishProfile();
   });
-  ipcMain.handle("settings:save-models", async (_event, models: ModelInput[]) => {
+  handleInvoke("settings:save-models", async (_event, models: ModelInput[]) => {
     await saveModels(models);
     const freshModels = await getModels();
     for (const window of BrowserWindow.getAllWindows()) {
@@ -36,6 +37,6 @@ export function registerSettingsIpc(): void {
     }
     return freshModels;
   });
-  ipcMain.handle("settings:save-background-tasks", (_event, settings: BackgroundTaskSettings) => saveBackgroundTasks(settings));
-  ipcMain.handle("settings:test-model", (_event, model: ModelInput) => testModel(model));
+  handleInvoke("settings:save-background-tasks", (_event, settings: BackgroundTaskSettings) => saveBackgroundTasks(settings));
+  handleInvoke("settings:test-model", (_event, model: ModelInput) => testModel(model));
 }

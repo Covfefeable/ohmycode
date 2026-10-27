@@ -1,7 +1,7 @@
 import { EventEmitter } from "node:events";
 import type { WebContents } from "electron";
 import { expect, it, vi, type Mock } from "vitest";
-import type { SpeechEvent } from "../../electron/speech/types";
+import type { SpeechEvent } from "../../contracts/domain";
 import { speechForWindow, stopSpeech } from "../../electron/speech/speech-host";
 
 const { instances } = vi.hoisted(() => ({ instances: [] as Array<{ stop: Mock; emit(id: string, event: SpeechEvent): void }> }));

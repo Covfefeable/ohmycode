@@ -1,6 +1,7 @@
-import { BrowserWindow, ipcMain } from "electron";
+import { handleInvoke } from "./handle-invoke.js";
+import { BrowserWindow } from "electron";
 import { deleteMcpServer, listMcpServers, saveMcpServer, testMcpServer } from "../capabilities/mcp-manager.js";
-import type { McpServerInput } from "../capabilities/types.js";
+import type { McpServerInput } from "../../contracts/domain.js";
 import { deleteSkill, downloadSkill, installSkill, listSkills, removeLocalSkill } from "../capabilities/skill-manager.js";
 
 export function registerCapabilitiesIpc(): void {
@@ -9,8 +10,8 @@ export function registerCapabilitiesIpc(): void {
       if (!window.isDestroyed()) window.webContents.send("capabilities:changed");
     }
   };
-  ipcMain.handle("capabilities:mcp-list", listMcpServers);
-  ipcMain.handle("capabilities:mcp-save", async (_event, input: McpServerInput) => {
+  handleInvoke("capabilities:mcp-list", listMcpServers);
+  handleInvoke("capabilities:mcp-save", async (_event, input: McpServerInput) => {
     const saved = await saveMcpServer(input);
     publishChanged();
     if (saved.enabled) {
@@ -20,33 +21,33 @@ export function registerCapabilitiesIpc(): void {
     }
     return saved;
   });
-  ipcMain.handle("capabilities:mcp-test", async (_event, id: string) => {
+  handleInvoke("capabilities:mcp-test", async (_event, id: string) => {
     try {
       return await testMcpServer(id);
     } finally {
       publishChanged();
     }
   });
-  ipcMain.handle("capabilities:mcp-delete", async (_event, id: string) => {
+  handleInvoke("capabilities:mcp-delete", async (_event, id: string) => {
     await deleteMcpServer(id);
     publishChanged();
   });
-  ipcMain.handle("capabilities:skills-list", listSkills);
-  ipcMain.handle("capabilities:skills-install", async () => {
+  handleInvoke("capabilities:skills-list", listSkills);
+  handleInvoke("capabilities:skills-install", async () => {
     const result = await installSkill();
     if (result) publishChanged();
     return result;
   });
-  ipcMain.handle("capabilities:skills-download", async (_event, id: string) => {
+  handleInvoke("capabilities:skills-download", async (_event, id: string) => {
     const result = await downloadSkill(id);
     publishChanged();
     return result;
   });
-  ipcMain.handle("capabilities:skills-remove-local", async (_event, id: string) => {
+  handleInvoke("capabilities:skills-remove-local", async (_event, id: string) => {
     await removeLocalSkill(id);
     publishChanged();
   });
-  ipcMain.handle("capabilities:skills-delete", async (_event, id: string) => {
+  handleInvoke("capabilities:skills-delete", async (_event, id: string) => {
     await deleteSkill(id);
     publishChanged();
   });

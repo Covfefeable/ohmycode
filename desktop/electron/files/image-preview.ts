@@ -4,7 +4,7 @@ import { listProjects } from "../projects/projects-service.js";
 import { getMultiAgentTask } from "../multi-agents/multi-agent-service.js";
 import { previewImageAsset } from "./image-assets.js";
 
-export type ImageScope = { conversationId: string } | { taskId: string };
+import type { ImageScope } from "../../contracts/domain.js";
 
 export async function previewWorkspaceImage(scope: ImageScope | undefined, reference: string): Promise<string> {
   if (reference.startsWith("ohmycode-image://")) return previewImageAsset(reference);

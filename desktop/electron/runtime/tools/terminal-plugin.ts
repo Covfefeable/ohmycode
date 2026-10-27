@@ -3,7 +3,7 @@ import type { ToolDefinition, ToolPlugin } from "@ohmycode/tool-contracts";
 import { acquireWorkspaceWriteLock } from "../../multi-agents/workspace-write-lock.js";
 import { recordWorkspaceChanges, snapshotWorkspace } from "../../multi-agents/workspace-changes.js";
 import { executeTerminalAction, onTerminalExit } from "../../terminal/terminal-manager.js";
-import type { TerminalAction } from "../../terminal/types.js";
+import type { TerminalAction } from "../../../contracts/domain.js";
 import type { DesktopTurnExecution } from "../desktop-execution-adapter.js";
 import type { DesktopExecutionContext } from "../types.js";
 

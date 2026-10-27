@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import WebSocket from "ws";
-import type { SpeechConnection, SpeechEvent, SpeechMode } from "./types.js";
+import type { SpeechEvent, SpeechMode } from "../../contracts/domain.js";
+import type { SpeechConnection } from "./types.js";
 
 const models = {
   asr: "qwen-audio-3.1-asr-flash-message",

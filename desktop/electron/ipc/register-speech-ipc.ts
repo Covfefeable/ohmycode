@@ -1,47 +1,42 @@
+import { handleInvoke } from "./handle-invoke.js";
 import { ipcMain } from "electron";
 import { apiRequest } from "../api/api-client.js";
 import { speechForWindow } from "../speech/speech-host.js";
-import type {
-  SpeechMode,
-  SpeechSettings,
-  SpeechSettingsInput,
-  CustomVoice,
-  VoiceCloneInput,
-} from "../speech/types.js";
+import type { SpeechMode, SpeechSettings, SpeechSettingsInput, CustomVoice, VoiceCloneInput } from "../../contracts/domain.js";
 
 export function registerSpeechIpc() {
-  ipcMain.handle("speech:voices", () =>
+  handleInvoke("speech:voices", () =>
     apiRequest<CustomVoice[]>("/api/settings/speech/voices"),
   );
-  ipcMain.handle("speech:clone-voice", (_event, input: VoiceCloneInput) =>
+  handleInvoke("speech:clone-voice", (_event, input: VoiceCloneInput) =>
     apiRequest<CustomVoice>("/api/settings/speech/voices", {
       method: "POST",
       body: JSON.stringify(input),
       signal: AbortSignal.timeout(70000),
     }),
   );
-  ipcMain.handle("speech:refresh-voices", () =>
+  handleInvoke("speech:refresh-voices", () =>
     apiRequest<CustomVoice[]>("/api/settings/speech/voices/refresh", {
       method: "POST",
       signal: AbortSignal.timeout(70000),
     }),
   );
-  ipcMain.handle("speech:settings", () =>
+  handleInvoke("speech:settings", () =>
     apiRequest<SpeechSettings>("/api/settings/speech"),
   );
-  ipcMain.handle("speech:save", (_event, input: SpeechSettingsInput) =>
+  handleInvoke("speech:save", (_event, input: SpeechSettingsInput) =>
     apiRequest<SpeechSettings>("/api/settings/speech", {
       method: "PUT",
       body: JSON.stringify(input),
     }),
   );
-  ipcMain.handle("speech:auto-play", (_event, enabled: boolean) =>
+  handleInvoke("speech:auto-play", (_event, enabled: boolean) =>
     apiRequest<SpeechSettings>("/api/settings/speech/auto-play", {
       method: "PUT",
       body: JSON.stringify({ enabled }),
     }),
   );
-  ipcMain.handle("speech:start", ({ sender }, id: string, mode: SpeechMode) =>
+  handleInvoke("speech:start", ({ sender }, id: string, mode: SpeechMode) =>
     speechForWindow(sender).start(id, mode),
   );
   ipcMain.on(

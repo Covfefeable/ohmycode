@@ -1,4 +1,5 @@
-import { BrowserWindow, ipcMain, type IpcMainInvokeEvent } from "electron";
+import { handleInvoke } from "./handle-invoke.js";
+import { BrowserWindow, type IpcMainInvokeEvent } from "electron";
 import type { BrowserBounds, BrowserCommand } from "@ohmycode/browser-use/types";
 import { browserContext } from "../browser/browser-service.js";
 
@@ -15,18 +16,18 @@ function contextFor(event: IpcMainInvokeEvent, id: string) {
 }
 
 export function registerBrowserIpc(): void {
-  ipcMain.handle("browser:state", (event, id: string) => contextFor(event, id).host.state(id));
-  ipcMain.handle("browser:open", (event, id: string, opened: boolean) => {
+  handleInvoke("browser:state", (event, id: string) => contextFor(event, id).host.state(id));
+  handleInvoke("browser:open", (event, id: string, opened: boolean) => {
     const context = contextFor(event, id);
     if (!opened) context.controller.dock(id);
     return context.host.setOpened(id, opened);
   });
-  ipcMain.handle("browser:command", (event, id: string, command: BrowserCommand) => contextFor(event, id).host.command(id, command));
-  ipcMain.handle("browser:detach", (event, id: string, detached: boolean) => {
+  handleInvoke("browser:command", (event, id: string, command: BrowserCommand) => contextFor(event, id).host.command(id, command));
+  handleInvoke("browser:detach", (event, id: string, detached: boolean) => {
     const context = contextFor(event, id);
     return detached ? context.controller.detach(id) : context.controller.dock(id);
   });
-  ipcMain.handle("browser:layout", (event, id: string | null, bounds: BrowserBounds | null) => {
+  handleInvoke("browser:layout", (event, id: string | null, bounds: BrowserBounds | null) => {
     const window = windowFor(event);
     const context = browserContext(window);
     if (context.conversationId) {

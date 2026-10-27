@@ -1,5 +1,11 @@
 import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from "electron";
 
+import type { DesktopInvocations } from "../contracts/invocations.js";
+
+function invokeDesktop<K extends keyof DesktopInvocations>(channel: K, ...args: Parameters<DesktopInvocations[K]>): ReturnType<DesktopInvocations[K]> {
+  return ipcRenderer.invoke(channel, ...args) as ReturnType<DesktopInvocations[K]>;
+}
+
 let operationState: import("@ohmycode/tool-contracts").OperationFeedback = { active: false };
 const operationListeners = new Set<(state: typeof operationState) => void>();
 ipcRenderer.on("operation:state", (_event, state: typeof operationState) => {
@@ -17,44 +23,44 @@ const bridge: DesktopBridge = {
     },
   },
   android: {
-    installPlan: (mode) => ipcRenderer.invoke("android:install-plan", mode),
-    installation: () => ipcRenderer.invoke("android:installation"),
-    chooseInstallRoot: (mode) => ipcRenderer.invoke("android:install-root", mode),
-    install: (consent, mode) => ipcRenderer.invoke("android:install", consent, mode),
-    selectTarget: (target) => ipcRenderer.invoke("android:select-target", target),
-    connect: (address, name) => ipcRenderer.invoke("android:connect", address, name),
-    removeDevice: (serial) => ipcRenderer.invoke("android:remove-device", serial),
-    type: (conversationId, text) => ipcRenderer.invoke("android:type", conversationId, text),
-    cancelInstall: () => ipcRenderer.invoke("android:cancel-install"),
-    openLicense: () => ipcRenderer.invoke("android:license"),
+    installPlan: (mode) => invokeDesktop("android:install-plan", mode),
+    installation: () => invokeDesktop("android:installation"),
+    chooseInstallRoot: (mode) => invokeDesktop("android:install-root", mode),
+    install: (consent, mode) => invokeDesktop("android:install", consent, mode),
+    selectTarget: (target) => invokeDesktop("android:select-target", target),
+    connect: (address, name) => invokeDesktop("android:connect", address, name),
+    removeDevice: (serial) => invokeDesktop("android:remove-device", serial),
+    type: (conversationId, text) => invokeDesktop("android:type", conversationId, text),
+    cancelInstall: () => invokeDesktop("android:cancel-install"),
+    openLicense: () => invokeDesktop("android:license"),
     onInstallation: (callback) => {
       const listener = (_event: IpcRendererEvent, state: import("@ohmycode/android-use/types").AndroidInstallState) => callback(state);
       ipcRenderer.on("android:installation", listener);
       return () => ipcRenderer.removeListener("android:installation", listener);
     },
-    state: () => ipcRenderer.invoke("android:state"),
-    refresh: () => ipcRenderer.invoke("android:refresh"),
-    chooseSdk: () => ipcRenderer.invoke("android:choose-sdk"),
-    setEnabled: (enabled) => ipcRenderer.invoke("android:enabled", enabled),
-    openGuide: () => ipcRenderer.invoke("android:guide"),
-    start: (conversationId) => ipcRenderer.invoke("android:start", conversationId),
-    stop: (conversationId) => ipcRenderer.invoke("android:stop", conversationId),
-    detached: () => ipcRenderer.invoke("android:detached"),
-    setDetached: (value, conversationId) => ipcRenderer.invoke("android:set-detached", value, conversationId),
+    state: () => invokeDesktop("android:state"),
+    refresh: () => invokeDesktop("android:refresh"),
+    chooseSdk: () => invokeDesktop("android:choose-sdk"),
+    setEnabled: (enabled) => invokeDesktop("android:enabled", enabled),
+    openGuide: () => invokeDesktop("android:guide"),
+    start: (conversationId) => invokeDesktop("android:start", conversationId),
+    stop: (conversationId) => invokeDesktop("android:stop", conversationId),
+    detached: () => invokeDesktop("android:detached"),
+    setDetached: (value, conversationId) => invokeDesktop("android:set-detached", value, conversationId),
     onDetached: (callback) => {
       const listener = (_event: Electron.IpcRendererEvent, value: boolean) => callback(value);
       ipcRenderer.on("android:detached", listener);
       return () => ipcRenderer.removeListener("android:detached", listener);
     },
-    startVideo: (id, conversationId) => ipcRenderer.invoke("android:video-start", id, conversationId),
-    stopVideo: (id) => ipcRenderer.invoke("android:video-stop", id),
+    startVideo: (id, conversationId) => invokeDesktop("android:video-start", id, conversationId),
+    stopVideo: (id) => invokeDesktop("android:video-stop", id),
     onVideo: (id, callback) => {
       const listener = (_event: Electron.IpcRendererEvent, session: string, packet: Parameters<typeof callback>[0]) => { if (id === session) callback(packet); };
       ipcRenderer.on("android:video", listener);
       return () => ipcRenderer.removeListener("android:video", listener);
     },
-    act: (conversationId, action) => ipcRenderer.invoke("android:act", conversationId, action),
-    touch: (conversationId, events) => ipcRenderer.invoke("android:touch", conversationId, events),
+    act: (conversationId, action) => invokeDesktop("android:act", conversationId, action),
+    touch: (conversationId, events) => invokeDesktop("android:touch", conversationId, events),
     onState: (callback) => {
       const listener = (_event: IpcRendererEvent, state: import("@ohmycode/android-use/types").AndroidState) => callback(state);
       ipcRenderer.on("android:state", listener);
@@ -62,11 +68,11 @@ const bridge: DesktopBridge = {
     },
   },
   browser: {
-    setDetached: (id, detached) => ipcRenderer.invoke("browser:detach", id, detached),
-    state: (id) => ipcRenderer.invoke("browser:state", id),
-    setOpened: (id, opened) => ipcRenderer.invoke("browser:open", id, opened),
-    command: (id, command) => ipcRenderer.invoke("browser:command", id, command),
-    layout: (id, bounds) => ipcRenderer.invoke("browser:layout", id, bounds),
+    setDetached: (id, detached) => invokeDesktop("browser:detach", id, detached),
+    state: (id) => invokeDesktop("browser:state", id),
+    setOpened: (id, opened) => invokeDesktop("browser:open", id, opened),
+    command: (id, command) => invokeDesktop("browser:command", id, command),
+    layout: (id, bounds) => invokeDesktop("browser:layout", id, bounds),
     onState: (id, callback) => {
       const channel = `browser:state:${id}`;
       const listener = (_event: IpcRendererEvent, state: import("@ohmycode/browser-use/types").BrowserState) => callback(state);
@@ -75,27 +81,27 @@ const bridge: DesktopBridge = {
     },
   },
   projects: {
-    list: () => ipcRenderer.invoke("projects:list"),
-    searchConversations: (query) => ipcRenderer.invoke("projects:search-conversations", query),
-    create: () => ipcRenderer.invoke("projects:create"),
-    open: (projectId) => ipcRenderer.invoke("projects:open", projectId),
-    delete: (projectId) => ipcRenderer.invoke("projects:delete", projectId),
-    createConversation: (projectId, title) => ipcRenderer.invoke("projects:create-conversation", projectId, title),
-    deleteConversation: (projectId, conversationId) => ipcRenderer.invoke("projects:delete-conversation", projectId, conversationId),
+    list: () => invokeDesktop("projects:list"),
+    searchConversations: (query) => invokeDesktop("projects:search-conversations", query),
+    create: () => invokeDesktop("projects:create"),
+    open: (projectId) => invokeDesktop("projects:open", projectId),
+    delete: (projectId) => invokeDesktop("projects:delete", projectId),
+    createConversation: (projectId, title) => invokeDesktop("projects:create-conversation", projectId, title),
+    deleteConversation: (projectId, conversationId) => invokeDesktop("projects:delete-conversation", projectId, conversationId),
   },
   multiAgents: {
-    list: () => ipcRenderer.invoke("multi-agents:list"),
-    create: (payload) => ipcRenderer.invoke("multi-agents:create", payload),
-    update: (agentId, payload) => ipcRenderer.invoke("multi-agents:update", agentId, payload),
-    delete: (agentId) => ipcRenderer.invoke("multi-agents:delete", agentId),
-    selectWorkspace: () => ipcRenderer.invoke("multi-agents:select-workspace"),
-    createTask: (agentId, request, workspacePath, executionLimit) => ipcRenderer.invoke("multi-agents:create-task", agentId, request, workspacePath, executionLimit),
-    getTask: (taskId) => ipcRenderer.invoke("multi-agents:get-task", taskId),
-    getRunDetail: (messageId) => ipcRenderer.invoke("multi-agents:get-run-detail", messageId),
-    deleteTask: (taskId) => ipcRenderer.invoke("multi-agents:delete-task", taskId),
-    runTask: (taskId, requestId) => ipcRenderer.invoke("multi-agents:run-task", taskId, requestId),
-    stopTask: (requestId, taskId) => ipcRenderer.invoke("multi-agents:stop-task", requestId, taskId),
-    sendMessage: (taskId, nodeId, content) => ipcRenderer.invoke("multi-agents:send-message", taskId, nodeId, content),
+    list: () => invokeDesktop("multi-agents:list"),
+    create: (payload) => invokeDesktop("multi-agents:create", payload),
+    update: (agentId, payload) => invokeDesktop("multi-agents:update", agentId, payload),
+    delete: (agentId) => invokeDesktop("multi-agents:delete", agentId),
+    selectWorkspace: () => invokeDesktop("multi-agents:select-workspace"),
+    createTask: (agentId, request, workspacePath, executionLimit) => invokeDesktop("multi-agents:create-task", agentId, request, workspacePath, executionLimit),
+    getTask: (taskId) => invokeDesktop("multi-agents:get-task", taskId),
+    getRunDetail: (messageId) => invokeDesktop("multi-agents:get-run-detail", messageId),
+    deleteTask: (taskId) => invokeDesktop("multi-agents:delete-task", taskId),
+    runTask: (taskId, requestId) => invokeDesktop("multi-agents:run-task", taskId, requestId),
+    stopTask: (requestId, taskId) => invokeDesktop("multi-agents:stop-task", requestId, taskId),
+    sendMessage: (taskId, nodeId, content) => invokeDesktop("multi-agents:send-message", taskId, nodeId, content),
     onEvent: (requestId, callback) => {
       const channel = `multi-agent:event:${requestId}`;
       const listener = (_event: IpcRendererEvent, streamEvent: MultiAgentRunEvent) => callback(streamEvent);
@@ -104,15 +110,15 @@ const bridge: DesktopBridge = {
     },
   },
   conversations: {
-    get: (conversationId) => ipcRenderer.invoke("conversations:get", conversationId),
-    history: (conversationId, options) => ipcRenderer.invoke("conversations:history", conversationId, options),
-    searchMessages: (conversationId, options) => ipcRenderer.invoke("conversations:search-messages", conversationId, options),
-    branch: (conversationId, messageId) => ipcRenderer.invoke("conversations:branch", conversationId, messageId),
-    startTurn: (conversationId, content, modelId, editMessageId, attachments) => ipcRenderer.invoke("conversations:start-turn", conversationId, content, modelId, editMessageId, attachments),
-    followups: (id) => ipcRenderer.invoke("conversations:followups", id),
-    steer: (id, inputId) => ipcRenderer.invoke("conversations:steer", id, inputId),
-    withdraw: (id, inputId) => ipcRenderer.invoke("conversations:withdraw", id, inputId),
-    resumeQueue: (id) => ipcRenderer.invoke("conversations:resume-queue", id),
+    get: (conversationId) => invokeDesktop("conversations:get", conversationId),
+    history: (conversationId, options) => invokeDesktop("conversations:history", conversationId, options),
+    searchMessages: (conversationId, options) => invokeDesktop("conversations:search-messages", conversationId, options),
+    branch: (conversationId, messageId) => invokeDesktop("conversations:branch", conversationId, messageId),
+    startTurn: (conversationId, content, modelId, editMessageId, attachments) => invokeDesktop("conversations:start-turn", conversationId, content, modelId, editMessageId, attachments),
+    followups: (id) => invokeDesktop("conversations:followups", id),
+    steer: (id, inputId) => invokeDesktop("conversations:steer", id, inputId),
+    withdraw: (id, inputId) => invokeDesktop("conversations:withdraw", id, inputId),
+    resumeQueue: (id) => invokeDesktop("conversations:resume-queue", id),
     onFollowups: (id, callback) => {
       const channel = `thread:followups:${id}`;
       const listener = (_event: Electron.IpcRendererEvent, state: import("@ohmycode/protocol").FollowupState) => callback(state);
@@ -126,51 +132,51 @@ const bridge: DesktopBridge = {
       size: file.size,
       mimeType: file.type || "application/octet-stream",
     })),
-    savePastedImage: (data) => ipcRenderer.invoke("conversations:save-pasted-image", data),
-    threadSnapshot: (conversationId, afterSequence) => ipcRenderer.invoke("conversations:thread-snapshot", conversationId, afterSequence),
-    waitTurn: (turnId) => ipcRenderer.invoke("conversations:wait-turn", turnId),
-    interruptTurn: (turnId, partialMessage) => ipcRenderer.invoke("conversations:interrupt-turn", turnId, partialMessage),
+    savePastedImage: (data) => invokeDesktop("conversations:save-pasted-image", data),
+    threadSnapshot: (conversationId, afterSequence) => invokeDesktop("conversations:thread-snapshot", conversationId, afterSequence),
+    waitTurn: (turnId) => invokeDesktop("conversations:wait-turn", turnId),
+    interruptTurn: (turnId, partialMessage) => invokeDesktop("conversations:interrupt-turn", turnId, partialMessage),
     onThreadEvent: (conversationId, callback) => {
       const channel = `thread:event:${conversationId}`;
       const listener = (_event: IpcRendererEvent, runtimeEvent: RuntimeEvent) => callback(runtimeEvent);
       ipcRenderer.on(channel, listener);
       return () => ipcRenderer.removeListener(channel, listener);
     },
-    suggest: (conversationId) => ipcRenderer.invoke("conversations:suggest", conversationId),
+    suggest: (conversationId) => invokeDesktop("conversations:suggest", conversationId),
   },
-  apiStatus: () => ipcRenderer.invoke("api:status"),
+  apiStatus: () => invokeDesktop("api:status"),
   updates: {
-    check: () => ipcRenderer.invoke("updates:check"),
-    openDownload: () => ipcRenderer.invoke("updates:open-download"),
+    check: () => invokeDesktop("updates:check"),
+    openDownload: () => invokeDesktop("updates:open-download"),
   },
   debug: {
-    contextSnapshot: (conversationId) => ipcRenderer.invoke("debug:context-snapshot", conversationId),
-    getConfig: () => ipcRenderer.invoke("debug:get-config"),
-    setApiUrl: (apiUrl) => ipcRenderer.invoke("debug:set-api-url", apiUrl),
+    contextSnapshot: (conversationId) => invokeDesktop("debug:context-snapshot", conversationId),
+    getConfig: () => invokeDesktop("debug:get-config"),
+    setApiUrl: (apiUrl) => invokeDesktop("debug:set-api-url", apiUrl),
     openDevTools: () => ipcRenderer.send("debug:open-devtools"),
   },
-  openPath: (targetPath, projectId) => ipcRenderer.invoke("system:open-path", targetPath, projectId),
-  previewImage: (scope, reference) => ipcRenderer.invoke("images:preview", scope, reference),
+  openPath: (targetPath, projectId) => invokeDesktop("system:open-path", targetPath, projectId),
+  previewImage: (scope, reference) => invokeDesktop("images:preview", scope, reference),
   auth: {
-    bootstrap: () => ipcRenderer.invoke("auth:bootstrap"),
-    login: (payload) => ipcRenderer.invoke("auth:login", payload),
-    register: (payload) => ipcRenderer.invoke("auth:register", payload),
-    logout: () => ipcRenderer.invoke("auth:logout"),
+    bootstrap: () => invokeDesktop("auth:bootstrap"),
+    login: (payload) => invokeDesktop("auth:login", payload),
+    register: (payload) => invokeDesktop("auth:register", payload),
+    logout: () => invokeDesktop("auth:logout"),
   },
   windowControls: {
-    reservePanelSpace: (width) => ipcRenderer.invoke("window:reserve-panel-space", width),
+    reservePanelSpace: (width) => invokeDesktop("window:reserve-panel-space", width),
     minimize: () => ipcRenderer.send("window:minimize"),
     toggleMaximize: () => ipcRenderer.send("window:toggle-maximize"),
     close: () => ipcRenderer.send("window:close"),
   },
   speech: {
-    getSettings: () => ipcRenderer.invoke("speech:settings"),
-    saveSettings: (input) => ipcRenderer.invoke("speech:save", input),
-    setAutoPlay: (enabled) => ipcRenderer.invoke("speech:auto-play", enabled),
-    listVoices: () => ipcRenderer.invoke("speech:voices"),
-    createVoice: (input) => ipcRenderer.invoke("speech:clone-voice", input),
-    refreshVoices: () => ipcRenderer.invoke("speech:refresh-voices"),
-    start: (id, mode) => ipcRenderer.invoke("speech:start", id, mode),
+    getSettings: () => invokeDesktop("speech:settings"),
+    saveSettings: (input) => invokeDesktop("speech:save", input),
+    setAutoPlay: (enabled) => invokeDesktop("speech:auto-play", enabled),
+    listVoices: () => invokeDesktop("speech:voices"),
+    createVoice: (input) => invokeDesktop("speech:clone-voice", input),
+    refreshVoices: () => invokeDesktop("speech:refresh-voices"),
+    start: (id, mode) => invokeDesktop("speech:start", id, mode),
     append: (id, value) => ipcRenderer.send("speech:append", id, value),
     finish: (id) => ipcRenderer.send("speech:finish", id),
     stop: (mode) => ipcRenderer.send("speech:stop", mode),
@@ -182,34 +188,34 @@ const bridge: DesktopBridge = {
     },
   },
   settings: {
-    get: () => ipcRenderer.invoke("settings:get"),
-    listModels: () => ipcRenderer.invoke("settings:list-models"),
-    saveProfile: (displayName) => ipcRenderer.invoke("settings:save-profile", displayName),
-    saveAvatar: (data, contentType) => ipcRenderer.invoke("settings:save-avatar", data, contentType),
+    get: () => invokeDesktop("settings:get"),
+    listModels: () => invokeDesktop("settings:list-models"),
+    saveProfile: (displayName) => invokeDesktop("settings:save-profile", displayName),
+    saveAvatar: (data, contentType) => invokeDesktop("settings:save-avatar", data, contentType),
     onProfileChanged: (callback) => {
       const listener = (_event: IpcRendererEvent, profile: PublicSettings["profile"]) => callback(profile);
       ipcRenderer.on("settings:profile-changed", listener);
       return () => ipcRenderer.removeListener("settings:profile-changed", listener);
     },
-    saveModels: (models) => ipcRenderer.invoke("settings:save-models", models),
-    saveBackgroundTasks: (settings) => ipcRenderer.invoke("settings:save-background-tasks", settings),
+    saveModels: (models) => invokeDesktop("settings:save-models", models),
+    saveBackgroundTasks: (settings) => invokeDesktop("settings:save-background-tasks", settings),
     onModelsChanged: (callback) => {
       const listener = (_event: IpcRendererEvent, models: ModelConfiguration[]) => callback(models);
       ipcRenderer.on("settings:models-changed", listener);
       return () => ipcRenderer.removeListener("settings:models-changed", listener);
     },
-    testModel: (model) => ipcRenderer.invoke("settings:test-model", model),
+    testModel: (model) => invokeDesktop("settings:test-model", model),
   },
   capabilities: {
-    listMcp: () => ipcRenderer.invoke("capabilities:mcp-list"),
-    saveMcp: (input) => ipcRenderer.invoke("capabilities:mcp-save", input),
-    testMcp: (id) => ipcRenderer.invoke("capabilities:mcp-test", id),
-    deleteMcp: (id) => ipcRenderer.invoke("capabilities:mcp-delete", id),
-    listSkills: () => ipcRenderer.invoke("capabilities:skills-list"),
-    installSkill: () => ipcRenderer.invoke("capabilities:skills-install"),
-    downloadSkill: (id) => ipcRenderer.invoke("capabilities:skills-download", id),
-    removeLocalSkill: (id) => ipcRenderer.invoke("capabilities:skills-remove-local", id),
-    deleteSkill: (id) => ipcRenderer.invoke("capabilities:skills-delete", id),
+    listMcp: () => invokeDesktop("capabilities:mcp-list"),
+    saveMcp: (input) => invokeDesktop("capabilities:mcp-save", input),
+    testMcp: (id) => invokeDesktop("capabilities:mcp-test", id),
+    deleteMcp: (id) => invokeDesktop("capabilities:mcp-delete", id),
+    listSkills: () => invokeDesktop("capabilities:skills-list"),
+    installSkill: () => invokeDesktop("capabilities:skills-install"),
+    downloadSkill: (id) => invokeDesktop("capabilities:skills-download", id),
+    removeLocalSkill: (id) => invokeDesktop("capabilities:skills-remove-local", id),
+    deleteSkill: (id) => invokeDesktop("capabilities:skills-delete", id),
     onChanged: (callback) => {
       const listener = () => callback();
       ipcRenderer.on("capabilities:changed", listener);

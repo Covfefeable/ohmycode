@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import { ContextInspector } from "./ContextInspector";
-import type { ContextSnapshot } from "../../../../electron/debug/types";
+import type { ContextSnapshot } from "../../../../contracts/domain";
 
 vi.mock("./ContextJson", () => ({ default: ({ value }: { value: string }) => <pre data-testid="context-json">{value}</pre> }));
 vi.mock("../../feedback", () => ({ useFeedback: () => ({ toast: vi.fn() }) }));

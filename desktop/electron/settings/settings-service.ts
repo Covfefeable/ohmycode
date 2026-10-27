@@ -1,7 +1,6 @@
 import { apiFetch, apiRequest } from "../api/api-client.js";
-import type { BackgroundTaskSettings, ModelInput } from "./types.js";
+import type { BackgroundTaskSettings, ModelInput, PublicSettings } from "../../contracts/domain.js";
 
-type PublicSettings = { profile: { displayName: string; avatarAvailable: boolean; avatarDataUrl?: string | null }; models: ModelInput[]; backgroundTasks: BackgroundTaskSettings; tokenUsage: { date: string; tokens: number }[] };
 
 export async function getPublicSettings(): Promise<PublicSettings> {
   const settings = await apiRequest<PublicSettings>("/api/settings");

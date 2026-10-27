@@ -1,6 +1,7 @@
 import { apiRequest } from "../api/api-client.js";
 import { DashscopeSession } from "./dashscope-session.js";
-import type { SpeechConnection, SpeechEvent, SpeechMode } from "./types.js";
+import type { SpeechEvent, SpeechMode } from "../../contracts/domain.js";
+import type { SpeechConnection } from "./types.js";
 
 type Task = {
   mode: SpeechMode;

@@ -4,7 +4,7 @@ import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { app } from "electron";
 import { apiRequest } from "../api/api-client.js";
-import type { McpServerInput, McpServerRecord, McpTool } from "./types.js";
+import type { McpServerInput, McpServerRecord, McpTool } from "../../contracts/domain.js";
 
 type Session = { client: Client; server: McpServerRecord };
 const sessions = new Map<string, Session>();
