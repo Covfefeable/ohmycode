@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useFeedback } from "../feedback";
 import { classifyRequestError } from "../../shared/lib/request-error";
-import { updateActivity } from "./activity-timeline/updateActivity";
+import { projectRuntimeMessages } from "./runtime-messages";
+import { subscribeConversationEvents } from "./conversation-subscription";
 import { mergeTurnMessages } from "./message-history";
 import { useConversationModel } from "./useConversationModel";
 
@@ -54,11 +55,6 @@ export function useConversationController({ conversationId, onUpdated, scrollToB
     let disposed = false;
     historyGenerationRef.current += 1;
     observedTurnsRef.current.clear();
-    let snapshotLoaded = false;
-    const pending: RuntimeEvent[] = [];
-    const handledEvents = new Set<string>();
-    let eventFrame: number | null = null;
-    let queuedEvents: RuntimeEvent[] = [];
     const applyRuntimeEvents = (events: RuntimeEvent[]) => {
       if (disposed || !events.length) return;
       for (const event of events) {
@@ -80,35 +76,7 @@ export function useConversationController({ conversationId, onUpdated, scrollToB
           setContextUsage(event.contextLength > 0 ? event.usedTokens / event.contextLength : 0);
         }
       }
-      setConversation((current) => {
-        if (!current) return current;
-        const messages = [...(current.messages ?? [])];
-        for (const event of events) {
-          if (event.type === "item.completed" && event.item.kind === "user_message") {
-            const item = event.item;
-            const input = item.input as { attachments: MessageAttachment[]; initial?: boolean };
-            const existing = messages.findIndex((message) => message.id === item.id || input.initial && message.id === `user-${event.turnId}`);
-            const userMessage: LocalMessage = { id: item.id, role: "user", content: item.content ?? "", attachments: input.attachments, createdAt: new Date().toISOString() };
-            if (existing >= 0) messages[existing] = userMessage;
-            else {
-              const streamIndex = messages.findIndex((message) => message.id === `stream-${event.turnId}`);
-              messages.splice(streamIndex < 0 ? messages.length : streamIndex, 0, userMessage);
-            }
-            continue;
-          }
-          const streamId = `stream-${event.turnId}`;
-          let index = messages.findIndex((message) => message.id === streamId);
-          if (index < 0 && (event.type === "turn.started" || event.type.startsWith("item."))) {
-            messages.push({ id: streamId, role: "assistant", content: "", createdAt: new Date().toISOString(), agentStartedAt: new Date().toISOString(), activity: [] });
-            index = messages.length - 1;
-          }
-          if (index >= 0) {
-            const message = messages[index];
-            messages[index] = { ...message, activity: updateActivity(message.activity ?? [], event) };
-          }
-        }
-        return { ...current, messages };
-      });
+      setConversation((current) => current ? { ...current, messages: projectRuntimeMessages(current.messages ?? [], events) } : current);
       for (const event of events) {
         if (event.type === "turn.failed") toast({ type: "error", message: requestErrorMessage(event.errorCode) });
         if (event.type !== "turn.completed" && event.type !== "turn.failed" && event.type !== "turn.interrupted") continue;
@@ -145,55 +113,29 @@ export function useConversationController({ conversationId, onUpdated, scrollToB
         }
       }
     };
-    const flushRuntimeEvents = () => {
-      eventFrame = null;
-      const events = queuedEvents;
-      queuedEvents = [];
-      applyRuntimeEvents(events);
-    };
-    const enqueueRuntimeEvent = (event: RuntimeEvent, live = true) => {
-      const eventKey = `${event.turnId}:${event.sequence}`;
-      if (disposed || handledEvents.has(eventKey)) return;
-      handledEvents.add(eventKey);
-      if (live && event.type === "item.started" && event.item.kind === "tool" && event.item.tool) onToolStartedRef.current?.(event.item.tool);
-      queuedEvents.push(event);
-      if (eventFrame === null) eventFrame = window.requestAnimationFrame(flushRuntimeEvents);
-    };
-    const unsubscribe = window.ohmycode.conversations.onThreadEvent(conversationId, (event) => {
-      if (!snapshotLoaded) pending.push(event);
-      else enqueueRuntimeEvent(event);
-    });
-    void Promise.all([
-      window.ohmycode.conversations.history(conversationId),
-      window.ohmycode.conversations.threadSnapshot(conversationId),
-    ]).then(([loadedConversation, snapshot]) => {
-      if (disposed) return;
-      setConversation(loadedConversation);
-      setPrependedCount(0);
-      setHistoryLoading(false);
-      setHistoryFailed(false);
-      setContextUsage(loadedConversation.contextUsage && loadedConversation.contextUsage.contextLength > 0
-        ? loadedConversation.contextUsage.usedTokens / loadedConversation.contextUsage.contextLength
-        : 0);
-      setSuggestions([]);
-      activeTurnIdRef.current = snapshot?.status === "in_progress" ? snapshot.turnId : null;
-      setSending(activeTurnIdRef.current !== null);
-      const replay = snapshot?.status === "in_progress" ? snapshot.events : [];
-      for (const event of replay) enqueueRuntimeEvent(event, false);
-      for (const event of pending.sort((left, right) => left.sequence - right.sequence)) enqueueRuntimeEvent(event);
-      snapshotLoaded = true;
-    }).catch(() => {
-      if (disposed) return;
-      unsubscribe();
-      setLoadFailed(true);
-      toast({ type: "error", message: t("agent.loadFailed") });
+    const unsubscribe = subscribeConversationEvents(conversationId, {
+      events: applyRuntimeEvents,
+      toolStarted: (tool) => onToolStartedRef.current?.(tool),
+      loaded(loadedConversation, snapshot) {
+        setConversation(loadedConversation);
+        setPrependedCount(0);
+        setHistoryLoading(false);
+        setHistoryFailed(false);
+        setContextUsage(loadedConversation.contextUsage && loadedConversation.contextUsage.contextLength > 0
+          ? loadedConversation.contextUsage.usedTokens / loadedConversation.contextUsage.contextLength : 0);
+        setSuggestions([]);
+        activeTurnIdRef.current = snapshot?.status === "in_progress" ? snapshot.turnId : null;
+        setSending(activeTurnIdRef.current !== null);
+      },
+      failed() {
+        setLoadFailed(true);
+        toast({ type: "error", message: t("agent.loadFailed") });
+      },
     });
     return () => {
       disposed = true;
       historyGenerationRef.current += 1;
       unsubscribe();
-      if (eventFrame !== null) window.cancelAnimationFrame(eventFrame);
-      queuedEvents = [];
     };
   }, [conversationId, reloadToken, requestErrorMessage, t, toast]);
 
