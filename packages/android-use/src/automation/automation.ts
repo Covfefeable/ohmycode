@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { OperationPoint, PointerFeedback } from "@ohmycode/tool-contracts";
 import { setTimeout as delay } from "node:timers/promises";
-import { actionArguments } from "../command.js";
+import { actionArguments, gestureDuration, screenPoint } from "../command.js";
 import { ScreenshotCoordinates } from "../coordinates.js";
 import { compactSnapshot } from "../snapshot.js";
 import type { AdbTarget, AndroidSelector } from "../types.js";
@@ -47,7 +47,7 @@ export class AndroidAutomation {
     this.latest = snapshot;
     return { ...snapshot, screen };
   }
-  private nodeSelector(args: Record<string, unknown>, tap: boolean): AndroidSelector {
+  private nodeSelector(args: Record<string, unknown>, action: "tap" | "long_press" | "text"): AndroidSelector {
     if (args.selector !== undefined) {
       if (args.nodeId !== undefined || args.snapshotId !== undefined) throw new Error("android_invalid_selector");
       return parseSelector(args.selector);
@@ -57,10 +57,11 @@ export class AndroidAutomation {
     const node = this.latest.nodes.find((node) => node.id === args.nodeId);
     if (!node) throw new Error("android_node_not_found");
     let actionable = node;
-    if (tap && !node.clickable) {
+    const actionableFlag = action === "long_press" ? "long-clickable" : "clickable";
+    if (action !== "text" && !node[actionableFlag]) {
       let parent = node.parentId === undefined ? undefined : this.latest.nodes.find((item) => item.id === node.parentId);
       while (parent) {
-        if (parent.clickable) { actionable = parent; break; }
+        if (parent[actionableFlag]) { actionable = parent; break; }
         parent = parent.parentId === undefined ? undefined : this.latest.nodes.find((item) => item.id === parent!.parentId);
       }
     }
@@ -117,14 +118,23 @@ export class AndroidAutomation {
     const { width, height } = await this.screen(signal);
     feedback(points, durationMs, { width, height });
   }
+  private async longPress(point: OperationPoint, durationMs: number, signal?: AbortSignal, feedback?: PointerFeedback) {
+    this.invalidate();
+    await this.reportPointer(feedback, [point], durationMs, signal);
+    // UIAutomator2's coordinate click overload holds and releases on-device,
+    // so aborting the HTTP wait does not leave a host-managed finger down.
+    if (!await this.server.call<boolean>("click", [point.x, point.y, durationMs], signal)) throw new Error("android_action_rejected");
+  }
   async act(input: unknown, shell: (args: string[]) => Promise<unknown>, signal?: AbortSignal, feedback?: PointerFeedback, requireScreenshot = false): Promise<unknown> {
     if (!input || typeof input !== "object" || Array.isArray(input)) throw new Error("android_invalid_action");
     const args = input as Record<string, unknown>;
-    const coordinateAction = args.action === "swipe" || (args.action === "tap" && args.selector === undefined && args.nodeId === undefined && args.snapshotId === undefined);
+    const touchAction = args.action === "tap" || args.action === "long_press";
+    const coordinateAction = args.action === "swipe" || (touchAction && args.selector === undefined && args.nodeId === undefined && args.snapshotId === undefined);
     if (requireScreenshot && coordinateAction && (typeof args.screenshotId !== "string" || !args.screenshotId)) throw new Error("android_screenshot_required");
     if (requireScreenshot && coordinateAction && args.coordinateSpace !== "image-pixels" && args.coordinateSpace !== "normalized-1000") throw new Error("android_invalid_coordinate_space");
     const visual = args.screenshotId !== undefined || args.coordinateSpace !== undefined;
-    if (visual && (!(args.action === "tap" || args.action === "swipe") || args.selector !== undefined || args.snapshotId !== undefined || args.nodeId !== undefined)) throw new Error("android_invalid_action");
+    if (visual && (!(touchAction || args.action === "swipe") || args.selector !== undefined || args.snapshotId !== undefined || args.nodeId !== undefined)) throw new Error("android_invalid_action");
+    const holdDuration = args.action === "long_press" ? gestureDuration(args.durationMs, 800) : undefined;
     if (args.action === "wait") {
       if (args.state !== "present" && args.state !== "absent") throw new Error("android_invalid_action");
       const selector = parseSelector(args.selector);
@@ -132,21 +142,27 @@ export class AndroidAutomation {
       const matched = await this.wait(selector, args.state === "present", timeout(args.timeoutMs, 15_000), signal);
       return { matched, timedOut: !matched, state: args.state, elapsedMs: Date.now() - started };
     }
-    const selectorTap = args.action === "tap" && (args.selector !== undefined || args.nodeId !== undefined || args.snapshotId !== undefined);
-    if (selectorTap || args.action === "text") {
+    const selectorTouch = touchAction && (args.selector !== undefined || args.nodeId !== undefined || args.snapshotId !== undefined);
+    if (selectorTouch || args.action === "text") {
       if (args.x !== undefined || args.y !== undefined) throw new Error("android_invalid_action");
       if (args.action === "text" && (typeof args.text !== "string" || args.text.length > 20_000)) throw new Error("android_invalid_text");
-      const selector = this.nodeSelector(args, selectorTap);
+      const selector = this.nodeSelector(args, args.action as "tap" | "long_press" | "text");
       const reference = args.snapshotId !== undefined ? { snapshot: this.latest!, nodeId: args.nodeId as number } : undefined;
       const resolved = await this.resolve(selector, timeout(args.timeoutMs), signal, reference);
       if ("error" in resolved) return { executed: false, ...resolved };
       const { query, node } = resolved;
-      this.invalidate();
-      if (selectorTap) {
+      if (selectorTouch) {
+        if (holdDuration !== undefined) {
+          const point = { x: Math.floor((node.bounds.left + node.bounds.right) / 2), y: Math.floor((node.bounds.top + node.bounds.bottom) / 2) };
+          await this.longPress(point, holdDuration, signal, feedback);
+          return { executed: true, selector, target: { resourceId: node.resourceName, bounds: node.bounds }, durationMs: holdDuration };
+        }
+        this.invalidate();
         await this.reportPointer(feedback, [{ x: (node.bounds.left + node.bounds.right) / 2, y: (node.bounds.top + node.bounds.bottom) / 2 }], undefined, signal);
         if (!await this.server.call<boolean>("click", [query], signal)) throw new Error("android_action_rejected");
         return { executed: true, selector, target: { resourceId: node.resourceName, bounds: node.bounds } };
       }
+      this.invalidate();
       const text = args.text;
       if (!await this.server.call<boolean>("setText", [query, text], signal)) throw new Error("android_action_rejected");
       // Do not reuse text matching after changing the field's value.
@@ -157,6 +173,10 @@ export class AndroidAutomation {
     }
     const mapped = visual
       ? this.screenshots.resolve(args, await this.screen(signal)) : undefined;
+    if (holdDuration !== undefined) {
+      await this.longPress(screenPoint(mapped?.command ?? args), holdDuration, signal, feedback);
+      return { executed: true, durationMs: holdDuration, ...(mapped ? { coordinates: mapped.coordinates } : {}) };
+    }
     const command = actionArguments(mapped?.command ?? args);
     if (args.action === "tap" || args.action === "swipe") {
       const points = [{ x: Number(command[3]), y: Number(command[4]) }];

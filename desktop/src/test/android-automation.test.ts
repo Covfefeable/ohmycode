@@ -44,6 +44,62 @@ it("操作反馈携带设备屏幕尺寸，复用节点 bounds 和命令坐标�
   expect(shell).toHaveBeenCalledWith(["shell", "input", "swipe", "10", "20", "90", "120", "400"]);
 });
 
+it.each([undefined, 1500])("控件长按复用唯一定位和原生按住接口，时长为 %s", async (durationMs) => {
+  const feedback = vi.fn();
+  const shell = vi.fn();
+  expect(await automation.act({ action: "long_press", selector: { resourceId: "app:id/row" }, durationMs }, shell, undefined, feedback, true)).toMatchObject({ executed: true, durationMs: durationMs ?? 800, selector: { resourceId: "app:id/row" } });
+  expect(mocks.call).toHaveBeenLastCalledWith("click", [100, 50, durationMs ?? 800], undefined);
+  expect(feedback).toHaveBeenCalledWith([{ x: 100, y: 50 }], durationMs ?? 800, { width: 1920, height: 1080 });
+  expect(shell).not.toHaveBeenCalled();
+});
+
+it("长按节点寻找可长按祖先，完成后引用失效，歧义不执行", async () => {
+  const hierarchy = '<hierarchy rotation="1"><node resource-id="hold" long-clickable="true"><node resource-id="tap" clickable="true"><node text="标题"/></node></node></hierarchy>';
+  const call = mocks.call.getMockImplementation()!;
+  mocks.call.mockImplementation(async (method, args) => method === "dumpWindowHierarchy" ? hierarchy : call(method, args));
+  const snapshot = await automation.snapshot();
+  const args = { action: "long_press", snapshotId: snapshot.snapshotId, nodeId: 3 };
+  expect(await automation.act(args, vi.fn())).toMatchObject({ executed: true, selector: { resourceId: "hold" } });
+  expect(mocks.call).toHaveBeenCalledWith("objInfo", [expect.objectContaining({ resourceId: "hold" })], undefined);
+  await expect(automation.act(args, vi.fn())).rejects.toThrow("android_snapshot_expired");
+  mocks.call.mockImplementation(async (method) => method === "waitForExists" ? true : '<hierarchy><node text="重复"/><node text="重复"/></hierarchy>');
+  mocks.call.mockClear();
+  expect(await automation.act({ action: "long_press", selector: { text: "重复" } }, vi.fn())).toMatchObject({ executed: false, error: "android_node_ambiguous" });
+  expect(mocks.call.mock.calls.some(([method]) => method === "click")).toBe(false);
+});
+
+it("坐标长按复用截图转换与遮罩，取消不追加操作", async () => {
+  const reference = automation.screenshots.capture(960, 540, { width: 1920, height: 1080, rotation: 1 });
+  const args = { action: "long_press", screenshotId: reference.screenshotId, coordinateSpace: "normalized-1000", x: 500, y: 500, durationMs: 1200 };
+  const feedback = vi.fn(), shell = vi.fn();
+  expect(await automation.act(args, shell, undefined, feedback, true)).toMatchObject({ executed: true, durationMs: 1200, coordinates: { screenshotId: reference.screenshotId, points: [{ x: 960, y: 540 }] } });
+  expect(mocks.call).toHaveBeenLastCalledWith("click", [960, 540, 1200], undefined);
+  expect(feedback).toHaveBeenCalledWith([{ x: 960, y: 540 }], 1200, { width: 1920, height: 1080 });
+  await expect(automation.act(args, shell, undefined, feedback, true)).rejects.toThrow("android_screenshot_expired");
+  await expect(automation.act({ action: "long_press", x: 100, y: 100 }, shell, undefined, feedback, true)).rejects.toThrow("android_screenshot_required");
+  const controller = new AbortController();
+  const call = mocks.call.getMockImplementation()!;
+  mocks.call.mockImplementation(async (method, params) => {
+    if (method === "click") { controller.abort(); controller.signal.throwIfAborted(); }
+    return call(method, params);
+  });
+  await expect(automation.act({ action: "long_press", selector: { resourceId: "app:id/row" } }, shell, controller.signal)).rejects.toThrow();
+  expect(shell).not.toHaveBeenCalled();
+});
+
+it("长按时长无效时不访问设备，设备拒绝时不改用其他手势", async () => {
+  for (const durationMs of [0, -1, 10001, 1.5, "800", NaN]) {
+    await expect(automation.act({ action: "long_press", selector: { text: "标题" }, durationMs }, vi.fn())).rejects.toThrow("android_invalid_duration");
+  }
+  expect(mocks.call).not.toHaveBeenCalled();
+  const call = mocks.call.getMockImplementation()!;
+  mocks.call.mockImplementation(async (method, args) => method === "click" ? false : call(method, args));
+  const shell = vi.fn();
+  await expect(automation.act({ action: "long_press", selector: { resourceId: "app:id/row" } }, shell)).rejects.toThrow("android_action_rejected");
+  expect(mocks.call.mock.calls.filter(([method]) => method === "click")).toHaveLength(1);
+  expect(shell).not.toHaveBeenCalled();
+});
+
 it("视觉动作执行转换后的坐标，结果与遮罩共用坐标，旋转后不执行", async () => {
   const reference = automation.screenshots.capture(960, 540, { width: 1920, height: 1080, rotation: 1 });
   await automation.snapshot();

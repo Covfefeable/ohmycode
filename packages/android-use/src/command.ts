@@ -15,6 +15,16 @@ function coordinate(value: unknown): string {
   return String(value);
 }
 
+export function screenPoint(input: Record<string, unknown>): { x: number; y: number } {
+  return { x: Number(coordinate(input.x)), y: Number(coordinate(input.y)) };
+}
+
+export function gestureDuration(value: unknown, fallback: number): number {
+  const duration = value ?? fallback;
+  if (typeof duration !== "number" || !Number.isInteger(duration) || duration < 1 || duration > 10000) throw new Error("android_invalid_duration");
+  return duration;
+}
+
 /** Coordinate gestures and navigation only. Widget actions belong to UIAutomator. */
 export function actionArguments(input: unknown): string[] {
   if (!input || typeof input !== "object") throw new Error("android_invalid_action");
@@ -25,8 +35,7 @@ export function actionArguments(input: unknown): string[] {
   }
   if (args.action === "tap") return ["shell", "input", "tap", coordinate(args.x), coordinate(args.y)];
   if (args.action === "swipe") {
-    const duration = args.durationMs ?? 300;
-    if (typeof duration !== "number" || !Number.isInteger(duration) || duration < 1 || duration > 10000) throw new Error("android_invalid_duration");
+    const duration = gestureDuration(args.durationMs, 300);
     return ["shell", "input", "swipe", coordinate(args.x), coordinate(args.y), coordinate(args.endX), coordinate(args.endY), String(duration)];
   }
   throw new Error("android_invalid_action");

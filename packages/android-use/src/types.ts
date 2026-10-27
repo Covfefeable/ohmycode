@@ -31,6 +31,7 @@ export type AndroidNodeTarget = { selector: AndroidSelector; snapshotId?: never;
 export type AndroidImageCoordinates = { screenshotId: string; coordinateSpace: import("./coordinates.js").CoordinateSpace };
 export type AndroidAction =
   | ({ action: "tap"; timeoutMs?: number } & (AndroidNodeTarget | ({ x: number; y: number } & Partial<AndroidImageCoordinates>)))
+  | ({ action: "long_press"; timeoutMs?: number; durationMs?: number } & (AndroidNodeTarget | ({ x: number; y: number } & Partial<AndroidImageCoordinates>)))
   | ({ action: "swipe"; x: number; y: number; endX: number; endY: number; durationMs?: number } & Partial<AndroidImageCoordinates>)
   | ({ action: "text"; text: string; timeoutMs?: number } & Partial<AndroidNodeTarget>)
   | { action: "key"; key: "back" | "home" | "recent" | "enter" | "delete" }
