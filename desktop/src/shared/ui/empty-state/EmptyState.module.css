@@ -4,3 +4,5 @@
 .empty span { max-width: 36ch; color: var(--color-text-dim); font-size: var(--font-sm); line-height: 1.5; }
 .compact { justify-items: start; border: 0; padding: var(--space-3) var(--space-2); text-align: left; }
 .compact svg { display: none; }
+.centered { flex: 1; align-content: center; justify-items: center; border: 0; padding: var(--space-5); text-align: center; }
+.centered strong { color: var(--color-text-muted); font-size: var(--font-sm); font-weight: 400; }

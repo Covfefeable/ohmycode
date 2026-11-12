@@ -13,6 +13,7 @@
 .searchSpinner { animation: spin .8s linear infinite; }
 .label { margin: var(--space-5) 0 0; color: var(--color-text-faint); font-size: var(--font-xs); font-weight: 800; letter-spacing: .12em; }
 .list { display: grid; align-content: start; gap: var(--space-1); }
+.emptyList { flex: 1; display: flex; flex-direction: column; }
 .searchResult { min-width: 0; display: grid; gap: 4px; border: 0; border-radius: var(--radius-md); background: transparent; color: var(--color-text); padding: 10px; text-align: left; cursor: pointer; }
 .searchResult:hover, .searchResult:focus-visible { outline: 0; background: var(--color-surface-hover); }
 .searchResultTitle, .searchResultSnippet { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -43,7 +44,7 @@
 .conversation:hover .deleteConversation, .conversation:focus-within .deleteConversation { opacity: 1; }
 .deleteConversation:hover { color: var(--color-danger-text); }
 .deleteConversation svg { width: 14px; height: 14px; }
-.empty { margin: 0; padding: var(--space-2); overflow: hidden; color: var(--color-text-empty); font-size: var(--font-sm); text-overflow: ellipsis; white-space: nowrap; }
+.empty { padding: var(--space-2); color: var(--color-text-empty); font-size: var(--font-xs); }
 @keyframes spin { to { transform: rotate(360deg); } }
 .loadError { display: grid; gap: var(--space-2); padding: var(--space-3); color: var(--color-text-muted); font-size: var(--font-xs); }
 .loadError button { justify-self: start; color: var(--color-accent); border: 0; background: transparent; cursor: pointer; }

@@ -306,7 +306,7 @@ export const en = {
     newAgentRole: "Define this agent's responsibility",
     cancel: "Cancel",
     newTask: "New task",
-    emptyAgents: "Create a reusable agent collaboration",
+    emptyAgents: "No agent collaborations yet",
     emptyTasks: "No tasks yet",
     taskRequest: "Describe a task for multiple agents to complete together",
     taskPlaceholder: "For example: review authentication, implement client and API changes in parallel, then verify integration…",

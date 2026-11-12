@@ -5,7 +5,7 @@
 .create svg { width: 17px; height: 17px; flex: none; }
 .label { margin: var(--space-5) 0 0; color: var(--color-text-faint); font-size: var(--font-xs); font-weight: 800; letter-spacing: .12em; }
 .list { display: grid; align-content: start; gap: var(--space-1); padding-bottom: var(--space-5); }
-.empty { margin: 0; padding: var(--space-2); overflow: hidden; color: var(--color-text-empty); font-size: var(--font-sm); text-overflow: ellipsis; white-space: nowrap; }
+.emptyList { flex: 1; display: flex; flex-direction: column; }
 .agent { min-width: 0; }
 .agentRow { min-width: 0; display: flex; align-items: center; padding-right: 7px; border-radius: var(--radius-md); color: var(--color-text-soft); }
 .agentRow:hover { background: var(--color-surface-hover); }

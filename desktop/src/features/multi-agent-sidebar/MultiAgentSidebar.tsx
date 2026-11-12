@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { Check, ChevronDown, ChevronRight, Circle, CircleAlert, Clock3, LoaderCircle, MoreHorizontal, Plus, Square, Trash2 } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, Circle, CircleAlert, Clock3, LoaderCircle, MoreHorizontal, Plus, Square, Trash2, Users } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { PopoverMenu } from "../../shared/ui/popover-menu";
 import { Tooltip } from "../../shared/ui/tooltip";
+import { EmptyState } from "../../shared/ui/empty-state";
 import styles from "./MultiAgentSidebar.module.css";
 
 type Props = {
@@ -41,8 +42,8 @@ export function MultiAgentSidebar(props: Props) {
       <button className={styles.create} disabled={props.busy} onClick={props.onCreateAgent}><Plus />{t("multiAgent.createCollaboration")}</button>
       <p className={styles.label}>{t("multiAgent.collaborations")}</p>
     </div>
-    <div className={styles.list}>
-      {!props.agents.length && <p className={styles.empty}>{t("multiAgent.emptyAgents")}</p>}
+    <div className={`${styles.list} ${!props.agents.length ? styles.emptyList : ""}`}>
+      {!props.agents.length && <EmptyState centered icon={<Users />} title={t("multiAgent.emptyAgents")} />}
       {props.agents.map((agent) => <section key={agent.id} className={styles.agent}>
         <div className={`${styles.agentRow} ${agent.id === props.selectedAgentId && !props.selectedTaskId ? styles.agentActive : ""}`}>
           <button className={styles.agentMain} onClick={() => { toggle(agent.id); props.onSelectAgent(agent.id); }}>

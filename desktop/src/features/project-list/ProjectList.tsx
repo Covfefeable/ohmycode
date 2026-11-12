@@ -131,7 +131,7 @@ export function ProjectList({ selectedConversationId, onConversationSelect, onCo
       </div>
       <p className={styles.label}>{t("projects.title")}</p>
     </div>
-    <div className={styles.list}>
+    <div className={`${styles.list} ${projects.length === 0 && !searchQuery.trim() && !loadFailed ? styles.emptyList : ""}`}>
       {loadFailed && <div role="alert" className={styles.loadError}>
         <span>{t("projects.loadFailed")}</span>
         <button onClick={() => setReloadKey((key) => key + 1)}>{t("common.retry")}</button>
@@ -162,10 +162,10 @@ export function ProjectList({ selectedConversationId, onConversationSelect, onCo
             <Tooltip className={styles.conversationName} content={conversation.title}><button onClick={() => onConversationSelect(project, conversation)}>{conversation.title}</button></Tooltip>
             <Tooltip content={t("projects.deleteConversation")}><button className={styles.deleteConversation} aria-label={t("projects.deleteConversation")} onClick={() => setDeleteTarget({ type: "conversation", projectId: project.id, conversationId: conversation.id })}><Trash2 /></button></Tooltip>
           </div>)}
-          {project.conversations.length === 0 && <EmptyState compact icon={<FolderOpen />} title={t("projects.noConversations")} />}
+          {project.conversations.length === 0 && <span className={styles.empty}>{t("projects.noConversations")}</span>}
         </div>}
       </article>)}
-      {projects.length === 0 && !loadFailed && <EmptyState icon={<FolderOpen />} title={t("projects.empty")} description={t("projects.emptyDescription")} />}
+      {projects.length === 0 && !loadFailed && <EmptyState centered icon={<FolderOpen />} title={t("projects.empty")} />}
       </>}
     </div>
     <ConfirmDialog open={Boolean(deleteTarget)} title={t("common.confirmDelete")} description={t("common.deleteWarning")} onCancel={() => setDeleteTarget(null)} onConfirm={() => {
