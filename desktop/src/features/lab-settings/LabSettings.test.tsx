@@ -21,7 +21,7 @@ beforeEach(() => {
 
 it("图标提示显示后第一次点击就生效，移除设备需要确认", async () => {
   const user = userEvent.setup();
-  mocks.state = { ...mocks.state, adbReady: true, devices: [{ serial: "phone", name: "Pixel", status: "device", transport: "usb" }] };
+  mocks.state = { ...mocks.state, enabled: true, adbReady: true, devices: [{ serial: "phone", name: "Pixel", status: "device", transport: "usb" }] };
   render(<LabSettings />);
   const refresh = screen.getByRole("button", { name: "Refresh devices" });
   await user.hover(refresh);
@@ -40,7 +40,11 @@ it("图标提示显示后第一次点击就生效，移除设备需要确认", a
 it("无 SDK 也能配置接入，不在设置里启动模拟器", async () => {
   const view = render(<LabSettings />);
   expect(screen.getByRole("checkbox").hasAttribute("disabled")).toBe(false);
-  expect(screen.getByText("Install ADB or choose an existing folder")).toBeTruthy();
+  expect(screen.queryByText("Install ADB or choose an existing folder")).toBeNull();
+  expect(screen.queryByRole("button", { name: "Choose SDK folder" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Next" })).toBeNull();
+  mocks.state = { ...mocks.state, enabled: true };
+  view.rerender(<LabSettings />);
   fireEvent.click(screen.getByRole("button", { name: "Choose SDK folder" }));
   await waitFor(() => expect(mocks.chooseSdk).toHaveBeenCalledOnce());
   expect(screen.getByRole("button", { name: "Next" }).hasAttribute("disabled")).toBe(true);

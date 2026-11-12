@@ -39,25 +39,29 @@ function AndroidSetup({ state }: { state: AndroidState }) {
   const running = state.phase === "running";
   const locked = busy || installation.active || state.phase === "starting" || state.phase === "stopping";
   const preparing = step === "adb" || !state.adbReady;
+  const nextButton = <button disabled={!state.adbReady || locked || toolsInstallation.active} onClick={() => setStep("devices")}>{t("android.devices.next")}</button>;
   return <section className={styles.section}>
     <SettingsSectionHeader title={t("lab.title")} description={t("lab.description")} actions={null} />
     <div className={styles.card}>
       <header className={styles.heading}><div className={styles.identity}><FlaskConical /><h3>{t("android.title")}</h3><span className={styles.badge}>{t("lab.experimental")}</span></div>
         <label className={styles.toggle}><input type="checkbox" checked={state.enabled} disabled={locked || running} onChange={(event) => void perform(() => window.ohmycode.android.setEnabled(event.target.checked))} />{t("android.enable")}</label>
       </header>
+      {state.enabled && <>
       <p className={styles.steps}>{t(preparing ? "android.devices.stepAdb" : "android.devices.stepDevices")}</p>
       {preparing ? <>
-      <div className={styles.status} role="status">{state.adbReady ? <Check /> : <FolderOpen />}<span>{t(state.adbReady ? "android.devices.adbReady" : "android.devices.adbMissing")}</span></div>
+      {state.adbReady && <div className={styles.status} role="status"><Check /><span>{t("android.devices.adbReady")}</span></div>}
       <dl className={styles.details}>
         <div><dt>{t("android.devices.location")}</dt><dd className={styles.sdkLocation}><span>{state.adbPath || state.sdkPath || "—"}</span><Tooltip content={t("android.chooseSdk")}><IconButton className={styles.sdkButton} aria-label={t("android.chooseSdk")} disabled={locked || running} onClick={() => void perform(() => window.ohmycode.android.chooseSdk())}><FolderOpen /></IconButton></Tooltip></dd></div>
       </dl>
-      {(!state.adbReady || toolsInstallation.state && toolsInstallation.active) && <AndroidInstallCard installation={toolsInstallation} />}
-      <div className={styles.actions}><button disabled={!state.adbReady || locked} onClick={() => setStep("devices")}>{t("android.devices.next")}</button></div>
+      {(!state.adbReady || toolsInstallation.active)
+        ? <AndroidInstallCard installation={toolsInstallation} disabled={locked || running} actions={nextButton} />
+        : <div className={styles.actions}>{nextButton}</div>}
       </> : <>
         <p>{t("android.devices.description")}</p>
         <AndroidDevices state={state} locked={locked || running} refreshLocked={locked} installation={installation} configureAdb={() => setStep("adb")} refresh={() => void perform(() => window.ohmycode.android.refresh())} remove={(serial) => perform(() => window.ohmycode.android.removeDevice(serial))} select={(target) => void perform(() => window.ohmycode.android.selectTarget(target))} />
       </>}
       {state.error && <p className={styles.error} role="alert">{t(`android.errors.${state.error}`, { defaultValue: t("android.operationFailed") })}</p>}
+      </>}
     </div>
   </section>;
 }

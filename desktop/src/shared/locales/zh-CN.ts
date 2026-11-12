@@ -1,6 +1,6 @@
 export const zhCN = {
   operationFeedback: { operating: "Agent 正在操作中" },
-  lab: { title: "实验室", description: "尝试仍在完善中的本机能力。", experimental: "实验性" },
+  lab: { title: "实验室", description: "实验性的创新能力", experimental: "实验性" },
   android: {
     devices: {
       remove: "移除设备", removeDescription: "从列表中移除此设备，不会关闭设备或删除其中的数据。",
