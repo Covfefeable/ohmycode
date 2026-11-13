@@ -52,11 +52,20 @@ function TextTaskComposer({ disabled = false, busy = false, models, selectedMode
   const { toast } = useFeedback();
   const microphone = useSpeechInput(content, setContent);
   const [submitting, setSubmitting] = useState(false);
+  const [stopping, setStopping] = useState(false);
   const [pendingPastes, setPendingPastes] = useState(0);
   const capabilityOptions = usePromptCapabilities();
+  const hasDraft = Boolean(content.trim()) || attachments.length > 0;
+  const finishing = microphone.state === "finishing";
+  const processing = submitting || stopping || pendingPastes > 0 || finishing;
+  const showStop = stopping || (busy && !hasDraft && !submitting && pendingPastes === 0 && !finishing);
+  const actionHint = stopping ? "agent.stopping" : finishing || (submitting && microphone.active) ? "speech.finishing"
+    : submitting ? "agent.queueSending"
+    : showStop ? "agent.stop" : microphone.active ? busy ? "speech.finishAndQueue" : "speech.finishAndSend"
+      : busy ? "agent.enqueueMessage" : "agent.run";
   async function submit() {
-    if (disabled || submitting || pendingPastes > 0 || microphone.state === "starting") return;
-    if (!microphone.active && !content.trim() && attachments.length === 0) return;
+    if (disabled || submitting || stopping || pendingPastes > 0 || microphone.state === "starting" || finishing) return;
+    if (!hasDraft) return;
     if (!selectedModelId) {
       toast({ type: "error", message: t("agent.modelRequired") });
       return;
@@ -68,6 +77,13 @@ function TextTaskComposer({ disabled = false, busy = false, models, selectedMode
       const sent = await onSubmit(next, attachments);
       if (sent !== false) setContent((current) => current === next ? "" : current);
     } finally { setSubmitting(false); }
+  }
+  async function stop() {
+    if (disabled || stopping || submitting) return;
+    setStopping(true);
+    try { await onStop(); }
+    catch { toast({ type: "error", message: t("agent.stopFailed") }); }
+    finally { setStopping(false); }
   }
   async function pasteImages(files: File[]) {
     if (!onPasteImages) return;
@@ -90,11 +106,10 @@ function TextTaskComposer({ disabled = false, busy = false, models, selectedMode
       <div className={styles.toolbar}>
         <div className={styles.actions}>
           <Select compact disabled={busy} ariaLabel={t("agent.model")} value={selectedModelId} emptyLabel={t("agent.noModel")} options={models.map((model) => ({ value: model.id, label: model.name || model.model }))} onChange={onModelChange} />
-          {busy && <button type="button" className={styles.stopButton} aria-label={t("agent.stop")} onClick={() => void onStop()}><Square /></button>}
-          <Tooltip content={t(microphone.state === "finishing" ? "speech.finishing" : microphone.active ? "speech.stopInput" : "speech.startInput")}><IconButton active={microphone.active} aria-label={t(microphone.active ? "speech.stopInput" : "speech.startInput")} aria-pressed={microphone.active} disabled={disabled || submitting || microphone.state === "finishing"} onClick={() => void microphone.toggle()}>{microphone.state === "starting" || microphone.state === "finishing" ? <LoaderCircle className={styles.spinner} /> : microphone.active ? <Square /> : <Mic />}</IconButton></Tooltip>
-          <span className={styles.sendProgress} style={{ "--context-usage": `${Math.max(0, Math.min(1, contextUsage)) * 100}%` } as React.CSSProperties}>
-            <button aria-label={t("agent.run")} aria-busy={submitting || pendingPastes > 0} disabled={submitting || pendingPastes > 0 || microphone.state === "starting" || disabled || (!microphone.active && !content.trim() && attachments.length === 0)} onClick={() => void submit()}>{submitting || pendingPastes > 0 ? <LoaderCircle className={styles.spinner} /> : <ArrowUp />}</button>
-          </span>
+          <Tooltip content={t(finishing ? "speech.finishing" : microphone.active ? "speech.stopInput" : "speech.startInput")}><IconButton active={microphone.active} aria-label={t(microphone.active ? "speech.stopInput" : "speech.startInput")} aria-pressed={microphone.active} disabled={disabled || submitting || finishing} onClick={() => void microphone.toggle()}>{microphone.state === "starting" || finishing ? <LoaderCircle className={styles.spinner} /> : <Mic />}</IconButton></Tooltip>
+          <Tooltip content={t(actionHint)}><span className={styles.sendProgress} style={{ "--context-usage": `${Math.max(0, Math.min(1, contextUsage)) * 100}%` } as React.CSSProperties}>
+            <IconButton className={showStop ? styles.stop : undefined} aria-label={t(showStop ? "agent.stop" : "agent.run")} aria-busy={processing} disabled={disabled || processing || (!showStop && (microphone.state === "starting" || !hasDraft))} onClick={() => void (showStop ? stop() : submit())}>{processing ? <LoaderCircle className={styles.spinner} /> : showStop ? <Square className={styles.stopIcon} /> : <ArrowUp />}</IconButton>
+          </span></Tooltip>
         </div>
       </div>
     </div>
