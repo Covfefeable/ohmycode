@@ -78,7 +78,6 @@ export function ContextInspector({ conversationId, onClose }: { conversationId: 
         <dl className={styles.metrics}>{metrics.map(([label, value]) => <div key={label}><dt>{label}</dt><dd title={value}>{value}</dd></div>)}</dl>
         <div className={styles.tabs} role="tablist">{(["messages", "tools", "request"] as const).map((item) => <button key={item} type="button" role="tab" aria-selected={tab === item} onClick={() => setTab(item)}>{t(`debug.tabs.${item}`)}</button>)}</div>
         <div className={styles.editor} role="tabpanel"><Suspense fallback={<div className={styles.empty}>{t("debug.loading")}</div>}><ContextJson value={value} /></Suspense></div>
-        <footer className={styles.footer}>{t("debug.snapshotHint")}</footer>
       </>}
     </section>
   </div>;

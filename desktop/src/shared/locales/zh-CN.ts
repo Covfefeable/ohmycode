@@ -130,7 +130,6 @@ export const zhCN = {
     viewContext: "查看当前会话上下文", refresh: "刷新快照", loading: "正在加载上下文…", loadFailed: "上下文加载失败，请刷新重试。", copyFailed: "复制失败，请重试。",
     noSnapshot: "暂无请求快照。此功能上线后，发送新消息或执行下一步工具调用后会生成记录。", notProvided: "未提供",
     requestModel: "本次请求模型", requestStatus: "请求状态", requestStep: "本轮请求序号", estimatedTokens: "估算输入 Token", actualTokens: "实际输入 Token", cachedTokens: "命中缓存 Token", occupancy: "上下文占用 / 上限", messageCount: "消息数", toolCount: "工具数", requestSize: "JSON 体积", compacted: "本次已压缩", yes: "是", no: "否",
-    snapshotHint: "最近一次真实请求；图片编码已省略，凭据不记录。刷新只读取快照，不会调用模型。",
     tabs: { messages: "消息上下文", tools: "工具 Schema", request: "完整请求" },
     status: { queued: "排队中", running: "请求中", completed: "已完成", failed: "失败", cancelled: "已取消" },
   },
