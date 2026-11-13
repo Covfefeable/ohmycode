@@ -47,7 +47,7 @@ def test_history_excludes_runtime_metadata_but_keeps_tool_results():
             SimpleNamespace(
                 sequence=3,
                 event_type="tool.output",
-                payload={"results": [{"result": "file content"}]},
+                payload={"results": [{"callId": "read", "result": "file content"}]},
             ),
             SimpleNamespace(
                 sequence=4,
@@ -175,7 +175,7 @@ def test_turn_context_uses_summaries_only_before_the_latest_two_turns(monkeypatc
                     run=run,
                     sequence=1,
                     event_type="tool.output",
-                    payload={"turn": number},
+                    payload={"results": [{"callId": f"turn-{number}", "result": number}]},
                 )
             )
             assistant = Message(
@@ -226,11 +226,12 @@ def test_turn_context_uses_summaries_only_before_the_latest_two_turns(monkeypatc
         finally:
             event.remove(db.engine, "before_cursor_execute", capture_query)
         assert len(queries) == 4  # Runs + summaries + full-history runs + their events.
-        system_messages = [item["content"] for item in rendered if item["role"] == "system"]
+        history = [item["content"] for item in rendered if item["role"] == "assistant"]
 
-        assert "summary-one" in system_messages[0]
-        assert "Complete AgentEvent history" in system_messages[1]
-        assert "Complete AgentEvent history" in system_messages[2]
+        assert "summary-one" in history[0]
+        assert "Completed turn observations" in history[2]
+        assert "Completed turn observations" in history[4]
+        assert not any(item["role"] == "system" for item in rendered)
         assert [item["content"] for item in rendered if item["role"] == "user"] == [
             "user-1",
             "user-2",

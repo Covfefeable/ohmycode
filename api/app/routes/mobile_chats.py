@@ -9,7 +9,6 @@ from ..services.mobile_chats import (
     create_mobile_conversation,
     delete_mobile_conversation,
     get_mobile_conversation,
-    get_owned_mobile_run,
     list_mobile_conversations,
     recover_mobile_run,
     resume_mobile_run,
@@ -92,7 +91,6 @@ def recover_mobile_run_route(run_id: UUID):
 @jwt_required()
 def read_mobile_tool_result_route(run_id: UUID, call_id: str):
     identity = user_id()
-    get_owned_mobile_run(identity, run_id)
     payload = request.get_json(silent=True) or {}
     return read_tool_result(
         identity,
@@ -100,6 +98,7 @@ def read_mobile_tool_result_route(run_id: UUID, call_id: str):
         call_id,
         payload.get("cursor"),
         payload.get("maxTokens"),
+        project_kind="mobile",
     )
 
 
@@ -107,7 +106,6 @@ def read_mobile_tool_result_route(run_id: UUID, call_id: str):
 @jwt_required()
 def search_mobile_tool_result_route(run_id: UUID, call_id: str):
     identity = user_id()
-    get_owned_mobile_run(identity, run_id)
     payload = request.get_json(silent=True) or {}
     return search_tool_result(
         identity,
@@ -115,6 +113,7 @@ def search_mobile_tool_result_route(run_id: UUID, call_id: str):
         call_id,
         str(payload.get("query") or ""),
         payload.get("maxMatches"),
+        project_kind="mobile",
     )
 
 

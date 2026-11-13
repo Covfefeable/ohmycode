@@ -1,10 +1,18 @@
 import uuid
 from datetime import UTC, datetime
 
+import pytest
+
 from app import create_app
 from app.extensions import db
 from app.models import AgentEvent, AgentRun, Conversation, Message
-from app.services.agent.context_history import _render_messages, history_runs
+from app.services.agent.context_history import (
+    _render_messages,
+    history_runs,
+    project_context_snapshot,
+)
+from app.services.agent.tool_results import read_tool_result
+from app.services.errors import ServiceError
 
 
 def test_branch_deep_copies_messages_without_usage_or_runtime_state():
@@ -81,6 +89,16 @@ def test_branch_deep_copies_messages_without_usage_or_runtime_state():
                 )
             )
             source_message.agent_run_id = run.id
+            db.session.add(
+                AgentEvent(
+                    run=run,
+                    sequence=3,
+                    event_type="tool.output",
+                    payload={
+                        "results": [{"callId": "evidence", "result": {"output": "branch evidence"}}]
+                    },
+                )
+            )
             source_message.reasoning = "Independent reasoning"
             source_message.activity = [{"type": "message", "content": "Second"}]
             source_message.attachments = [
@@ -93,6 +111,7 @@ def test_branch_deep_copies_messages_without_usage_or_runtime_state():
                 }
             ]
             db.session.commit()
+            source_run_id = run.id
 
         response = client.post(
             f"/api/projects/conversations/{source['id']}/branch",
@@ -133,7 +152,10 @@ def test_branch_deep_copies_messages_without_usage_or_runtime_state():
             assert snapshot and "Complete AgentEvent history" in snapshot[0]["content"]
             assert '"usedTokens"' not in snapshot[0]["content"]
             rendered = _render_messages(copied.messages, set(), history_runs(copied.messages))
-            assert snapshot[0] in rendered
+            projected = project_context_snapshot(snapshot)
+            assert projected[0] in rendered
+            assert "Independent reasoning" not in str(rendered)
+            assert "branch evidence" in str(rendered)
 
         # A branch's model context remains usable after removing its source.
         assert (
@@ -144,9 +166,43 @@ def test_branch_deep_copies_messages_without_usage_or_runtime_state():
         )
         with app.app_context():
             copied = db.session.get(Conversation, uuid.UUID(branch["id"]))
-            assert snapshot[0] in _render_messages(
+            assert projected[0] in _render_messages(
                 copied.messages, set(), history_runs(copied.messages)
             )
+            assert (
+                read_tool_result(copied.project.user_id, source_run_id, "evidence")["content"]
+                == "branch evidence"
+            )
+            with pytest.raises(ServiceError) as error:
+                read_tool_result(uuid.uuid4(), source_run_id, "evidence")
+            assert error.value.code == "not_found"
+
+        endpoint = f"/api/agent-runs/{source_run_id}/tool-results/evidence"
+        response = client.post(f"{endpoint}/read", headers=headers, json={})
+        assert response.status_code == 200
+        assert response.get_json()["content"] == "branch evidence"
+        assert (
+            client.post(
+                f"{endpoint}/search", headers=headers, json={"query": "evidence"}
+            ).status_code
+            == 200
+        )
+        other_device = {**headers, "X-OhMyCode-Device-Id": "other-device"}
+        assert client.post(f"{endpoint}/read", headers=other_device, json={}).status_code == 404
+        assert (
+            client.post(
+                f"{endpoint}/search", headers=other_device, json={"query": "evidence"}
+            ).status_code
+            == 404
+        )
+        mobile_endpoint = f"/api/mobile/conversations/runs/{source_run_id}/tool-results/evidence"
+        assert client.post(f"{mobile_endpoint}/read", headers=headers, json={}).status_code == 404
+        assert (
+            client.post(
+                f"{mobile_endpoint}/search", headers=headers, json={"query": "evidence"}
+            ).status_code
+            == 404
+        )
 
 
 def test_branch_rejects_a_message_from_another_conversation():

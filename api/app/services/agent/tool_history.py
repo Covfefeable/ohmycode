@@ -1,5 +1,7 @@
 import json
 from dataclasses import dataclass
+from difflib import unified_diff
+from uuid import UUID
 
 from ...models import AgentRun
 from .config import RECENT_TOOL_IMAGE_BATCHES, TOOL_RESULT_TOKEN_BUDGET
@@ -14,20 +16,70 @@ class ToolBatch:
     messages: list[dict]
 
 
-def tool_result_content(run: AgentRun, item: dict, token_budget: int) -> str:
-    serialized = json.dumps(text_only_images(item["result"]), ensure_ascii=False)
+def model_tool_result(result: object, run_id: UUID, call_id: str) -> object:
+    """Keep full patch evidence in storage, never in the model-facing diff projection."""
+    result = text_only_images(result)
+    if not isinstance(result, dict) or result.get("operation") != "apply_patch":
+        return result
+    changes = []
+    for change in result.get("changes", []):
+        projected = {"path": change.get("path")}
+        if change.get("diffUnavailable"):
+            projected["diffUnavailable"] = change["diffUnavailable"]
+        else:
+            before, after = change.get("original"), change.get("modified")
+            projected["action"] = (
+                "added" if before is None else "deleted" if after is None else "updated"
+            )
+            added = removed = 0
+            preview = []
+            diff_truncated = False
+            for index, line in enumerate(
+                unified_diff((before or "").splitlines(), (after or "").splitlines(), n=2)
+            ):
+                if index >= 2 and line.startswith("+"):
+                    added += 1
+                elif index >= 2 and line.startswith("-"):
+                    removed += 1
+                if len(preview) < 40:
+                    preview.append(line[:240])
+                    diff_truncated |= len(line) > 240
+                else:
+                    diff_truncated = True
+            projected.update(
+                addedLines=added,
+                removedLines=removed,
+                diffPreview="\n".join(preview),
+                diffTruncated=diff_truncated,
+            )
+        changes.append(projected)
+    return {
+        **{key: value for key, value in result.items() if key != "changes"},
+        "changes": changes,
+        "resultRef": {"runId": str(run_id), "callId": call_id},
+        "instructions": (
+            "Use read_tool_result or search_tool_result for the complete stored patch evidence."
+        ),
+    }
+
+
+def bounded_tool_result_content(run_id: UUID, item: dict, token_budget: int) -> str:
+    projected = model_tool_result(item["result"], run_id, item["callId"])
+    serialized = json.dumps(projected, ensure_ascii=False)
     if estimate_tokens(serialized) <= token_budget:
         return serialized
-    rendered = render_tool_result(item["result"])
+    source = render_tool_result(item["result"])
+    patch = isinstance(projected, dict) and projected.get("operation") == "apply_patch"
+    rendered = serialized if patch else source
     manifest = {
         "contextTruncated": True,
         "sourceMayBeTruncated": (
             isinstance(item["result"], dict) and bool(item["result"].get("truncated"))
         )
         or "[...]" in rendered,
-        "resultRef": {"runId": str(run.id), "callId": item["callId"]},
-        "totalCharacters": len(rendered),
-        "estimatedTokens": estimate_tokens(rendered),
+        "resultRef": {"runId": str(run_id), "callId": item["callId"]},
+        "totalCharacters": len(source),
+        "estimatedTokens": estimate_tokens(source),
         "preview": "",
         "nextCursor": 0,
         "instructions": (
@@ -38,12 +90,18 @@ def tool_result_content(run: AgentRun, item: dict, token_budget: int) -> str:
 
     def measure(preview: str) -> int:
         manifest["preview"] = preview
-        manifest["nextCursor"] = len(preview) if len(preview) < len(rendered) else None
+        manifest["nextCursor"] = (
+            0 if patch else len(preview) if len(preview) < len(rendered) else None
+        )
         return estimate_tokens(json.dumps(manifest, ensure_ascii=False))
 
     preview, _ = slice_to_token_budget(rendered, 0, token_budget, measure=measure)
     measure(preview)
     return json.dumps(manifest, ensure_ascii=False)
+
+
+def tool_result_content(run: AgentRun, item: dict, token_budget: int) -> str:
+    return bounded_tool_result_content(run.id, item, token_budget)
 
 
 def image_tool_content(result: object) -> list[dict] | None:

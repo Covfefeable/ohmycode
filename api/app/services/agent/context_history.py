@@ -8,6 +8,12 @@ from ...extensions import db
 from ...models import AgentRun, ContextCheckpoint, Message, MultiAgentMessage, MultiAgentNode
 from .config import RECENT_FULL_TURNS
 from .image_context import text_only_images
+from .tool_history import bounded_tool_result_content
+from .tool_results import slice_to_token_budget
+
+HISTORY_RESULT_TOKEN_BUDGET = 1000
+HISTORY_ARGUMENT_TOKEN_BUDGET = 256
+HISTORY_ARCHIVE_PREFIX = "Complete AgentEvent history for completed turn "
 
 
 @dataclass(frozen=True)
@@ -46,6 +52,88 @@ def is_conversation_event(event_type: str) -> bool:
     return event_type in CONVERSATION_EVENT_TYPES
 
 
+def run_history_events(run: AgentRun, after_sequence: int = 0) -> list[dict]:
+    return [
+        {
+            "sequence": event.sequence,
+            "type": event.event_type,
+            "payload": text_only_images(event.payload),
+        }
+        for event in run.events
+        if event.sequence > after_sequence and is_conversation_event(event.event_type)
+    ]
+
+
+def snapshot_run_events(snapshot: dict) -> tuple[UUID, list[dict]] | None:
+    """Decode the durable branch archive; it is never sent verbatim to the model."""
+    content = snapshot.get("content")
+    if not isinstance(content, str) or not content.startswith(HISTORY_ARCHIVE_PREFIX):
+        return None
+    header, _, body = content.partition(":\n")
+    return UUID(header.removeprefix(HISTORY_ARCHIVE_PREFIX)), json.loads(body)
+
+
+def _project_history(run_id: UUID, events: list[dict]) -> dict | None:
+    calls = {}
+    observations = []
+    for event in events:
+        payload = event["payload"]
+        if event["type"] == "tool.requested":
+            for call in payload.get("toolCalls", []):
+                function = call["function"]
+                arguments = function.get("arguments") or "{}"
+                try:
+                    parsed = json.loads(arguments)
+                except (json.JSONDecodeError, TypeError):
+                    parsed = {"arguments": str(arguments)}
+                if isinstance(parsed, dict) and "patch" in parsed:
+                    parsed = {key: value for key, value in parsed.items() if key != "patch"}
+                serialized = json.dumps(parsed, ensure_ascii=False)
+                preview, end = slice_to_token_budget(serialized, 0, HISTORY_ARGUMENT_TOKEN_BUDGET)
+                calls[call["id"]] = {
+                    "tool": function["name"],
+                    "argumentsPreview": preview,
+                    "argumentsTruncated": end < len(serialized),
+                }
+        elif event["type"] == "tool.output":
+            for item in payload.get("results", []):
+                call_id = item["callId"]
+                observations.append(
+                    {
+                        **calls.pop(call_id, {}),
+                        "resultRef": {"runId": str(run_id), "callId": call_id},
+                        "result": json.loads(
+                            bounded_tool_result_content(run_id, item, HISTORY_RESULT_TOKEN_BUDGET)
+                        ),
+                    }
+                )
+        elif event["type"] in {
+            "input.received",
+            "task.plan.updated",
+            "run.cancelled",
+            "run.failed",
+        }:
+            observations.append({"type": event["type"], "payload": payload})
+    if not observations:
+        return None
+    return {
+        "role": "assistant",
+        "content": f"Completed turn observations ({run_id}):\n"
+        + json.dumps(observations, ensure_ascii=False, separators=(",", ":")),
+    }
+
+
+def project_context_snapshot(snapshot: list[dict]) -> list[dict]:
+    projected = []
+    for message in snapshot:
+        archive = snapshot_run_events(message)
+        if archive is None:
+            projected.append(message)
+        elif context := _project_history(*archive):
+            projected.append(context)
+    return projected
+
+
 def _run_context_message(
     run: AgentRun, protected: bool, after_sequence: int = 0
 ) -> dict[str, str] | None:
@@ -58,27 +146,10 @@ def _run_context_message(
         and summary.summary
     ):
         return {
-            "role": "system",
+            "role": "assistant",
             "content": f"AgentEvent summary for completed turn {run.id}:\n{summary.summary}",
         }
-    events = [
-        {
-            "sequence": event.sequence,
-            "type": event.event_type,
-            "payload": text_only_images(event.payload),
-        }
-        for event in run.events
-        if event.sequence > after_sequence and is_conversation_event(event.event_type)
-    ]
-    if not events:
-        return None
-    return {
-        "role": "system",
-        "content": (
-            f"Complete AgentEvent history for completed turn {run.id}:\n"
-            f"{json.dumps(events, ensure_ascii=False, separators=(',', ':'))}"
-        ),
-    }
+    return _project_history(run.id, run_history_events(run, after_sequence))
 
 
 def _message_index(messages: list[Message], message_id: UUID | None) -> int:
@@ -96,8 +167,18 @@ def branch_context_snapshot(message: Message) -> list[dict] | None:
     if message.role == "assistant" and message.agent_run_id:
         run = db.session.get(AgentRun, message.agent_run_id)
         if run:
-            context = _run_context_message(run, protected=True)
-            return [context] if context else None
+            events = run_history_events(run)
+            return (
+                [
+                    {
+                        "role": "system",
+                        "content": f"{HISTORY_ARCHIVE_PREFIX}{run.id}:\n"
+                        + json.dumps(events, ensure_ascii=False, separators=(",", ":")),
+                    }
+                ]
+                if events
+                else None
+            )
     return None
 
 
@@ -105,9 +186,7 @@ def _protected_run_ids(messages: list[Message], runs: dict[UUID, AgentRun]) -> s
     completed = [
         message.agent_run_id
         for message in messages
-        if message.role == "assistant"
-        and message.agent_run_id
-        and message.agent_run_id in runs
+        if message.role == "assistant" and message.agent_run_id and message.agent_run_id in runs
     ]
     return set(completed[-RECENT_FULL_TURNS:])
 
@@ -154,7 +233,7 @@ def _render_messages(
     rendered: list[dict] = []
     for message in messages:
         if message.context_snapshot:
-            rendered.extend(message.context_snapshot)
+            rendered.extend(project_context_snapshot(message.context_snapshot))
         if message.role == "assistant" and message.agent_run_id:
             run = runs.get(message.agent_run_id)
             if run:

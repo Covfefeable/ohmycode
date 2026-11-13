@@ -287,6 +287,13 @@ retrieve exact pages or matching passages from that persisted result. Initial
 preview size is allocated from the remaining context budget across the current
 tool results; explicit pages remain independently bounded.
 
+Patch results have a separate model projection: affected paths, line counts,
+bounded local diffs and a result reference. Full before/after file contents stay
+in the persisted result and the UI diff. Reading that reference retrieves the
+complete stored patch evidence. Branches retain independent event archives;
+result lookup can use an archive after its source conversation is deleted,
+with the same account, device and mobile-project access boundaries.
+
 The shared packages depend on ports for model transport, tool execution,
 persistence, lifecycle events, and resource cancellation. They must not import
 Electron, React Native, Expo, Node built-ins, or application directories;
@@ -402,11 +409,16 @@ Context compression in `api/app/services/agent/context.py`:
   any recovery continuation. The latest provider-reported input usage for the
   configured model calibrates underestimation. Usage from a different model is
   not reused.
-- A completed Turn contributes its user message, AgentEvent history, and final
-  assistant answer in chronological order.
-- The latest completed Turns normally use complete AgentEvents. Older Turns
-  use a completed `AgentRunSummary` when available. Completed history remains
-  eligible for checkpoint compaction when required by the request budget.
+- A completed Turn contributes its user message, model-facing observations and
+  final assistant answer in chronological order. Observations pair tool names
+  and bounded argument previews with bounded results and recoverable references;
+  reasoning and duplicate progress messages are not replayed as model input.
+- The latest completed Turns use this deterministic projection, not raw event
+  JSON. Each historical tool result has a 1,000-token preview budget. Older
+  Turns use a completed `AgentRunSummary` when available; pending, disabled or
+  failed summaries fall back to the same projection. Branch archives are also
+  projected on read. Completed history remains eligible for checkpoint
+  compaction when required by the complete request budget.
 - Completed Runs whose serialized AgentEvents exceed 32 KiB are summarized by
   a Celery worker after they leave the latest-two protection window. Original
   events remain authoritative and are never deleted.

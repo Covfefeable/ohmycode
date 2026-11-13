@@ -102,8 +102,7 @@ def recover_run_route(run_id: UUID):
 @jwt_required()
 def read_tool_result_route(run_id: UUID, call_id: str):
     identity = UUID(get_jwt_identity())
-    if not device_run(identity, current_device(), run_id):
-        raise ServiceError("not_found", 404)
+    device = current_device()
     payload = request.get_json(silent=True) or {}
     return read_tool_result(
         identity,
@@ -111,6 +110,7 @@ def read_tool_result_route(run_id: UUID, call_id: str):
         call_id,
         payload.get("cursor"),
         payload.get("maxTokens"),
+        device_id=device.id,
     )
 
 
@@ -118,8 +118,7 @@ def read_tool_result_route(run_id: UUID, call_id: str):
 @jwt_required()
 def search_tool_result_route(run_id: UUID, call_id: str):
     identity = UUID(get_jwt_identity())
-    if not device_run(identity, current_device(), run_id):
-        raise ServiceError("not_found", 404)
+    device = current_device()
     payload = request.get_json(silent=True) or {}
     return search_tool_result(
         identity,
@@ -127,4 +126,5 @@ def search_tool_result_route(run_id: UUID, call_id: str):
         call_id,
         str(payload.get("query") or ""),
         payload.get("maxMatches"),
+        device_id=device.id,
     )

@@ -213,7 +213,8 @@ def test_recent_completed_turns_are_compactable_when_the_budget_requires_it(work
     w = workspace
     w.run.status = "completed"
     w.run.completed_at = datetime.now(UTC)
-    add_batch(w.run, "completed", "evidence " * 2000)
+    for index in range(5):
+        add_batch(w.run, f"completed-{index}", "evidence " * 2000)
     assistant = Message(
         conversation=w.conversation, agent_run_id=w.run.id, role="assistant", content="Done"
     )

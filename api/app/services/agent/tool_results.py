@@ -2,9 +2,10 @@ import json
 from collections.abc import Callable
 from uuid import UUID
 
+from ...extensions import db
+from ...models import AgentRun, Conversation, Message, Project
 from ..errors import ServiceError
 from .image_context import text_only_images
-from .runs import get_owned_run
 from .tokens import estimate_tokens
 
 DEFAULT_PAGE_TOKENS = 2000
@@ -16,6 +17,8 @@ SEARCH_CONTEXT_CHARACTERS = 128
 def render_tool_result(result: object) -> str:
     result = text_only_images(result)
     if isinstance(result, dict):
+        if result.get("operation") == "apply_patch":
+            return json.dumps(result, ensure_ascii=False)
         content = result.get("content")
         if isinstance(content, list):
             text_parts = [
@@ -32,14 +35,57 @@ def render_tool_result(result: object) -> str:
     return json.dumps(result, ensure_ascii=False)
 
 
-def _result_for_call(user_id: UUID, run_id: UUID, call_id: str) -> object:
-    run = get_owned_run(user_id, run_id)
-    for event in reversed(run.events):
+def _result_for_call(
+    user_id: UUID,
+    run_id: UUID,
+    call_id: str,
+    *,
+    device_id: str | None = None,
+    project_kind: str | None = None,
+) -> object:
+    from .context_history import snapshot_run_events
+
+    scope = [Project.user_id == user_id]
+    if device_id is not None:
+        scope.append(Project.device_id == device_id)
+    if project_kind is not None:
+        scope.append(Project.kind == project_kind)
+    run = db.session.scalar(
+        db.select(AgentRun)
+        .join(Conversation, AgentRun.conversation_id == Conversation.id)
+        .join(Project, Conversation.project_id == Project.id)
+        .where(AgentRun.id == run_id, *scope)
+    )
+    for event in reversed(run.events if run else []):
         if event.event_type != "tool.output":
             continue
         for item in event.payload.get("results", []):
             if str(item.get("callId") or "") == call_id:
                 return item.get("result")
+    query = (
+        db.select(Message.context_snapshot)
+        .join(Conversation, Message.conversation_id == Conversation.id)
+        .join(Project, Conversation.project_id == Project.id)
+        .where(
+            *scope,
+            Message.context_snapshot.is_not(None),
+            db.cast(Message.context_snapshot, db.Text).contains(str(run_id)),
+        )
+    )
+    snapshots = db.session.scalars(query)
+    for snapshot in snapshots:
+        for message in snapshot:
+            archive = snapshot_run_events(message)
+            if archive is None or archive[0] != run_id:
+                continue
+            for event in reversed(archive[1]):
+                if event["type"] != "tool.output":
+                    continue
+                for item in event["payload"].get("results", []):
+                    if str(item.get("callId") or "") == call_id:
+                        return item.get("result")
+    if run is None:
+        raise ServiceError("not_found", 404)
     raise ServiceError("tool_result_not_found", 404)
 
 
@@ -79,8 +125,13 @@ def read_tool_result(
     call_id: str,
     cursor: object = 0,
     max_tokens: object = DEFAULT_PAGE_TOKENS,
+    *,
+    device_id: str | None = None,
+    project_kind: str | None = None,
 ) -> dict:
-    result = _result_for_call(user_id, run_id, call_id)
+    result = _result_for_call(
+        user_id, run_id, call_id, device_id=device_id, project_kind=project_kind
+    )
     content = render_tool_result(result)
     try:
         start = int(cursor)
@@ -104,8 +155,13 @@ def search_tool_result(
     call_id: str,
     query: str,
     max_matches: object = 5,
+    *,
+    device_id: str | None = None,
+    project_kind: str | None = None,
 ) -> dict:
-    content = render_tool_result(_result_for_call(user_id, run_id, call_id))
+    content = render_tool_result(
+        _result_for_call(user_id, run_id, call_id, device_id=device_id, project_kind=project_kind)
+    )
     query = query.strip()
     if not query:
         return {"callId": call_id, "query": query, "matches": []}
