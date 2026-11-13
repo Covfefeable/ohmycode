@@ -1,4 +1,5 @@
-import { mkdtemp, readFile, realpath, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, realpath, writeFile } from "node:fs/promises";
+import { Buffer } from "node:buffer";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import process from "node:process";
@@ -11,6 +12,58 @@ await writeFile(join(root, "demo.txt"), "alpha\nbeta\n", "utf8");
 await writeFile(join(root, "many.txt"), `${Array.from({ length: 80 }, (_, index) => `match ${index}`).join("\n")}\n`, "utf8");
 
 const inspectedPaths = new Set();
+const searchDirectory = join(root, "src", "shared", "i18n");
+await mkdir(searchDirectory, { recursive: true });
+const dictionary = join(searchDirectory, "dictionaries.ts");
+await writeFile(dictionary, 'export const greeting = "Hello";\n', "utf8");
+const searchFile = (options) => executeFileTool("search_files", { projectId: "test", ...options }, root);
+for (const target of ["src/shared/i18n/dictionaries.ts", dictionary]) {
+  const found = await searchFile({ path: target, query: "HELLO" });
+  assert.equal(found.pathKind, "file");
+  assert.equal(found.path, await realpath(dictionary));
+  assert.equal(found.totalMatches, 1);
+  assert.match(found.output, /dictionaries\.ts:1: export const greeting/);
+}
+const fileName = await searchFile({ path: dictionary, query: "DICTIONARIES.TS", mode: "files" });
+assert.equal(fileName.returnedMatches, 1);
+assert.equal(fileName.output, await realpath(dictionary));
+for (const options of [
+  { path: dictionary, query: "absent" },
+  { path: dictionary, query: "Hello", glob: "**/*.json" },
+  { path: dictionary, query: "absent", mode: "files" },
+]) {
+  const empty = await searchFile(options);
+  assert.equal(empty.pathKind, "file");
+  assert.equal(empty.output, "");
+  assert.equal(empty.totalMatches, 0);
+  assert.equal(empty.truncated, false);
+}
+assert.equal((await searchFile({ path: dictionary, query: "Hello", glob: "**/*.ts" })).returnedMatches, 1);
+const workspaceSearch = await searchFile({ query: "Hello" });
+assert.equal(workspaceSearch.pathKind, "directory");
+assert.equal(workspaceSearch.returnedMatches, 1);
+assert.equal((await searchFile({ path: "src/shared", query: "Hello" })).returnedMatches, 1);
+await assert.rejects(searchFile({ path: dictionary, query: "" }), /^Error: query_required$/);
+await assert.rejects(searchFile({ path: "missing.ts", query: "Hello" }), /^Error: path_not_found$/);
+await assert.rejects(searchFile({ path: join(dictionary, "child"), query: "Hello" }), /^Error: (not_a_directory|path_not_found)$/);
+await assert.rejects(searchFile({ path: "..", query: "Hello" }), /path_outside_workspace/);
+const outsideRoot = await mkdtemp(join(tmpdir(), "ohmycode-search-outside-"));
+const outsideFile = join(outsideRoot, "outside.txt");
+await writeFile(outsideFile, "Hello", "utf8");
+await assert.rejects(searchFile({ path: outsideFile, query: "Hello" }), /path_outside_workspace/);
+await assert.rejects(executeFileTool("list_directory", { projectId: "test", path: dictionary }, root), /not_a_directory/);
+await writeFile(join(root, "binary.bin"), Buffer.from([0, 72, 101, 108, 108, 111]));
+assert.equal((await searchFile({ path: "binary.bin", query: "Hello" })).returnedMatches, 0);
+await writeFile(join(root, "limits.txt"), Array.from({ length: 205 }, () => "limit-token").join("\n"));
+const limitedFile = await searchFile({ path: "limits.txt", query: "limit-token", maxResults: 500, maxChars: 32000 });
+assert.equal(limitedFile.pathKind, "file");
+assert.equal(limitedFile.returnedMatches, 200);
+assert.equal(limitedFile.totalMatches, 205);
+assert.equal(limitedFile.truncated, true);
+const limitedChars = await searchFile({ path: "limits.txt", query: "limit-token", maxChars: 120 });
+assert.ok(limitedChars.output.length <= 120);
+assert.equal(limitedChars.totalMatches, 205);
+assert.equal(limitedChars.truncated, true);
 const read = await executeFileTool("read_file", { projectId: "test", path: "demo.txt" }, root, inspectedPaths);
 inspectedPaths.add(read.path);
 const search = await executeFileTool(

@@ -6,7 +6,7 @@ import { assertInside, safeExistingPath, safeExplicitFile, safeNewPath, workspac
 
 const IGNORED_DIRECTORIES = new Set([".git", "node_modules", "dist", "dist-electron", "release", ".venv", "__pycache__", ".pytest_cache"]);
 const DEFAULT_SEARCH_RESULTS = 50;
-const MAX_SEARCH_RESULTS = 200;
+export const MAX_SEARCH_RESULTS = 200;
 const DEFAULT_OUTPUT_CHARS = 8_000;
 const MAX_OUTPUT_CHARS = 32_000;
 const MAX_DIFF_CONTENT_CHARS = 512_000;
@@ -91,13 +91,22 @@ async function listDirectory(root: string, request: FileToolRequest): Promise<Fi
 }
 
 async function searchFiles(root: string, request: FileToolRequest): Promise<FileToolResult> {
-  const target = await safeExistingPath(root, request.path);
-  const maximum = bounded(request.maxResults, DEFAULT_SEARCH_RESULTS, MAX_SEARCH_RESULTS);
-  const maxChars = bounded(request.maxChars, DEFAULT_OUTPUT_CHARS, MAX_OUTPUT_CHARS);
-  const entries = await walk(target, Boolean(request.includeHidden), 20_000);
-  const matcher = globPattern(request.glob);
   const query = String(request.query ?? "");
   if (!query) throw new Error("query_required");
+  const target = await safeExistingPath(root, request.path).catch((error: unknown) => {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === "ENOENT") throw new Error("path_not_found", { cause: error });
+    if (code === "ENOTDIR") throw new Error("not_a_directory", { cause: error });
+    throw error;
+  });
+  const targetInfo = await stat(target);
+  if (!targetInfo.isFile() && !targetInfo.isDirectory()) throw new Error("unsupported_path_type");
+  const pathKind = targetInfo.isFile() ? "file" : "directory";
+  const maximum = bounded(request.maxResults, DEFAULT_SEARCH_RESULTS, MAX_SEARCH_RESULTS);
+  const maxChars = bounded(request.maxChars, DEFAULT_OUTPUT_CHARS, MAX_OUTPUT_CHARS);
+  const files = pathKind === "file" ? [target]
+    : (await walk(target, Boolean(request.includeHidden), 20_000)).filter((item) => item.entry.isFile()).map((item) => item.path);
+  const matcher = globPattern(request.glob);
   const results: string[] = [];
   let outputChars = 0;
   let totalMatches = 0;
@@ -111,23 +120,22 @@ async function searchFiles(root: string, request: FileToolRequest): Promise<File
     results.push(value);
     outputChars += value.length + (results.length > 1 ? 1 : 0);
   };
-  for (const item of entries) {
-    if (!item.entry.isFile()) continue;
-    const relative = path.relative(root, item.path).split(path.sep).join("/");
+  for (const file of files) {
+    const relative = path.relative(root, file).split(path.sep).join("/");
     if (matcher && !matcher.test(relative)) continue;
     if (request.mode === "files") {
-      if (relative.toLocaleLowerCase().includes(query.toLocaleLowerCase())) record(item.path);
+      if (relative.toLocaleLowerCase().includes(query.toLocaleLowerCase())) record(file);
     } else {
-      const info = await stat(item.path);
+      const info = await stat(file);
       if (info.size > 1024 * 1024) continue;
-      const buffer = await readFile(item.path);
+      const buffer = await readFile(file);
       if (buffer.subarray(0, Math.min(buffer.length, 4096)).includes(0)) continue;
       buffer.toString("utf8").split(/\r?\n/).forEach((line, index) => {
-        if (line.toLocaleLowerCase().includes(query.toLocaleLowerCase())) record(`${item.path}:${index + 1}: ${line.trim()}`);
+        if (line.toLocaleLowerCase().includes(query.toLocaleLowerCase())) record(`${file}:${index + 1}: ${line.trim()}`);
       });
     }
   }
-  return { operation: "search_files", path: target, pathKind: "directory", output: results.join("\n"), truncated: outputLimited, totalMatches, returnedMatches: results.length, truncationHint: outputLimited ? "Result truncated. Use a narrower query/path/glob or read_file for an exact range." : undefined };
+  return { operation: "search_files", path: target, pathKind, output: results.join("\n"), truncated: outputLimited, totalMatches, returnedMatches: results.length, truncationHint: outputLimited ? "Result truncated. Use a narrower query/path/glob or read_file for an exact range." : undefined };
 }
 
 type PatchOperation = { kind: "add" | "update" | "delete"; path: string; lines: string[] };

@@ -1,6 +1,6 @@
 import { defineToolPlugin } from "@ohmycode/agent-runtime";
 import type { ToolCall, ToolDefinition, ToolPlugin } from "@ohmycode/tool-contracts";
-import { executeFileTool } from "../../files/file-tools.js";
+import { executeFileTool, MAX_SEARCH_RESULTS } from "../../files/file-tools.js";
 import type { FileToolName, FileToolRequest } from "../../files/types.js";
 import { acquireWorkspaceWriteLock } from "../../multi-agents/workspace-write-lock.js";
 import { recordWorkspaceChanges, snapshotWorkspace } from "../../multi-agents/workspace-changes.js";
@@ -21,12 +21,17 @@ const FILE_DEFINITIONS: ToolDefinition[] = [
   },
   {
     name: "search_files",
-    description: "Search workspace file names or UTF-8 file contents.",
+    description: "Search a workspace file or recursively search a directory for file paths or UTF-8 content. Matches are case-insensitive literal text, not regular expressions.",
     inputSchema: {
       type: "object",
       properties: {
-        query: { type: "string" }, path: { type: "string" }, mode: { type: "string", enum: ["content", "files"] },
-        glob: { type: "string" }, maxResults: { type: "integer", minimum: 1, maximum: 500 },
+        query: { type: "string", minLength: 1, description: "Non-empty literal text to find." },
+        path: { type: "string", default: ".", description: "Existing file or directory inside the workspace, absolute or workspace-relative. A file limits search to that file; a directory is searched recursively. Defaults to the workspace root." },
+        mode: { type: "string", enum: ["content", "files"], default: "content", description: "content searches file contents and returns matching lines; files matches workspace-relative file paths." },
+        glob: { type: "string", description: "Optional glob filter matched against slash-separated workspace-relative file paths, including when path is a single file." },
+        includeHidden: { type: "boolean", default: false, description: "Include hidden entries when searching a directory." },
+        maxResults: { type: "integer", minimum: 1, maximum: MAX_SEARCH_RESULTS, default: 50 },
+        maxChars: { type: "integer", minimum: 1, maximum: 32000, default: 8000 },
       },
       required: ["query"],
     },
