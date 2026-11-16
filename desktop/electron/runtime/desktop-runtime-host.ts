@@ -14,6 +14,7 @@ import {
 } from "./desktop-execution-adapter.js";
 import { initializeFollowups, finishFollowups, followupReceived } from "./followup-host.js";
 import { startCancellationRecovery } from "./cancellation-recovery.js";
+import { setSnapshotRequestReader } from "../files/snapshot-host.js";
 
 type StartTurnInput = {
   turnId?: string;
@@ -62,6 +63,14 @@ export function initializeAgentRuntime(): void {
     path.join(app.getPath("userData"), "runtime-events.sqlite"),
   );
   journal = new EventJournal(runtimeStore);
+  setSnapshotRequestReader((threadId, turnId) => {
+    const turn = journal?.snapshot(turnId);
+    if (turn?.threadId !== threadId) return undefined;
+    for (const event of turn.events) {
+      if (event.type === "item.completed" && event.item.kind === "user_message" && (event.item.input as { initial?: boolean } | undefined)?.initial) return event.item.content;
+    }
+    return undefined;
+  });
   initializeFollowups(runtimeStore, {
     active: activeThreadTurn,
     start: (threadId, input) => { startTurn({ threadId, turnId: input.turnId, content: input.content, modelId: input.modelId, attachments: input.attachments, followupId: input.id }); },
@@ -90,6 +99,7 @@ export function initializeAgentRuntime(): void {
 }
 
 export function closeAgentRuntime(): void {
+  setSnapshotRequestReader(() => undefined);
   stopCancellationRecovery?.();
   journal?.close();
   journal = null;

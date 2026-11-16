@@ -1,3 +1,15 @@
+export type WorkspaceChangeSet = {
+  id: string;
+  threadId: string;
+  turnId: string;
+  userRequest?: string;
+  createdAt: string;
+  status: "active" | "ready" | "unavailable";
+  files: Array<{ path: string; operation: "added" | "modified" | "deleted"; restored?: boolean }>;
+  excluded: string[];
+  error?: string;
+};
+
 export type SpeechSettings = {
   workspaceId: string;
   voice: string;

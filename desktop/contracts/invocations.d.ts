@@ -2,6 +2,10 @@ import type { DesktopBridge } from "./bridge.js";
 
 /** Invoke channels share the public Bridge signatures; event channels are separate. */
 export interface DesktopInvocations {
+  "conversations:snapshots": DesktopBridge["conversations"]["snapshots"];
+  "conversations:snapshot-detail": DesktopBridge["conversations"]["snapshotDetail"];
+  "conversations:restore-file": DesktopBridge["conversations"]["restoreFile"];
+  "conversations:restore-turn": DesktopBridge["conversations"]["restoreTurn"];
   "android:install-plan": DesktopBridge["android"]["installPlan"];
   "android:installation": DesktopBridge["android"]["installation"];
   "android:install-root": DesktopBridge["android"]["chooseInstallRoot"];

@@ -7,6 +7,7 @@ import type { DesktopExecutionContext } from "../runtime/types.js";
 import { ConversationTransport } from "./conversation-transport.js";
 import { getModels } from "../settings/settings-service.js";
 import { getAndroidState } from "../android/android-service.js";
+import { beginWorkspaceSnapshot } from "../files/snapshot-host.js";
 
 export type ConversationStreamEvent = AgentStreamEvent;
 export type { AgentTask };
@@ -48,6 +49,7 @@ export async function streamMessage(
     : models[0];
   const attachmentPaths = new Set((attachments ?? []).map((item) => item.path));
   await getAndroidState();
+  const snapshot = workspaceRoot ? await beginWorkspaceSnapshot(conversationId, turnId, workspaceRoot) : undefined;
   const registry = new DesktopToolRegistry({
     conversationId,
     execution,
@@ -90,6 +92,7 @@ export async function streamMessage(
     if (!execution.signal.aborted) throw error;
   } finally {
     await registry.close();
+    await snapshot?.finish();
   }
   return transport.conversation(conversationId, turnId);
 }

@@ -110,6 +110,10 @@ const bridge: DesktopBridge = {
     },
   },
   conversations: {
+    snapshots: (id) => invokeDesktop("conversations:snapshots", id),
+    snapshotDetail: (id, snapshotId, file) => invokeDesktop("conversations:snapshot-detail", id, snapshotId, file),
+    restoreFile: (id, snapshotId, file) => invokeDesktop("conversations:restore-file", id, snapshotId, file),
+    restoreTurn: (id, snapshotId) => invokeDesktop("conversations:restore-turn", id, snapshotId),
     get: (conversationId) => invokeDesktop("conversations:get", conversationId),
     history: (conversationId, options) => invokeDesktop("conversations:history", conversationId, options),
     searchMessages: (conversationId, options) => invokeDesktop("conversations:search-messages", conversationId, options),

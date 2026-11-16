@@ -24,6 +24,22 @@ type Session = {
 };
 
 const sessions = new Map<string, Session>();
+const workspaceExitListeners = new Set<{ root: string; handler: () => void }>();
+
+function belongsToWorkspace(root: string, cwd: string): boolean {
+  const relative = path.relative(root, cwd);
+  return !relative.startsWith("..") && !path.isAbsolute(relative);
+}
+
+export function onWorkspaceTerminalExit(root: string, handler: () => void): () => void {
+  const listener = { root, handler };
+  workspaceExitListeners.add(listener);
+  return () => { workspaceExitListeners.delete(listener); };
+}
+
+export function workspaceHasRunningTerminal(root?: string): boolean {
+  return [...sessions.values()].some((session) => session.exitCode === undefined && (!root || belongsToWorkspace(root, session.cwd)));
+}
 
 function boundedYield(value: number | undefined): number {
   return Math.max(0, Math.min(value ?? TERMINAL_CONFIG.defaultYieldMs, TERMINAL_CONFIG.maximumYieldMs));
@@ -126,6 +142,7 @@ async function start(action: Extract<TerminalAction, { action: "start" }>, signa
   child.onExit(({ exitCode }) => {
     session.status = session.status === "stopped" ? "stopped" : "exited";
     session.exitCode = exitCode;
+    for (const listener of workspaceExitListeners) if (belongsToWorkspace(listener.root, session.cwd)) listener.handler();
     for (const handler of session.exitHandlers) handler();
     session.exitHandlers.clear();
   });

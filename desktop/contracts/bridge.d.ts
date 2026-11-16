@@ -67,6 +67,10 @@ export interface DesktopBridge {
       onEvent(requestId: string, callback: (event: Domain.MultiAgentRunEvent) => void): () => void;
     };
     conversations: {
+      snapshots(conversationId: string): Promise<Domain.WorkspaceChangeSet[]>;
+      snapshotDetail(conversationId: string, snapshotId: string, file: string): Promise<{ path: string; original: string; modified: string }>;
+      restoreFile(conversationId: string, snapshotId: string, file: string): Promise<void>;
+      restoreTurn(conversationId: string, snapshotId: string): Promise<void>;
       get(conversationId: string): Promise<Domain.LocalConversation>;
       history(conversationId: string, options?: import("@ohmycode/protocol").ConversationHistoryQuery): Promise<Domain.LocalConversation>;
       searchMessages(conversationId: string, options: import("@ohmycode/protocol").MessageSearchQuery): Promise<Domain.MessageSearchResult>;

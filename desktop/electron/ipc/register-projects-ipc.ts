@@ -16,8 +16,13 @@ import { getThreadSnapshot, interruptTurn, waitForTurn } from "../runtime/deskto
 import { followupSnapshot, resumeFollowups, steerFollowup, withdrawFollowup } from "../runtime/followup-host.js";
 import type { ConversationHistoryQuery, MessageAttachment, MessageSearchQuery } from "../projects/types.js";
 import { removeConversation, submitConversationMessage } from "../conversations/conversation-actions.js";
+import { listWorkspaceSnapshots, workspaceSnapshotDetail, restoreWorkspaceFile, restoreWorkspaceTurn } from "../files/snapshot-host.js";
 
 export function registerProjectsIpc(): void {
+  handleInvoke("conversations:snapshots", (_event, id) => listWorkspaceSnapshots(id));
+  handleInvoke("conversations:snapshot-detail", (_event, id, snapshotId, file) => workspaceSnapshotDetail(id, snapshotId, file));
+  handleInvoke("conversations:restore-file", (_event, id, snapshotId, file) => restoreWorkspaceFile(id, snapshotId, file));
+  handleInvoke("conversations:restore-turn", (_event, id, snapshotId) => restoreWorkspaceTurn(id, snapshotId));
   handleInvoke("projects:list", listProjects);
   handleInvoke("projects:search-conversations", (_event, query: string) => searchConversations(query));
   handleInvoke("conversations:search-messages", (_event, conversationId: string, options: MessageSearchQuery) => searchMessages(conversationId, options));
