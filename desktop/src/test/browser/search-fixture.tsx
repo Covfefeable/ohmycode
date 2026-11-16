@@ -19,6 +19,7 @@ const messages: LocalMessage[] = Array.from({ length: 101 }, (_, index) => ({
 const conversation = { id: "thread", title: "Fixture conversation", createdAt: messages[0].createdAt, updatedAt: messages[0].createdAt };
 const project: LocalProject = { id: "project", name: "Fixture project", path: "/fixture", deviceId: "test", deviceName: "Test", conversations: [conversation] };
 const listeners = new Set<(event: RuntimeEvent) => void>();
+const snapshotRequest = "Please update the workspace changes sidebar and keep every original file modification available for review";
 let sequence = 3;
 declare global { interface Window { searchFixture: { emitDelta(): void; tool(tool: string): void } } }
 window.searchFixture = {
@@ -63,6 +64,8 @@ Object.defineProperty(window, "ohmycode", { configurable: true, value: {
     stop: () => {},
   },
   conversations: {
+    snapshots: async () => new URLSearchParams(window.location.search).has("snapshots") ? [{ id: "snapshot", threadId: "thread", turnId: "turn", userRequest: snapshotRequest, createdAt: "2026-11-16T06:00:00Z", status: "ready", files: [{ path: "desktop/src/features/conversation-chat/ConversationChat.tsx", operation: "modified" }, { path: "desktop/src/features/conversation-chat/workspace-changes/WorkspaceChanges.tsx", operation: "added" }], excluded: [".env", "certificates/server.key"] }] : [],
+    snapshotDetail: async (_id: string, _snapshotId: string, file: string) => ({ path: file, original: "export const changed = false;\n", modified: "export const changed = true;\n" }),
     onThreadEvent: (_id: string, listener: (event: RuntimeEvent) => void) => { listeners.add(listener); return () => listeners.delete(listener); },
     onFollowups: () => () => {}, followups: async () => ({ inputs: [], paused: false }),
     threadSnapshot: async () => ({ threadId: "thread", turnId: "live", status: "in_progress", lastSequence: 3, events: [

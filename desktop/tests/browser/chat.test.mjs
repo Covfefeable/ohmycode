@@ -27,6 +27,36 @@ afterEach(async () => {
 
 const scroller = () => page.locator('[data-virtuoso-scroller="true"]');
 
+test("workspace changes share the side-panel layout, tooltip, resize and exclusive browser selection", async () => {
+  await page.goto(`${baseUrl}/tests/browser/search.html`);
+  await page.getByRole("heading", { name: "Fixture conversation" }).waitFor();
+  assert.equal(await page.getByRole("button", { name: "Workspace changes", exact: true }).count(), 0);
+  await page.goto(`${baseUrl}/tests/browser/search.html?snapshots=1`);
+  const entry = page.getByRole("button", { name: "Workspace changes", exact: true });
+  await entry.hover();
+  await page.getByRole("tooltip", { name: "Workspace changes", exact: true }).waitFor();
+  await entry.click();
+  const panel = page.getByRole("complementary", { name: "Workspace changes" });
+  await panel.waitFor();
+  const request = panel.getByText("Please update the workspace changes sidebar and keep every original file modification available for review", { exact: true });
+  const textLayout = await request.evaluate((element) => ({ overflow: getComputedStyle(element).textOverflow, whitespace: getComputedStyle(element).whiteSpace, clipped: element.scrollWidth > element.clientWidth }));
+  assert.deepEqual(textLayout, { overflow: "ellipsis", whitespace: "nowrap", clipped: true });
+  assert.equal(await panel.getByRole("button", { name: /^Restore all:/ }).count(), 1);
+  const chat = page.getByRole("heading", { name: "Fixture conversation" }).locator("xpath=ancestor::section[1]");
+  const bounds = await panel.boundingBox(), chatBounds = await chat.boundingBox();
+  assert.ok(bounds.x >= chatBounds.x + chatBounds.width - 1, "sidebar must not cover the conversation");
+  assert.ok(bounds.height > 650, "sidebar fills the workspace height");
+  const separator = panel.getByRole("separator");
+  await separator.press("ArrowLeft");
+  assert.ok((await panel.boundingBox()).width > bounds.width, "keyboard resizing uses the shared side-panel behavior");
+  await panel.getByText("Excluded from snapshots (2)").click();
+  await panel.getByText(/This count does not mean these files were modified/).waitFor();
+  if (process.env.SNAPSHOT_SCREENSHOT_PATH) await page.screenshot({ path: process.env.SNAPSHOT_SCREENSHOT_PATH });
+  await page.getByRole("button", { name: "Browser", exact: true }).click();
+  await panel.waitFor({ state: "hidden" });
+  await page.getByRole("complementary", { name: "Browser" }).waitFor();
+});
+
 test("工具详情在真实浏览器中切换参数、查看全部节点并展开原生弹窗", async () => {
   await page.goto(`${baseUrl}/tests/browser/tool-details.html`);
   const snapshot = page.getByRole("region", { name: "Snapshot" });

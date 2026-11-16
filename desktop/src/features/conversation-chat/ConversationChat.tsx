@@ -32,6 +32,9 @@ import { useConversationSearch } from "./message-search/useConversationSearch";
 import type { MessageLocation } from "../../entities/conversation/types";
 import { useSpeech } from "../speech/speech-context";
 import { useConversationSpeech } from "../speech/useConversationSpeech";
+import { WorkspaceChanges } from "./workspace-changes/WorkspaceChanges";
+import { WorkspaceChangesButton } from "./workspace-changes/WorkspaceChangesButton";
+import { useWorkspaceChanges } from "./workspace-changes/useWorkspaceChanges";
 
 type ConversationChatProps = { conversationId: string; active: boolean; searchLocation?: MessageLocation; onUpdated(): void; onBranched(conversation: LocalConversation): void };
 
@@ -67,6 +70,7 @@ export function ConversationChat({ conversationId, active, searchLocation, onUpd
   const controller = useConversationController({ conversationId, onUpdated, scrollToBottom: forceScrollToBottom, onToolStarted: panels.onToolStarted });
   const conversation = search.view?.page ?? controller.conversation;
   const { sending } = controller;
+  const changes = useWorkspaceChanges(conversationId, sending, active);
   const openSearch = search.open;
 
   useEffect(() => {
@@ -192,6 +196,7 @@ export function ConversationChat({ conversationId, active, searchLocation, onUpd
     {dragActive && <div className={styles.dropOverlay}><div><span>＋</span><strong>{t("agent.dropFiles")}</strong><small>{t("agent.dropFilesHint")}</small></div></div>}
     <header className={styles.chatHeader}>
       <div className={styles.heading}><h1>{conversation.title}</h1><div className={styles.headerActions}>
+        {changes.hasChanges && <WorkspaceChangesButton opened={panels.panel === "workspace"} onClick={() => panels.toggle("workspace")} />}
         {search.view && <button className={styles.returnLatest} onClick={forceScrollToBottom}><ArrowDown />{t("agent.returnLatest")}</button>}
         <Tooltip content={t(speech.settings?.autoPlay ? "speech.autoPlayOn" : "speech.autoPlayOff")}><IconButton active={speech.settings?.autoPlay} aria-pressed={Boolean(speech.settings?.autoPlay)} aria-label={t("speech.autoPlay")} onClick={() => void speech.toggle()}><AudioLines /></IconButton></Tooltip>
         <Tooltip content={t("agent.searchConversation")}><IconButton aria-label={t("agent.searchConversation")} onClick={() => { openSearch(); searchInputRef.current?.focus(); }}><Search /></IconButton></Tooltip>
@@ -242,6 +247,7 @@ export function ConversationChat({ conversationId, active, searchLocation, onUpd
       <TaskComposer sessionId={conversationId} onPasteImages={pasteImages} busy={sending} disabled={Boolean(editing)} models={controller.models} selectedModelId={controller.selectedModelId} contextUsage={controller.contextUsage} attachments={attachments} suggestions={controller.suggestions} restoredInput={restoredInput} onRemoveAttachment={(id) => setAttachments((items) => items.filter((item) => item.id !== id))} onModelChange={controller.setSelectedModelId} onSubmit={(content, items) => send(content, items)} onStop={controller.stop} />
     </div>
   </section>{panels.panel === "browser" && !panels.browser.detached && <BrowserPanel conversationId={conversationId} state={panels.browser} active={active} onClose={panels.close} />}
+    {panels.panel === "workspace" && changes.hasChanges && <WorkspaceChanges key={conversationId} conversationId={conversationId} sending={sending} records={changes.records} failed={changes.failed} refresh={changes.refresh} active={active} onClose={panels.close} />}
     {panels.panel === "android" && panels.android?.adbReady && panels.android.enabled && <AndroidPanel conversationId={conversationId} state={panels.android} active={active} onClose={panels.close} />}
   </div></ImageScopeContext.Provider>;
 }

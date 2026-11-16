@@ -5,7 +5,7 @@ import { useAndroidState } from "../android/useAndroidState";
 import { useAndroidPresentation } from "../android/useAndroidPresentation";
 import { useFeedback } from "../feedback";
 
-type Panel = "browser" | "android";
+type Panel = "browser" | "android" | "workspace";
 
 export function useConversationPanels(conversationId: string, active: boolean) {
   const browser = useBrowser(conversationId);
@@ -19,7 +19,7 @@ export function useConversationPanels(conversationId: string, active: boolean) {
 
   const show = useCallback((target: Panel) => {
     setSelection(target);
-    if (!active) return;
+    if (!active || target === "workspace") return;
     const request = target === "browser"
       ? browser.state.detached
         ? window.ohmycode.browser.setDetached(conversationId, true)
@@ -35,7 +35,7 @@ export function useConversationPanels(conversationId: string, active: boolean) {
       .catch(() => toast({ type: "error", message: t("browser.failed") }));
   };
   const toggle = (target: Panel) => {
-    if (panel !== target || (target === "browser" ? browser.state.detached : androidDetached)) show(target);
+    if (panel !== target || (target === "browser" ? browser.state.detached : target === "android" && androidDetached)) show(target);
     else close();
   };
   const onToolStarted = useCallback((tool: string) => {

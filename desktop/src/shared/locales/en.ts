@@ -1,4 +1,13 @@
 export const en = {
+  snapshots: {
+    restoreAll: "Restore all", confirmAll: "Restore the {{count}} remaining files changed in this turn to their pre-turn state? Newly created files will be deleted. Any existing conflict prevents the batch from starting.",
+    requestUnavailable: "Original request unavailable",
+    addedCode: "A", modifiedCode: "M", deletedCode: "D", openFiles: "Open file changes", closeFile: "Close file",
+    title: "Workspace changes", refresh: "Refresh", close: "Close", resize: "Resize workspace changes panel",
+    empty: "No workspace snapshots yet.", loadFailed: "Could not load snapshots.", previewFailed: "Cannot preview this file. It may be binary.", restoreFailed: "Cannot restore: the file changed, a task or terminal is running, or access failed.",
+    active: "Task or terminal running", ready: "Ready", unavailable: "Snapshot unavailable", unavailableDescription: "Capture failed or was interrupted. Git must be installed and the workspace must be a Git repository within snapshot limits.",
+    excluded: "Excluded from snapshots ({{count}})", excludedDescription: "These files were not saved and cannot be restored here. Exclusions include sensitive paths, dependencies, symbolic links and files larger than 2 MiB. This count does not mean these files were modified.", added: "Added", modified: "Modified", deleted: "Deleted", restore: "Restore file", restored: "Restored", confirm: "Restore {{file}} to its state before this task? A file created by the task will be deleted. Later modifications prevent restoration.",
+  },
   operationFeedback: { operating: "Agent is operating" },
   lab: { title: "Lab", description: "Try local features that are still evolving.", experimental: "Experimental" },
   android: {

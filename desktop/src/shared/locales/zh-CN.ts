@@ -1,4 +1,13 @@
 export const zhCN = {
+  snapshots: {
+    restoreAll: "全部恢复", confirmAll: "将本轮尚未恢复的 {{count}} 个文件还原到本轮开始前？本轮新增的文件会被删除。发现任何后续修改时，本次批量恢复不会开始。",
+    requestUnavailable: "原始请求不可用",
+    addedCode: "A", modifiedCode: "M", deletedCode: "D", openFiles: "已打开的文件变更", closeFile: "关闭文件",
+    title: "工作区变更", refresh: "刷新", close: "关闭", resize: "调整工作区变更面板宽度",
+    empty: "暂无工作区快照。", loadFailed: "无法加载快照。", previewFailed: "无法预览该文件，可能是二进制内容。", restoreFailed: "无法恢复：文件存在后续修改、任务或终端仍在运行，或文件访问失败。",
+    active: "任务或终端运行中", ready: "可恢复", unavailable: "快照不可用", unavailableDescription: "快照捕获失败或被中断。需要安装 Git，工作区必须是 Git 仓库，且未超出快照限制。",
+    excluded: "快照排除范围（{{count}}）", excludedDescription: "这些文件未保存，无法在此恢复。排除范围包含敏感路径、依赖、符号链接和超过 2 MiB 的文件。此数量不代表它们发生了修改。", added: "新增", modified: "修改", deleted: "删除", restore: "恢复文件", restored: "已恢复", confirm: "将 {{file}} 恢复为任务开始前的状态？任务新增的文件会被删除。存在后续修改时不会覆盖。",
+  },
   operationFeedback: { operating: "Agent 正在操作中" },
   lab: { title: "实验室", description: "实验性的创新能力", experimental: "实验性" },
   android: {
