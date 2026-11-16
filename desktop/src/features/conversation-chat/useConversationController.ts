@@ -84,7 +84,7 @@ export function useConversationController({ conversationId, onUpdated, scrollToB
           activeTurnIdRef.current = null;
           setSending(false);
         }
-        void window.ohmycode.conversations.waitTurn(event.turnId)
+        const turnHistory = window.ohmycode.conversations.waitTurn(event.turnId)
           .then((value) => value ?? window.ohmycode.conversations.history(conversationId, { turnId: event.turnId }))
           .catch(() => window.ohmycode.conversations.history(conversationId, { turnId: event.turnId }))
           .then((value) => {
@@ -103,9 +103,14 @@ export function useConversationController({ conversationId, onUpdated, scrollToB
         if (event.type === "turn.completed") {
           const requestVersion = ++suggestionRequestRef.current;
           void window.ohmycode.conversations.suggest(conversationId)
-            .then((value) => {
+            .then(async (value) => {
               if (!disposed && suggestionRequestRef.current === requestVersion && activeTurnIdRef.current === null) {
                 setSuggestions(value);
+                await turnHistory;
+                if (disposed || suggestionRequestRef.current !== requestVersion || activeTurnIdRef.current !== null) return;
+                const updated = await window.ohmycode.conversations.history(conversationId, { turnId: event.turnId });
+                if (disposed || suggestionRequestRef.current !== requestVersion || activeTurnIdRef.current !== null) return;
+                setConversation((current) => current ? { ...current, title: updated.title } : current);
                 onUpdatedRef.current();
               }
             })

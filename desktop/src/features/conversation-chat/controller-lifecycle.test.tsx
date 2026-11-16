@@ -7,6 +7,22 @@ vi.mock("../feedback", () => ({ useFeedback: () => ({ toast }) }));
 const { toast } = vi.hoisted(() => ({ toast: vi.fn() }));
 const options = { conversationId: "thread", onUpdated: vi.fn(), scrollToBottom: vi.fn() };
 
+test("refreshes an asynchronously generated title without replacing loaded messages", async () => {
+  const bridge = controllerBridge();
+  const suggestion = deferred<string[]>();
+  bridge.conversations.suggest.mockReturnValue(suggestion.promise);
+  bridge.conversations.waitTurn.mockResolvedValue({ ...conversation(), title: "Original request", messages: [{ id: "answer", role: "assistant", content: "Preserved answer", createdAt: "2026-11-16T00:00:00Z" }] });
+  const { result } = renderHook(() => useConversationController(options));
+  await waitFor(() => expect(result.current.conversation).not.toBeNull());
+  streamingEvents().forEach(bridge.emit); bridge.flush();
+  bridge.emit({ type: "turn.completed", threadId: "thread", turnId: "turn", sequence: 5 }); bridge.flush();
+  await waitFor(() => expect(result.current.conversation?.title).toBe("Original request"));
+  bridge.conversations.history.mockResolvedValue({ ...conversation(), title: "Concise generated title", messages: [] });
+  await act(async () => suggestion.resolve([]));
+  await waitFor(() => expect(result.current.conversation?.title).toBe("Concise generated title"));
+  expect(messageText(result.current.conversation?.messages)).toContain("Preserved answer");
+});
+
 test("工具展示只跟随实时调用，不受历史回放或重复事件影响", async () => {
   const bridge = controllerBridge();
   const toolEvent: RuntimeEvent = { type: "item.started", threadId: "thread", turnId: "turn", sequence: 5,

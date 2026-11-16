@@ -55,7 +55,11 @@ def _aux_completion(
         )
         response.raise_for_status()
         payload = response.json()
-        content = str(payload["choices"][0]["message"]["content"]).strip()
+        choice = payload["choices"][0]
+        raw_content = choice["message"].get("content")
+        if not isinstance(raw_content, str) or choice.get("finish_reason") == "length":
+            return None
+        content = raw_content.strip()
         if not content:
             return None
         usage = payload.get("usage") if isinstance(payload, dict) else None
@@ -63,20 +67,22 @@ def _aux_completion(
         return AuxiliaryCompletion(
             content=content,
             input_tokens=int(usage.get("prompt_tokens") or usage.get("input_tokens") or 0),
-            output_tokens=int(
-                usage.get("completion_tokens") or usage.get("output_tokens") or 0
-            ),
+            output_tokens=int(usage.get("completion_tokens") or usage.get("output_tokens") or 0),
         )
     except (httpx.HTTPError, KeyError, IndexError, TypeError, ValueError):
         return None
 
 
 def _clean_title(raw: str | None) -> str | None:
-    if not raw:
+    if not isinstance(raw, str) or not raw.strip():
         return None
     line = raw.splitlines()[0].strip().strip('"').strip("'").strip()
     line = line.strip("。.；;，,")
-    return line[:_MAX_TITLE_LENGTH] or None
+    return (
+        line[:_MAX_TITLE_LENGTH]
+        if line and line.casefold() not in {"none", "null", "undefined"}
+        else None
+    )
 
 
 def _parse_suggestions(raw: str | None) -> list[str]:
@@ -106,30 +112,48 @@ def _event_payload(run: AgentRun, event_type: str) -> dict | None:
 def maybe_rename_new_conversation(
     conversation: Conversation, configuration: ModelConfiguration, run: AgentRun | None = None
 ) -> None:
-    """Rename a brand-new conversation from its first user message.
+    """Replace a provisional or invalid title using the first user message.
 
     Best-effort: any LLM/transport failure leaves the existing title untouched so the
     agent run is never blocked by titling.
     """
     user_messages = [message for message in conversation.messages if message.role == "user"]
-    if len(user_messages) != 1:
+    if not user_messages:
         return
-    if run and _event_payload(run, "conversation.title.generated") is not None:
+    provisional = user_messages[0].content.replace("\n", " ")[:60]
+    invalid_title = _clean_title(conversation.title) is None
+    if invalid_title:
+        conversation.title = provisional if _clean_title(provisional) else "New conversation"
+    if (
+        len(user_messages) > 1
+        and _clean_title(conversation.title)
+        and conversation.title not in {"New conversation", provisional}
+    ):
+        return
+    cached = _event_payload(run, "conversation.title.generated") if run else None
+    if cached and _clean_title(cached.get("title")):
+        if invalid_title:
+            conversation.title = _clean_title(cached["title"])
+            db.session.commit()
         return
     completion = _aux_completion(
         configuration,
         TITLE_INSTRUCTIONS,
         f"<user-request>\n{user_messages[0].content[:_MAX_INPUT_CHARS]}\n</user-request>",
         timeout=_TITLE_TIMEOUT_SECONDS,
-        max_tokens=32,
+        max_tokens=2048,
     )
     title = _clean_title(completion.content if completion else None)
     if title:
         conversation.title = title
     if run:
         _record_auxiliary_usage(run, completion)
-        append_event(run, "conversation.title.generated", {"title": title})
-    if title or run:
+        append_event(
+            run,
+            "conversation.title.generated" if title else "conversation.title.failed",
+            {"title": title},
+        )
+    if title or run or invalid_title:
         db.session.commit()
 
 
@@ -172,9 +196,6 @@ def generate_followup_suggestions(user_id: UUID, conversation_id: UUID) -> list[
     """Generate follow-ups from the latest ten user questions and last agent reply."""
     conversation = get_conversation(user_id, conversation_id)
     task_settings = background_task_settings(user_id)
-    if not task_settings.suggestions_enabled:
-        db.session.commit()
-        return []
     messages = list(conversation.messages)
     last_user_index = next(
         (index for index in range(len(messages) - 1, -1, -1) if messages[index].role == "user"),
@@ -194,14 +215,20 @@ def generate_followup_suggestions(user_id: UUID, conversation_id: UUID) -> list[
     if not last_user or not last_assistant:
         return []
     configuration, run = _configuration_for(conversation_id, user_id)
-    configuration = configured_model(user_id, task_settings.suggestions_model_id) or configuration
+    if task_settings.suggestions_model_id:
+        configuration = (
+            configured_model(user_id, task_settings.suggestions_model_id) or configuration
+        )
     if not configuration or not run:
+        return []
+    maybe_rename_new_conversation(conversation, configuration, run)
+    if not task_settings.suggestions_enabled:
+        db.session.commit()
         return []
     cached = _event_payload(run, "conversation.suggestions.generated")
     if cached is not None:
         suggestions = cached.get("suggestions")
         return [str(item) for item in suggestions] if isinstance(suggestions, list) else []
-    maybe_rename_new_conversation(conversation, configuration, run)
     prompt = _suggestion_prompt(messages)
     if not prompt:
         return []
