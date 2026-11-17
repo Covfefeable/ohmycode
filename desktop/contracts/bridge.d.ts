@@ -67,6 +67,10 @@ export interface DesktopBridge {
       onEvent(requestId: string, callback: (event: Domain.MultiAgentRunEvent) => void): () => void;
     };
     conversations: {
+      approvalState(conversationId: string): Promise<{ mode: Domain.ApprovalMode; requests: Domain.OperationApproval[] }>;
+      onApprovalState(conversationId: string, callback: (state: { mode: Domain.ApprovalMode; requests: Domain.OperationApproval[] }) => void): () => void;
+      setApprovalMode(conversationId: string, mode: Domain.ApprovalMode): Promise<void>;
+      replyApproval(conversationId: string, id: string, allowed: boolean): Promise<void>;
       snapshots(conversationId: string): Promise<Domain.WorkspaceChangeSet[]>;
       snapshotDetail(conversationId: string, snapshotId: string, file: string): Promise<{ path: string; original: string; modified: string }>;
       restoreFile(conversationId: string, snapshotId: string, file: string): Promise<void>;

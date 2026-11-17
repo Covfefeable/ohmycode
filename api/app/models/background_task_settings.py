@@ -24,3 +24,6 @@ class BackgroundTaskSettings(db.Model):
     suggestions_model_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("model_configurations.id", ondelete="SET NULL"), nullable=True
     )
+    operation_approval_model_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("model_configurations.id", ondelete="SET NULL"), nullable=True
+    )

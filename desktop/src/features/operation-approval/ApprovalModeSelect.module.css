@@ -1,0 +1,22 @@
+.trigger { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 9px; border: 1px solid transparent; border-radius: var(--radius-md); background: transparent; color: var(--color-text-muted); font: inherit; font-size: var(--font-sm); cursor: pointer; transition: background var(--transition-fast), color var(--transition-fast); }
+.trigger:hover, .trigger[aria-expanded="true"] { background: var(--color-surface-control); color: var(--color-text); }
+.root { min-width: 0; max-width: 100%; }
+.trigger { min-width: 0; max-width: 100%; box-sizing: border-box; white-space: nowrap; flex-shrink: 1; }
+.trigger > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.trigger:focus-visible, .option:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+.trigger > svg { width: 15px; height: 15px; flex: none; }
+.trigger > .chevron, .trigger > .expanded { width: 12px; height: 12px; opacity: .6; transition: transform var(--transition-fast); }
+.expanded { transform: rotate(180deg); }
+.trigger.warning, .option.warning .label, .option.warning .icon { color: var(--color-warning); }
+.menu { position: fixed; z-index: var(--z-popover); max-height: calc(100vh - 100px); overflow-y: auto; box-sizing: border-box; padding: 6px; border: 1px solid var(--color-border-strong); border-radius: var(--radius-lg); background: var(--color-surface-2); box-shadow: var(--shadow-panel); animation: appear 120ms ease-out; }
+.caption { padding: 7px 10px 9px; color: var(--color-text-dim); font-size: var(--font-xs); }
+.option { width: 100%; display: flex; align-items: flex-start; gap: 10px; padding: 11px 10px; border: 0; border-radius: var(--radius-md); background: transparent; color: var(--color-text-muted); text-align: left; font: inherit; cursor: pointer; }
+.option:hover, .option:focus-visible, .option[aria-checked="true"] { background: var(--color-surface-hover); }
+.icon { display: grid; place-items: center; flex: none; width: 28px; height: 28px; border-radius: var(--radius-sm); background: var(--color-surface-control); color: var(--color-text-soft); }
+.icon svg { width: 16px; height: 16px; }
+.copy { flex: 1; min-width: 0; display: grid; gap: 2px; letter-spacing: 0; }
+.label { color: var(--color-text); font-size: var(--font-sm); font-weight: 500; line-height: 1.4; }
+.description { min-width: 0; color: var(--color-text-dim); font-size: var(--font-xs); line-height: 1.4; white-space: nowrap; overflow-x: auto; scrollbar-width: thin; }
+.check { flex: none; width: 15px; height: 15px; margin-top: 4px; color: var(--color-accent); }
+@keyframes appear { from { opacity: 0; transform: translateY(4px); } }
+@media (prefers-reduced-motion: reduce) { .menu { animation: none; } }

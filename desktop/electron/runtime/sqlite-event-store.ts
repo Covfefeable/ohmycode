@@ -1,4 +1,5 @@
 import { DatabaseSync } from "node:sqlite";
+import type { ApprovalMode } from "../../contracts/domain.js";
 import type { EventStore, ExecutionStore, RuntimeExecutionState } from "@ohmycode/agent-runtime";
 import type { FollowupState, RuntimeEvent, TurnSnapshot, TurnStatus } from "@ohmycode/protocol";
 
@@ -14,11 +15,23 @@ type EventRow = { event_json: string };
 export class SqliteEventStore implements EventStore, ExecutionStore {
   private readonly database: DatabaseSync;
 
+  approvalMode(threadId: string): ApprovalMode | undefined {
+    return (this.database.prepare("SELECT mode FROM runtime_approval_modes WHERE thread_id = ?").get(threadId) as { mode: ApprovalMode } | undefined)?.mode;
+  }
+
+  saveApprovalMode(threadId: string, mode: ApprovalMode): void {
+    this.database.prepare("INSERT INTO runtime_approval_modes (thread_id, mode) VALUES (?, ?) ON CONFLICT(thread_id) DO UPDATE SET mode = excluded.mode").run(threadId, mode);
+  }
+
   constructor(filePath: string) {
     this.database = new DatabaseSync(filePath);
     this.database.exec(`
       PRAGMA journal_mode = WAL;
       PRAGMA foreign_keys = ON;
+      CREATE TABLE IF NOT EXISTS runtime_approval_modes (
+        thread_id TEXT PRIMARY KEY,
+        mode TEXT NOT NULL CHECK (mode IN ('ask', 'auto', 'allow'))
+      );
       CREATE TABLE IF NOT EXISTS runtime_turns (
         turn_id TEXT PRIMARY KEY,
         thread_id TEXT NOT NULL,

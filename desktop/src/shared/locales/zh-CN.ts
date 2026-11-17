@@ -166,6 +166,9 @@ export const zhCN = {
     clearSearch: "清空搜索",
   },
   agent: {
+    approvalDescription_ask: "执行命令或访问工作区外文件前，由你确认。", approvalDescription_auto: "由模型判断风险，低风险自动允许，其余交给你确认。", approvalDescription_allow: "所有需要批准的操作直接执行，不再等待确认。",
+    approvalFile_read_file: "读取文件", approvalFile_search_files: "搜索文件", approvalFile_list_directory: "查看目录", approvalFile_apply_patch: "修改文件", approvalChanges: "查看变更",
+    approvalMode: "操作批准模式", approvalMode_ask: "始终需要批准", approvalMode_auto: "帮我批准", approvalMode_allow: "无需批准", approvalTitle: "批准操作", approvalChecking: "正在判断操作…", approvalTerminal: "执行命令", approvalExternal: "访问外部文件", approvalReject: "拒绝", approvalAllow: "允许", approvalFailed: "操作批准请求失败，请重试。", approvalCount: "待处理 {{count}} 项",
     searchConversation: "搜索当前会话",
     previousMatch: "上一条匹配消息",
     nextMatch: "下一条匹配消息",
@@ -429,6 +432,7 @@ export const zhCN = {
     },
   },
   settings: {
+    operationApproval: "操作批准", operationApprovalModel: "操作批准模型",
     mcpAvailability: "服务状态", mcpEnabled: "启用", mcpDisabled: "停用",
     eyebrow: "偏好设置", title: "设置", profileTab: "个人信息", modelsTab: "模型配置", backgroundTasksTab: "背景任务", mcpTab: "MCP", skillsTab: "Skills", updatesTab: "检查更新", loadFailed: "设置加载失败。",
     profileEyebrow: "个人身份", profileTitle: "个人信息", profileDescription: "管理你的 OhMyCode 个人身份。", save: "保存个人信息", saved: "已保存", profileSaved: "个人信息已保存。", saveFailed: "设置保存失败。", avatarStorageUnavailable: "头像存储服务不可用，请检查 MinIO 配置后重试。", changeAvatar: "更换头像", avatarInvalid: "请选择不超过 5MB 的 PNG、JPEG 或 WebP 图片。",

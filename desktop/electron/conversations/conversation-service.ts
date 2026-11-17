@@ -51,6 +51,7 @@ export async function streamMessage(
   await getAndroidState();
   const snapshot = workspaceRoot ? await beginWorkspaceSnapshot(conversationId, turnId, workspaceRoot) : undefined;
   const registry = new DesktopToolRegistry({
+    userRequest: content,
     conversationId,
     execution,
     executionContext,

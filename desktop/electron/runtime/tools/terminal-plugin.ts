@@ -2,7 +2,7 @@ import { defineToolPlugin } from "@ohmycode/agent-runtime";
 import type { ToolDefinition, ToolPlugin } from "@ohmycode/tool-contracts";
 import { acquireWorkspaceWriteLock } from "../../multi-agents/workspace-write-lock.js";
 import { recordWorkspaceChanges, snapshotWorkspace } from "../../multi-agents/workspace-changes.js";
-import { executeTerminalAction, onTerminalExit } from "../../terminal/terminal-manager.js";
+import { executeTerminalAction, onTerminalExit, requestTerminalApproval } from "../../terminal/terminal-manager.js";
 import type { TerminalAction } from "../../../contracts/domain.js";
 import type { DesktopTurnExecution } from "../desktop-execution-adapter.js";
 import type { DesktopExecutionContext } from "../types.js";
@@ -42,6 +42,9 @@ export function createTerminalPlugin(options: {
             ? "write"
             : action.terminalId ? "read" : "list";
       const normalized = { ...action, action: actionName, projectId: options.projectId } as TerminalAction;
+      if (normalized.action === "start" || normalized.action === "write") {
+        await requestTerminalApproval(normalized, options.workspaceRoot);
+      }
       let release: (() => void) | undefined;
       if (options.executionContext && normalized.action === "start" && normalized.intent !== "read") {
         const unlock = await acquireWorkspaceWriteLock(

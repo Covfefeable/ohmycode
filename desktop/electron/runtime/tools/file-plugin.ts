@@ -26,7 +26,7 @@ const FILE_DEFINITIONS: ToolDefinition[] = [
       type: "object",
       properties: {
         query: { type: "string", minLength: 1, description: "Non-empty literal text to find." },
-        path: { type: "string", default: ".", description: "Existing file or directory inside the workspace, absolute or workspace-relative. A file limits search to that file; a directory is searched recursively. Defaults to the workspace root." },
+        path: { type: "string", default: ".", description: "Existing file or directory, absolute or workspace-relative. External workspace access follows the approval mode. A file limits search to that file; a directory is searched recursively. Defaults to the workspace root." },
         mode: { type: "string", enum: ["content", "files"], default: "content", description: "content searches file contents and returns matching lines; files matches workspace-relative file paths." },
         glob: { type: "string", description: "Optional glob filter matched against slash-separated workspace-relative file paths, including when path is a single file." },
         includeHidden: { type: "boolean", default: false, description: "Include hidden entries when searching a directory." },
@@ -38,7 +38,7 @@ const FILE_DEFINITIONS: ToolDefinition[] = [
   },
   {
     name: "list_directory",
-    description: "List files and directories in the workspace with bounded depth and result count.",
+    description: "List files and directories with bounded depth and result count. External workspace access follows the approval mode.",
     inputSchema: {
       type: "object",
       properties: {
@@ -49,7 +49,7 @@ const FILE_DEFINITIONS: ToolDefinition[] = [
   },
   {
     name: "apply_patch",
-    description: "Apply a strict patch envelope inside the workspace. Read every existing target file first.",
+    description: "Apply a strict patch envelope. Workspace edits do not require approval; external workspace access follows the approval mode. Read every existing target file first.",
     inputSchema: {
       type: "object", properties: { patch: { type: "string" } }, required: ["patch"],
     },

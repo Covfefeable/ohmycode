@@ -17,6 +17,11 @@ def background_task_settings(user_id: UUID) -> BackgroundTaskSettings:
 
 def serialize_background_tasks(settings: BackgroundTaskSettings) -> dict:
     return {
+        "operationApprovalModelId": (
+            str(settings.operation_approval_model_id)
+            if settings.operation_approval_model_id
+            else None
+        ),
         "autoSummaryEnabled": settings.auto_summary_enabled,
         "autoSummaryModelId": (
             str(settings.auto_summary_model_id) if settings.auto_summary_model_id else None
@@ -62,13 +67,12 @@ def save_background_tasks(user_id: UUID, payload: dict) -> dict:
     settings.context_compaction_model_id = model_id("contextCompactionModelId")
     settings.suggestions_enabled = bool(payload.get("suggestionsEnabled"))
     settings.suggestions_model_id = model_id("suggestionsModelId")
+    settings.operation_approval_model_id = model_id("operationApprovalModelId")
     db.session.commit()
     return serialize_background_tasks(settings)
 
 
-def configured_model(
-    user_id: UUID, configured_model_id: UUID | None
-) -> ModelConfiguration | None:
+def configured_model(user_id: UUID, configured_model_id: UUID | None) -> ModelConfiguration | None:
     models = models_for_user(user_id)
     if configured_model_id:
         return next((item for item in models if item.id == configured_model_id), None)

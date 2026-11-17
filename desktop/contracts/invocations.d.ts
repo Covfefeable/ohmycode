@@ -2,6 +2,9 @@ import type { DesktopBridge } from "./bridge.js";
 
 /** Invoke channels share the public Bridge signatures; event channels are separate. */
 export interface DesktopInvocations {
+  "conversations:approval-state": DesktopBridge["conversations"]["approvalState"];
+  "conversations:approval-mode": DesktopBridge["conversations"]["setApprovalMode"];
+  "conversations:approval-reply": DesktopBridge["conversations"]["replyApproval"];
   "conversations:snapshots": DesktopBridge["conversations"]["snapshots"];
   "conversations:snapshot-detail": DesktopBridge["conversations"]["snapshotDetail"];
   "conversations:restore-file": DesktopBridge["conversations"]["restoreFile"];

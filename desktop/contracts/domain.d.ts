@@ -52,12 +52,24 @@ export type ModelInput = {
 };
 
 export type BackgroundTaskSettings = {
+  operationApprovalModelId: string | null;
   autoSummaryEnabled: boolean;
   autoSummaryModelId: string | null;
   contextCompactionThreshold: number;
   contextCompactionModelId: string | null;
   suggestionsEnabled: boolean;
   suggestionsModelId: string | null;
+};
+
+export type ApprovalMode = "ask" | "auto" | "allow";
+export type OperationApproval = {
+  id: string;
+  conversationId: string;
+  operation: string;
+  details: string;
+  workspace?: string;
+  status: "checking" | "waiting";
+  reason?: string;
 };
 
 export type McpTool = { name: string; description?: string; inputSchema?: Record<string, unknown> };

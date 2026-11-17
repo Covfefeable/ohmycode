@@ -110,6 +110,14 @@ const bridge: DesktopBridge = {
     },
   },
   conversations: {
+    approvalState: (id) => invokeDesktop("conversations:approval-state", id),
+    onApprovalState(id, callback) {
+      const listener = (_event: IpcRendererEvent, state: Parameters<typeof callback>[0]) => callback(state);
+      ipcRenderer.on(`approval:state:${id}`, listener);
+      return () => { ipcRenderer.removeListener(`approval:state:${id}`, listener); };
+    },
+    setApprovalMode: (id, mode) => invokeDesktop("conversations:approval-mode", id, mode),
+    replyApproval: (id, requestId, allowed) => invokeDesktop("conversations:approval-reply", id, requestId, allowed),
     snapshots: (id) => invokeDesktop("conversations:snapshots", id),
     snapshotDetail: (id, snapshotId, file) => invokeDesktop("conversations:snapshot-detail", id, snapshotId, file),
     restoreFile: (id, snapshotId, file) => invokeDesktop("conversations:restore-file", id, snapshotId, file),

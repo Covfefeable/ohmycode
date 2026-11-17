@@ -3,6 +3,7 @@ import { authenticate, bootstrapAuth, clearTokens } from "../auth/auth-service.j
 import type { AuthPayload } from "../auth/types.js";
 import { stopSpeech } from "../speech/speech-host.js";
 import { closeBrowsers } from "../browser/browser-service.js";
+import { cancelOperationApprovals } from "../runtime/operation-approval.js";
 
 export function registerAuthIpc(): void {
   handleInvoke("auth:bootstrap", bootstrapAuth);
@@ -10,6 +11,6 @@ export function registerAuthIpc(): void {
   handleInvoke("auth:register", (_event, payload: AuthPayload) =>
     authenticate("/register", payload),
   );
-  handleInvoke("auth:logout", () => { stopSpeech(); closeBrowsers(); return clearTokens(); });
+  handleInvoke("auth:logout", () => { cancelOperationApprovals(); stopSpeech(); closeBrowsers(); return clearTokens(); });
 }
 

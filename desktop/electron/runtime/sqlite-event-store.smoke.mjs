@@ -10,6 +10,8 @@ const databasePath = join(directory, "events.sqlite");
 
 try {
   const firstStore = new SqliteEventStore(databasePath);
+  assert.equal(firstStore.approvalMode("thread-1"), undefined);
+  firstStore.saveApprovalMode("thread-1", "auto");
   const first = new EventJournal(firstStore);
   first.create("thread-1", "turn-1");
   first.append("turn-1", { type: "turn.started", threadId: "thread-1", turnId: "turn-1" });
@@ -25,6 +27,8 @@ try {
   first.close();
 
   const restoredStore = new SqliteEventStore(databasePath);
+  assert.equal(restoredStore.approvalMode("thread-1"), "auto");
+  assert.equal(restoredStore.approvalMode("thread-2"), undefined);
   const restored = new EventJournal(restoredStore);
   assert.equal(restoredStore.loadFollowups("account-a", "thread-1").inputs[0].content, "Next");
   assert.equal(restoredStore.loadFollowups("account-b", "thread-1"), null);

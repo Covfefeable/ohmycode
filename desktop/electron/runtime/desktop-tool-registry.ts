@@ -28,6 +28,7 @@ import { activeBrowser } from "../browser/browser-service.js";
 import { createAndroidPlugin } from "@ohmycode/android-use";
 import { androidHost } from "../android/android-service.js";
 import { storeImages } from "../files/image-assets.js";
+import { withOperationApproval } from "./operation-approval.js";
 
 type RegistryOptions = {
   execution: DesktopTurnExecution;
@@ -35,6 +36,7 @@ type RegistryOptions = {
   workspaceRoot?: string;
   projectId: string;
   conversationId: string;
+  userRequest: string;
   supportsVision: boolean;
   initialDynamicDefinitions?: ProviderToolDefinition[];
   onDynamicDefinitionsChanged?(definitions: ProviderToolDefinition[]): void;
@@ -70,6 +72,7 @@ function toolSignature(request: ToolRequestEvent): string {
 
 export class DesktopToolRegistry implements ToolExecutor {
   private readonly failedToolCalls = new Map<string, number>();
+  private readonly rejectedToolCalls = new Set<string>();
   private readonly registry = new ToolRegistry();
 
   constructor(private readonly options: RegistryOptions) {
@@ -102,15 +105,26 @@ export class DesktopToolRegistry implements ToolExecutor {
     const signature = toolSignature(request);
     let result: unknown;
     try {
+      if (this.rejectedToolCalls.has(signature)) throw new Error("operation_rejected");
       if ((this.failedToolCalls.get(signature) ?? 0) >= 2) {
         throw new Error(
           "repeated_failed_tool_call: this exact operation has already failed twice; diagnose the cause and choose a different approach",
         );
       }
-      result = await storeImages((await this.registry.execute(request)).result, this.options.execution.signal);
+      result = await withOperationApproval({
+        conversationId: this.options.conversationId,
+        userRequest: this.options.userRequest,
+        workspace: this.options.workspaceRoot,
+        automatic: Boolean(this.options.executionContext),
+        signal: this.options.execution.signal,
+        tool: request.tool,
+        arguments: request.arguments,
+        approvedPaths: new Set(),
+      }, async () => storeImages((await this.registry.execute(request)).result, this.options.execution.signal));
       this.failedToolCalls.delete(signature);
     } catch (error) {
-      this.failedToolCalls.set(signature, (this.failedToolCalls.get(signature) ?? 0) + 1);
+      if (error instanceof Error && error.message === "operation_rejected") this.rejectedToolCalls.add(signature);
+      if (!(error instanceof Error) || !["operation_rejected", "operation_cancelled"].includes(error.message)) this.failedToolCalls.set(signature, (this.failedToolCalls.get(signature) ?? 0) + 1);
       result = toolError(error);
     }
     this.options.onEvent({ type: "tool.completed", callId: request.callId, result });

@@ -15,6 +15,7 @@ import {
 import { initializeFollowups, finishFollowups, followupReceived } from "./followup-host.js";
 import { startCancellationRecovery } from "./cancellation-recovery.js";
 import { setSnapshotRequestReader } from "../files/snapshot-host.js";
+import { cancelOperationApprovals, setApprovalPreferences } from "./operation-approval.js";
 
 type StartTurnInput = {
   turnId?: string;
@@ -63,6 +64,8 @@ export function initializeAgentRuntime(): void {
     path.join(app.getPath("userData"), "runtime-events.sqlite"),
   );
   journal = new EventJournal(runtimeStore);
+  const approvalStore = runtimeStore;
+  setApprovalPreferences({ get: (id) => approvalStore.approvalMode(id), set: (id, mode) => approvalStore.saveApprovalMode(id, mode) });
   setSnapshotRequestReader((threadId, turnId) => {
     const turn = journal?.snapshot(turnId);
     if (turn?.threadId !== threadId) return undefined;
@@ -99,6 +102,8 @@ export function initializeAgentRuntime(): void {
 }
 
 export function closeAgentRuntime(): void {
+  cancelOperationApprovals();
+  setApprovalPreferences(undefined);
   setSnapshotRequestReader(() => undefined);
   stopCancellationRecovery?.();
   journal?.close();

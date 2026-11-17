@@ -1,4 +1,6 @@
 import { handleInvoke } from "./handle-invoke.js";
+import { approvalState, replyApproval, setApprovalMode, setApprovalPublisher } from "../runtime/operation-approval.js";
+import { BrowserWindow } from "electron";
 import {
   branchConversation,
   createConversation,
@@ -19,6 +21,12 @@ import { removeConversation, submitConversationMessage } from "../conversations/
 import { listWorkspaceSnapshots, workspaceSnapshotDetail, restoreWorkspaceFile, restoreWorkspaceTurn } from "../files/snapshot-host.js";
 
 export function registerProjectsIpc(): void {
+  setApprovalPublisher((id) => {
+    for (const window of BrowserWindow.getAllWindows()) if (!window.isDestroyed()) window.webContents.send(`approval:state:${id}`, approvalState(id));
+  });
+  handleInvoke("conversations:approval-state", async (_event, id) => { await getConversation(id); return approvalState(id); });
+  handleInvoke("conversations:approval-mode", async (_event, id, mode) => { await getConversation(id); setApprovalMode(id, mode); });
+  handleInvoke("conversations:approval-reply", async (_event, id, requestId, allowed) => { await getConversation(id); replyApproval(id, requestId, allowed); });
   handleInvoke("conversations:snapshots", (_event, id) => listWorkspaceSnapshots(id));
   handleInvoke("conversations:snapshot-detail", (_event, id, snapshotId, file) => workspaceSnapshotDetail(id, snapshotId, file));
   handleInvoke("conversations:restore-file", (_event, id, snapshotId, file) => restoreWorkspaceFile(id, snapshotId, file));

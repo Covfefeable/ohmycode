@@ -1,9 +1,9 @@
 import path from "node:path";
+import { approveOperation } from "../runtime/operation-approval.js";
 import { randomUUID } from "node:crypto";
 import { stripVTControlCharacters } from "node:util";
 import * as pty from "node-pty";
 import { listProjects } from "../projects/projects-service.js";
-import { commandRequiresApproval } from "./command-policy.js";
 import { TERMINAL_CONFIG } from "./config.js";
 import { shellLaunch } from "./platform.js";
 import { ensureNodePtyHelperExecutable } from "./node-pty-helper.js";
@@ -103,25 +103,30 @@ async function projectDirectory(projectId: string, requestedCwd?: string, worksp
   if (workspaceRoot) {
     const root = path.resolve(workspaceRoot);
     const cwd = path.resolve(root, requestedCwd || ".");
-    const relative = path.relative(root, cwd);
-    if (relative.startsWith("..") || path.isAbsolute(relative)) throw new Error("cwd_outside_workspace");
     return cwd;
   }
   const project = (await listProjects()).find((item) => item.id === projectId);
   if (!project) throw new Error("project_not_found");
   const root = path.resolve(project.path);
   const cwd = path.resolve(root, requestedCwd || ".");
-  const relative = path.relative(root, cwd);
-  if (relative.startsWith("..") || path.isAbsolute(relative)) throw new Error("cwd_outside_workspace");
   return cwd;
+}
+
+export async function requestTerminalApproval(action: TerminalAction, workspaceRoot?: string): Promise<void> {
+  if (action.action === "start") {
+    const cwd = await projectDirectory(action.projectId, action.cwd, workspaceRoot);
+    await approveOperation("terminal", JSON.stringify({ command: action.command, cwd }, null, 2));
+  } else if (action.action === "write") {
+    const session = sessions.get(action.terminalId);
+    if (!session) throw new Error("terminal_not_found");
+    await approveOperation("terminal", JSON.stringify({ command: session.command, cwd: session.cwd, input: action.input }, null, 2));
+  }
 }
 
 async function start(action: Extract<TerminalAction, { action: "start" }>, signal?: AbortSignal, workspaceRoot?: string): Promise<TerminalResult> {
   const command = action.command.trim();
   if (!command) throw new Error("command_required");
-  if (commandRequiresApproval(command)) {
-    throw new Error("command_requires_approval");
-  }
+  await requestTerminalApproval(action, workspaceRoot);
   const cwd = await projectDirectory(action.projectId, action.cwd, workspaceRoot);
   const launch = shellLaunch(command);
   ensureNodePtyHelperExecutable();
@@ -174,6 +179,7 @@ export async function executeTerminalAction(action: TerminalAction, signal?: Abo
   const session = sessions.get(action.terminalId);
   if (!session) throw new Error("terminal_not_found");
   if (action.action === "write") {
+    await requestTerminalApproval(action, workspaceRoot);
     if (session.status !== "running") throw new Error("terminal_not_running");
     session.process.write(normalizeTerminalInput(action.input));
     return snapshot(session, session.cursor);

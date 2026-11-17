@@ -166,6 +166,9 @@ export const en = {
     clearSearch: "Clear search",
   },
   agent: {
+    approvalDescription_ask: "Confirm commands and access to files outside the workspace.", approvalDescription_auto: "Let a model allow low-risk operations and ask you about the rest.", approvalDescription_allow: "Run operations immediately without waiting for confirmation.",
+    approvalFile_read_file: "Read file", approvalFile_search_files: "Search files", approvalFile_list_directory: "List directory", approvalFile_apply_patch: "Edit files", approvalChanges: "View changes",
+    approvalMode: "Operation approval mode", approvalMode_ask: "Always ask", approvalMode_auto: "Approve for me", approvalMode_allow: "No approval needed", approvalTitle: "Approve operation", approvalChecking: "Assessing operation…", approvalTerminal: "Run command", approvalExternal: "Access external files", approvalReject: "Reject", approvalAllow: "Allow", approvalFailed: "The approval request failed. Please retry.", approvalCount: "{{count}} pending",
     searchConversation: "Search this conversation",
     previousMatch: "Previous matching message",
     nextMatch: "Next matching message",
@@ -430,6 +433,7 @@ export const en = {
     },
   },
   settings: {
+    operationApproval: "Operation approval", operationApprovalModel: "Operation approval model",
     mcpAvailability: "Service status", mcpEnabled: "Enabled", mcpDisabled: "Disabled",
     eyebrow: "PREFERENCES", title: "Settings", profileTab: "Personal profile", modelsTab: "Model configurations", backgroundTasksTab: "Background tasks", mcpTab: "MCP", skillsTab: "Skills", updatesTab: "Check for updates", loadFailed: "The settings could not be loaded.",
     profileEyebrow: "IDENTITY", profileTitle: "Personal profile", profileDescription: "Manage your OhMyCode identity.", save: "Save profile", saved: "Saved", profileSaved: "Profile saved.", saveFailed: "Settings could not be saved.", avatarStorageUnavailable: "The avatar storage service is unavailable. Check the MinIO configuration and try again.", changeAvatar: "Change avatar", avatarInvalid: "Choose a PNG, JPEG, or WebP image up to 5 MB.",

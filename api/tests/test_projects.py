@@ -251,6 +251,7 @@ def test_project_conversation_and_message_lifecycle(monkeypatch):
         assert public_settings["models"][0]["contextLength"] == 262_144
         assert "apiKey" not in public_settings["models"][0]
         assert public_settings["backgroundTasks"] == {
+            "operationApprovalModelId": None,
             "autoSummaryEnabled": True,
             "autoSummaryModelId": None,
             "contextCompactionThreshold": 70,

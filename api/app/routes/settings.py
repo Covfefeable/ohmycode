@@ -3,6 +3,7 @@ from uuid import UUID
 from flask import Blueprint, Response, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
+from ..services.agent.operation_approval import assess_operation
 from ..services.settings import (
     get_avatar,
     get_settings,
@@ -136,3 +137,9 @@ def save_background_tasks_route():
 @jwt_required()
 def test_model_route():
     return jsonify(test_model(user_id(), request.get_json(silent=True) or {}))
+
+
+@settings_bp.post("/operation-approval")
+@jwt_required()
+def operation_approval_route():
+    return jsonify(assess_operation(user_id(), request.get_json(silent=True) or {}))

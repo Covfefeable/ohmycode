@@ -7,6 +7,9 @@ import { BrowserPanel } from "../browser-panel/BrowserPanel";
 import { useConversationPanels } from "./useConversationPanels";
 import { ReadAloudButton } from "../speech/ReadAloudButton";
 import { TaskComposer } from "../task-composer";
+import { OperationApproval } from "../operation-approval/OperationApproval";
+import { ApprovalModeSelect } from "../operation-approval/ApprovalModeSelect";
+import { useOperationApproval } from "../operation-approval/useOperationApproval";
 import { useFeedback } from "../feedback";
 import { FullScreenLoading } from "../../shared/ui/full-screen-loading";
 import { LoadError } from "../../shared/ui/load-error";
@@ -70,6 +73,7 @@ export function ConversationChat({ conversationId, active, searchLocation, onUpd
   const controller = useConversationController({ conversationId, onUpdated, scrollToBottom: forceScrollToBottom, onToolStarted: panels.onToolStarted });
   const conversation = search.view?.page ?? controller.conversation;
   const { sending } = controller;
+  const approval = useOperationApproval(conversationId, sending);
   const changes = useWorkspaceChanges(conversationId, sending, active);
   const openSearch = search.open;
 
@@ -244,7 +248,8 @@ export function ConversationChat({ conversationId, active, searchLocation, onUpd
     </div>
     <div ref={composerDockRef} className={styles.composerDock}>
       <FollowupStrip state={followups} running={sending} onSteer={(id) => void queueAction(() => window.ohmycode.conversations.steer(conversationId, id))} onWithdraw={(id) => void withdraw(id)} onResume={() => void queueAction(() => window.ohmycode.conversations.resumeQueue(conversationId))} />
-      <TaskComposer sessionId={conversationId} onPasteImages={pasteImages} busy={sending} disabled={Boolean(editing)} models={controller.models} selectedModelId={controller.selectedModelId} contextUsage={controller.contextUsage} attachments={attachments} suggestions={controller.suggestions} restoredInput={restoredInput} onRemoveAttachment={(id) => setAttachments((items) => items.filter((item) => item.id !== id))} onModelChange={controller.setSelectedModelId} onSubmit={(content, items) => send(content, items)} onStop={controller.stop} />
+      <OperationApproval approval={approval} />
+      <TaskComposer toolbarLeading={<ApprovalModeSelect approval={approval} />} sessionId={conversationId} onPasteImages={pasteImages} busy={sending} disabled={Boolean(editing)} models={controller.models} selectedModelId={controller.selectedModelId} contextUsage={controller.contextUsage} attachments={attachments} suggestions={controller.suggestions} restoredInput={restoredInput} onRemoveAttachment={(id) => setAttachments((items) => items.filter((item) => item.id !== id))} onModelChange={controller.setSelectedModelId} onSubmit={(content, items) => send(content, items)} onStop={controller.stop} />
     </div>
   </section>{panels.panel === "browser" && !panels.browser.detached && <BrowserPanel conversationId={conversationId} state={panels.browser} active={active} onClose={panels.close} />}
     {panels.panel === "workspace" && changes.hasChanges && <WorkspaceChanges key={conversationId} conversationId={conversationId} sending={sending} records={changes.records} failed={changes.failed} refresh={changes.refresh} active={active} onClose={panels.close} />}

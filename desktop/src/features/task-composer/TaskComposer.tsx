@@ -15,6 +15,7 @@ import { PromptEditor, usePromptCapabilities } from "../../shared/ui/prompt-edit
 import styles from "./TaskComposer.module.css";
 
 type TaskComposerProps = {
+  toolbarLeading?: React.ReactNode;
   sessionId?: string;
   disabled?: boolean;
   busy?: boolean;
@@ -47,7 +48,7 @@ export function TaskComposer(props: TaskComposerProps) {
   return <TextTaskComposer {...props} content={content} setContent={setContent} />;
 }
 
-function TextTaskComposer({ disabled = false, busy = false, models, selectedModelId, contextUsage = 0, attachments = [], onRemoveAttachment, onPasteImages, suggestions = [], onModelChange, onSubmit, onStop, content, setContent }: TaskComposerProps & { content: string; setContent: React.Dispatch<React.SetStateAction<string>> }) {
+function TextTaskComposer({ toolbarLeading, disabled = false, busy = false, models, selectedModelId, contextUsage = 0, attachments = [], onRemoveAttachment, onPasteImages, suggestions = [], onModelChange, onSubmit, onStop, content, setContent }: TaskComposerProps & { content: string; setContent: React.Dispatch<React.SetStateAction<string>> }) {
   const { t } = useTranslation();
   const { toast } = useFeedback();
   const microphone = useSpeechInput(content, setContent);
@@ -104,6 +105,7 @@ function TextTaskComposer({ disabled = false, busy = false, models, selectedMode
       {attachments.length > 0 && <div className={styles.attachments}><AttachmentList attachments={attachments} removeLabel={t("agent.removeAttachment")} onRemove={onRemoveAttachment} /></div>}
       <PromptEditor className={styles.promptEditor} compact submitOnEnter value={content} options={capabilityOptions} disabled={disabled || microphone.active} placeholder={t(microphone.active ? "speech.listening" : "agent.describeTask")} ariaLabel={t("agent.describeTask")} suggestions={busy || microphone.active ? [] : suggestions} onChange={setContent} onSubmit={() => void submit()} />
       <div className={styles.toolbar}>
+        {toolbarLeading && <div className={styles.leading}>{toolbarLeading}</div>}
         <div className={styles.actions}>
           <Select compact disabled={busy} ariaLabel={t("agent.model")} value={selectedModelId} emptyLabel={t("agent.noModel")} options={models.map((model) => ({ value: model.id, label: model.name || model.model }))} onChange={onModelChange} />
           <Tooltip content={t(finishing ? "speech.finishing" : microphone.active ? "speech.stopInput" : "speech.startInput")}><IconButton active={microphone.active} aria-label={t(microphone.active ? "speech.stopInput" : "speech.startInput")} aria-pressed={microphone.active} disabled={disabled || submitting || finishing} onClick={() => void microphone.toggle()}>{microphone.state === "starting" || finishing ? <LoaderCircle className={styles.spinner} /> : <Mic />}</IconButton></Tooltip>

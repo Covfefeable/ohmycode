@@ -2,7 +2,7 @@ import path from "node:path";
 import { readdir, readFile, stat, writeFile, mkdir, unlink, realpath } from "node:fs/promises";
 import type { Dirent } from "node:fs";
 import type { FileToolName, FileToolRequest, FileToolResult } from "./types.js";
-import { assertInside, safeExistingPath, safeExplicitFile, safeNewPath, workspaceDirectory } from "./workspace.js";
+import { authorizePath, safeExistingPath, safeExplicitFile, safeNewPath, workspaceDirectory } from "./workspace.js";
 
 const IGNORED_DIRECTORIES = new Set([".git", "node_modules", "dist", "dist-electron", "release", ".venv", "__pycache__", ".pytest_cache"]);
 const DEFAULT_SEARCH_RESULTS = 50;
@@ -41,10 +41,10 @@ async function readFileTool(root: string, request: FileToolRequest, allowedPaths
   let target: string;
   const requestedPath = request.path ?? ".";
   try {
-    target = await safeExistingPath(root, requestedPath);
-  } catch (error) {
-    if (!path.isAbsolute(requestedPath)) throw error;
     target = await safeExplicitFile(requestedPath, allowedPaths);
+  } catch (error) {
+    if (!(error instanceof Error) || error.message !== "path_outside_workspace") throw error;
+    target = await safeExistingPath(root, requestedPath);
   }
   if (!(await stat(target)).isFile()) throw new Error("not_a_file");
   const maximum = bounded(request.maxBytes, 64 * 1024, 256 * 1024);
@@ -212,7 +212,7 @@ async function applyPatch(root: string, request: FileToolRequest, inspectedPaths
     if (operation.kind === "add") {
       await mkdir(path.dirname(target), { recursive: true });
       const parent = await realpath(path.dirname(target));
-      assertInside(await realpath(root), parent);
+      await authorizePath(await realpath(root), path.join(parent, path.basename(target)));
       await writeFile(target, operation.content ?? "", { encoding: "utf8", flag: "wx" });
     } else if (operation.kind === "delete") {
       await unlink(target);
