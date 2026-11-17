@@ -232,7 +232,7 @@ export function ConversationChat({ conversationId, active, searchLocation, onUpd
           {message.attachments?.length ? <div className={styles.messageAttachments}><AttachmentList attachments={message.attachments} /></div> : null}
           {(message.content || (message.role === "assistant" && !message.activity?.some((step) => step.type === "message"))) && <div className={message.role === "assistant" ? styles.response : styles.bubble}><MarkdownContent highlightQuery={search.opened ? search.query : ""}>{message.content || "▍"}</MarkdownContent></div>}
         </>}
-        {!editing || editing.message.id !== message.id ? <div className={styles.messageActions}>
+        {editing?.message.id !== message.id && !(sending && message.role === "assistant" && message.id.startsWith("stream-")) ? <div className={styles.messageActions}>
           <time>{new Intl.DateTimeFormat(i18n.language, { hour: "2-digit", minute: "2-digit" }).format(new Date(message.createdAt))}</time>
           <Tooltip content={t("agent.copy")}><button aria-label={t("agent.copy")} onClick={() => void copy(message)}>{copiedId === message.id ? <Check /> : <Copy />}</button></Tooltip>
           {message.role === "assistant" && <ReadAloudButton message={message} />}
