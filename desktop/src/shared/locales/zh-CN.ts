@@ -110,8 +110,8 @@ export const zhCN = {
   navigation: {
     collapseSidebar: "收起侧栏", expandSidebar: "展开侧栏",
     label: "主导航",
-    tasks: "任务",
-    multiAgent: "多 Agent",
+    tasks: "工作空间",
+    multiAgent: "Agent 协作",
     settings: "设置",
     account: "账户菜单",
     myProfile: "我的资料",

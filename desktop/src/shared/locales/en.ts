@@ -110,8 +110,8 @@ export const en = {
   navigation: {
     collapseSidebar: "Collapse sidebar", expandSidebar: "Expand sidebar",
     label: "Primary navigation",
-    tasks: "Tasks",
-    multiAgent: "Multi-agent",
+    tasks: "Workspace",
+    multiAgent: "Agent collaboration",
     settings: "Settings",
     account: "Account menu",
     myProfile: "My profile",

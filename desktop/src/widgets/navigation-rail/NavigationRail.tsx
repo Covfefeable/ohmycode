@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate } from "react-router-dom";
-import { CircleUserRound, GitFork, LogOut, PanelLeftClose, PanelLeftOpen, Settings, SquareTerminal, UserRound } from "lucide-react";
+import { CircleUserRound, GitFork, LogOut, Settings, SquareTerminal, UserRound } from "lucide-react";
 import { useAuth } from "../../features/auth-session";
 import { ThemeToggle } from "../../features/theme-toggle";
 import { IconButton } from "../../shared/ui/icon-button";
@@ -16,7 +16,13 @@ export function NavigationRail() {
   const location = useLocation();
   const { logout } = useAuth();
   const { collapsed } = useSidebarState();
-  const sidebarLabel = t(collapsed ? "navigation.expandSidebar" : "navigation.collapseSidebar");
+  const workspaceSelected = location.pathname === "/";
+  const agentsSelected = location.pathname.startsWith("/agents");
+  const settingsSelected = location.pathname.startsWith("/settings");
+  function selectSection(target: string, selected: boolean) {
+    if (selected) toggleSidebar();
+    else navigate(target);
+  }
   const [avatar, setAvatar] = useState("");
   useEffect(() => {
     let active = true;
@@ -31,11 +37,10 @@ export function NavigationRail() {
   return (
     <nav className={styles.rail} aria-label={t("navigation.label")}>
       <button className={styles.brand} aria-label="OhMyCode" onClick={() => navigate("/")}><BrandLogo /></button>
-      <IconButton active={location.pathname === "/"} aria-label={t("navigation.tasks")} onClick={() => navigate("/")}><SquareTerminal /></IconButton>
-      <IconButton active={location.pathname.startsWith("/agents")} aria-label={t("navigation.multiAgent")} onClick={() => navigate("/agents")}><GitFork /></IconButton>
-      <IconButton active={location.pathname.startsWith("/settings")} aria-label={t("navigation.settings")} onClick={() => navigate("/settings?tab=profile")}><Settings /></IconButton>
+      <Tooltip content={t("navigation.tasks")}><IconButton active={workspaceSelected} aria-label={t("navigation.tasks")} aria-expanded={workspaceSelected && !collapsed} aria-controls="app-sidebar" onClick={() => selectSection("/", workspaceSelected)}><SquareTerminal /></IconButton></Tooltip>
+      <Tooltip content={t("navigation.multiAgent")}><IconButton active={agentsSelected} aria-label={t("navigation.multiAgent")} aria-expanded={agentsSelected && !collapsed} aria-controls="app-sidebar" onClick={() => selectSection("/agents", agentsSelected)}><GitFork /></IconButton></Tooltip>
+      <Tooltip content={t("navigation.settings")}><IconButton active={settingsSelected} aria-label={t("navigation.settings")} aria-expanded={settingsSelected && !collapsed} aria-controls="app-sidebar" onClick={() => selectSection("/settings?tab=profile", settingsSelected)}><Settings /></IconButton></Tooltip>
       <div className={styles.bottom}>
-        <Tooltip content={sidebarLabel}><IconButton aria-label={sidebarLabel} aria-expanded={!collapsed} aria-controls="app-sidebar" onClick={toggleSidebar}>{collapsed ? <PanelLeftOpen /> : <PanelLeftClose />}</IconButton></Tooltip>
         <ThemeToggle />
       </div>
       <div className={styles.account}>
