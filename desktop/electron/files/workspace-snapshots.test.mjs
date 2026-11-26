@@ -116,7 +116,8 @@ test("snapshot refs work beyond Windows MAX_PATH in the real application storage
   const id = await snapshots.begin("thread", "turn", root);
   const workspace = (await readdir(deepStore)).find((name) => name !== "records");
   assert.ok(path.join(deepStore, workspace, "repository.git", "refs", "snapshots", id, "before").length > 260);
-  assert.equal((await snapshots.list("thread"))[0].status, "active");
+  const [record] = await snapshots.list("thread");
+  assert.equal(record.status, "active", JSON.stringify({ error: record.error, store: deepStore, node: process.version }));
   await writeFile(path.join(root, "tracked.txt"), "agent edit");
   await snapshots.finish(id);
   assert.equal((await snapshots.list("thread"))[0].status, "ready");

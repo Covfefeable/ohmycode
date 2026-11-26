@@ -64,6 +64,10 @@ Object.defineProperty(window, "ohmycode", { configurable: true, value: {
     stop: () => {},
   },
   conversations: {
+    approvalState: async () => ({ mode: "ask", requests: [] }),
+    onApprovalState: () => () => {},
+    setApprovalMode: async () => {},
+    replyApproval: async () => {},
     snapshots: async () => new URLSearchParams(window.location.search).has("snapshots") ? [{ id: "snapshot", threadId: "thread", turnId: "turn", userRequest: snapshotRequest, createdAt: "2026-11-16T06:00:00Z", status: "ready", files: [{ path: "desktop/src/features/conversation-chat/ConversationChat.tsx", operation: "modified" }, { path: "desktop/src/features/conversation-chat/workspace-changes/WorkspaceChanges.tsx", operation: "added" }], excluded: [".env", "certificates/server.key"] }] : [],
     snapshotDetail: async (_id: string, _snapshotId: string, file: string) => ({ path: file, original: "export const changed = false;\n", modified: "export const changed = true;\n" }),
     onThreadEvent: (_id: string, listener: (event: RuntimeEvent) => void) => { listeners.add(listener); return () => listeners.delete(listener); },
