@@ -39,8 +39,10 @@ export class WorkspaceSnapshots {
     const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.toUpperCase().startsWith("GIT_")));
     return new Promise((resolve, reject) => {
       const child = spawn("git", ["-c", "core.longpaths=true", "-c", "core.hooksPath=", "-c", "core.fsmonitor=false", "-c", "core.autocrlf=false", "-c", "core.quotePath=false",
-        ...(source ? ["-C", root] : ["--git-dir", this.repository(root)]), ...args], {
-        cwd: root, windowsHide: true, env: { ...env, GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: process.platform === "win32" ? "NUL" : "/dev/null", GIT_TERMINAL_PROMPT: "0" },
+        ...(source ? ["-C", root] : ["--git-dir", "."]), ...args], {
+        // Git for Windows also limits the length of the GIT_DIR argument itself.
+        // A relative directory keeps private object/ref operations independent of that limit.
+        cwd: source ? root : this.repository(root), windowsHide: true, env: { ...env, GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: process.platform === "win32" ? "NUL" : "/dev/null", GIT_TERMINAL_PROMPT: "0" },
       });
       const chunks: Buffer[] = [];
       let bytes = 0;
@@ -86,7 +88,7 @@ export class WorkspaceSnapshots {
     try { await lstat(path.join(this.repository(root), "HEAD")); }
     catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
-      await this.git(root, ["init", "--bare", "--object-format=sha1", "--template=", this.repository(root)]);
+      await this.git(root, ["init", "--bare", "--object-format=sha1", "--template=", this.repository(root)], undefined, true);
     }
     const paths = [...new Set((await this.git(root, ["ls-files", "-z", "--cached", "--others", "--exclude-standard"], undefined, true)).toString("utf8").split("\0").filter(Boolean))].sort();
     if (paths.length > MAX_FILES) throw new Error("snapshot_file_limit");

@@ -111,7 +111,7 @@ test("non-Git workspace is explicitly unavailable and does not fail a chat", asy
 
 test("snapshot refs work beyond Windows MAX_PATH in the real application storage layout", async () => {
   const { root, storePath } = await fixture();
-  const deepStore = path.join(storePath, "account".repeat(5), "workspace".repeat(4));
+  const deepStore = path.join(storePath, "account".repeat(8), "workspace".repeat(4));
   const snapshots = new WorkspaceSnapshots(deepStore);
   const id = await snapshots.begin("thread", "turn", root);
   const workspace = (await readdir(deepStore)).find((name) => name !== "records");
