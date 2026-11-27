@@ -1,3 +1,6 @@
+import { IconButton } from "../../shared/ui/icon-button";
+import { Button } from "../../shared/ui/button";
+import { FormField, TextInput } from "../../shared/ui/form-control";
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { Bug, ExternalLink, X } from "lucide-react";
@@ -65,14 +68,14 @@ export function DebugPanel() {
   if (inspecting && conversationId) return <ContextInspector key={conversationId} conversationId={conversationId} onClose={() => setInspecting(false)} />;
   return <div className={styles.backdrop} onMouseDown={() => setOpen(false)}>
     <section className={styles.dialog} role="dialog" aria-modal="true" aria-labelledby="debug-title" onMouseDown={(event) => event.stopPropagation()}>
-      <header><span><Bug /><h2 id="debug-title">{t("debug.title")}</h2></span><button aria-label={t("debug.close")} onClick={() => setOpen(false)}><X /></button></header>
+      <header><span><Bug /><h2 id="debug-title">{t("debug.title")}</h2></span><IconButton aria-label={t("debug.close")} onClick={() => setOpen(false)}><X /></IconButton></header>
       <div className={styles.content}>
-        <label><span>{t("debug.apiUrl")}</span><input autoFocus spellCheck={false} value={apiUrl} onChange={(event) => setApiUrl(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void save(); }} /></label>
+        <FormField><span>{t("debug.apiUrl")}</span><TextInput autoFocus spellCheck={false} value={apiUrl} onChange={(event) => setApiUrl(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void save(); }} /></FormField>
         <p>{t("debug.apiUrlHint")}</p>
-        <button className={styles.toolButton} onClick={() => window.ohmycode.debug.openDevTools()}><ExternalLink />{t("debug.openDevTools")}</button>
-        <button className={styles.toolButton} disabled={!conversationId} onClick={() => setInspecting(true)}>{t("debug.viewContext")}</button>
+        <Button className={styles.toolButton} onClick={() => window.ohmycode.debug.openDevTools()}><ExternalLink />{t("debug.openDevTools")}</Button>
+        <Button className={styles.toolButton} disabled={!conversationId} onClick={() => setInspecting(true)}>{t("debug.viewContext")}</Button>
       </div>
-      <footer><button onClick={() => setOpen(false)}>{t("common.cancel")}</button><button className={styles.primary} disabled={saving || !apiUrl.trim()} onClick={() => void save()}>{t("debug.save")}</button></footer>
+      <footer><Button onClick={() => setOpen(false)}>{t("common.cancel")}</Button><Button variant="primary" disabled={saving || !apiUrl.trim()} onClick={() => void save()}>{t("debug.save")}</Button></footer>
     </section>
   </div>;
 }

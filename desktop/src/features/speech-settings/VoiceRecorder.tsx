@@ -1,3 +1,4 @@
+import { Button } from "../../shared/ui/button";
 import { useEffect, useRef } from "react";
 import { Mic, Square } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -33,11 +34,11 @@ export function VoiceRecorder({ language, disabled, onChange }: {
     <p className={styles.sample}>{t(language === "en" ? "speech.sampleEnglish" : "speech.sampleChinese")}</p>
     <small>{t("speech.recordingHelp")}</small>
     <div className={styles.controls}>
-      <button type="button" disabled={disabled || recording.state === "starting" || recording.state === "finishing"}
+      <Button type="button" disabled={disabled || recording.state === "starting" || recording.state === "finishing"}
         onClick={() => active ? recording.stop() : void recording.start()}>
         {active ? <Square /> : <Mic />}
         {t(active ? "speech.stopRecording" : recording.audio ? "speech.recordAgain" : "speech.recordVoice")}
-      </button>
+      </Button>
       <span aria-live="polite">{t("speech.recordedSeconds", { seconds: Math.floor(recording.seconds) })}</span>
       {active && <meter min={0} max={1} value={recording.level} aria-label={t("speech.recordingLevel")} />}
     </div>

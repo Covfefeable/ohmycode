@@ -1,3 +1,4 @@
+import { IconButton } from "../../shared/ui/icon-button";
 import { X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { MarkdownContent } from "../../shared/ui/markdown-content";
@@ -10,7 +11,7 @@ export function ActivityDrawer({ member, models, onClose }: Props) {
   const model = models.find((item) => item.id === member.modelId);
   return <aside className={styles.activityDrawer}>
     <header className={styles.drawerHeader}>
-      <button className={styles.close} onClick={onClose}><X /></button>
+      <IconButton aria-label={t("common.close")} className={styles.close} onClick={onClose}><X /></IconButton>
       <h2>{member.name}</h2>
       <p>{member.role}</p>
     </header>

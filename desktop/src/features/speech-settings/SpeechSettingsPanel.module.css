@@ -12,29 +12,7 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-4);
 }
-.card label {
-  display: grid;
-  align-content: start;
-  gap: var(--space-2);
-  color: var(--color-text-muted);
-  font-size: var(--font-sm);
-}
-.card input {
-  width: 100%;
-  min-width: 0;
-  min-height: var(--field-height);
-  box-sizing: border-box;
-  border: 1px solid var(--color-border-field);
-  border-radius: var(--radius-md);
-  background: var(--color-surface-input);
-  color: var(--color-text);
-  padding: 10px var(--space-3);
-  font: inherit;
-}
-.card input:focus {
-  outline: none;
-  border-color: var(--color-border-strong);
-}
+.card input { min-width: 0; }
 .spinner {
   animation: spin 800ms linear infinite;
 }

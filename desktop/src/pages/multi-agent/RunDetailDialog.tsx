@@ -1,3 +1,4 @@
+import { IconButton } from "../../shared/ui/icon-button";
 import { LoaderCircle, X } from "lucide-react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
@@ -14,7 +15,7 @@ export function RunDetailDialog({ detail, loading, onClose }: Props) {
   const { t } = useTranslation();
   return createPortal(<div className={styles.backdrop} onMouseDown={onClose}>
     <section className={styles.runDialog} role="dialog" aria-modal="true" aria-labelledby="run-detail-title" onMouseDown={(event) => event.stopPropagation()}>
-      <header><div><h2 id="run-detail-title">{t("multiAgent.runDetails")}</h2>{detail && <p>{detail.id}</p>}</div><button aria-label={t("common.close")} onClick={onClose}><X /></button></header>
+      <header><div><h2 id="run-detail-title">{t("multiAgent.runDetails")}</h2>{detail && <p>{detail.id}</p>}</div><IconButton aria-label={t("common.close")} onClick={onClose}><X /></IconButton></header>
       {loading ? <div className={styles.runLoading}><LoaderCircle className={styles.spinner} /></div> : detail && <>
         <div className={styles.runMetadata}>
           <span>{t("multiAgent.status")}<strong>{detail.status}</strong></span>

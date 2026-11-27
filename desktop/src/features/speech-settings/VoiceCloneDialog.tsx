@@ -1,3 +1,5 @@
+import { Button } from "../../shared/ui/button";
+import { FormField, TextInput } from "../../shared/ui/form-control";
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { LoaderCircle, X } from "lucide-react";
@@ -121,9 +123,9 @@ export function VoiceCloneDialog({
         </header>
         <form onSubmit={(event) => void submit(event)}>
           <div className={styles.fields}>
-            <label>
+            <FormField>
               <span>{t("speech.voiceName")}</span>
-              <input
+              <TextInput
                 required
                 maxLength={100}
                 disabled={busy}
@@ -131,7 +133,7 @@ export function VoiceCloneDialog({
                 onChange={(event) => setName(event.target.value)}
                 placeholder={t("speech.voiceNamePlaceholder")}
               />
-            </label>
+            </FormField>
             <div className={styles.language}>
               <span>{t("speech.audioLanguage")}</span>
               <Select
@@ -172,18 +174,17 @@ export function VoiceCloneDialog({
             )}
           </div>
           <footer>
-            <button type="button" disabled={busy} onClick={onClose}>
+            <Button type="button" disabled={busy} onClick={onClose}>
               {t("common.cancel")}
-            </button>
-            <button
-              className={styles.primary}
+            </Button>
+            <Button variant="primary"
               type="submit"
               disabled={busy || !name.trim() || !audio || !consent}
               aria-busy={busy}
             >
               {busy && <LoaderCircle className={styles.spinner} />}
               {t("speech.createVoice")}
-            </button>
+            </Button>
           </footer>
         </form>
       </section>

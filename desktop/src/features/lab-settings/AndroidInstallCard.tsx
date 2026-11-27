@@ -1,3 +1,4 @@
+import { Button } from "../../shared/ui/button";
 import { type ReactNode, useState } from "react";
 import { Download, LoaderCircle, RotateCw, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -19,11 +20,11 @@ export function AndroidInstallCard({ installation, compact = false, disabled = f
     catch { toast({ type: "error", message: t("android.install.requestFailed") }); }
   }
   const estimate = plan ? t("android.install.estimate", { size: new Intl.NumberFormat(i18n.language, { maximumFractionDigits: 2 }).format(plan.totalBytes / 1e9) }) : "";
-  const installButton = <button className={styles.primary} disabled={disabled || !plan || active} onClick={() => setDialog(true)}><Download />{t(plan?.mode === "tools" ? "android.devices.installTools" : "android.install.now")}</button>;
-  if (failed) return <div className={styles.card}><p>{t("android.install.planFailed")}</p><div className={styles.actions}><button onClick={installation.retry}><RotateCw />{t("common.retry")}</button>{actions}</div></div>;
+  const installButton = <Button variant="primary" disabled={disabled || !plan || active} onClick={() => setDialog(true)}><Download />{t(plan?.mode === "tools" ? "android.devices.installTools" : "android.install.now")}</Button>;
+  if (failed) return <div className={styles.card}><p>{t("android.install.planFailed")}</p><div className={styles.actions}><Button onClick={installation.retry}><RotateCw />{t("common.retry")}</Button>{actions}</div></div>;
   return <div className={`${styles.card} ${compact ? styles.compact : ""}`}>
     {active && state ? <>
-      <div className={styles.heading} role="status"><span><LoaderCircle className={styles.spin} />{t(`android.install.phases.${state.phase}`)}{state.component && <small>{t(`android.install.components.${state.component}`)}</small>}</span><button disabled={state.phase === "finishing"} onClick={() => void cancel()}><X />{t("android.install.cancel")}</button></div>
+      <div className={styles.heading} role="status"><span><LoaderCircle className={styles.spin} />{t(`android.install.phases.${state.phase}`)}{state.component && <small>{t(`android.install.components.${state.component}`)}</small>}</span><Button disabled={state.phase === "finishing"} onClick={() => void cancel()}><X />{t("android.install.cancel")}</Button></div>
       <progress aria-label={t("android.install.progress")} value={state.receivedBytes} max={state.totalBytes || 1} />
       <small>{t("android.install.downloaded", { received: bytes(state.receivedBytes), total: bytes(state.totalBytes) })}</small>
       {actions && <div className={styles.actions}>{actions}</div>}

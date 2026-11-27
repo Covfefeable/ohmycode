@@ -1,37 +1,28 @@
 .section { width: min(var(--settings-content-width), 100%); display: grid; gap: var(--space-6); }
 .empty { color: var(--color-text-muted); }
-:where(.section) button { border: 1px solid var(--color-border-strong); border-radius: var(--radius-md); background: var(--color-surface-2); color: var(--color-text); height: var(--control-height-md); padding: 0 var(--space-3); font-size: var(--font-control); font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: var(--space-2); }
-.section button svg { width: var(--icon-size-md); height: var(--icon-size-md); }
 .list { display: grid; gap: var(--space-3); }
 .list article { position: relative; border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: var(--color-surface-1); padding: var(--space-3) var(--space-4); transition: transform 180ms cubic-bezier(.2, .8, .2, 1), border-color var(--transition-fast), opacity var(--transition-fast), box-shadow var(--transition-fast); }
 .list article[data-dragging] { border-color: var(--color-border-strong); opacity: .58; box-shadow: var(--shadow-panel); }
 .cardHead, .actions { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
-.cardHead button { margin-left: auto; border: 0; background: transparent; }
-.cardHead .cardToggle { min-width: 0; flex: 1; justify-content: space-between; margin-left: 0; text-align: left; }
+.cardHead .cardToggle { display: flex; align-items: center; gap: var(--space-2); min-height: var(--field-height); min-width: 0; flex: 1; justify-content: space-between; margin-left: 0; border: 0; background: transparent; color: var(--color-text); padding: 0 var(--space-2); text-align: left; cursor: pointer; }
 .cardToggle > span { min-width: 0; display: grid; gap: 2px; }
 .cardToggle strong, .cardToggle small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cardToggle small { color: var(--color-text-dim); font-size: var(--font-xs); font-weight: 500; }
 .cardToggle > svg { transition: transform var(--transition-fast); }
 .cardToggle > .open { transform: rotate(180deg); }
-.cardHead .iconAction { width: var(--control-height-md); height: var(--control-height-md); flex: none; justify-content: center; margin-left: 0; border-radius: var(--radius-md); padding: 0; color: var(--color-text-muted); }
-.cardHead .iconAction:hover { background: var(--color-surface-icon-hover); color: var(--color-text); }
-.cardHead .deleteAction:hover { background: var(--color-danger-surface); color: var(--color-danger-text); }
-.cardHead .iconAction:disabled { cursor: wait; opacity: .72; }
 .handle { color: var(--color-text-dim); cursor: grab; font-size: 20px; touch-action: none; }
 .handle:active { cursor: grabbing; }
 @media (prefers-reduced-motion: reduce) { .list article { transition: none; } }
 .details { border-top: 1px solid var(--color-border); margin-top: var(--space-2); padding: var(--space-3) var(--space-1) var(--space-1); }
 .grid { display: grid; grid-template-columns: minmax(160px, 1fr) minmax(180px, 1fr) 132px; gap: var(--space-3); margin: 0 0 var(--space-3); }
-.grid label { display: grid; gap: var(--space-2); color: var(--color-text-muted); font-size: var(--font-sm); }
 .wide { grid-column: 1 / -1; }
 .contextLength { grid-column: 3; }
 .credentialsRow { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(220px, 1fr); gap: var(--space-3); }
-.grid input { width: 100%; min-width: 0; min-height: var(--field-height); border: 1px solid var(--color-border-field); border-radius: var(--radius-md); background: var(--color-surface-input); color: var(--color-text); padding: 10px var(--space-3); }
-.grid input:focus-visible { border-color: var(--color-border-strong); background: var(--color-surface-active); box-shadow: none; }
+.grid input { min-width: 0; }
 .visionToggle { grid-column: 1 / -1; display: flex !important; flex-direction: row; align-items: center; gap: var(--space-2); color: var(--color-text); white-space: nowrap; }
 .visionToggle input { min-height: 0; width: 16px; height: 16px; padding: 0; accent-color: var(--color-accent); }
 .numberField { position: relative; }
-.numberField input { width: 100%; padding-right: 40px; }
+.numberField input { padding-right: 40px; }
 .numberField span { position: absolute; right: var(--space-3); top: 50%; color: var(--color-text-dim); transform: translateY(-50%); pointer-events: none; }
 .spinner { animation: spin 700ms linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }

@@ -1,3 +1,4 @@
+import { Button } from "../../shared/ui/button";
 import { useState } from "react";
 import type { AndroidState } from "@ohmycode/android-use/types";
 import { useTranslation } from "react-i18next";
@@ -39,7 +40,7 @@ function AndroidSetup({ state }: { state: AndroidState }) {
   const running = state.phase === "running";
   const locked = busy || installation.active || state.phase === "starting" || state.phase === "stopping";
   const preparing = step === "adb" || !state.adbReady;
-  const nextButton = <button disabled={!state.adbReady || locked || toolsInstallation.active} onClick={() => setStep("devices")}>{t("android.devices.next")}</button>;
+  const nextButton = <Button disabled={!state.adbReady || locked || toolsInstallation.active} onClick={() => setStep("devices")}>{t("android.devices.next")}</Button>;
   return <section className={styles.section}>
     <SettingsSectionHeader title={t("lab.title")} description={t("lab.description")} actions={null} />
     <div className={styles.card}>

@@ -1,3 +1,4 @@
+import { FormField, TextInput } from "../../shared/ui/form-control";
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { CircleUserRound } from "lucide-react";
@@ -59,8 +60,8 @@ export function ProfileSettings({ initial, tokenUsage }: { initial: PublicSettin
       <span>{t("settings.changeAvatar")}</span>
     </button>
     <input ref={fileRef} className={styles.avatarInput} type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => { chooseAvatar(event.target.files?.[0]); event.target.value = ""; }} />
-    <label><span>{t("auth.displayName")}</span><input value={displayName} onChange={(event) => setDisplayName(event.target.value)} /></label>
-    <label><span>{t("auth.email")}</span><input value={user?.email ?? ""} disabled /></label>
+    <FormField><span>{t("auth.displayName")}</span><TextInput value={displayName} onChange={(event) => setDisplayName(event.target.value)} /></FormField>
+    <FormField><span>{t("auth.email")}</span><TextInput value={user?.email ?? ""} disabled /></FormField>
     <LanguageSwitcher />
     <TokenUsageCalendar entries={tokenUsage} />
   </section>;

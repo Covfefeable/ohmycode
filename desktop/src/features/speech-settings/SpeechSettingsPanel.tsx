@@ -1,3 +1,4 @@
+import { FormField, TextInput } from "../../shared/ui/form-control";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { LoaderCircle } from "lucide-react";
@@ -87,9 +88,9 @@ function SpeechSettingsForm({ initial }: { initial: SpeechSettings }) {
         }
       />
       <div className={styles.card}>
-        <label>
+        <FormField>
           <span>{t("speech.workspace")}</span>
-          <input
+          <TextInput
             value={workspaceId}
             placeholder="llm-…"
             autoComplete="off"
@@ -98,10 +99,10 @@ function SpeechSettingsForm({ initial }: { initial: SpeechSettings }) {
               setVoice(DEFAULT_VOICE);
             }}
           />
-        </label>
-        <label>
+        </FormField>
+        <FormField>
           <span>{t("settings.apiKey")}</span>
-          <input
+          <TextInput
             type="password"
             value={apiKey}
             autoComplete="new-password"
@@ -110,7 +111,7 @@ function SpeechSettingsForm({ initial }: { initial: SpeechSettings }) {
             )}
             onChange={(event) => setApiKey(event.target.value)}
           />
-        </label>
+        </FormField>
         <VoiceField
           value={voice}
           workspaceId={initial.workspaceId}

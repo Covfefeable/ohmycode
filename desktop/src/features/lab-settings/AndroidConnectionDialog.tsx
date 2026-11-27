@@ -1,3 +1,5 @@
+import { Button } from "../../shared/ui/button";
+import { FormField, TextInput } from "../../shared/ui/form-control";
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
@@ -22,10 +24,10 @@ export function AndroidConnectionDialog({ onClose }: { onClose(): void }) {
       void window.ohmycode.android.connect(String(data.get("address")), String(data.get("name") ?? ""))
         .then(onClose).catch((error) => setError(t(androidErrorKey(error), { defaultValue: t("android.operationFailed") }))).finally(() => setBusy(false));
     }}>
-      <label>{t("android.devices.address")}<input name="address" required autoFocus disabled={busy} placeholder={t("android.devices.addressPlaceholder")} autoComplete="off" /></label>
-      <label>{t("android.devices.name")}<input name="name" maxLength={100} disabled={busy} placeholder={t("android.devices.namePlaceholder")} autoComplete="off" /></label>
+      <FormField>{t("android.devices.address")}<TextInput name="address" required autoFocus disabled={busy} placeholder={t("android.devices.addressPlaceholder")} autoComplete="off" /></FormField>
+      <FormField>{t("android.devices.name")}<TextInput name="name" maxLength={100} disabled={busy} placeholder={t("android.devices.namePlaceholder")} autoComplete="off" /></FormField>
       {error && <p role="alert" className={styles.error}>{error}</p>}
-      <footer><button type="button" disabled={busy} onClick={onClose}>{t("common.cancel")}</button><button className={styles.primary} disabled={busy}>{busy && <LoaderCircle className={styles.spin} />}{t("android.devices.connect")}</button></footer>
+      <footer><Button type="button" disabled={busy} onClick={onClose}>{t("common.cancel")}</Button><Button type="submit" variant="primary" disabled={busy}>{busy && <LoaderCircle className={styles.spin} />}{t("android.devices.connect")}</Button></footer>
     </form>
   </dialog>, document.body);
 }

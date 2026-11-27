@@ -1,3 +1,4 @@
+import { IconButton } from "../../shared/ui/icon-button";
 import { Download, FolderX, Plus, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -70,9 +71,9 @@ export function SkillSettings() {
         <div className={styles.title}><strong>{skill.name}</strong><span>{skill.version.startsWith("v") ? skill.version : `v${skill.version}`}</span></div>
         <p>{skill.description || t("settings.noSkillDescription")}</p>
       </div>
-      {!skill.installed && <Tooltip content={t("settings.downloadSkill")}><button className={styles.iconButton} disabled={busyId === skill.id} aria-label={t("settings.downloadSkill")} onClick={() => void download(skill)}><Download /></button></Tooltip>}
-      {skill.installed && <Tooltip content={t("settings.removeLocalSkill")}><button className={styles.iconButton} aria-label={t("settings.removeLocalSkill")} onClick={() => setRemoving({ skill, scope: "local" })}><FolderX /></button></Tooltip>}
-      <Tooltip content={t("settings.deleteSkillEverywhere")}><button className={`${styles.iconButton} ${styles.danger}`} aria-label={t("settings.deleteSkillEverywhere")} onClick={() => setRemoving({ skill, scope: "everywhere" })}><Trash2 /></button></Tooltip>
+      {!skill.installed && <Tooltip content={t("settings.downloadSkill")}><IconButton disabled={busyId === skill.id} aria-label={t("settings.downloadSkill")} onClick={() => void download(skill)}><Download /></IconButton></Tooltip>}
+      {skill.installed && <Tooltip content={t("settings.removeLocalSkill")}><IconButton aria-label={t("settings.removeLocalSkill")} onClick={() => setRemoving({ skill, scope: "local" })}><FolderX /></IconButton></Tooltip>}
+      <Tooltip content={t("settings.deleteSkillEverywhere")}><IconButton tone="danger"  aria-label={t("settings.deleteSkillEverywhere")} onClick={() => setRemoving({ skill, scope: "everywhere" })}><Trash2 /></IconButton></Tooltip>
     </article>)}</div>
     {!skills.length && <div className={styles.empty}><strong>{t("settings.noSkills")}</strong><p>{t("settings.noSkillsDescription")}</p></div>}
     <ConfirmDialog open={Boolean(removing)} title={t(removing?.scope === "local" ? "settings.confirmRemoveLocalSkill" : "settings.confirmDeleteSkill")} description={t(removing?.scope === "local" ? "settings.removeLocalSkillWarning" : "settings.deleteSkillWarning")} onCancel={() => setRemoving(null)} onConfirm={() => void confirmRemoval()} />

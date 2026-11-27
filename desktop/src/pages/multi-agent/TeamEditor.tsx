@@ -1,3 +1,4 @@
+import { FormField, TextInput } from "../../shared/ui/form-control";
 import { Bot, Play, Plus, Save, Trash2, Users } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Tooltip } from "../../shared/ui/tooltip";
@@ -99,34 +100,34 @@ export function TeamEditor(props: Props) {
                 </p>
               </div>
               {!member.isHost && (
-                <button
+                <IconButton aria-label={t("common.delete")} tone="danger"
                   className={styles.deleteMember}
                   title={t("common.delete")}
                   onClick={() => props.onRemoveMember(member.key)}
                 >
                   <Trash2 />
-                </button>
+                </IconButton>
               )}
             </div>
-            <label>
+            <FormField>
               {t("multiAgent.nodeName")}
-              <input
+              <TextInput
                 value={member.name}
                 onChange={(event) =>
                   props.onUpdateMember("name", event.target.value)
                 }
               />
-            </label>
-            <label>
+            </FormField>
+            <FormField>
               {t("multiAgent.nodeRole")}
-              <input
+              <TextInput
                 value={member.role}
                 onChange={(event) =>
                   props.onUpdateMember("role", event.target.value)
                 }
               />
-            </label>
-            <label>
+            </FormField>
+            <FormField>
               {t("multiAgent.nodeModel")}
               <Select
                 ariaLabel={t("multiAgent.nodeModel")}
@@ -140,8 +141,8 @@ export function TeamEditor(props: Props) {
                 ]}
                 onChange={(value) => props.onUpdateMember("modelId", value)}
               />
-            </label>
-            <label>
+            </FormField>
+            <FormField>
               {t("multiAgent.nodeInstructions")}
               <PromptEditor
                 key={member.key}
@@ -159,7 +160,7 @@ export function TeamEditor(props: Props) {
                   props.onUpdateMember("instructions", value)
                 }
               />
-            </label>
+            </FormField>
           </>
         ) : (
           <div className={styles.editorEmpty}>

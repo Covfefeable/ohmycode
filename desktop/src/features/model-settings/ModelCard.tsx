@@ -1,3 +1,4 @@
+import { FormField, TextInput } from "../../shared/ui/form-control";
 import {
   ChevronDown,
   GripVertical,
@@ -58,7 +59,6 @@ export function ModelCard({
         </button>
         <Tooltip content={t("settings.test")}>
           <IconButton
-            className={styles.iconAction}
             aria-label={t("settings.test")}
             disabled={testing}
             onClick={onTest}
@@ -72,7 +72,7 @@ export function ModelCard({
         </Tooltip>
         <Tooltip content={t("settings.removeModel")}>
           <IconButton
-            className={`${styles.iconAction} ${styles.deleteAction}`}
+            tone="danger"
             aria-label={t("settings.removeModel")}
             onClick={onRemove}
           >
@@ -83,24 +83,24 @@ export function ModelCard({
       {expanded && (
         <div className={styles.details}>
           <div className={styles.grid}>
-            <label>
+            <FormField>
               <span>{t("settings.configName")}</span>
-              <input
+              <TextInput
                 value={model.name}
                 onChange={(e) => onChange({ name: e.target.value })}
               />
-            </label>
-            <label>
+            </FormField>
+            <FormField>
               <span>{t("settings.modelName")}</span>
-              <input
+              <TextInput
                 value={model.model}
                 onChange={(e) => onChange({ model: e.target.value })}
               />
-            </label>
-            <label className={styles.contextLength}>
+            </FormField>
+            <FormField className={styles.contextLength}>
               <span>{t("settings.contextLength")}</span>
               <div className={styles.numberField}>
-                <input
+                <TextInput
                   type="number"
                   min="1"
                   max="10000"
@@ -117,18 +117,18 @@ export function ModelCard({
                 />
                 <span>K</span>
               </div>
-            </label>
+            </FormField>
             <div className={styles.credentialsRow}>
-              <label>
+              <FormField>
                 <span>{t("settings.baseUrl")}</span>
-                <input
+                <TextInput
                   value={model.baseUrl}
                   onChange={(e) => onChange({ baseUrl: e.target.value })}
                 />
-              </label>
-              <label>
+              </FormField>
+              <FormField>
                 <span>{t("settings.apiKey")}</span>
-                <input
+                <TextInput
                   type="password"
                   value={model.apiKey ?? ""}
                   placeholder={
@@ -136,7 +136,7 @@ export function ModelCard({
                   }
                   onChange={(e) => onChange({ apiKey: e.target.value })}
                 />
-              </label>
+              </FormField>
             </div>
             <label className={styles.visionToggle}>
               <input

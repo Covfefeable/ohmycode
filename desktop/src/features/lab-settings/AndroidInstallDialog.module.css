@@ -11,13 +11,9 @@
 .location > span > span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .consent { display: flex; align-items: center; gap: var(--space-2); margin-top: var(--space-4); }
 .consent input { width: 1em; height: 1em; margin: 0; font: inherit; accent-color: var(--color-accent); flex: none; }
-.dialog button:not([aria-label]) { min-height: var(--control-height); display: inline-flex; justify-content: center; align-items: center; gap: var(--space-2); padding: 0 var(--space-3); border: 1px solid var(--color-border-strong); border-radius: var(--radius-md); background: var(--color-surface-2); color: var(--color-text); font: inherit; font-size: var(--font-sm); white-space: nowrap; cursor: pointer; }
-.dialog button:disabled { opacity: .5; cursor: default; }
 .dialog footer { justify-content: flex-end; margin-top: var(--space-5); }
 .dialog footer button { min-width: var(--control-min-width); }
-.dialog footer .primary { background: var(--color-accent); color: var(--color-accent-ink); border-color: var(--color-accent); }
-.dialog button.link { display: inline; min-height: 0; padding: 0; border: 0; background: transparent; color: var(--color-accent); white-space: normal; }
-.dialog button svg { width: 15px; height: 15px; }
+.dialog button.link { display: inline; min-height: 0; padding: 0; border: 0; background: transparent; color: var(--color-accent); white-space: normal; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
 .spin { animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .spin { animation: none; } }

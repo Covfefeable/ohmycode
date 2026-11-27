@@ -34,31 +34,11 @@
   display: grid;
   gap: var(--space-4);
 }
-.fields label,
 .language {
   display: grid;
-  gap: var(--space-2);
+  gap: 6px;
   color: var(--color-text-muted);
   font-size: var(--font-sm);
-}
-.fields input:not([type="checkbox"]) {
-  width: 100%;
-  min-width: 0;
-  box-sizing: border-box;
-  border: 1px solid var(--color-border-field);
-  border-radius: var(--radius-md);
-  background: var(--color-surface-input);
-  color: var(--color-text);
-  min-height: var(--field-height);
-  padding: 9px var(--space-3);
-  font: inherit;
-}
-.fields input:focus-visible {
-  outline: 1px solid var(--color-border-strong);
-}
-.fields small {
-  color: var(--color-text-dim);
-  line-height: 1.6;
 }
 .fields .checkbox {
   display: flex;
@@ -82,33 +62,7 @@
   gap: var(--space-2);
   margin-top: var(--space-5);
 }
-.dialog footer button {
-  height: var(--control-height);
-  min-width: 82px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-md);
-  background: var(--color-surface-2);
-  color: var(--color-text);
-  padding: 0 15px;
-  font: inherit;
-  line-height: 1;
-  cursor: pointer;
-  white-space: nowrap;
-}
-.dialog footer .primary {
-  border-color: var(--color-accent);
-  background: var(--color-accent);
-  color: var(--color-accent-ink);
-  font-weight: 500;
-}
-.dialog button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
+.dialog footer button { min-width: 82px; }
 .dialog footer svg {
   width: 14px;
   height: 14px;

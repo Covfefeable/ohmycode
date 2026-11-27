@@ -1,3 +1,4 @@
+import { Button } from "../../shared/ui/button";
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
@@ -45,10 +46,10 @@ export function AndroidInstallDialog({ plan, chooseRoot, onClose }: { plan: Andr
       <header><h2 id={title}>{t(plan.mode === "tools" ? "android.devices.installTools" : "android.install.title")}</h2><IconButton disabled={busy} aria-label={t("common.close")} onClick={onClose}><X /></IconButton></header>
       <p>{t("android.install.summary", { size: size(plan.totalBytes), free: size(plan.requiredFreeBytes) })}</p>
       <ul>{plan.components.map((component) => <li key={component.id}><span>{t(`android.install.components.${component.id}`)} <small>{component.version}</small></span><span>{size(component.bytes)}</span></li>)}</ul>
-      <div className={styles.location}><Tooltip content={plan.root}><span>{plan.root}</span></Tooltip><button disabled={busy} onClick={() => void perform(chooseRoot)}>{t("android.install.chooseLocation")}</button></div>
+      <div className={styles.location}><Tooltip content={plan.root}><span>{plan.root}</span></Tooltip><Button disabled={busy} onClick={() => void perform(chooseRoot)}>{t("android.install.chooseLocation")}</Button></div>
       {plan.mode === "runtime" && <p>{t("android.install.virtualizationHint")}</p>}
       <label className={styles.consent}><input type="checkbox" checked={consent} disabled={busy} onChange={(event) => setConsent(event.target.checked)} /><span>{t("android.install.consent")} <button className={styles.link} onClick={() => void perform(() => window.ohmycode.android.openLicense())}>{t("android.install.license")}</button></span></label>
-      <footer><button disabled={busy} onClick={onClose}>{t("common.cancel")}</button><button className={styles.primary} disabled={!consent || busy} onClick={() => void perform(() => window.ohmycode.android.install(true, plan.mode), true)}>{busy ? <LoaderCircle className={styles.spin} /> : <Download />}{t("android.install.now")}</button></footer>
+      <footer><Button disabled={busy} onClick={onClose}>{t("common.cancel")}</Button><Button variant="primary" disabled={!consent || busy} onClick={() => void perform(() => window.ohmycode.android.install(true, plan.mode), true)}>{busy ? <LoaderCircle className={styles.spin} /> : <Download />}{t("android.install.now")}</Button></footer>
     </section>
   </div>, document.body);
 }

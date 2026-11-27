@@ -1,3 +1,4 @@
+import { Button } from "../../shared/ui/button";
 import { Check, Download, RefreshCw, TriangleAlert } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -38,10 +39,10 @@ export function UpdateSettings() {
     <SettingsSectionHeader
       title={t("settings.updatesTitle")}
       description={t("settings.updatesDescription")}
-      actions={<button className={styles.checkButton} disabled={state === "checking"} onClick={() => void check()}>
+      actions={<Button disabled={state === "checking"} onClick={() => void check()}>
         <RefreshCw className={state === "checking" ? styles.spinning : undefined} />
         {state === "checking" ? t("settings.checkingForUpdates") : t("settings.checkForUpdates")}
-      </button>}
+      </Button>}
     />
     <div className={styles.statusPanel}>
       <div className={`${styles.statusIcon} ${state === "error" ? styles.errorIcon : available ? styles.updateIcon : ""}`}>
@@ -51,9 +52,9 @@ export function UpdateSettings() {
         <h3>{state === "checking" ? t("settings.checkingForUpdates") : state === "error" ? t("settings.updateCheckFailed") : available ? t("settings.updateAvailable") : t("settings.upToDate")}</h3>
         <p>{state === "checking" ? t("settings.updateCheckingHint") : state === "error" ? t("settings.updateCheckFailedHint") : available ? t("settings.updateAvailableHint", { version: result?.latestVersion }) : t("settings.upToDateHint")}</p>
       </div>
-      {available && <button className={styles.downloadButton} onClick={() => void window.ohmycode.updates.openDownload()}>
+      {available && <Button variant="primary" className={styles.downloadButton} onClick={() => void window.ohmycode.updates.openDownload()}>
         <Download />{t("settings.openGitHubRelease")}
-      </button>}
+      </Button>}
     </div>
     {result && <dl className={styles.versionDetails}>
       <div><dt>{t("settings.currentVersion")}</dt><dd>{result.currentVersion}</dd></div>

@@ -6,6 +6,7 @@ import { ReadAloudButton } from "../../features/speech/ReadAloudButton";
 import { MarkdownContent } from "../../shared/ui/markdown-content";
 import { PromptEditor, usePromptCapabilities } from "../../shared/ui/prompt-editor";
 import { Tooltip } from "../../shared/ui/tooltip";
+import { IconButton } from "../../shared/ui/icon-button";
 import { RunDetailDialog } from "./RunDetailDialog";
 import type { LiveAgentRun } from "./useMultiAgentExecution";
 import styles from "./MultiAgentPage.module.css";
@@ -106,20 +107,20 @@ export function GroupChatPanel(props: Props) {
         const mine = item.senderType === "user";
         const sender = mine ? t("multiAgent.user") : names.get(item.fromNodeId ?? "") ?? t("multiAgent.unknownAgent");
         const target = item.toNodeId ? names.get(item.toNodeId) ?? t("multiAgent.unknownAgent") : t("multiAgent.user");
-        return <article className={mine ? styles.userMessage : styles.agentMessage} key={item.id}>
+        return <article className={mine ? styles.userMessage : undefined} key={item.id}>
           <span className={styles.messageAvatar}>{mine ? t("multiAgent.youShort") : sender.slice(0, 1)}</span>
           <div>
             <header><strong>{sender}</strong><time>{new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit" }).format(new Date(item.createdAt))}</time></header>
             <div className={styles.bubble}><b>@{target}</b><MarkdownContent>{item.content}</MarkdownContent></div>
             <div className={styles.messageActions}>
-              <Tooltip content={t("common.copy")}><button aria-label={t("common.copy")} onClick={() => void navigator.clipboard.writeText(item.content).then(() => toast({ type: "success", message: t("common.copied") }))}><Copy /></button></Tooltip>
+              <Tooltip content={t("common.copy")}><IconButton size="compact" aria-label={t("common.copy")} onClick={() => void navigator.clipboard.writeText(item.content).then(() => toast({ type: "success", message: t("common.copied") }))}><Copy /></IconButton></Tooltip>
               {!mine && <ReadAloudButton message={item} />}
-              {item.runId && <Tooltip content={t("multiAgent.details")}><button aria-label={t("multiAgent.details")} onClick={() => void showRunDetail(item.id)}><Info /></button></Tooltip>}
+              {item.runId && <Tooltip content={t("multiAgent.details")}><IconButton size="compact" aria-label={t("multiAgent.details")} onClick={() => void showRunDetail(item.id)}><Info /></IconButton></Tooltip>}
             </div>
           </div>
         </article>;
       })}
-      {runningMember && <article className={`${styles.agentMessage} ${styles.typingMessage}`}>
+      {runningMember && <article className={styles.typingMessage}>
         <span className={styles.messageAvatar}>{runningMember.name.slice(0, 1)}</span>
         <div>
           <header><strong>{runningMember.name}</strong><span>{t("multiAgent.agentWorking")}</span></header>
@@ -127,7 +128,7 @@ export function GroupChatPanel(props: Props) {
             <i /><i /><i />
           </div>
           <div className={styles.messageActions}>
-            <Tooltip content={t("multiAgent.viewLiveActivity")}><button aria-label={t("multiAgent.viewLiveActivity")} disabled={!props.liveAgentRuns[runningMember.id]} onClick={() => showLiveDetail(runningMember.id)}><Info /></button></Tooltip>
+            <Tooltip content={t("multiAgent.viewLiveActivity")}><IconButton size="compact" aria-label={t("multiAgent.viewLiveActivity")} disabled={!props.liveAgentRuns[runningMember.id]} onClick={() => showLiveDetail(runningMember.id)}><Info /></IconButton></Tooltip>
           </div>
         </div>
       </article>}
