@@ -2,6 +2,7 @@ import { AlertTriangle } from "lucide-react";
 import { useEffect, useId } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
+import { Button } from "../button";
 import styles from "./ConfirmDialog.module.css";
 
 type ConfirmDialogProps = {
@@ -32,7 +33,7 @@ export function ConfirmDialog({ open, title, description, confirmLabel, busy = f
     <section className={styles.dialog} role="alertdialog" aria-modal="true" aria-labelledby={titleId} onMouseDown={(event) => event.stopPropagation()}>
       <div className={styles.icon}><AlertTriangle /></div>
       <div><h2 id={titleId}>{title}</h2><p>{description}</p></div>
-      <footer><button disabled={busy} onClick={onCancel}>{t("common.cancel")}</button><button className={styles.danger} disabled={busy} onClick={onConfirm}>{confirmLabel ?? t("common.delete")}</button></footer>
+      <footer><Button disabled={busy} onClick={onCancel}>{t("common.cancel")}</Button><Button variant="danger" disabled={busy} onClick={onConfirm}>{confirmLabel ?? t("common.delete")}</Button></footer>
     </section>
   </div>, document.body);
 }

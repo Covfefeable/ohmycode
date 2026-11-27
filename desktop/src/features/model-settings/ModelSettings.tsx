@@ -7,6 +7,7 @@ import { SettingsSectionHeader } from "../../shared/ui/settings-section-header";
 import { ConfirmDialog } from "../../shared/ui/confirm-dialog";
 import { ModelCard } from "./ModelCard";
 import { useModelOrder } from "./useModelOrder";
+import { Button } from "../../shared/ui/button";
 import styles from "./ModelSettings.module.css";
 
 const newModel = (): ModelConfiguration => ({
@@ -80,7 +81,7 @@ export function ModelSettings({ initial }: { initial: ModelConfiguration[] }) {
         description={t("settings.modelsDescription")}
         actions={
           <>
-            <button
+            <Button
               onClick={() => {
                 const item = newModel();
                 setModels((items) => [...items, item]);
@@ -89,13 +90,13 @@ export function ModelSettings({ initial }: { initial: ModelConfiguration[] }) {
             >
               <Plus />
               {t("settings.addModel")}
-            </button>
-            <button
-              className={styles.primaryAction}
+            </Button>
+            <Button
+              variant="primary"
               onClick={() => void save()}
             >
               {t("settings.saveModels")}
-            </button>
+            </Button>
           </>
         }
       />

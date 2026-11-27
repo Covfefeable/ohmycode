@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../auth-session";
 import { AuthField } from "../../shared/ui/auth-field";
 import { BrandText } from "../../shared/ui/brand-text";
+import { Button } from "../../shared/ui/button";
 import styles from "./RegisterForm.module.css";
 
 export function RegisterForm() {
@@ -41,7 +42,7 @@ export function RegisterForm() {
       <AuthField id="registerEmail" type="email" autoComplete="email" required label={t("auth.email")} placeholder={t("auth.emailPlaceholder")} value={email} onChange={(event) => setEmail(event.target.value)} />
       <AuthField id="registerPassword" type="password" autoComplete="new-password" required minLength={8} label={t("auth.password")} placeholder={t("auth.passwordPlaceholder")} value={password} onChange={(event) => setPassword(event.target.value)} />
       <AuthField id="confirmPassword" type="password" autoComplete="new-password" required minLength={8} label={t("auth.confirmPassword")} placeholder={t("auth.confirmPasswordPlaceholder")} value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} />
-      <button className={styles.submit} disabled={submitting}>{submitting ? t("auth.creatingAccount") : t("auth.createAccount")}</button>
+      <Button type="submit" variant="primary" size="comfortable" className={styles.submit} disabled={submitting}>{submitting ? t("auth.creatingAccount") : t("auth.createAccount")}</Button>
       <p className={styles.switch}>{t("auth.hasAccount")} <Link to="/login">{t("auth.signIn")}</Link></p>
     </form>
   );

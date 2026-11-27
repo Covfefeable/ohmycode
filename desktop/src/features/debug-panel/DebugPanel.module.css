@@ -1,5 +1,5 @@
-.backdrop { position: fixed; inset: 0; z-index: calc(var(--z-tooltip) + 20); display: grid; place-items: center; padding: var(--space-6); background: #0008; backdrop-filter: blur(8px); }
-.dialog { width: min(460px, 100%); overflow: hidden; border: 1px solid var(--color-border-strong); border-radius: var(--radius-lg); background: var(--color-surface-1); box-shadow: var(--shadow-panel); color: var(--color-text); }
+.backdrop { position: fixed; inset: 0; z-index: calc(var(--z-tooltip) + 20); display: grid; place-items: center; padding: var(--space-6); background: #0008; backdrop-filter: blur(4px); }
+.dialog { width: min(460px, 100%); overflow: hidden; border: 1px solid var(--color-border-strong); border-radius: var(--radius-lg); background: var(--color-surface-1); box-shadow: var(--shadow-dialog); color: var(--color-text); }
 .dialog header { height: 54px; display: flex; align-items: center; justify-content: space-between; padding: 0 var(--space-5); border-bottom: 1px solid var(--color-border); }
 .dialog header span { display: flex; align-items: center; gap: var(--space-2); }
 .dialog h2 { margin: 0; font-size: var(--font-md); font-weight: 650; }

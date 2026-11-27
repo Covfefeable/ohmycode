@@ -1,10 +1,9 @@
-.section { width: min(900px, 100%); display: grid; gap: var(--space-5); }
+.section { width: min(var(--settings-content-width), 100%); display: grid; gap: var(--space-6); }
 .empty { color: var(--color-text-muted); }
-.section button { border: 1px solid var(--color-border-strong); border-radius: var(--radius-md); background: var(--color-surface-2); color: var(--color-text); padding: 9px var(--space-3); cursor: pointer; display: inline-flex; align-items: center; gap: var(--space-2); }
-.section button svg { width: 17px; height: 17px; }
-.primaryAction { border-color: var(--color-accent) !important; background: var(--color-accent) !important; color: var(--color-accent-ink) !important; font-weight: 800; }
+:where(.section) button { border: 1px solid var(--color-border-strong); border-radius: var(--radius-md); background: var(--color-surface-2); color: var(--color-text); height: var(--control-height-md); padding: 0 var(--space-3); font-size: var(--font-control); font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: var(--space-2); }
+.section button svg { width: var(--icon-size-md); height: var(--icon-size-md); }
 .list { display: grid; gap: var(--space-3); }
-.list article { position: relative; border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: var(--color-surface-1); padding: var(--space-2) var(--space-3); transition: transform 180ms cubic-bezier(.2, .8, .2, 1), border-color var(--transition-fast), opacity var(--transition-fast), box-shadow var(--transition-fast); }
+.list article { position: relative; border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: var(--color-surface-1); padding: var(--space-3) var(--space-4); transition: transform 180ms cubic-bezier(.2, .8, .2, 1), border-color var(--transition-fast), opacity var(--transition-fast), box-shadow var(--transition-fast); }
 .list article[data-dragging] { border-color: var(--color-border-strong); opacity: .58; box-shadow: var(--shadow-panel); }
 .cardHead, .actions { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
 .cardHead button { margin-left: auto; border: 0; background: transparent; }
@@ -14,7 +13,7 @@
 .cardToggle small { color: var(--color-text-dim); font-size: var(--font-xs); font-weight: 500; }
 .cardToggle > svg { transition: transform var(--transition-fast); }
 .cardToggle > .open { transform: rotate(180deg); }
-.cardHead .iconAction { width: 34px; height: 34px; flex: none; justify-content: center; margin-left: 0; border-radius: var(--radius-md); padding: 0; color: var(--color-text-muted); }
+.cardHead .iconAction { width: var(--control-height-md); height: var(--control-height-md); flex: none; justify-content: center; margin-left: 0; border-radius: var(--radius-md); padding: 0; color: var(--color-text-muted); }
 .cardHead .iconAction:hover { background: var(--color-surface-icon-hover); color: var(--color-text); }
 .cardHead .deleteAction:hover { background: var(--color-danger-surface); color: var(--color-danger-text); }
 .cardHead .iconAction:disabled { cursor: wait; opacity: .72; }
@@ -27,10 +26,10 @@
 .wide { grid-column: 1 / -1; }
 .contextLength { grid-column: 3; }
 .credentialsRow { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(220px, 1fr); gap: var(--space-3); }
-.grid input { border: 1px solid var(--color-border-subtle); border-radius: var(--radius-md); background: var(--color-surface-input); color: var(--color-text); padding: 10px var(--space-3); }
+.grid input { width: 100%; min-width: 0; min-height: var(--field-height); border: 1px solid var(--color-border-field); border-radius: var(--radius-md); background: var(--color-surface-input); color: var(--color-text); padding: 10px var(--space-3); }
 .grid input:focus-visible { border-color: var(--color-border-strong); background: var(--color-surface-active); box-shadow: none; }
 .visionToggle { grid-column: 1 / -1; display: flex !important; flex-direction: row; align-items: center; gap: var(--space-2); color: var(--color-text); white-space: nowrap; }
-.visionToggle input { width: 16px; height: 16px; padding: 0; accent-color: var(--color-accent); }
+.visionToggle input { min-height: 0; width: 16px; height: 16px; padding: 0; accent-color: var(--color-accent); }
 .numberField { position: relative; }
 .numberField input { width: 100%; padding-right: 40px; }
 .numberField span { position: absolute; right: var(--space-3); top: 50%; color: var(--color-text-dim); transform: translateY(-50%); pointer-events: none; }

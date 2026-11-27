@@ -6,6 +6,7 @@ import { useFeedback } from "../feedback";
 import { LanguageSwitcher } from "../language-switcher";
 import { TokenUsageCalendar } from "../token-usage-calendar";
 import { SettingsSectionHeader } from "../../shared/ui/settings-section-header";
+import { Button } from "../../shared/ui/button";
 import styles from "./ProfileSettings.module.css";
 
 export function ProfileSettings({ initial, tokenUsage }: { initial: PublicSettings["profile"]; tokenUsage: TokenUsageEntry[] }) {
@@ -52,7 +53,7 @@ export function ProfileSettings({ initial, tokenUsage }: { initial: PublicSettin
     reader.readAsDataURL(file);
   }
   return <section className={styles.section}>
-    <SettingsSectionHeader title={t("settings.profileTitle")} description={t("settings.profileDescription")} actions={<button className={styles.primaryAction} onClick={() => void save()}>{t("settings.save")}</button>} />
+    <SettingsSectionHeader title={t("settings.profileTitle")} description={t("settings.profileDescription")} actions={<Button variant="primary" onClick={() => void save()}>{t("settings.save")}</Button>} />
     <button className={styles.avatar} type="button" aria-label={t("settings.changeAvatar")} onClick={() => fileRef.current?.click()}>
       {avatar ? <img src={avatar} alt="" /> : <CircleUserRound />}
       <span>{t("settings.changeAvatar")}</span>

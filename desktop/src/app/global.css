@@ -1,7 +1,9 @@
 @import "./tokens.css";
 
 :root {
-  font-family: "PingFang SC", "Microsoft YaHei", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-size: var(--font-control);
+  line-height: var(--line-height-ui);
   color: var(--color-text);
   background: var(--color-canvas);
   font-synthesis: none;
@@ -16,12 +18,6 @@ button { color: inherit; }
 :root button {
   transition: background-color var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), filter var(--transition-fast), opacity var(--transition-fast);
 }
-@media (hover: hover) {
-  :root button:enabled:not([aria-disabled="true"]):hover { filter: brightness(1.16); }
-  :root[data-theme="light"] button:enabled:not([aria-disabled="true"]):hover { filter: brightness(.94); }
-}
-:root button:enabled:not([aria-disabled="true"]):active,
-:root[data-theme] button:enabled:not([aria-disabled="true"]):active { filter: brightness(.86); }
 :root button:disabled, :root button[aria-disabled="true"] { filter: none; cursor: not-allowed; }
 @media (prefers-reduced-motion: reduce) {
   :root button { transition: none; }

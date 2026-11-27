@@ -1,11 +1,11 @@
-.section { width: min(900px, 100%); display: grid; gap: var(--space-5); }
+.section { width: min(var(--settings-content-width), 100%); display: grid; gap: var(--space-6); }
 .section button:not(.sdkButton):not([aria-label]) { min-height: var(--control-height); display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); border: 1px solid var(--color-border-strong); border-radius: var(--radius-md); background: var(--color-surface-2); color: var(--color-text); padding: 0 var(--space-4); font: inherit; font-size: var(--font-sm); white-space: nowrap; cursor: pointer; }
 .section button:disabled { color: var(--color-text-disabled); cursor: default; }
 .section svg { width: 16px; height: 16px; flex: none; }
 .card { border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: var(--color-surface-1); padding: var(--space-5); }
 .heading, .identity, .toggle, .actions, .status { display: flex; align-items: center; gap: var(--space-2); }
 .heading { justify-content: space-between; flex-wrap: wrap; gap: var(--space-3); }
-.identity h3 { margin: 0; font-size: var(--font-md); }
+.identity h3 { margin: 0; font-size: var(--font-md); font-weight: 500; }
 .badge { color: var(--color-accent); background: var(--color-accent-soft); padding: 2px 7px; border-radius: var(--radius-sm); font-size: var(--font-xs); }
 .toggle { font-size: var(--font-sm); cursor: pointer; }
 .toggle input { accent-color: var(--color-accent); }

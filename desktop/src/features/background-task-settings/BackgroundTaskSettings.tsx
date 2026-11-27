@@ -5,6 +5,7 @@ import { useFeedback } from "../feedback";
 import { Select } from "../../shared/ui/select";
 import { SettingsSectionHeader } from "../../shared/ui/settings-section-header";
 import { Tooltip } from "../../shared/ui/tooltip";
+import { Button } from "../../shared/ui/button";
 import styles from "./BackgroundTaskSettings.module.css";
 
 export function BackgroundTaskSettings({ initial, models }: { initial: BackgroundTaskSettings; models: ModelConfiguration[] }) {
@@ -23,7 +24,7 @@ export function BackgroundTaskSettings({ initial, models }: { initial: Backgroun
     }
   }
   return <section className={styles.section}>
-    <SettingsSectionHeader title={t("settings.backgroundTasksTitle")} description={t("settings.backgroundTasksDescription")} actions={<button className={styles.primaryAction} onClick={() => void save()}>{t("settings.saveBackgroundTasks")}</button>} />
+    <SettingsSectionHeader title={t("settings.backgroundTasksTitle")} description={t("settings.backgroundTasksDescription")} actions={<Button variant="primary" onClick={() => void save()}>{t("settings.saveBackgroundTasks")}</Button>} />
     <div className={styles.card}>
       <label><span>{t("settings.operationApproval")}</span><Select disabled ariaLabel={t("settings.operationApproval")} value="true" options={toggleOptions} onChange={() => {}} /></label>
       <label><span>{t("settings.operationApprovalModel")}</span><Select ariaLabel={t("settings.operationApprovalModel")} value={settings.operationApprovalModelId ?? ""} options={modelOptions} onChange={(value) => setSettings((current) => ({ ...current, operationApprovalModelId: value || null }))} /></label>

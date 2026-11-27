@@ -1,31 +1,7 @@
 .section {
-  width: min(900px, 100%);
+  width: min(var(--settings-content-width), 100%);
   display: grid;
-  gap: var(--space-5);
-}
-.save {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  min-width: 76px;
-  border: 1px solid var(--color-accent);
-  border-radius: var(--radius-md);
-  background: var(--color-accent);
-  color: var(--color-accent-ink);
-  padding: 9px var(--space-3);
-  font: inherit;
-  font-weight: 800;
-  cursor: pointer;
-  white-space: nowrap;
-}
-.save:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-.save svg {
-  width: 14px;
-  height: 14px;
+  gap: var(--space-6);
 }
 .card {
   border: 1px solid var(--color-border);
@@ -46,8 +22,9 @@
 .card input {
   width: 100%;
   min-width: 0;
+  min-height: var(--field-height);
   box-sizing: border-box;
-  border: 1px solid var(--color-border-subtle);
+  border: 1px solid var(--color-border-field);
   border-radius: var(--radius-md);
   background: var(--color-surface-input);
   color: var(--color-text);

@@ -4,7 +4,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 14px;
+  gap: var(--space-3);
   padding: 18px 10px;
   overflow: visible;
 }
@@ -16,8 +16,8 @@
   margin-bottom: 24px;
   cursor: pointer;
 }
-.rail svg { width: 22px; height: 22px; }
-.bottom { margin-top: auto; display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.rail svg { width: var(--icon-size-lg); height: var(--icon-size-lg); stroke-width: 1.75; }
+.bottom { margin-top: auto; display: flex; flex-direction: column; align-items: center; gap: var(--space-3); }
 .account { position: relative; }
 .avatar { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; }
 .accountMenu {
@@ -28,9 +28,9 @@
   min-width: 148px;
   padding: var(--space-2);
   border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-md);
-  background: var(--color-surface-2);
-  box-shadow: var(--shadow-panel);
+  border-radius: var(--radius-popover);
+  background: var(--color-panel-raised);
+  box-shadow: var(--shadow-popover);
   opacity: 0;
   visibility: hidden;
   transform: translateX(-4px);
@@ -39,6 +39,6 @@
 .account::after { content: ""; position: absolute; inset: 0 -12px 0 100%; }
 .account:hover .accountMenu, .account:focus-within .accountMenu { opacity: 1; visibility: visible; transform: translateX(0); }
 .account:hover > button, .account:focus-within > button { background: var(--color-surface-icon-hover); color: var(--color-text); }
-.accountMenu button { width: 100%; display: flex; align-items: center; gap: var(--space-2); border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--color-text); padding: 9px 10px; white-space: nowrap; cursor: pointer; }
+.accountMenu button { width: 100%; display: flex; align-items: center; gap: var(--space-2); border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--color-text); min-height: var(--control-height-md); padding: 6px 10px; font-size: var(--font-control); white-space: nowrap; cursor: pointer; }
 .accountMenu button:hover, .accountMenu button:focus-visible { background: var(--color-surface-active); color: var(--color-text); }
 .accountMenu button svg { width: 17px; height: 17px; }

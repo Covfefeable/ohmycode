@@ -5,6 +5,7 @@ import { useFeedback } from "../feedback";
 import { ConfirmDialog } from "../../shared/ui/confirm-dialog";
 import { SettingsSectionHeader } from "../../shared/ui/settings-section-header";
 import { Tooltip } from "../../shared/ui/tooltip";
+import { Button } from "../../shared/ui/button";
 import styles from "./SkillSettings.module.css";
 
 type Removal = { skill: SkillRecord; scope: "local" | "everywhere" };
@@ -62,7 +63,7 @@ export function SkillSettings() {
   }
 
   return <section className={styles.section}>
-    <SettingsSectionHeader title={t("settings.skillsTitle")} description={t("settings.skillsDescription")} actions={<button disabled={installing} onClick={() => void install()}><Plus />{t("settings.uploadSkill")}</button>} />
+    <SettingsSectionHeader title={t("settings.skillsTitle")} description={t("settings.skillsDescription")} actions={<Button disabled={installing} onClick={() => void install()}><Plus />{t("settings.uploadSkill")}</Button>} />
     <div className={styles.list}>{skills.map((skill) => <article key={skill.id}>
       <div className={styles.avatar}>{initials(skill.name)}</div>
       <div className={styles.info}>

@@ -1,7 +1,7 @@
 .card { display: grid; gap: var(--space-4); border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: var(--color-surface-1); padding: var(--space-4); }
 .title { display: flex; align-items: center; gap: var(--space-3); }
-.title > svg { width: 20px; height: 20px; color: var(--color-accent); }
-.title h3 { margin: 0 0 3px; font-size: var(--font-md); }
+.title > svg { width: var(--icon-size-lg); height: var(--icon-size-lg); color: var(--color-text-muted); }
+.title h3 { margin: 0 0 3px; font-size: var(--font-md); font-weight: 500; }
 .title span { color: var(--color-text-muted); font-size: var(--font-sm); }
 .scroller { overflow-x: auto; padding-bottom: 2px; }
 .calendar { width: 100%; min-width: 636px; display: grid; grid-auto-flow: column; grid-template-columns: repeat(53, minmax(8px, 1fr)); grid-template-rows: repeat(7, auto); gap: 4px; }

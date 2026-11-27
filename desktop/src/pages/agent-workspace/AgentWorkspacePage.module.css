@@ -13,19 +13,20 @@
 
 .welcome { grid-area: 1 / 1; width: min(840px, 100%); padding: 60px; }
 .promptMark {
-  color: var(--color-accent);
-  font: 700 30px ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--color-text-muted);
+  font: 500 24px var(--font-family-mono);
   margin-bottom: 28px;
 }
 .eyebrow {
-  color: var(--color-accent);
+  color: var(--color-text-muted);
   font-size: var(--font-xs);
-  font-weight: 800;
-  letter-spacing: .16em;
+  font-weight: 500;
+  letter-spacing: 0;
   margin: 0 0 8px;
 }
 .welcome h1 {
-  font-size: clamp(34px, 4vw, 54px);
+  font-size: clamp(28px, 3vw, 36px);
+  font-weight: 600;
   letter-spacing: 0;
   margin: 0 0 16px;
 }

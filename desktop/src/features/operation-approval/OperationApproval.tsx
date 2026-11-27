@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { ArrowUpRight, Check, FolderOpen, LoaderCircle, ShieldQuestion, Terminal, X } from "lucide-react";
 import type { useOperationApproval } from "./useOperationApproval";
+import { Button } from "../../shared/ui/button";
 import styles from "./OperationApproval.module.css";
 
 type Approval = ReturnType<typeof useOperationApproval>;
@@ -22,7 +23,7 @@ export function OperationApproval({ approval }: { approval: Approval }) {
       {terminal && <pre className={styles.command}>{terminal.command}{terminal.input !== undefined ? `\n\n${terminal.input}` : ""}</pre>}
       {external?.arguments.patch && <details className={styles.changes}><summary>{t("agent.approvalChanges")}</summary><pre>{external.arguments.patch}</pre></details>}
       {request.reason && <p className={styles.reason}>{request.reason}</p>}
-      {request.status === "waiting" && <div className={styles.actions}><button type="button" onClick={() => void approval.reply(request.id, false)}><X />{t("agent.approvalReject")}</button><button type="button" className={styles.allow} onClick={() => void approval.reply(request.id, true)}><Check />{t("agent.approvalAllow")}</button></div>}
+      {request.status === "waiting" && <div className={styles.actions}><Button onClick={() => void approval.reply(request.id, false)}><X />{t("agent.approvalReject")}</Button><Button variant="primary" onClick={() => void approval.reply(request.id, true)}><Check />{t("agent.approvalAllow")}</Button></div>}
     </>}
   </section>;
 }

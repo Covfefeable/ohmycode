@@ -2,15 +2,16 @@
   border: 1px solid var(--color-border-frosted);
   border-radius: var(--radius-lg);
   background: var(--color-surface-composer-frosted);
-  backdrop-filter: blur(28px) saturate(150%);
-  -webkit-backdrop-filter: blur(28px) saturate(150%);
-  box-shadow: none;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: var(--shadow-composer);
   overflow: visible;
 }
-.composer:focus-within { border-color: var(--color-border-strong); background: color-mix(in srgb, var(--color-surface-composer-frosted) 88%, var(--color-surface-2)); }
+.composer:focus-within { border-color: var(--color-border-strong); background: var(--color-surface-composer); }
 .attachments { padding: 12px 12px 0; }
 .promptEditor {
-  --prompt-padding-top: 14px;
+  font-size: var(--font-chat);
+  --prompt-padding-top: 16px;
   --prompt-padding-x: 16px;
   --prompt-padding-bottom: 8px;
 }
@@ -26,7 +27,7 @@
 }
 .actions { display: flex; align-items: center; gap: var(--space-2); min-width: 0; flex: 0 1 auto; }
 .actions > :not(:first-child) { flex-shrink: 0; }
-.leading { margin-right: auto; display: flex; align-items: center; min-width: 0; flex: 0 1 auto; }
+.leading { margin-right: auto; display: flex; align-items: center; min-width: 0; flex: 0 0 auto; max-width: 48%; }
 .sendProgress > button {
   position: relative;
   border: 0;
@@ -41,13 +42,21 @@
   cursor: pointer;
 }
 .sendProgress {
+  position: relative;
   width: 36px;
   height: 36px;
   display: grid;
   place-items: center;
   border-radius: 50%;
+}
+.sendProgress::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
   background: conic-gradient(from -90deg, color-mix(in srgb, var(--color-accent) 82%, white) 0 var(--context-usage), transparent var(--context-usage) 100%);
-  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--color-accent) 55%, transparent));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1.5px));
 }
 .sendProgress > button { flex: none; }
 .sendProgress > button:not(:disabled) { background: var(--color-accent); color: var(--color-accent-ink); }

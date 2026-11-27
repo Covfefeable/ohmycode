@@ -5,8 +5,8 @@
   display: grid;
   place-items: center;
   padding: var(--space-5);
-  background: color-mix(in srgb, var(--color-surface-deep) 62%, transparent);
-  backdrop-filter: blur(8px);
+  background: color-mix(in srgb, var(--color-surface-deep) 48%, transparent);
+  backdrop-filter: blur(4px);
 }
 .dialog {
   width: min(500px, 100%);
@@ -15,7 +15,7 @@
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-lg);
   background: var(--color-surface-1);
-  box-shadow: var(--shadow-panel);
+  box-shadow: var(--shadow-dialog);
   padding: var(--space-5);
 }
 .dialog header {
@@ -28,7 +28,7 @@
 .dialog h2 {
   margin: 0;
   color: var(--color-text);
-  font-size: var(--font-title-panel);
+  font-size: var(--font-title-dialog);
 }
 .fields {
   display: grid;
@@ -45,11 +45,12 @@
   width: 100%;
   min-width: 0;
   box-sizing: border-box;
-  border: 1px solid var(--color-border-subtle);
+  border: 1px solid var(--color-border-field);
   border-radius: var(--radius-md);
   background: var(--color-surface-input);
   color: var(--color-text);
-  padding: 10px var(--space-3);
+  min-height: var(--field-height);
+  padding: 9px var(--space-3);
   font: inherit;
 }
 .fields input:focus-visible {
@@ -102,7 +103,7 @@
   border-color: var(--color-accent);
   background: var(--color-accent);
   color: var(--color-accent-ink);
-  font-weight: 700;
+  font-weight: 500;
 }
 .dialog button:disabled {
   opacity: 0.5;

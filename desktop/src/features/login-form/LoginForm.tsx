@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../auth-session";
 import { AuthField } from "../../shared/ui/auth-field";
 import { BrandText } from "../../shared/ui/brand-text";
+import { Button } from "../../shared/ui/button";
 import styles from "./LoginForm.module.css";
 
 export function LoginForm() {
@@ -33,7 +34,7 @@ export function LoginForm() {
       {error && <div className={styles.error} role="alert">{error}</div>}
       <AuthField id="email" type="email" autoComplete="email" required label={t("auth.email")} placeholder={t("auth.emailPlaceholder")} value={email} onChange={(event) => setEmail(event.target.value)} />
       <AuthField id="password" type="password" autoComplete="current-password" required label={t("auth.password")} placeholder={t("auth.passwordPlaceholder")} value={password} onChange={(event) => setPassword(event.target.value)} />
-      <button className={styles.submit} disabled={submitting}>{submitting ? t("auth.signingIn") : t("auth.signIn")}</button>
+      <Button type="submit" variant="primary" size="comfortable" className={styles.submit} disabled={submitting}>{submitting ? t("auth.signingIn") : t("auth.signIn")}</Button>
       <p className={styles.switch}>{t("auth.noAccount")} <Link to="/register">{t("auth.createAccount")}</Link></p>
     </form>
   );

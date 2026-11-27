@@ -6,6 +6,7 @@ import { FullScreenLoading } from "../../shared/ui/full-screen-loading";
 import { LoadError } from "../../shared/ui/load-error";
 import { useFeedback } from "../feedback";
 import { useSpeech } from "../speech/speech-context";
+import { Button } from "../../shared/ui/button";
 import styles from "./SpeechSettingsPanel.module.css";
 import { VoiceField, DEFAULT_VOICE } from "./VoiceField";
 
@@ -70,8 +71,8 @@ function SpeechSettingsForm({ initial }: { initial: SpeechSettings }) {
         title={t("speech.title")}
         description={t("speech.description")}
         actions={
-          <button
-            className={styles.save}
+          <Button
+            variant="primary"
             disabled={
               saving ||
               !workspaceId.trim() ||
@@ -82,7 +83,7 @@ function SpeechSettingsForm({ initial }: { initial: SpeechSettings }) {
           >
             {saving && <LoaderCircle className={styles.spinner} />}
             {t("speech.save")}
-          </button>
+          </Button>
         }
       />
       <div className={styles.card}>

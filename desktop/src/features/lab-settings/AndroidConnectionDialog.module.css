@@ -1,10 +1,10 @@
-.dialog { width: min(440px, calc(100vw - 48px)); box-sizing: border-box; padding: var(--space-5); border: 1px solid var(--color-border-strong); border-radius: var(--radius-lg); background: var(--color-surface-1); color: var(--color-text); box-shadow: var(--shadow-panel); }
-.dialog::backdrop { background: color-mix(in srgb, var(--color-surface-deep) 62%, transparent); backdrop-filter: blur(8px); }
+.dialog { width: min(440px, calc(100vw - 48px)); box-sizing: border-box; padding: var(--space-5); border: 1px solid var(--color-border-strong); border-radius: var(--radius-lg); background: var(--color-surface-1); color: var(--color-text); box-shadow: var(--shadow-dialog); }
+.dialog::backdrop { background: color-mix(in srgb, var(--color-surface-deep) 48%, transparent); backdrop-filter: blur(4px); }
 .dialog header, .dialog footer { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
-.dialog h2 { font-size: var(--font-title-panel); margin: 0; }
+.dialog h2 { font-size: var(--font-title-dialog); margin: 0; }
 .dialog form { display: grid; gap: var(--space-4); margin-top: var(--space-4); }
 .dialog label { display: grid; gap: var(--space-2); font-size: var(--font-sm); color: var(--color-text-muted); }
-.dialog input { width: 100%; min-width: 0; box-sizing: border-box; height: var(--control-height); padding: 0 var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-canvas); color: var(--color-text); font: inherit; }
+.dialog input { width: 100%; min-width: 0; box-sizing: border-box; height: var(--field-height); padding: 0 var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface-input); color: var(--color-text); font: inherit; }
 .dialog input:focus-visible { border-color: var(--color-accent); }
 .dialog footer { justify-content: flex-end; }
 .dialog footer button { min-width: var(--control-min-width); height: var(--control-height); display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); white-space: nowrap; padding: 0 var(--space-3); border: 1px solid var(--color-border-strong); border-radius: var(--radius-md); background: var(--color-surface-2); color: var(--color-text); font: inherit; font-size: var(--font-sm); cursor: pointer; }

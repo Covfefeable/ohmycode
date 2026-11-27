@@ -28,9 +28,9 @@
   border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--color-panel) 56%, transparent);
   padding: 3px;
-  box-shadow: var(--shadow-soft);
-  backdrop-filter: blur(16px) saturate(125%);
-  -webkit-backdrop-filter: blur(16px) saturate(125%);
+  box-shadow: var(--shadow-tooltip);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 .themeToggle { width: 32px; height: 32px; border-radius: var(--radius-sm); }
 .brand {
@@ -39,7 +39,7 @@
   display: grid;
   place-items: center;
   overflow: hidden;
-  border-radius: 11px;
+  border-radius: var(--radius-popover);
 }
 .panel {
   position: relative;
@@ -49,8 +49,8 @@
   padding: 110px 64px 64px;
   border-right: 1px solid var(--color-border-frosted);
   background: color-mix(in srgb, var(--color-panel) 68%, transparent);
-  backdrop-filter: blur(28px) saturate(135%);
-  -webkit-backdrop-filter: blur(28px) saturate(135%);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   box-shadow: inset -1px 0 0 color-mix(in srgb, var(--color-text) 5%, transparent);
 }
 .context {
@@ -61,7 +61,7 @@
   background: transparent;
 }
 .contextCopy { position: absolute; right: clamp(40px, 7vw, 100px); bottom: clamp(44px, 8vh, 88px); display: grid; gap: var(--space-2); color: var(--color-text); text-align: right; text-shadow: 0 2px 24px color-mix(in srgb, var(--color-canvas) 72%, transparent); }
-.contextCopy strong { font-size: clamp(28px, 3vw, 44px); letter-spacing: -.04em; }
+.contextCopy strong { font-size: clamp(24px, 2.5vw, 36px); letter-spacing: 0; font-weight: 600; }
 .contextCopy > span { color: var(--color-text-soft); font-size: var(--font-md); }
 @supports not (backdrop-filter: blur(1px)) { .panel { background: var(--color-panel); } }
 @media (prefers-reduced-transparency: reduce) { .panel { background: var(--color-panel); backdrop-filter: none; -webkit-backdrop-filter: none; } }

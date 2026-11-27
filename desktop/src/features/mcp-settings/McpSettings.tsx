@@ -6,6 +6,7 @@ import { ConfirmDialog } from "../../shared/ui/confirm-dialog";
 import { SettingsSectionHeader } from "../../shared/ui/settings-section-header";
 import { Select } from "../../shared/ui/select";
 import { Tooltip } from "../../shared/ui/tooltip";
+import { Button } from "../../shared/ui/button";
 import styles from "./McpSettings.module.css";
 
 const emptyServer = (): McpServerInput => ({ name: "", identifier: "", transport: "http", configuration: { url: "", headers: {} }, enabled: true });
@@ -80,7 +81,7 @@ export function McpSettings() {
     finally { setBusyId(null); }
   }
   return <section className={styles.section}>
-    <SettingsSectionHeader title={t("settings.mcpTitle")} description={t("settings.mcpDescription")} actions={<button onClick={() => openEditor(emptyServer())}><Plus />{t("settings.addMcp")}</button>} />
+    <SettingsSectionHeader title={t("settings.mcpTitle")} description={t("settings.mcpDescription")} actions={<Button onClick={() => openEditor(emptyServer())}><Plus />{t("settings.addMcp")}</Button>} />
     <div className={styles.list}>{servers.map((server) => <article key={server.id}>
       <div className={styles.serverIcon}>{initials(server.name)}</div>
       <div className={styles.serverInfo}><strong>{server.name}</strong><span>{server.transport.toUpperCase()} · {server.tools.length} {t("settings.tools")}</span></div>
