@@ -114,6 +114,7 @@ def create_task(
             role=item["role"],
             instructions=item["instructions"],
             model_configuration_id=model_id,
+            reasoning_effort=item.get("reasoningEffort", ""),
             is_host=item["isHost"],
             status="idle",
             sort_order=index,

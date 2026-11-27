@@ -23,6 +23,7 @@ def start_run(
     model: ModelConfiguration,
     turn_id: UUID | None = None,
     tool_snapshot: list[dict] | None = None,
+    reasoning_parameters: dict | None = None,
 ) -> AgentRun:
     values = {
         "conversation_id": conversation_id,
@@ -34,7 +35,11 @@ def start_run(
     run = AgentRun(**values)
     db.session.add(run)
     db.session.flush()
-    append_event(run, "run.started", {"modelId": str(model.id)})
+    append_event(
+        run,
+        "run.started",
+        {"modelId": str(model.id), "reasoningParameters": reasoning_parameters or {}},
+    )
     db.session.flush()
     return run
 

@@ -206,5 +206,6 @@ def stream_completion_route(conversation_id: UUID):
             turn_id,
             payload.get("attachments"),
             tool_snapshot=payload.get("tools"),
+            reasoning_effort=payload.get("reasoningEffort"),
         )
     )

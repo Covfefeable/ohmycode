@@ -37,11 +37,12 @@ export const deleteMultiAgentTask = (taskId: string): Promise<void> => apiReques
 async function runTurn(task: MultiAgentTask, memberId: string, requestId: string, onEvent: (event: MultiAgentRunEvent) => void): Promise<MultiAgentTask> {
   const member = task.members.find((item) => item.id === memberId);
   if (!member) throw new Error("speaker_not_found");
-  const started = await apiRequest<{ conversationId: string; prompt: string; modelId?: string | null }>(`/api/multi-agents/nodes/${member.id}/start`, { method: "POST" });
+  const started = await apiRequest<{ conversationId: string; prompt: string; modelId?: string | null; reasoningEffort?: string }>(`/api/multi-agents/nodes/${member.id}/start`, { method: "POST" });
   const { turnId } = startTurn({
     threadId: started.conversationId,
     content: started.prompt,
     modelId: started.modelId ?? undefined,
+    reasoningEffort: started.reasoningEffort,
     executionContext: { ownerId: member.id, workspacePath: task.workspacePath, isHost: member.isHost },
   });
   const active = activeRuns.get(requestId);

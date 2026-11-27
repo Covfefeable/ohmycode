@@ -43,8 +43,8 @@ export function registerProjectsIpc(): void {
   handleInvoke("conversations:history", (_event, conversationId: string, options?: ConversationHistoryQuery) => getConversationHistory(conversationId, options));
   handleInvoke("conversations:branch", (_event, conversationId: string, messageId: string) => branchConversation(conversationId, messageId));
   handleInvoke("conversations:suggest", (_event, conversationId: string) => suggestFollowups(conversationId));
-  handleInvoke("conversations:start-turn", (_event, conversationId: string, content: string, modelId?: string, editMessageId?: string, attachments?: MessageAttachment[]) =>
-    submitConversationMessage({ conversationId, content, modelId, editMessageId, attachments }));
+  handleInvoke("conversations:start-turn", (_event, conversationId: string, content: string, modelId?: string, editMessageId?: string, attachments?: MessageAttachment[], reasoningEffort?: string) =>
+    submitConversationMessage({ conversationId, content, modelId, editMessageId, attachments, reasoningEffort }));
   handleInvoke("conversations:followups", (_event, id: string) => followupSnapshot(id));
   handleInvoke("conversations:steer", (_event, id: string, inputId: string) => steerFollowup(id, inputId));
   handleInvoke("conversations:withdraw", (_event, id: string, inputId: string) => withdrawFollowup(id, inputId));

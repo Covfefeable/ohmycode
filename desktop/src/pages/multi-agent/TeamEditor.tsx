@@ -3,7 +3,7 @@ import { Bot, Play, Plus, Save, Trash2, Users } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Tooltip } from "../../shared/ui/tooltip";
 import { IconButton } from "../../shared/ui/icon-button";
-import { Select } from "../../shared/ui/select";
+import { ModelPicker } from "../../shared/ui/model-picker";
 import {
   PromptEditor,
   usePromptCapabilities,
@@ -19,7 +19,7 @@ type Props = {
   onAddMember(): void;
   onRemoveMember(memberId: string): void;
   onUpdateMember(
-    field: "name" | "role" | "instructions" | "modelId",
+    field: "name" | "role" | "instructions" | "modelId" | "reasoningEffort",
     value: string,
   ): void;
   onSave(): void;
@@ -129,17 +129,15 @@ export function TeamEditor(props: Props) {
             </FormField>
             <FormField>
               {t("multiAgent.nodeModel")}
-              <Select
+              <ModelPicker
+                variant="field"
                 ariaLabel={t("multiAgent.nodeModel")}
-                value={member.modelId ?? ""}
-                options={[
-                  { value: "", label: t("multiAgent.defaultModel") },
-                  ...props.models.map((model) => ({
-                    value: model.id,
-                    label: `${model.name} - ${model.model}`,
-                  })),
-                ]}
-                onChange={(value) => props.onUpdateMember("modelId", value)}
+                modelId={member.modelId ?? ""}
+                models={props.models}
+                defaultLabel={t("multiAgent.defaultModel")}
+                effort={member.reasoningEffort}
+                onEffortChange={(value) => props.onUpdateMember("reasoningEffort", value)}
+                onModelChange={(value) => props.onUpdateMember("modelId", value)}
               />
             </FormField>
             <FormField>

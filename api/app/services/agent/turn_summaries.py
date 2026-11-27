@@ -7,6 +7,7 @@ from flask import current_app
 from ...extensions import db
 from ...models import AgentRun, AgentRunSummary
 from ..settings.background_tasks import (
+    background_reasoning_effort,
     background_task_settings,
     configured_model,
     conversation_user_id,
@@ -136,7 +137,12 @@ def summarize_agent_run(run_id: UUID) -> bool:
     db.session.commit()
     try:
         summary_source = json.dumps(text_only_images(json.loads(rendered)), ensure_ascii=False)
-        result = _summary_request(model, summary_source, TURN_SUMMARY_INSTRUCTIONS)
+        result = _summary_request(
+            model,
+            summary_source,
+            TURN_SUMMARY_INSTRUCTIONS,
+            reasoning_effort=background_reasoning_effort(settings, "autoSummary", model),
+        )
     except Exception as error:
         db.session.rollback()
         summary = db.session.get(AgentRunSummary, summary.id)

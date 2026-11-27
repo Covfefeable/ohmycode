@@ -101,12 +101,16 @@ def validate_plan(plan: dict) -> dict:
         if not key or key in keys:
             raise ServiceError("invalid_collaboration_team", 422)
         keys.add(key)
+        reasoning_effort = item.get("reasoningEffort", "")
+        if not isinstance(reasoning_effort, str) or len(reasoning_effort) > 100:
+            raise ServiceError("invalid_reasoning_effort", 422)
         member = {
             "key": key,
             "name": str(item.get("name") or "").strip()[:160],
             "role": str(item.get("role") or "").strip()[:500],
             "instructions": str(item.get("instructions") or "").strip(),
             "modelId": str(item.get("modelId") or "").strip() or None,
+            "reasoningEffort": reasoning_effort.strip(),
             "isHost": bool(item.get("isHost")),
             "sortOrder": index,
         }

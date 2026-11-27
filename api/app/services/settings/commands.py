@@ -12,6 +12,7 @@ from ...extensions import db
 from ...models import AgentRun, Conversation, ModelConfiguration, Project, User
 from ..errors import ServiceError
 from ..model_credentials import decrypt_api_key, encrypt_api_key
+from ..model_reasoning import validate_reasoning_levels
 from ..object_storage import delete_object, get_object, put_object
 from .background_tasks import background_task_settings, serialize_background_tasks
 from .queries import models_for_user
@@ -25,6 +26,8 @@ def serialize_model(item: ModelConfiguration) -> dict:
         "model": item.model,
         "contextLength": item.context_length,
         "supportsVision": bool(item.supports_vision),
+        "reasoningLevels": item.reasoning_levels,
+        "reasoningEnabled": item.reasoning_enabled,
         "hasApiKey": bool(item.api_key_encrypted),
     }
 
@@ -138,6 +141,11 @@ def save_models(user_id: UUID, inputs: list[dict]) -> None:
         if not isinstance(supports_vision, bool):
             raise ServiceError("validation_error", 422)
         item.supports_vision = supports_vision
+        item.reasoning_levels = validate_reasoning_levels(payload.get("reasoningLevels", []))
+        reasoning_enabled = payload.get("reasoningEnabled", False)
+        if not isinstance(reasoning_enabled, bool):
+            raise ServiceError("validation_error", 422)
+        item.reasoning_enabled = reasoning_enabled
         try:
             item.context_length = int(payload.get("contextLength") or 262_144)
         except (TypeError, ValueError) as error:

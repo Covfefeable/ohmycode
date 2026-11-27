@@ -6,6 +6,7 @@ export type FollowupInput = {
   turnId?: string;
   content: string;
   modelId?: string;
+  reasoningEffort?: string;
   attachments: { id: string; name: string; path: string; size: number; mimeType: string }[];
   status: "queued" | "steering" | "sending";
 };

@@ -8,6 +8,7 @@ from ...models import AgentRun, Conversation, ModelConfiguration
 from ..conversations import prepare_user_prompt
 from ..errors import ServiceError
 from ..model_credentials import decrypt_api_key
+from ..model_reasoning import reasoning_parameters
 from ..settings import get_model_configuration
 from ..settings.speech import voice_chat_context
 from .context import iter_prepare_context
@@ -92,6 +93,9 @@ def iter_prepare_completion(
     }
     if tools:
         payload["tools"] = tools
+    initial = next((event for event in run.events if event.event_type == "run.started"), None)
+    if initial:
+        payload.update(initial.payload.get("reasoningParameters", {}))
     return PreparedCompletion(
         run_id=run.id,
         conversation_id=run.conversation_id,
@@ -114,10 +118,12 @@ def create_completion_run(
     turn_id: UUID | None = None,
     attachments: object = None,
     tool_snapshot: object = None,
+    reasoning_effort: object = None,
 ):
     tools = validate_tool_snapshot(tool_snapshot)
-    prepare_user_prompt(user_id, conversation_id, content, edit_message_id, attachments)
     configuration = get_model_configuration(user_id, model_id)
     if not configuration:
         raise ServiceError("model_not_configured", 422)
-    return start_run(conversation_id, configuration, turn_id, tools)
+    parameters = reasoning_parameters(configuration, reasoning_effort)
+    prepare_user_prompt(user_id, conversation_id, content, edit_message_id, attachments)
+    return start_run(conversation_id, configuration, turn_id, tools, parameters)

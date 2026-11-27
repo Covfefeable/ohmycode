@@ -8,6 +8,7 @@ import { ConversationTransport } from "./conversation-transport.js";
 import { getModels } from "../settings/settings-service.js";
 import { getAndroidState } from "../android/android-service.js";
 import { beginWorkspaceSnapshot } from "../files/snapshot-host.js";
+import { shellLaunch } from "../terminal/platform.js";
 
 export type ConversationStreamEvent = AgentStreamEvent;
 export type { AgentTask };
@@ -35,13 +36,19 @@ export async function streamMessage(
   execution: DesktopTurnExecution,
   executionContext?: DesktopExecutionContext,
   turnId?: string,
+  reasoningEffort?: string,
 ): Promise<LocalConversation> {
   if (!turnId) throw new Error("turn_id_required");
   const { projectId, workspaceRoot } = await conversationWorkspace(
     conversationId,
     executionContext,
   );
-  const workspaceInstructions = "";
+  const workspaceInstructions = [
+    `Host platform: ${process.platform} (${process.arch}).`,
+    `Terminal shell: ${shellLaunch("").executable}.`,
+    ...(workspaceRoot ? [`Workspace root: ${workspaceRoot}.`] : []),
+    "Use commands supported by this shell. Do not assume POSIX syntax or support for &&.",
+  ].join("\n");
   const transport = new ConversationTransport(execution.signal);
   const models = await getModels();
   const model = modelId
@@ -68,6 +75,7 @@ export async function streamMessage(
       conversationId,
       content,
       modelId,
+      reasoningEffort,
       editMessageId,
       attachments,
       workspaceInstructions,

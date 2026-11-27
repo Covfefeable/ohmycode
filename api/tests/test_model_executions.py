@@ -2,6 +2,7 @@ import json
 import threading
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
+from uuid import UUID
 
 import pytest
 
@@ -80,6 +81,44 @@ def workspace(tmp_path, monkeypatch):
 def submit(w):
     execution_id = start_execution(w.user, w.conversation, "Inspect", w.model, tool_snapshot=TOOLS)
     return execution_id, db.session.get(ModelExecution, execution_id).run_id
+
+
+def test_reasoning_effort_is_snapshotted_across_tool_rounds(workspace, monkeypatch):
+    w = workspace
+    model = db.session.get(ModelConfiguration, UUID(w.model))
+    model.reasoning_levels = [{"name": "Light", "key": "low"}]
+    model.reasoning_enabled = True
+    db.session.commit()
+    payloads = []
+
+    def provider(prepared):
+        payloads.append(prepared.payload)
+        yield from (tool_provider(prepared) if len(payloads) == 1 else text_provider(prepared))
+
+    monkeypatch.setattr("app.services.agent.chat.provider_payloads", provider)
+    execution_id = start_execution(
+        w.user, w.conversation, "Inspect", w.model, tool_snapshot=TOOLS, reasoning_effort="low"
+    )
+    run_id = db.session.get(ModelExecution, execution_id).run_id
+    execute_execution(execution_id)
+    model.reasoning_levels = []
+    db.session.commit()
+    second = resume_execution(
+        w.user, run_id, [{"callId": "read-1", "result": "ok"}], tool_snapshot=TOOLS
+    )
+    execute_execution(second)
+    assert len(payloads) == 2
+    assert all(payload["reasoning_effort"] == "low" for payload in payloads)
+
+
+@pytest.mark.parametrize("effort", ["unsupported", 7, {"key": "low"}])
+def test_invalid_reasoning_effort_does_not_create_messages(workspace, effort):
+    w = workspace
+    with pytest.raises(ServiceError, match="invalid_reasoning_effort"):
+        start_execution(
+            w.user, w.conversation, "Inspect", w.model, reasoning_effort=effort, tool_snapshot=[]
+        )
+    assert db.session.scalar(db.select(db.func.count(Message.id))) == 0
 
 
 def text_provider(prepared):

@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import Boolean, Float, ForeignKey
+from sqlalchemy import JSON, Boolean, Float, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ..extensions import db
@@ -13,6 +13,7 @@ class BackgroundTaskSettings(db.Model):
         ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
     )
     auto_summary_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    reasoning_efforts: Mapped[dict] = mapped_column(JSON, default=dict, server_default="{}")
     auto_summary_model_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("model_configurations.id", ondelete="SET NULL"), nullable=True
     )

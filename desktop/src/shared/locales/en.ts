@@ -1,4 +1,12 @@
 export const en = {
+  reasoning: {
+    namePlaceholder: "e.g. Low", keyPlaceholder: "e.g. low", usePresets: "Use preset levels",
+    presetHint: "Select a model to replace the current levels. For reasoning_effort APIs; support depends on your provider.",
+    levelNames: { none: "Off", minimal: "Minimal", low: "Low", medium: "Medium", high: "High", xhigh: "Extra high", max: "Maximum" },
+    title: "Reasoning effort", configure: "Configure reasoning effort", configureLink: "Configure",
+    description: "Define the levels supported by this model. Names are displayed in the picker; keys are sent as reasoning_effort. Default omits the parameter. Add levels supported by your provider.",
+    name: "Name", key: "Key", default: "Default", omitted: "Parameter omitted", add: "Add level", apply: "Apply", reset: "Reset to default", selectModel: "Select model",
+  },
   snapshots: {
     restoreAll: "Restore all", confirmAll: "Restore the {{count}} remaining files changed in this turn to their pre-turn state? Newly created files will be deleted. Any existing conflict prevents the batch from starting.",
     requestUnavailable: "Original request unavailable",

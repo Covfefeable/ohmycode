@@ -21,7 +21,7 @@ export function useConversationController({ conversationId, onUpdated, scrollToB
   const [loadFailed, setLoadFailed] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
   const [sending, setSending] = useState(false);
-  const { models, selectedModelId, setSelectedModelId } = useConversationModel(conversationId, reloadToken);
+  const { models, selectedModelId, setSelectedModelId, reasoningEffort, setReasoningEffort } = useConversationModel(conversationId, reloadToken);
   const [contextUsage, setContextUsage] = useState(0);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -148,7 +148,7 @@ export function useConversationController({ conversationId, onUpdated, scrollToB
     if (!conversation) return false;
     const generation = historyGenerationRef.current;
     try {
-      const result = await window.ohmycode.conversations.startTurn(conversationId, content, selectedModelId, editMessageId, attachments);
+      const result = await window.ohmycode.conversations.startTurn(conversationId, content, selectedModelId, editMessageId, attachments, reasoningEffort);
       if (generation !== historyGenerationRef.current) return true;
       if ("queued" in result) return true;
       const { turnId } = result;
@@ -232,7 +232,7 @@ export function useConversationController({ conversationId, onUpdated, scrollToB
 
   return {
     conversation, loadFailed, sending, models, selectedModelId, contextUsage, suggestions,
-    setSelectedModelId, send, stop,
+    setSelectedModelId, reasoningEffort, setReasoningEffort, send, stop,
     historyLoading, historyFailed, prependedCount, loadOlder,
     retry: () => { setLoadFailed(false); setReloadToken((value) => value + 1); },
   };

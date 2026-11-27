@@ -1,0 +1,26 @@
+.dialog { width: min(520px, calc(100vw - 32px)); padding: var(--space-5); box-sizing: border-box; border: 1px solid var(--color-border-strong); border-radius: var(--radius-lg); background: var(--color-surface-1); color: var(--color-text); box-shadow: var(--shadow-dialog); }
+.dialog::backdrop { background: color-mix(in srgb, var(--color-surface-deep) 48%, transparent); backdrop-filter: blur(4px); }
+.dialog header, .dialog footer { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); }
+.dialog h2 { margin: 0; font-size: var(--font-title-dialog); }
+.dialog p { color: var(--color-text-muted); font-size: var(--font-sm); line-height: 1.6; margin: var(--space-3) 0 var(--space-4); }
+.dialog form { display: grid; gap: var(--space-3); }
+.columns, .row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 32px; align-items: center; gap: var(--space-2); }
+.columns { color: var(--color-text-dim); font-size: var(--font-xs); }
+.rows { max-height: min(420px, 48vh); overflow-y: auto; display: grid; gap: var(--space-2); padding: 4px; }
+.columns { padding: 0 4px; }
+.dialog { max-height: calc(100dvh - 32px); overflow-y: auto; }
+.actions { display: flex; align-items: center; gap: var(--space-2); }
+.presetTrigger { anchor-name: --reasoning-presets; }
+.presetTrigger svg { transition: transform var(--transition-fast); }
+.presetTrigger .open { transform: rotate(180deg); }
+.presetList { position: fixed; position-anchor: --reasoning-presets; inset: auto; top: anchor(bottom); left: anchor(left); position-try-fallbacks: flip-block, flip-inline; width: min(320px, calc(100vw - 32px)); box-sizing: border-box; margin: 8px 0; gap: 2px; padding: var(--space-2); border: 1px solid var(--color-border-strong); border-radius: var(--radius-md); background: var(--color-surface-1); color: var(--color-text); box-shadow: var(--shadow-popover); max-height: min(300px, 60vh); overflow-y: auto; }
+.presetList:popover-open { display: grid; }
+.presetList > small { padding: var(--space-2); color: var(--color-text-dim); font-size: var(--font-xs); line-height: 1.5; }
+.presetList button { display: grid; gap: 3px; padding: var(--space-2); border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--color-text); font: inherit; text-align: left; cursor: pointer; }
+.presetList button:hover { background: var(--color-surface-hover); }
+.presetList button small { color: var(--color-text-dim); font-size: var(--font-xs); }
+.row { min-height: 40px; font-size: var(--font-sm); }
+.row input { min-width: 0; }
+.muted { color: var(--color-text-dim); }
+.dialog form > button { justify-self: start; }
+.dialog footer { justify-content: flex-end; margin-top: var(--space-2); padding-top: var(--space-4); border-top: 1px solid var(--color-border); }

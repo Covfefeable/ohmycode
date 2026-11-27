@@ -8,6 +8,7 @@ export type StartStreamInput = {
   conversationId: string;
   content: string;
   modelId?: string;
+  reasoningEffort?: string;
   editMessageId?: string;
   attachments?: MessageAttachment[];
   workspaceInstructions: string;
@@ -35,6 +36,7 @@ export class ConversationTransport implements AgentTransport {
       body: JSON.stringify({
         content: input.content,
         modelId: input.modelId,
+        reasoningEffort: input.reasoningEffort,
         editMessageId: input.editMessageId,
         attachments: input.attachments,
         workspaceInstructions: input.workspaceInstructions,

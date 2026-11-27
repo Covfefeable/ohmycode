@@ -4,6 +4,12 @@ export function useConversationModel(conversationId: string, reloadToken = 0) {
   const key = `ohmycode.conversation-model:${conversationId}`;
   const [models, setModels] = useState<ModelConfiguration[]>([]);
   const [selectedModelId, setSelected] = useState(() => sessionStorage.getItem(key) ?? "");
+  const [efforts, setEfforts] = useState<Record<string, string>>({});
+  const selectedModel = models.find((model) => model.id === selectedModelId);
+  const configured = selectedModel?.reasoningEnabled ? selectedModel.reasoningLevels ?? [] : [];
+  const effortKey = `${key}:effort:${selectedModelId}`;
+  const rememberedEffort = efforts[effortKey] ?? sessionStorage.getItem(effortKey) ?? "";
+  const reasoningEffort = configured.some((level) => level.key === rememberedEffort) ? rememberedEffort : "";
 
   useEffect(() => {
     let disposed = false;
@@ -28,5 +34,10 @@ export function useConversationModel(conversationId: string, reloadToken = 0) {
     setSelected(id);
   }
 
-  return { models, selectedModelId, setSelectedModelId };
+  function setReasoningEffort(value: string) {
+    sessionStorage.setItem(effortKey, value);
+    setEfforts((current) => ({ ...current, [effortKey]: value }));
+  }
+
+  return { models, selectedModelId, setSelectedModelId, reasoningEffort, setReasoningEffort };
 }

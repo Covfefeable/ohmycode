@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, LargeBinary, String, func
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, LargeBinary, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ..extensions import db
@@ -20,6 +20,8 @@ class ModelConfiguration(db.Model):
     api_key_encrypted: Mapped[bytes] = mapped_column(LargeBinary)
     context_length: Mapped[int] = mapped_column(Integer, default=262_144)
     supports_vision: Mapped[bool] = mapped_column(Boolean, default=False)
+    reasoning_enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    reasoning_levels: Mapped[list[dict]] = mapped_column(JSON, default=list, server_default="[]")
     position: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(

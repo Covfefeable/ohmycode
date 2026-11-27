@@ -17,7 +17,9 @@ from ...models import (
 )
 from ..errors import ServiceError
 from ..model_credentials import decrypt_api_key
+from ..model_reasoning import reasoning_parameters
 from ..settings.background_tasks import (
+    background_reasoning_effort,
     background_task_settings,
     configured_model,
     conversation_user_id,
@@ -60,6 +62,7 @@ def _summary_request(
     instructions: str = COMPACTION_INSTRUCTIONS,
     *,
     max_tokens: int | None = None,
+    reasoning_effort: str = "",
 ) -> str:
     response = httpx.post(
         f"{model.base_url.rstrip('/')}/chat/completions",
@@ -78,6 +81,7 @@ def _summary_request(
                 {"role": "user", "content": content},
             ],
             **({"max_tokens": max_tokens} if max_tokens is not None else {}),
+            **reasoning_parameters(model, reasoning_effort),
         },
         timeout=120,
     )
@@ -163,6 +167,7 @@ def iter_prepare_context(
             eligible,
             summary_budget,
             background_settings.context_compaction_ratio,
+            background_reasoning_effort(background_settings, "contextCompaction", compaction_model),
         )
         result = _assemble(prefix, summary, retained, continuation)
         raw_tokens = request_tokens(result, tools)
@@ -243,6 +248,7 @@ def _compact_blocks(
     blocks: list[ContextBlock],
     budget: int,
     input_ratio: float,
+    reasoning_effort: str = "",
 ) -> str:
     content = json.dumps(
         text_only_images(
@@ -271,7 +277,9 @@ def _compact_blocks(
         )
         if not page:
             raise ServiceError("context_budget_exceeded", 422)
-        summary = _summary_request(model, prefix + page, max_tokens=max_tokens)
+        summary = _summary_request(
+            model, prefix + page, max_tokens=max_tokens, reasoning_effort=reasoning_effort
+        )
         if not summary or estimate_tokens(summary) > max_tokens:
             raise ValueError("invalid_context_summary")
         cursor = end

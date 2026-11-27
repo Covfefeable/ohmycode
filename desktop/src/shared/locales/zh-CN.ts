@@ -1,4 +1,12 @@
 export const zhCN = {
+  reasoning: {
+    namePlaceholder: "例如：轻度", keyPlaceholder: "例如：low", usePresets: "使用预设档位",
+    presetHint: "点击模型名称覆盖当前档位。适用于 reasoning_effort 接口，具体支持情况以服务商为准。",
+    levelNames: { none: "关闭", minimal: "极低", low: "轻度", medium: "中等", high: "高", xhigh: "超高", max: "最高" },
+    title: "思考强度", configure: "配置思考强度", configureLink: "配置",
+    description: "设置当前模型支持的档位，名称用于展示，key 作为 reasoning_effort 发送。默认不发送该参数。请按服务商文档添加支持的档位。",
+    name: "名称", key: "Key", default: "默认", omitted: "不发送参数", add: "添加档位", apply: "应用", reset: "恢复默认", selectModel: "选择模型",
+  },
   snapshots: {
     restoreAll: "全部恢复", confirmAll: "将本轮尚未恢复的 {{count}} 个文件还原到本轮开始前？本轮新增的文件会被删除。发现任何后续修改时，本次批量恢复不会开始。",
     requestUnavailable: "原始请求不可用",

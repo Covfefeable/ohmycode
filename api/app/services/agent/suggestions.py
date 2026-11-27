@@ -7,8 +7,13 @@ from ...extensions import db
 from ...models import AgentRun, Conversation, ModelConfiguration
 from ..conversations import get_conversation
 from ..model_credentials import decrypt_api_key
+from ..model_reasoning import reasoning_parameters
 from ..settings import get_model_configuration
-from ..settings.background_tasks import background_task_settings, configured_model
+from ..settings.background_tasks import (
+    background_reasoning_effort,
+    background_task_settings,
+    configured_model,
+)
 from .prompts import SUGGESTION_INSTRUCTIONS, TITLE_INSTRUCTIONS
 from .runs import append_event
 
@@ -34,6 +39,7 @@ def _aux_completion(
     *,
     timeout: float = _AUX_TIMEOUT_SECONDS,
     max_tokens: int | None = None,
+    reasoning_effort: str = "",
 ) -> AuxiliaryCompletion | None:
     try:
         response = httpx.post(
@@ -50,6 +56,7 @@ def _aux_completion(
                     {"role": "user", "content": user_prompt},
                 ],
                 **({"max_tokens": max_tokens} if max_tokens else {}),
+                **reasoning_parameters(configuration, reasoning_effort),
             },
             timeout=timeout,
         )
@@ -215,10 +222,7 @@ def generate_followup_suggestions(user_id: UUID, conversation_id: UUID) -> list[
     if not last_user or not last_assistant:
         return []
     configuration, run = _configuration_for(conversation_id, user_id)
-    if task_settings.suggestions_model_id:
-        configuration = (
-            configured_model(user_id, task_settings.suggestions_model_id) or configuration
-        )
+    configuration = configured_model(user_id, task_settings.suggestions_model_id) or configuration
     if not configuration or not run:
         return []
     maybe_rename_new_conversation(conversation, configuration, run)
@@ -232,7 +236,12 @@ def generate_followup_suggestions(user_id: UUID, conversation_id: UUID) -> list[
     prompt = _suggestion_prompt(messages)
     if not prompt:
         return []
-    completion = _aux_completion(configuration, SUGGESTION_INSTRUCTIONS, prompt)
+    completion = _aux_completion(
+        configuration,
+        SUGGESTION_INSTRUCTIONS,
+        prompt,
+        reasoning_effort=background_reasoning_effort(task_settings, "suggestions", configuration),
+    )
     suggestions = _parse_suggestions(completion.content if completion else None)
     _record_auxiliary_usage(run, completion)
     append_event(run, "conversation.suggestions.generated", {"suggestions": suggestions})

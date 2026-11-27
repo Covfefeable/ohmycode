@@ -85,6 +85,7 @@ def start_execution(
     attachments: object = None,
     tool_snapshot: object = None,
     system_instructions: str = AGENT_SYSTEM_INSTRUCTIONS,
+    reasoning_effort: object = None,
 ) -> UUID:
     get_conversation(user_id, conversation_id)
     db.session.scalar(
@@ -109,6 +110,7 @@ def start_execution(
         turn_id=turn_id,
         attachments=attachments,
         tool_snapshot=tool_snapshot,
+        reasoning_effort=reasoning_effort,
     )
     return _submit(
         run,

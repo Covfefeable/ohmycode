@@ -23,6 +23,7 @@ type StartTurnInput = {
   threadId: string;
   content: string;
   modelId?: string;
+  reasoningEffort?: string;
   editMessageId?: string;
   attachments?: MessageAttachment[];
   executionContext?: DesktopExecutionContext;
@@ -76,7 +77,7 @@ export function initializeAgentRuntime(): void {
   });
   initializeFollowups(runtimeStore, {
     active: activeThreadTurn,
-    start: (threadId, input) => { startTurn({ threadId, turnId: input.turnId, content: input.content, modelId: input.modelId, attachments: input.attachments, followupId: input.id }); },
+    start: (threadId, input) => { startTurn({ threadId, turnId: input.turnId, content: input.content, modelId: input.modelId, reasoningEffort: input.reasoningEffort, attachments: input.attachments, followupId: input.id }); },
   });
   const persistedExecutions = new Map(
     runtimeStore.loadExecutions().map((state) => [state.turnId, state]),
@@ -139,6 +140,7 @@ export function startTurn(input: StartTurnInput): { turnId: string } {
     execution,
     input.executionContext,
     turnId,
+    input.reasoningEffort,
   ).then((conversation) => {
     const snapshot = requireJournal().snapshot(turnId);
     if (snapshot?.status === "in_progress" && !interrupting.has(turnId)) {

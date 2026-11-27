@@ -10,7 +10,7 @@ import { useSpeech } from "../speech/speech-context";
 import { VoiceChatComposer } from "./VoiceChatComposer";
 import { useFeedback } from "../feedback";
 import { AttachmentList } from "../../shared/ui/attachment-list";
-import { Select } from "../../shared/ui/select";
+import { ModelPicker } from "../../shared/ui/model-picker";
 import { PromptEditor, usePromptCapabilities } from "../../shared/ui/prompt-editor";
 import styles from "./TaskComposer.module.css";
 
@@ -21,6 +21,8 @@ type TaskComposerProps = {
   busy?: boolean;
   models: ModelConfiguration[];
   selectedModelId: string;
+  reasoningEffort?: string;
+  onReasoningEffortChange?(key: string): void;
   contextUsage?: number;
   onModelChange(modelId: string): void;
   attachments?: MessageAttachment[];
@@ -48,7 +50,7 @@ export function TaskComposer(props: TaskComposerProps) {
   return <TextTaskComposer {...props} content={content} setContent={setContent} />;
 }
 
-function TextTaskComposer({ toolbarLeading, disabled = false, busy = false, models, selectedModelId, contextUsage = 0, attachments = [], onRemoveAttachment, onPasteImages, suggestions = [], onModelChange, onSubmit, onStop, content, setContent }: TaskComposerProps & { content: string; setContent: React.Dispatch<React.SetStateAction<string>> }) {
+function TextTaskComposer({ toolbarLeading, disabled = false, busy = false, models, selectedModelId, reasoningEffort, onReasoningEffortChange, contextUsage = 0, attachments = [], onRemoveAttachment, onPasteImages, suggestions = [], onModelChange, onSubmit, onStop, content, setContent }: TaskComposerProps & { content: string; setContent: React.Dispatch<React.SetStateAction<string>> }) {
   const { t } = useTranslation();
   const { toast } = useFeedback();
   const microphone = useSpeechInput(content, setContent);
@@ -107,7 +109,7 @@ function TextTaskComposer({ toolbarLeading, disabled = false, busy = false, mode
       <div className={styles.toolbar}>
         {toolbarLeading && <div className={styles.leading}>{toolbarLeading}</div>}
         <div className={styles.actions}>
-          <Select compact disabled={busy} ariaLabel={t("agent.model")} value={selectedModelId} emptyLabel={t("agent.noModel")} options={models.map((model) => ({ value: model.id, label: model.name || model.model }))} onChange={onModelChange} />
+          <ModelPicker disabled={disabled || busy} models={models} modelId={selectedModelId} effort={reasoningEffort} onModelChange={onModelChange} onEffortChange={onReasoningEffortChange} />
           <Tooltip content={t(finishing ? "speech.finishing" : microphone.active ? "speech.stopInput" : "speech.startInput")}><IconButton active={microphone.active} aria-label={t(microphone.active ? "speech.stopInput" : "speech.startInput")} aria-pressed={microphone.active} disabled={disabled || submitting || finishing} onClick={() => void microphone.toggle()}>{microphone.state === "starting" || finishing ? <LoaderCircle className={styles.spinner} /> : <Mic />}</IconButton></Tooltip>
           <Tooltip content={t(actionHint)}><span className={styles.sendProgress} style={{ "--context-usage": `${Math.max(0, Math.min(1, contextUsage)) * 100}%` } as React.CSSProperties}>
             <IconButton className={showStop ? styles.stop : undefined} aria-label={t(showStop ? "agent.stop" : "agent.run")} aria-busy={processing} disabled={disabled || processing || (!showStop && (microphone.state === "starting" || !hasDraft))} onClick={() => void (showStop ? stop() : submit())}>{processing ? <LoaderCircle className={styles.spinner} /> : showStop ? <Square className={styles.stopIcon} /> : <ArrowUp />}</IconButton>

@@ -182,6 +182,7 @@ def start_node_route(node_id: UUID):
             "conversationId": str(node.conversation_id),
             "modelId": str(node.model_configuration_id) if node.model_configuration_id else None,
             "prompt": prompt,
+            "reasoningEffort": node.reasoning_effort,
         }
     )
 

@@ -8,16 +8,17 @@ export async function submitConversationMessage(input: {
   conversationId: string;
   content: string;
   modelId?: string;
+  reasoningEffort?: string;
   editMessageId?: string;
   attachments?: MessageAttachment[];
 }) {
-  const { conversationId, content, modelId, editMessageId, attachments = [] } = input;
+  const { conversationId, content, modelId, reasoningEffort, editMessageId, attachments = [] } = input;
   const state = await followupSnapshot(conversationId);
   if (!editMessageId && (activeThreadTurn(conversationId) || state.inputs.length)) {
-    await enqueueFollowup(conversationId, { id: crypto.randomUUID(), content, modelId, attachments, status: "queued" });
+    await enqueueFollowup(conversationId, { id: crypto.randomUUID(), content, modelId, reasoningEffort, attachments, status: "queued" });
     return { queued: true as const };
   }
-  return startTurn({ threadId: conversationId, content, modelId, editMessageId, attachments });
+  return startTurn({ threadId: conversationId, content, modelId, reasoningEffort, editMessageId, attachments });
 }
 
 export async function removeConversation(projectId: string, conversationId: string): Promise<void> {

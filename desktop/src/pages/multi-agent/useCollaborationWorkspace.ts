@@ -148,12 +148,12 @@ export function useCollaborationWorkspace() {
     toast({ type: "success", message: t("multiAgent.saved") });
   }
 
-  function updateMember(field: "name" | "role" | "instructions" | "modelId", value: string) {
+  function updateMember(field: "name" | "role" | "instructions" | "modelId" | "reasoningEffort", value: string) {
     if (!team || !selectedMemberId) return;
     setTeam({
       ...team,
       members: team.members.map((member) => member.key === selectedMemberId
-        ? { ...member, [field]: field === "modelId" ? value || null : value }
+        ? { ...member, ...(field === "modelId" ? { reasoningEffort: "" } : {}), [field]: field === "modelId" ? value || null : value }
         : member),
     });
   }

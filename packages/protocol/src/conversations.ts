@@ -32,7 +32,7 @@ export type ConversationSearchResult = {
 export type MultiAgentTaskSummary = { id: string; title: string; status: string; createdAt: string };
 export type MultiAgentTemplateMember = {
   key: string; name: string; role: string; instructions: string;
-  modelId?: string | null; isHost: boolean; sortOrder: number;
+  modelId?: string | null; reasoningEffort?: string; isHost: boolean; sortOrder: number;
 };
 export type MultiAgentTemplateTeam = { title: string; members: MultiAgentTemplateMember[] };
 export type MultiAgentSummary = {

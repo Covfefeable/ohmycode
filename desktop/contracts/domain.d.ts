@@ -49,9 +49,12 @@ export type ModelInput = {
   hasApiKey?: boolean;
   contextLength: number;
   supportsVision: boolean;
+  reasoningLevels?: Array<{ name: string; key: string }>;
+  reasoningEnabled?: boolean;
 };
 
 export type BackgroundTaskSettings = {
+  reasoningEfforts?: Partial<Record<"operationApproval" | "autoSummary" | "contextCompaction" | "suggestions", string>>;
   operationApprovalModelId: string | null;
   autoSummaryEnabled: boolean;
   autoSummaryModelId: string | null;

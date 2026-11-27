@@ -21,6 +21,10 @@
 .grid input { min-width: 0; }
 .visionToggle { grid-column: 1 / -1; display: flex !important; flex-direction: row; align-items: center; gap: var(--space-2); color: var(--color-text); white-space: nowrap; }
 .visionToggle input { min-height: 0; width: 16px; height: 16px; padding: 0; accent-color: var(--color-accent); }
+.capabilities { grid-column: 1 / -1; display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-5); }
+.reasoningLabel { display: flex; align-items: center; gap: var(--space-2); font-size: var(--font-sm); }
+.configLink { border: 0; background: transparent; color: var(--color-accent); padding: 0; font: inherit; cursor: pointer; text-underline-offset: 3px; }
+.configLink:hover { text-decoration: underline; }
 .numberField { position: relative; }
 .numberField input { padding-right: 40px; }
 .numberField span { position: absolute; right: var(--space-3); top: 50%; color: var(--color-text-dim); transform: translateY(-50%); pointer-events: none; }

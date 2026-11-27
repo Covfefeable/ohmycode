@@ -17,6 +17,7 @@ def background_task_settings(user_id: UUID) -> BackgroundTaskSettings:
 
 def serialize_background_tasks(settings: BackgroundTaskSettings) -> dict:
     return {
+        "reasoningEfforts": settings.reasoning_efforts,
         "operationApprovalModelId": (
             str(settings.operation_approval_model_id)
             if settings.operation_approval_model_id
@@ -68,6 +69,24 @@ def save_background_tasks(user_id: UUID, payload: dict) -> dict:
     settings.suggestions_enabled = bool(payload.get("suggestionsEnabled"))
     settings.suggestions_model_id = model_id("suggestionsModelId")
     settings.operation_approval_model_id = model_id("operationApprovalModelId")
+    efforts = payload.get("reasoningEfforts", {})
+    if not isinstance(efforts, dict):
+        raise ServiceError("validation_error", 422)
+    task_models = {
+        "operationApproval": settings.operation_approval_model_id,
+        "autoSummary": settings.auto_summary_model_id,
+        "contextCompaction": settings.context_compaction_model_id,
+        "suggestions": settings.suggestions_model_id,
+    }
+    for task, effort in efforts.items():
+        if task not in task_models or not isinstance(effort, str) or len(effort) > 100:
+            raise ServiceError("validation_error", 422)
+        model = configured_model(user_id, task_models[task])
+        if effort and (
+            not model or effort not in {level["key"] for level in model.reasoning_levels}
+        ):
+            raise ServiceError("invalid_reasoning_effort", 422)
+    settings.reasoning_efforts = efforts
     db.session.commit()
     return serialize_background_tasks(settings)
 
@@ -88,3 +107,15 @@ def conversation_user_id(conversation_id: UUID) -> UUID:
     if not user_id:
         raise ServiceError("not_found", 404)
     return user_id
+
+
+def background_reasoning_effort(
+    settings: BackgroundTaskSettings, task: str, model: ModelConfiguration
+) -> str:
+    effort = settings.reasoning_efforts.get(task, "")
+    return (
+        effort
+        if model.reasoning_enabled
+        and any(level["key"] == effort for level in model.reasoning_levels)
+        else ""
+    )

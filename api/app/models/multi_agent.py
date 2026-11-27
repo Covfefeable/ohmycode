@@ -86,6 +86,7 @@ class MultiAgentNode(db.Model):
     name: Mapped[str] = mapped_column(String(160))
     role: Mapped[str] = mapped_column(String(500))
     instructions: Mapped[str] = mapped_column(Text)
+    reasoning_effort: Mapped[str] = mapped_column(String(100), default="", server_default="")
     is_host: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     status: Mapped[str] = mapped_column(String(32), default="pending", index=True)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)

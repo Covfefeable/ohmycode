@@ -2,7 +2,11 @@ import json
 from uuid import UUID
 
 from ..errors import ServiceError
-from ..settings.background_tasks import background_task_settings, configured_model
+from ..settings.background_tasks import (
+    background_reasoning_effort,
+    background_task_settings,
+    configured_model,
+)
 from .config import MODEL_REQUEST_TIMEOUT_SECONDS
 from .suggestions import _aux_completion
 
@@ -21,9 +25,8 @@ def assess_operation(user_id: UUID, payload: dict) -> dict:
         raise ServiceError("validation_error", 422)
     if len(payload["details"]) > 262144:
         return {"decision": "ask"}
-    configuration = configured_model(
-        user_id, background_task_settings(user_id).operation_approval_model_id
-    )
+    settings = background_task_settings(user_id)
+    configuration = configured_model(user_id, settings.operation_approval_model_id)
     if not configuration:
         return {"decision": "ask"}
     completion = _aux_completion(
@@ -38,6 +41,7 @@ def assess_operation(user_id: UUID, payload: dict) -> dict:
         ),
         timeout=MODEL_REQUEST_TIMEOUT_SECONDS,
         max_tokens=1024,
+        reasoning_effort=background_reasoning_effort(settings, "operationApproval", configuration),
     )
     if not completion:
         return {"decision": "ask"}

@@ -1,4 +1,6 @@
 import { FormField, TextInput } from "../../shared/ui/form-control";
+import { useState } from "react";
+import { ReasoningLevelsDialog } from "./ReasoningLevelsDialog";
 import {
   ChevronDown,
   GripVertical,
@@ -36,6 +38,7 @@ export function ModelCard({
   onChange,
 }: Props) {
   const { t } = useTranslation();
+  const [reasoningOpen, setReasoningOpen] = useState(false);
   return (
     <article {...order.cardProps(model.id)}>
       <div className={styles.cardHead}>
@@ -138,17 +141,18 @@ export function ModelCard({
                 />
               </FormField>
             </div>
-            <label className={styles.visionToggle}>
+            <div className={styles.capabilities}><label className={styles.visionToggle}>
               <input
                 type="checkbox"
                 checked={Boolean(model.supportsVision)}
                 onChange={(e) => onChange({ supportsVision: e.target.checked })}
               />
               <span>{t("settings.supportsVision")}</span>
-            </label>
+            </label><span className={styles.reasoningLabel}><label className={styles.visionToggle}><input type="checkbox" checked={Boolean(model.reasoningEnabled)} onChange={(event) => onChange({ reasoningEnabled: event.target.checked })} /><span>{t("reasoning.title")}</span></label><button type="button" className={styles.configLink} onClick={() => setReasoningOpen(true)}>{t("reasoning.configureLink")}</button></span></div>
           </div>
         </div>
       )}
+      {reasoningOpen && <ReasoningLevelsDialog levels={model.reasoningLevels ?? []} onSave={(reasoningLevels) => onChange({ reasoningLevels })} onClose={() => setReasoningOpen(false)} />}
     </article>
   );
 }

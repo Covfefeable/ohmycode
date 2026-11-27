@@ -79,7 +79,7 @@ export interface DesktopBridge {
       history(conversationId: string, options?: import("@ohmycode/protocol").ConversationHistoryQuery): Promise<Domain.LocalConversation>;
       searchMessages(conversationId: string, options: import("@ohmycode/protocol").MessageSearchQuery): Promise<Domain.MessageSearchResult>;
       branch(conversationId: string, messageId: string): Promise<Domain.LocalConversation>;
-      startTurn(conversationId: string, content: string, modelId?: string, editMessageId?: string, attachments?: Domain.MessageAttachment[]): Promise<{ turnId: string } | { queued: true }>;
+      startTurn(conversationId: string, content: string, modelId?: string, editMessageId?: string, attachments?: Domain.MessageAttachment[], reasoningEffort?: string): Promise<{ turnId: string } | { queued: true }>;
       followups(conversationId: string): Promise<import("@ohmycode/protocol").FollowupState>;
       steer(conversationId: string, inputId: string): Promise<void>;
       withdraw(conversationId: string, inputId: string): Promise<import("@ohmycode/protocol").FollowupInput>;

@@ -68,6 +68,7 @@ def serialize_task(task: MultiAgentTask) -> dict:
                 "role": node.role,
                 "instructions": node.instructions,
                 "isHost": node.is_host,
+                "reasoningEffort": node.reasoning_effort,
                 "status": node.status,
                 "conversationId": str(node.conversation_id) if node.conversation_id else None,
                 "modelId": str(node.model_configuration_id)
