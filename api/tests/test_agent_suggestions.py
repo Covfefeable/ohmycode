@@ -122,6 +122,7 @@ def test_title_request_treats_user_content_as_data(monkeypatch):
         base_url="https://models.example/v1",
         model="model",
         api_key_encrypted="encrypted",
+        reasoning_enabled=False,
     )
 
     suggestions.maybe_rename_new_conversation(conversation, configuration)
@@ -148,7 +149,10 @@ def test_auxiliary_completion_rejects_missing_or_truncated_text(
     monkeypatch.setattr(suggestions.httpx, "post", lambda *a, **k: response)
     monkeypatch.setattr(suggestions, "decrypt_api_key", lambda _: "test-key")
     configuration = SimpleNamespace(
-        base_url="https://models.example/v1", model="model", api_key_encrypted="encrypted"
+        base_url="https://models.example/v1",
+        model="model",
+        api_key_encrypted="encrypted",
+        reasoning_enabled=False,
     )
     assert suggestions._aux_completion(configuration, "system", "user") is None
 
@@ -202,6 +206,7 @@ def test_title_generation_is_independent_of_followup_suggestions_setting(monkeyp
         lambda _: SimpleNamespace(suggestions_enabled=False, suggestions_model_id=None),
     )
     monkeypatch.setattr(suggestions, "_configuration_for", lambda *a: (configuration, run))
+    monkeypatch.setattr(suggestions, "configured_model", lambda *a: configuration)
     monkeypatch.setattr(suggestions, "maybe_rename_new_conversation", lambda *a: calls.append(a))
     monkeypatch.setattr(suggestions.db.session, "commit", lambda: None)
     assert suggestions.generate_followup_suggestions("user", "conversation") == []

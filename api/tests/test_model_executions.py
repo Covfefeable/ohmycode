@@ -114,6 +114,9 @@ def test_reasoning_effort_is_snapshotted_across_tool_rounds(workspace, monkeypat
 @pytest.mark.parametrize("effort", ["unsupported", 7, {"key": "low"}])
 def test_invalid_reasoning_effort_does_not_create_messages(workspace, effort):
     w = workspace
+    model = db.session.get(ModelConfiguration, UUID(w.model))
+    model.reasoning_enabled = True
+    db.session.commit()
     with pytest.raises(ServiceError, match="invalid_reasoning_effort"):
         start_execution(
             w.user, w.conversation, "Inspect", w.model, reasoning_effort=effort, tool_snapshot=[]

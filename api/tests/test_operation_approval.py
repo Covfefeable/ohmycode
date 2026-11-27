@@ -19,11 +19,11 @@ from app.services.agent.config import MODEL_REQUEST_TIMEOUT_SECONDS
 )
 def test_assessment_uses_selected_model_and_normal_timeout(monkeypatch, content, expected):
     user_id, model_id = uuid4(), uuid4()
-    configuration = object()
+    configuration = SimpleNamespace(reasoning_enabled=False, reasoning_levels=[])
     monkeypatch.setattr(
         approval,
         "background_task_settings",
-        lambda _: SimpleNamespace(operation_approval_model_id=model_id),
+        lambda _: SimpleNamespace(operation_approval_model_id=model_id, reasoning_efforts={}),
     )
 
     def configured(uid, mid):

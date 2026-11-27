@@ -247,7 +247,7 @@ def test_turn_context_uses_summaries_only_before_the_latest_two_turns(monkeypatc
         monkeypatch.setattr(
             turn_summaries,
             "_summary_request",
-            lambda _model, _content, _instructions: "generated-summary",
+            lambda _model, _content, _instructions, **_options: "generated-summary",
         )
         assert turn_summaries.summarize_agent_run(runs[0].id) is True
         assert runs[0].summary.status == "completed"

@@ -416,9 +416,10 @@ def test_cli_scores_real_records_and_does_not_export_credentials(
         == 2
     )
     # The file check remains unavailable until the real workspace is supplied.
-    assert json.loads(output.read_text())["outcome"] == "incomplete"
-    assert "not-exported" not in output.read_text()
-    assert "The expression" not in output.read_text()
+    report = output.read_text(encoding="utf-8")
+    assert json.loads(report)["outcome"] == "incomplete"
+    assert "not-exported" not in report
+    assert "The expression" not in report
 
 
 def test_cli_lists_cases_without_a_database_or_network(capsys):

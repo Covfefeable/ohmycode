@@ -75,7 +75,7 @@ def workspace(monkeypatch):
         run = start_run(conversation.id, model, tool_snapshot=TOOLS)
         summaries = []
 
-        def summarize(_model, content, *, max_tokens):
+        def summarize(_model, content, *, max_tokens, reasoning_effort=""):
             summaries.append((content, max_tokens))
             return (
                 "Preserve the public API. Earlier inspection completed; "
@@ -431,7 +431,7 @@ def test_summary_pages_fit_a_smaller_configured_summary_model(workspace, monkeyp
         add_batch(w.run, f"batch-{index}", "evidence " * 1000)
     calls = []
 
-    def summarize(model, content, *, max_tokens):
+    def summarize(model, content, *, max_tokens, reasoning_effort=""):
         assert model.id == summary_model.id
         assert (
             request_tokens(
