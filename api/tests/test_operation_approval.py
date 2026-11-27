@@ -38,7 +38,7 @@ def test_assessment_uses_selected_model_and_normal_timeout(monkeypatch, content,
         return SimpleNamespace(content=content) if content is not None else None
 
     monkeypatch.setattr(approval, "configured_model", configured)
-    monkeypatch.setattr(approval, "_aux_completion", complete)
+    monkeypatch.setattr(approval, "auxiliary_completion", complete)
     assert approval.assess_operation(user_id, {"details": "git status"}) == expected
 
 

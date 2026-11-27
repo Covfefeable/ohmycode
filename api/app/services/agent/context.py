@@ -5,8 +5,6 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from uuid import UUID
 
-import httpx
-
 from ...extensions import db
 from ...models import (
     AgentEvent,
@@ -16,8 +14,7 @@ from ...models import (
     ModelConfiguration,
 )
 from ..errors import ServiceError
-from ..model_credentials import decrypt_api_key
-from ..model_reasoning import reasoning_parameters
+from ..model_completion import completion_text, post_completion
 from ..settings.background_tasks import (
     background_reasoning_effort,
     background_task_settings,
@@ -64,33 +61,14 @@ def _summary_request(
     max_tokens: int | None = None,
     reasoning_effort: str = "",
 ) -> str:
-    response = httpx.post(
-        f"{model.base_url.rstrip('/')}/chat/completions",
-        headers={
-            "Authorization": f"Bearer {decrypt_api_key(model.api_key_encrypted)}",
-            "Content-Type": "application/json",
-        },
-        json={
-            "model": model.model,
-            "stream": False,
-            "messages": [
-                {
-                    "role": "system",
-                    "content": instructions,
-                },
-                {"role": "user", "content": content},
-            ],
-            **({"max_tokens": max_tokens} if max_tokens is not None else {}),
-            **reasoning_parameters(model, reasoning_effort),
-        },
+    response = post_completion(
+        model,
+        [{"role": "system", "content": instructions}, {"role": "user", "content": content}],
         timeout=120,
+        max_tokens=max_tokens,
+        reasoning_effort=reasoning_effort,
     )
-    response.raise_for_status()
-    payload = response.json()
-    summary = str(payload["choices"][0]["message"]["content"] or "").strip()
-    if not summary or payload["choices"][0].get("finish_reason") == "length":
-        raise ValueError("incomplete_context_summary")
-    return summary
+    return completion_text(response.json())
 
 
 def iter_prepare_context(

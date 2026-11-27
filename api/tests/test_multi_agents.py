@@ -1,11 +1,13 @@
 from types import SimpleNamespace
 from uuid import UUID
 
+import httpx
 import pytest
 
 from app import create_app
 from app.extensions import db
 from app.models import AgentEvent, AgentRun, Message
+from app.services import model_completion
 from app.services.agent.context_history import mailbox_blocks
 from app.services.multi_agents import planner
 
@@ -37,14 +39,16 @@ def test_task_rejects_explicit_invalid_models(model_id):
         assert response.get_json()["error"]["code"] == "model_not_configured"
 
 
-def test_planner_repairs_an_invalid_generated_team(monkeypatch):
+@pytest.mark.parametrize("reject_json_mode", [False, True])
+def test_planner_repairs_an_invalid_generated_team(monkeypatch, reject_json_mode):
     model = SimpleNamespace(
         base_url="https://models.example/v1",
         model="example-model",
         api_key_encrypted="encrypted",
+        reasoning_enabled=False,
     )
     monkeypatch.setattr(planner, "get_model_configuration", lambda *_args: model)
-    monkeypatch.setattr(planner, "decrypt_api_key", lambda _value: "secret")
+    monkeypatch.setattr(model_completion, "decrypt_api_key", lambda _value: "secret")
     responses = iter(
         [
             {"choices": [{"message": {"content": '{"title":"Bad","members":[{"key":"host"}]}'}}]},
@@ -81,6 +85,8 @@ def test_planner_repairs_an_invalid_generated_team(monkeypatch):
 
     def post(*_args, **kwargs):
         requests.append(kwargs["json"])
+        if reject_json_mode and len(requests) == 1:
+            return httpx.Response(400, request=httpx.Request("POST", _args[0]))
         return Response(next(responses))
 
     monkeypatch.setattr(planner.httpx, "post", post)
@@ -88,8 +94,11 @@ def test_planner_repairs_an_invalid_generated_team(monkeypatch):
     result = planner.generate_plan(UUID(int=1), "Create and review an article")
 
     assert [member["key"] for member in result["members"]] == ["host", "writer"]
-    assert len(requests) == 2
-    assert "did not match" in requests[1]["messages"][-1]["content"]
+    assert len(requests) == (3 if reject_json_mode else 2)
+    assert "did not match" in requests[-1]["messages"][-1]["content"]
+    if reject_json_mode:
+        assert "response_format" in requests[0]
+        assert "response_format" not in requests[1]
 
 
 def _setup(client):

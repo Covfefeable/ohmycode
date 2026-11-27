@@ -1,13 +1,9 @@
-from dataclasses import dataclass
 from uuid import UUID
-
-import httpx
 
 from ...extensions import db
 from ...models import AgentRun, Conversation, ModelConfiguration
 from ..conversations import get_conversation
-from ..model_credentials import decrypt_api_key
-from ..model_reasoning import reasoning_parameters
+from ..model_completion import AuxiliaryCompletion, auxiliary_completion
 from ..settings import get_model_configuration
 from ..settings.background_tasks import (
     background_reasoning_effort,
@@ -17,67 +13,11 @@ from ..settings.background_tasks import (
 from .prompts import SUGGESTION_INSTRUCTIONS, TITLE_INSTRUCTIONS
 from .runs import append_event
 
-_AUX_TIMEOUT_SECONDS = 30
 _TITLE_TIMEOUT_SECONDS = 20
 _MAX_INPUT_CHARS = 2000
 _MAX_TITLE_LENGTH = 200
 _MAX_SUGGESTION_LENGTH = 200
 _MAX_SUGGESTIONS = 3
-
-
-@dataclass(frozen=True)
-class AuxiliaryCompletion:
-    content: str
-    input_tokens: int
-    output_tokens: int
-
-
-def _aux_completion(
-    configuration: ModelConfiguration,
-    system_prompt: str,
-    user_prompt: str,
-    *,
-    timeout: float = _AUX_TIMEOUT_SECONDS,
-    max_tokens: int | None = None,
-    reasoning_effort: str = "",
-) -> AuxiliaryCompletion | None:
-    try:
-        response = httpx.post(
-            f"{configuration.base_url.rstrip('/')}/chat/completions",
-            headers={
-                "Authorization": f"Bearer {decrypt_api_key(configuration.api_key_encrypted)}",
-                "Content-Type": "application/json",
-            },
-            json={
-                "model": configuration.model,
-                "stream": False,
-                "messages": [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-                **({"max_tokens": max_tokens} if max_tokens else {}),
-                **reasoning_parameters(configuration, reasoning_effort),
-            },
-            timeout=timeout,
-        )
-        response.raise_for_status()
-        payload = response.json()
-        choice = payload["choices"][0]
-        raw_content = choice["message"].get("content")
-        if not isinstance(raw_content, str) or choice.get("finish_reason") == "length":
-            return None
-        content = raw_content.strip()
-        if not content:
-            return None
-        usage = payload.get("usage") if isinstance(payload, dict) else None
-        usage = usage if isinstance(usage, dict) else {}
-        return AuxiliaryCompletion(
-            content=content,
-            input_tokens=int(usage.get("prompt_tokens") or usage.get("input_tokens") or 0),
-            output_tokens=int(usage.get("completion_tokens") or usage.get("output_tokens") or 0),
-        )
-    except (httpx.HTTPError, KeyError, IndexError, TypeError, ValueError):
-        return None
 
 
 def _clean_title(raw: str | None) -> str | None:
@@ -143,7 +83,7 @@ def maybe_rename_new_conversation(
             conversation.title = _clean_title(cached["title"])
             db.session.commit()
         return
-    completion = _aux_completion(
+    completion = auxiliary_completion(
         configuration,
         TITLE_INSTRUCTIONS,
         f"<user-request>\n{user_messages[0].content[:_MAX_INPUT_CHARS]}\n</user-request>",
@@ -236,7 +176,7 @@ def generate_followup_suggestions(user_id: UUID, conversation_id: UUID) -> list[
     prompt = _suggestion_prompt(messages)
     if not prompt:
         return []
-    completion = _aux_completion(
+    completion = auxiliary_completion(
         configuration,
         SUGGESTION_INSTRUCTIONS,
         prompt,

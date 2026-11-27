@@ -2,6 +2,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from app.services import model_completion
 from app.services.agent import suggestions
 
 
@@ -53,7 +54,7 @@ def test_maybe_rename_only_on_first_user_message(monkeypatch):
     completion = suggestions.AuxiliaryCompletion("Fix login bug", 8, 3)
     monkeypatch.setattr(
         suggestions,
-        "_aux_completion",
+        "auxiliary_completion",
         lambda *args, **kwargs: calls.append(args) or completion,
     )
     monkeypatch.setattr(suggestions.db.session, "commit", lambda *a, **k: None)
@@ -87,7 +88,7 @@ def test_maybe_rename_only_on_first_user_message(monkeypatch):
 
 
 def test_maybe_rename_leaves_title_when_llm_fails(monkeypatch):
-    monkeypatch.setattr(suggestions, "_aux_completion", lambda *args, **kwargs: None)
+    monkeypatch.setattr(suggestions, "auxiliary_completion", lambda *args, **kwargs: None)
     monkeypatch.setattr(suggestions.db.session, "commit", lambda *a, **k: None)
     conversation = SimpleNamespace(
         title="New conversation",
@@ -108,11 +109,11 @@ def test_title_request_treats_user_content_as_data(monkeypatch):
             return {"choices": [{"message": {"content": "修复登录问题"}}]}
 
     monkeypatch.setattr(
-        suggestions.httpx,
+        model_completion.httpx,
         "post",
         lambda *_args, **kwargs: captured.update(kwargs) or Response(),
     )
-    monkeypatch.setattr(suggestions, "decrypt_api_key", lambda _value: "secret")
+    monkeypatch.setattr(model_completion, "decrypt_api_key", lambda _value: "secret")
     monkeypatch.setattr(suggestions.db.session, "commit", lambda: None)
     conversation = SimpleNamespace(
         title="New conversation",
@@ -146,21 +147,21 @@ def test_auxiliary_completion_rejects_missing_or_truncated_text(
             "choices": [{"message": {"content": content}, "finish_reason": finish_reason}]
         },
     )
-    monkeypatch.setattr(suggestions.httpx, "post", lambda *a, **k: response)
-    monkeypatch.setattr(suggestions, "decrypt_api_key", lambda _: "test-key")
+    monkeypatch.setattr(model_completion.httpx, "post", lambda *a, **k: response)
+    monkeypatch.setattr(model_completion, "decrypt_api_key", lambda _: "test-key")
     configuration = SimpleNamespace(
         base_url="https://models.example/v1",
         model="model",
         api_key_encrypted="encrypted",
         reasoning_enabled=False,
     )
-    assert suggestions._aux_completion(configuration, "system", "user") is None
+    assert model_completion.auxiliary_completion(configuration, "system", "user") is None
 
 
 def test_invalid_cached_title_can_be_regenerated_after_first_turn(monkeypatch):
     monkeypatch.setattr(
         suggestions,
-        "_aux_completion",
+        "auxiliary_completion",
         lambda *a, **k: suggestions.AuxiliaryCompletion("Repair conversation titles", 4, 3),
     )
     monkeypatch.setattr(suggestions.db.session, "commit", lambda: None)
