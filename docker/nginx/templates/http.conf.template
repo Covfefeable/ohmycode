@@ -9,7 +9,9 @@ map $http_upgrade $connection_upgrade {
 }
 
 upstream api_upstream {
-  server api:8765;
+  zone api_upstream 64k;
+  resolver 127.0.0.11 valid=5s ipv6=off;
+  server api:8765 resolve;
 }
 
 server {
